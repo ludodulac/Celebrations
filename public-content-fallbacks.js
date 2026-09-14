@@ -1,6 +1,6 @@
 (function(){
   function fallbackKind(c){
-    if(c?.type==='Audio')return String(c.category||'').toLowerCase().includes('chant')?'music':'speaker';
+    if(c?.type==='Audio')return String(c.audioKind||'').toLowerCase()==='chant'?'music':'speaker';
     if(c?.type==='PDF'||c?.type==='Texte')return 'pen';
     if(c?.type==='Vidéo')return 'video';
     return 'dot';
