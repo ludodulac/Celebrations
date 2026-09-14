@@ -12,7 +12,7 @@ async function loadStateFromSupabase(){
 }
 function supabaseMediaUrl(path){if(!path)return '';const value=String(path);if(value.startsWith('data:')||/^https?:\/\//i.test(value))return value;return `${CELEBRATIONS_SUPABASE_URL}/storage/v1/object/public/${CELEBRATIONS_MEDIA_BUCKET}/${value.split('/').map(encodeURIComponent).join('/')}`}
 async function getMedia(key){const s=typeof state!=='undefined'?state:null;const c=s?.contents?.find(x=>String(x.id)===String(key).replace(/^cover-/,''));if(!c)return null;const path=String(key).startsWith('cover-')?c.coverStoragePath:c.storagePath;if(!path)return null;const r=await fetch(supabaseMediaUrl(path),{headers:{apikey:CELEBRATIONS_SUPABASE_KEY}});return r.ok?await r.blob():null}
-function escPreviewText(v){return String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[ch]))}
+function escPreviewText(v){return String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
 async function openStoredFile(content){
  const path=content?.storagePath;if(!path)return alert('Fichier indisponible.');
  const directUrl=supabaseMediaUrl(path),declaredMime=String(content?.mimeType||'').toLowerCase(),isPdf=content?.type==='PDF'||declaredMime==='application/pdf'||/\.pdf(?:$|[?#])/i.test(String(content?.fileName||path));
