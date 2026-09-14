@@ -14,7 +14,16 @@ function ensurePublicSteps(c){
 }
 state.celebrations.forEach(ensurePublicSteps);
 function publicDayDate(d){if(d.label==='Après célébration')return '';if(d.label==='Préparation'){if(d.startDate&&d.endDate&&d.startDate!==d.endDate)return `${formatDate(d.startDate,{day:'numeric',month:'short'})} – ${formatDate(d.endDate,{day:'numeric',month:'short'})}`;return d.startDate?formatDate(d.startDate,{day:'numeric',month:'short'}):''}return d.startDate?formatDate(d.startDate,{day:'numeric',month:'short'}):''}
-function contentVisual(c){const size='var(--public-content-visual-size,96px)';const style=`display:block;width:${size}!important;height:${size}!important;min-width:${size}!important;max-width:${size}!important;min-height:${size}!important;max-height:${size}!important;aspect-ratio:1/1!important;object-fit:cover!important;border-radius:10px;margin:0!important;background:#f3f4f6`;const fallback=window.contentFallbackVisual?window.contentFallbackVisual(c,'public-inline-image',style):'';if(c.type==='Image'&&c.sourceType==='file')return `<img data-image-id="${c.id}" alt="" class="public-inline-image" style="${style}" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='grid')">${fallback}`;if(c.hasCover)return `<img data-cover-id="${c.id}" alt="" class="public-inline-image" style="${style}" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='grid')">${fallback}`;return fallback}
+function contentVisual(c){
+  const size='var(--public-content-visual-size,96px)';
+  const boxStyle=`width:${size}!important;height:${size}!important;min-width:${size}!important;max-width:${size}!important;min-height:${size}!important;max-height:${size}!important;aspect-ratio:1/1!important;border-radius:10px;margin:0!important;overflow:hidden`;
+  const imgStyle=`display:none!important;${boxStyle};object-fit:cover!important;background:#f3f4f6`;
+  const fallback=window.contentFallbackVisual?window.contentFallbackVisual(c,'public-inline-image',boxStyle):'';
+  const paired=(attr)=>`<span class="public-content-visual-slot" style="display:block;${boxStyle}"><img ${attr} alt="" class="public-inline-image" style="${imgStyle}" onload="this.style.setProperty('display','block','important');this.nextElementSibling&&this.nextElementSibling.style.setProperty('display','none','important')" onerror="this.style.setProperty('display','none','important');this.nextElementSibling&&this.nextElementSibling.style.setProperty('display','grid','important')">${fallback}</span>`;
+  if(c.type==='Image'&&c.sourceType==='file')return paired(`data-image-id="${c.id}"`);
+  if(c.hasCover)return paired(`data-cover-id="${c.id}"`);
+  return fallback;
+}
 function contentTitle(c){
   const label=`${icon(c.type)} ${esc(c.name||'Contenu')}`;
   if(c.type==='Texte'&&c.sourceType==='text')return `<button type="button" class="public-content-title" onclick="alert(${JSON.stringify(c.text||'')})">${label}</button>`;
