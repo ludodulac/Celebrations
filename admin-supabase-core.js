@@ -3,6 +3,7 @@
   const PREF_KEY='celebrations-admin-preferences';
   const RESUMABLE_THRESHOLD=6*1024*1024;
   const TUS_CHUNK_SIZE=6*1024*1024;
+  const TUS_ENDPOINT='https://jwyayfkssyagvnablttg.storage.supabase.co/storage/v1/upload/resumable';
   let coreReady=false,syncing=false,pending=null;
   const pendingMedia=new Map();
 
@@ -21,16 +22,13 @@
   function resumableUpload(signed,file,raw){
     return new Promise((resolve,reject)=>{
       if(!window.tus?.Upload)return reject(new Error('Module d’envoi reprenable indisponible. Rechargez la page et réessayez.'));
-      const adminToken=window.getCelebrationsAdminToken?.()||'';
-      if(!adminToken)return reject(new Error('Session administrateur expirée. Reconnectez-vous.'));
-      const endpoint='https://jwyayfkssyagvnablttg.supabase.co/functions/v1/celebrations-admin-data/tus';
       const upload=new window.tus.Upload(file,{
-        endpoint,
+        endpoint:TUS_ENDPOINT,
         retryDelays:[0,3000,5000,10000,20000],
         chunkSize:TUS_CHUNK_SIZE,
-        uploadDataDuringCreation:false,
+        uploadDataDuringCreation:true,
         removeFingerprintOnSuccess:true,
-        headers:{'x-celebrations-admin-token':adminToken},
+        headers:{'x-signature':signed.token},
         metadata:{bucketName:CELEBRATIONS_MEDIA_BUCKET,objectName:signed.path,contentType:file.type||'application/octet-stream',cacheControl:'3600'},
         onError:error=>reject(error),
         onProgress:(done,total)=>uploadStatus({status:'progress',key:raw,fileName:file.name,size:total,uploaded:done,percent:total?Math.round(done/total*100):0}),
