@@ -1,6 +1,33 @@
 // Gestion explicite des relations étape <-> contenus.
 // Un retrait ici ne supprime jamais le contenu de la bibliothèque.
 let dayContentPickerOpen=false;
+const dayGeneralDrafts=new Map();
+let activeDayDraftContext=null;
+let skipNextDayDraftCapture=false;
+
+function dayDraftKey(celebrationId,dayKey){return `${celebrationId}:${dayKey}`}
+function captureCurrentDayDraft(){
+  if(!activeDayDraftContext||!document.getElementById('dText')||!document.getElementById('dayLinks'))return;
+  const {celebrationId,dayKey}=activeDayDraftContext;
+  dayGeneralDrafts.set(dayDraftKey(celebrationId,dayKey),{
+    startDate:document.getElementById('dStart')?.value??null,
+    endDate:document.getElementById('dEnd')?.value??null,
+    text:document.getElementById('dText').value,
+    links:[...document.getElementById('dayLinks').querySelectorAll('[data-link-row]')].map(r=>({label:r.querySelector('[data-link-label]')?.value??'',url:r.querySelector('[data-link-url]')?.value??''}))
+  });
+}
+function restoreDayDraft(celebrationId,dayKey){
+  const draft=dayGeneralDrafts.get(dayDraftKey(celebrationId,dayKey));if(!draft)return;
+  const start=document.getElementById('dStart'),end=document.getElementById('dEnd'),text=document.getElementById('dText'),links=document.getElementById('dayLinks');
+  if(start&&draft.startDate!==null)start.value=draft.startDate;
+  if(end&&draft.endDate!==null)end.value=draft.endDate;
+  if(text)text.value=draft.text;
+  if(links)links.innerHTML=(draft.links||[]).map((l,i)=>linkRow(l,i)).join('');
+}
+function discardDayDraft(celebrationId,dayKey){
+  dayGeneralDrafts.delete(dayDraftKey(celebrationId,dayKey));
+  if(activeDayDraftContext?.celebrationId===celebrationId&&activeDayDraftContext?.dayKey===dayKey)activeDayDraftContext=null;
+}
 
 // Navigation directe : les lignes ouvrent l'élément, les boutons restent réservés aux actions distinctes.
 dayCard=function(d){const c=selected(),events=state.events.filter(e=>e.celebrationId===c.id&&e.dayKey===d.key);return `<div class="admin-row admin-clickable" role="button" tabindex="0" onclick="editDay('${d.key}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editDay('${d.key}')}" ><div><strong>${esc(d.label)}</strong><div class="meta">${esc(dayDateLabel(d))} · ${events.length} rendez-vous</div></div></div>`};
@@ -22,14 +49,17 @@ function dayContentPicker(d){
 
 function linkDayContent(dayKey,contentId){const d=selected()?.days?.find(x=>x.key===dayKey);if(!d)return;d.contentIds=[...new Set([...(d.contentIds||[]),contentId])];saveState(state);dayContentPickerOpen=false;editDay(dayKey);toast('Contenu associé')}
 function unlinkDayContent(dayKey,contentId){const d=selected()?.days?.find(x=>x.key===dayKey);if(!d)return;d.contentIds=(d.contentIds||[]).filter(id=>id!==contentId);saveState(state);editDay(dayKey);toast('Contenu retiré')}
-function editDayLinkedContent(contentId,dayKey){editContent(contentId);const back=[...panel.querySelectorAll('button')].find(b=>b.textContent.trim()==='Retour');if(back){back.onclick=()=>editDay(dayKey);back.textContent='Retour'}}
+function editDayLinkedContent(contentId,dayKey){captureCurrentDayDraft();editContent(contentId);const back=[...panel.querySelectorAll('button')].find(b=>b.textContent.trim()==='Retour');if(back){back.onclick=()=>editDay(dayKey);back.textContent='Retour'}}
 
 editDay=function(key){
+  if(skipNextDayDraftCapture)skipNextDayDraftCapture=false;else captureCurrentDayDraft();
   const c=selected(),d=c.days.find(x=>x.key===key);if(!d)return renderProgram();
   if(!Array.isArray(d.contentIds))d.contentIds=[];
   const events=state.events.filter(e=>e.celebrationId===c.id&&e.dayKey===key).sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99'));
   const dateFields=d.label==='Préparation'?`<label class="field"><span>Début</span><input id="dStart" type="date" value="${esc(d.startDate||'')}"></label><label class="field"><span>Fin</span><input id="dEnd" type="date" value="${esc(d.endDate||'')}"></label>`:d.label==='Après célébration'?'':`<label class="field"><span>Date</span><input id="dStart" type="date" value="${esc(d.startDate||'')}"></label>`;
-  panel.innerHTML=`<div class="day-editor"><div class="admin-view-head" style="justify-content:flex-start"><button class="btn" onclick="editCelebration(${c.id})">Retour</button><div><h1>${esc(d.label)}</h1><div class="admin-subtle">${esc(c.archangel)} ${esc(c.year)}</div></div></div><div class="card day-editor-main day-editor-section day-editor-general"><div class="day-editor-section-head"><div><h2>Informations générales</h2></div></div><div class="day-fields"><div class="form-grid">${dateFields}<label class="field full"><span>Texte</span><textarea id="dText">${esc(d.text||'')}</textarea></label></div><div class="day-editor-links"><h3>Liens</h3><div id="dayLinks">${(d.links||[]).map((l,i)=>linkRow(l,i)).join('')}</div></div><div class="actions day-editor-general-actions"><button type="button" class="btn small" id="addLink">+ Lien</button><button class="btn primary" id="saveDay">Enregistrer l’étape</button></div></div></div><div class="day-editor-columns"><div class="card day-editor-section day-editor-contents"><div class="section-head day-editor-section-head"><div><h2>Contenus</h2><div class="admin-subtle">Disponibles pendant toute l’étape</div></div></div>${dayLinkedContentRows(d)}<div class="actions day-editor-section-actions"><button type="button" class="btn small primary" id="createDayContent">Ajouter un contenu</button><button type="button" class="btn small" id="associateDayContent">Associer un contenu existant</button></div><div id="dayInlineContent"></div>${dayContentPicker(d)}</div><div class="card day-editor-section day-editor-events"><div class="section-head day-editor-section-head"><div><h2>Rendez-vous</h2><div class="admin-subtle">À une heure précise</div></div></div><div id="dayEventForm"></div><div class="list">${events.length?events.map(eventRow).join(''):'<div class="notice">Aucun rendez-vous.</div>'}</div><div class="actions day-editor-section-actions"><button class="btn small primary" onclick="showDayEventForm('${key}')">Ajouter un rendez-vous</button></div></div></div></div>`;
+  panel.innerHTML=`<div class="day-editor"><div class="admin-view-head" style="justify-content:flex-start"><button class="btn" onclick="discardDayDraft(${c.id},'${key}');editCelebration(${c.id})">Retour</button><div><h1>${esc(d.label)}</h1><div class="admin-subtle">${esc(c.archangel)} ${esc(c.year)}</div></div></div><div class="card day-editor-main day-editor-section day-editor-general"><div class="day-editor-section-head"><div><h2>Informations générales</h2></div></div><div class="day-fields"><div class="form-grid">${dateFields}<label class="field full"><span>Texte</span><textarea id="dText">${esc(d.text||'')}</textarea></label></div><div class="day-editor-links"><h3>Liens</h3><div id="dayLinks">${(d.links||[]).map((l,i)=>linkRow(l,i)).join('')}</div></div><div class="actions day-editor-general-actions"><button type="button" class="btn small" id="addLink">+ Lien</button><button class="btn primary" id="saveDay">Enregistrer l’étape</button></div></div></div><div class="day-editor-columns"><div class="card day-editor-section day-editor-contents"><div class="section-head day-editor-section-head"><div><h2>Contenus</h2><div class="admin-subtle">Disponibles pendant toute l’étape</div></div></div>${dayLinkedContentRows(d)}<div class="actions day-editor-section-actions"><button type="button" class="btn small primary" id="createDayContent">Ajouter un contenu</button><button type="button" class="btn small" id="associateDayContent">Associer un contenu existant</button></div><div id="dayInlineContent"></div>${dayContentPicker(d)}</div><div class="card day-editor-section day-editor-events"><div class="section-head day-editor-section-head"><div><h2>Rendez-vous</h2><div class="admin-subtle">À une heure précise</div></div></div><div id="dayEventForm"></div><div class="list">${events.length?events.map(eventRow).join(''):'<div class="notice">Aucun rendez-vous.</div>'}</div><div class="actions day-editor-section-actions"><button class="btn small primary" onclick="showDayEventForm('${key}')">Ajouter un rendez-vous</button></div></div></div></div>`;
+  activeDayDraftContext={celebrationId:c.id,dayKey:key};
+  restoreDayDraft(c.id,key);
   document.getElementById('addLink').onclick=()=>dayLinks.insertAdjacentHTML('beforeend',linkRow({label:'',url:''},dayLinks.children.length));
   document.getElementById('createDayContent').onclick=()=>{
     dayContentPickerOpen=false;
@@ -41,6 +71,6 @@ editDay=function(key){
     if(d.label==='Préparation'){const s=document.getElementById('dStart').value,e=document.getElementById('dEnd').value||s;if(s&&e&&e<s)return toast('Date de fin incorrecte');d.startDate=s;d.endDate=e}
     else if(d.label==='Après célébration'){d.startDate='';d.endDate=''}
     else{const s=document.getElementById('dStart').value;d.startDate=s;d.endDate=s}
-    d.text=dText.value;d.links=[...dayLinks.querySelectorAll('[data-link-row]')].map(r=>({label:r.querySelector('[data-link-label]').value.trim(),url:r.querySelector('[data-link-url]').value.trim()})).filter(x=>x.url);saveState(state);editDay(key);toast('Enregistré')
+    d.text=dText.value;d.links=[...dayLinks.querySelectorAll('[data-link-row]')].map(r=>({label:r.querySelector('[data-link-label]').value.trim(),url:r.querySelector('[data-link-url]').value.trim()})).filter(x=>x.url);saveState(state);discardDayDraft(c.id,key);skipNextDayDraftCapture=true;editDay(key);toast('Enregistré')
   };
 };
