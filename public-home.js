@@ -6,7 +6,7 @@
     const text=String(c.text||c.description||'');
     const visual=typeof contentVisual==='function'?contentVisual(c):'';
     const hasResource=(c.sourceType==='file'&&c.storagePath)||c.url;
-    const resource=hasResource&&typeof contentTitle==='function'?`<div class="home-resource">${contentTitle(c)}</div>`:'';
+    const resource=!text&&hasResource&&typeof contentTitle==='function'?`<div class="home-resource">${contentTitle(c)}</div>`:'';
     return `<article class="card home-editorial-block">${visual?`<div class="home-editorial-layout">${visual}<div>`:'<div>'}<h2>${esc(c.name||'')}</h2>${text?`<div class="home-copy">${esc(text).replace(/\n/g,'<br>')}</div>`:''}${resource}${visual?'</div></div>':'</div>'}</article>`;
   }
   renderInfo=function(){
