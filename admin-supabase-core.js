@@ -7,6 +7,7 @@
   function preferences(){try{return JSON.parse(localStorage.getItem(PREF_KEY)||'{}')}catch(e){return {}}}
   function savePreferences(s){localStorage.setItem(PREF_KEY,JSON.stringify({adminCelebrationId:s.adminCelebrationId||null}))}
   function cloneData(v){return JSON.parse(JSON.stringify(v||[]))}
+  function uploadStatus(detail){window.dispatchEvent(new CustomEvent('celebrations-upload-status',{detail}))}
   function applyPendingMedia(s){
     for(const [key,meta] of pendingMedia){
       const cover=key.startsWith('cover-'),id=cover?key.slice(6):key;
@@ -32,11 +33,13 @@
     while(pending){
       const data=pending;pending=null;
       window.celebrationsCoreSyncStatus='saving';
+      window.dispatchEvent(new CustomEvent('celebrations-core-saving'));
       const result=await invoke({action:'replace_all',...data});
       if(!result.ok){
         window.celebrationsCoreSyncStatus='error';
         console.error('Synchronisation Supabase',result.error);
         try{toast(result.error||'Enregistrement Supabase impossible')}catch(e){}
+        window.dispatchEvent(new CustomEvent('celebrations-core-error',{detail:{error:result.error||'Enregistrement Supabase impossible'}}));
         pending=data;
         break;
       }
@@ -57,12 +60,20 @@
   window.putMedia=async function(key,file){
     if(!file)throw new Error('Fichier manquant');
     const raw=String(key),cover=raw.startsWith('cover-'),contentId=cover?raw.slice(6):raw;
-    const signed=await invoke({action:'create_upload',content_id:contentId,kind:cover?'cover':'file',file_name:file.name});
-    if(!signed.ok||!signed.path||!signed.token)throw new Error(signed.error||'Préparation de l’upload impossible.');
-    const {error}=await sb.storage.from(CELEBRATIONS_MEDIA_BUCKET).uploadToSignedUrl(signed.path,signed.token,file,{contentType:file.type||undefined});
-    if(error)throw error;
-    pendingMedia.set(raw,{path:signed.path,fileName:file.name,mimeType:file.type||''});
-    return signed.path;
+    uploadStatus({status:'preparing',key:raw,fileName:file.name,size:file.size||0});
+    try{
+      const signed=await invoke({action:'create_upload',content_id:contentId,kind:cover?'cover':'file',file_name:file.name});
+      if(!signed.ok||!signed.path||!signed.token)throw new Error(signed.error||'Préparation de l’upload impossible.');
+      uploadStatus({status:'uploading',key:raw,fileName:file.name,size:file.size||0});
+      const {error}=await sb.storage.from(CELEBRATIONS_MEDIA_BUCKET).uploadToSignedUrl(signed.path,signed.token,file,{contentType:file.type||undefined});
+      if(error)throw error;
+      pendingMedia.set(raw,{path:signed.path,fileName:file.name,mimeType:file.type||''});
+      uploadStatus({status:'uploaded',key:raw,fileName:file.name,size:file.size||0,path:signed.path});
+      return signed.path;
+    }catch(error){
+      uploadStatus({status:'error',key:raw,fileName:file.name,size:file.size||0,error:error?.message||String(error)});
+      throw error;
+    }
   };
   window.deleteMedia=async function(key){
     const raw=String(key),cover=raw.startsWith('cover-'),id=cover?raw.slice(6):raw;
