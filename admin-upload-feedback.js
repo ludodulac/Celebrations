@@ -1,0 +1,57 @@
+(function(){
+  function fmt(bytes){
+    const n=Number(bytes||0);if(!n)return '';
+    if(n<1024*1024)return `${Math.max(1,Math.round(n/1024))} Ko`;
+    return `${(n/1024/1024).toFixed(n<10*1024*1024?1:0)} Mo`;
+  }
+  function scopeFor(el){return el?.closest?.('#mediaForm,.card')||document.getElementById('mediaForm')}
+  function statusBox(scope){
+    if(!scope)return null;
+    let box=scope.querySelector('.admin-upload-feedback');
+    if(!box){box=document.createElement('div');box.className='admin-upload-feedback';box.setAttribute('role','status');box.setAttribute('aria-live','polite');const actions=scope.querySelector('.actions');(actions||scope).insertAdjacentElement(actions?'beforebegin':'beforeend',box)}
+    return box;
+  }
+  function setStatus(scope,kind,text){const box=statusBox(scope);if(!box)return;box.className=`admin-upload-feedback ${kind||''}`;box.innerHTML=text}
+  function selectedFile(scope){return scope?.querySelector('[data-f="file"],#mFile')?.files?.[0]||null}
+  function previewFile(input){
+    const file=input?.files?.[0],scope=scopeFor(input);if(!file||!scope)return;
+    const old=scope.querySelector('.admin-file-preview');if(old){const u=old.dataset.objectUrl;if(u)URL.revokeObjectURL(u);old.remove()}
+    const preview=document.createElement('div');preview.className='admin-file-preview';
+    const url=URL.createObjectURL(file);preview.dataset.objectUrl=url;
+    const meta=`<strong>${esc(file.name)}</strong>${fmt(file.size)?`<span>${fmt(file.size)}</span>`:''}`;
+    if(file.type.startsWith('audio/')||/\.(mp3|m4a|wav|ogg)$/i.test(file.name))preview.innerHTML=`<div class="admin-file-meta">${meta}</div><audio controls preload="metadata" src="${url}"></audio>`;
+    else if(file.type.startsWith('image/'))preview.innerHTML=`<div class="admin-file-meta">${meta}</div><img src="${url}" alt="Aperçu de ${esc(file.name)}">`;
+    else preview.innerHTML=`<div class="admin-file-meta">${meta}</div>`;
+    input.closest('.field')?.insertAdjacentElement('afterend',preview);
+    setStatus(scope,'ready','Fichier prêt à être envoyé.');
+  }
+  document.addEventListener('change',e=>{
+    const input=e.target;if(!(input instanceof HTMLInputElement)||input.type!=='file')return;
+    if(input.matches('[data-f="cover"],#mCover,#ecCover'))return;
+    previewFile(input);
+  },true);
+
+  function saveButton(scope){return scope?.querySelector('[data-a="save"],#saveMedia,#saveContentEdit')||null}
+  function begin(scope){const b=saveButton(scope);if(b){b.disabled=true;b.dataset.oldText=b.textContent;b.textContent='Envoi en cours…'}const f=selectedFile(scope);setStatus(scope,'loading',`<span class="admin-upload-spinner" aria-hidden="true"></span><span>${f?`Envoi de <strong>${esc(f.name)}</strong>${fmt(f.size)?` (${fmt(f.size)})`:''}…`:'Enregistrement en cours…'}</span>`)}
+  function finish(scope,ok,text){const b=saveButton(scope);if(b){b.disabled=false;b.textContent=b.dataset.oldText||'Ajouter';delete b.dataset.oldText}setStatus(scope,ok?'success':'error',text)}
+
+  window.addEventListener('celebrations-upload-status',e=>{
+    const scope=document.querySelector('#mediaForm .admin-upload-feedback')?.closest('#mediaForm')||document.querySelector('#panel .admin-upload-feedback')?.closest('.card')||document.getElementById('mediaForm');if(!scope)return;
+    const d=e.detail||{};
+    if(d.status==='preparing'||d.status==='uploading')begin(scope);
+    if(d.status==='uploaded')setStatus(scope,'loading','<span class="admin-upload-spinner" aria-hidden="true"></span><span>Fichier envoyé. Enregistrement du contenu…</span>');
+    if(d.status==='error')finish(scope,false,`Échec de l’envoi${d.error?` : ${esc(d.error)}`:''}`);
+  });
+  window.addEventListener('celebrations-core-saved',()=>{const scope=document.querySelector('#panel .admin-upload-feedback')?.closest('#mediaForm,.card');if(scope)finish(scope,true,'✓ Contenu enregistré. Il est maintenant disponible dans la médiathèque.')});
+  window.addEventListener('celebrations-core-error',e=>{const scope=document.querySelector('#panel .admin-upload-feedback')?.closest('#mediaForm,.card');if(scope)finish(scope,false,`Échec de l’enregistrement${e.detail?.error?` : ${esc(e.detail.error)}`:''}`)});
+
+  async function guarded(run,scope){begin(scope);try{await run()}catch(error){console.error('Ajout de contenu',error);finish(scope,false,`Échec de l’envoi : ${esc(error?.message||String(error))}`);try{toast('Impossible d’ajouter le contenu')}catch(e){}}}
+  const originalSaveMediaItem=window.saveMediaItem;
+  if(typeof originalSaveMediaItem==='function')window.saveMediaItem=async function(type,category){const scope=document.getElementById('mediaForm');return guarded(()=>originalSaveMediaItem(type,category),scope)};
+
+  const originalInline=window.renderInlineContentCreator;
+  if(typeof originalInline==='function')window.renderInlineContentCreator=function(targetId,onCreated){
+    originalInline(targetId,onCreated);const target=document.getElementById(targetId),btn=target?.querySelector('[data-a="save"]');if(!btn)return;
+    const old=btn.onclick;btn.onclick=async ev=>{ev.preventDefault();const scope=btn.closest('.card');return guarded(()=>old?.call(btn,ev),scope)};
+  };
+})();
