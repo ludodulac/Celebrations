@@ -21,6 +21,7 @@ function contentLocationMeta(c){
   return `<div class="content-event-meta">${esc(text)}</div>`;
 }
 function libraryMatches(c){
+  if(c.category==='Accueil')return false;
   if(libraryFamily==='audio'){
     if(c.type!=='Audio')return false;
     if(libraryAudioKind==='chant')return c.category==='Chants audio';
@@ -62,7 +63,7 @@ libraryStyle.textContent=`
 body.public-app #library:not(.hidden){display:grid;grid-template-rows:auto minmax(0,1fr);overflow:hidden!important;gap:10px}
 .library-fixed-head{display:grid;gap:8px}.library-fixed-head .section-head{margin:0}.library-main-tabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}.library-main-tabs .btn{white-space:normal}.library-audio-tabs{display:flex;gap:7px;flex-wrap:wrap}.library-scroll{min-height:0;overflow:auto;overscroll-behavior:contain;padding-right:2px}.content-event-meta{font-size:.72rem;color:var(--muted);margin:7px 0 10px;line-height:1.35;font-style:italic}
 .simple-library-card.has-library-visual{display:grid;grid-template-columns:92px minmax(0,1fr);gap:12px;align-items:start}.simple-library-visual{width:92px;aspect-ratio:1/1}.library-thumb{width:100%;height:100%;aspect-ratio:1/1;object-fit:cover;border-radius:10px;margin:0;background:#f3f4f6}.simple-library-body{min-width:0}.simple-library-body h3{margin-top:3px}
-@media(max-width:850px){.library-main-tabs{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}.library-main-tabs .btn{font-size:.7rem;padding:7px 5px;min-height:38px}.library-audio-tabs{gap:5px}.library-audio-tabs .chip{font-size:.7rem;padding:6px 9px}.simple-library-card{padding:12px}.simple-library-card h3{font-size:.95rem;margin:5px 0}.simple-library-card .muted{font-size:.78rem;margin:5px 0}.simple-library-card.has-library-visual{display:block}.simple-library-visual{width:100%;aspect-ratio:auto}.library-thumb{width:100%;height:auto;max-height:180px;aspect-ratio:auto;object-fit:contain;margin-bottom:10px}.content-fallback-thumb.library-thumb{height:120px!important;aspect-ratio:auto!important}}
+@media(max-width:850px){.library-main-tabs{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}.library-main-tabs .btn{font-size:.7rem;padding:7px 5px;min-height:38px}.library-audio-tabs{gap:5px}.library-audio-tabs .chip{font-size:.7rem;padding:6px 9px}.simple-library-card{padding:12px}.simple-library-card h3{font-size:.95rem;margin:5px 0}.simple-library-card .muted{font-size:.78rem;margin:5px 0}.simple-library-card.has-library-visual{display:block}.simple-library-visual{width:100%;aspect-ratio:auto}.library-thumb{width:100%;height:auto;max-height:180px;aspect-ratio:auto;object-fit:contain;margin-bottom:10px}.content-fallback-thumb.library-thumb{height:120px!important;aspect-ratio:auto!important}.content-event-meta{font-size:.72rem}}
 `;
 document.head.appendChild(libraryStyle);
 renderLibrary();
