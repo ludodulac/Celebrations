@@ -1,0 +1,17 @@
+name: Remplacer le programme PDF une fois
+on:
+  push:
+    paths:
+      - '.github/workflows/replace-program-once.yml'
+  workflow_dispatch:
+jobs:
+  replace:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Lancer le remplacement
+        run: |
+          set -euo pipefail
+          curl --fail-with-body --show-error --silent \
+            https://jwyayfkssyagvnablttg.supabase.co/functions/v1/celebrations-drive-import \
+            | tee result.json
+          grep -q '"ok":true' result.json
