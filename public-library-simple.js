@@ -48,7 +48,6 @@ function libraryMatches(c){
   }
   if(libraryFamily==='video')return c.type==='Vidéo';
   if(libraryFamily==='text')return c.type==='Texte'||c.type==='PDF';
-  if(libraryFamily==='pdf')return c.type==='PDF';
   return false;
 }
 function simpleLibraryCard(c){
@@ -112,7 +111,7 @@ function renderLibrary(){
   const list=imageItems||state.contents.filter(libraryMatches);
   const audioSubs=libraryFamily==='audio'?`<div class="library-audio-tabs"><button class="chip ${libraryAudioKind==='all'?'active':''}" data-audio-kind="all">Tous</button><button class="chip ${libraryAudioKind==='chant'?'active':''}" data-audio-kind="chant">Chants</button><button class="chip ${libraryAudioKind==='other'?'active':''}" data-audio-kind="other">Autres audios</button></div>`:'';
   const cards=libraryFamily==='image'?(list.length?list.map(imageGalleryCard).join(''):'<div class="notice">Aucune image disponible.</div>'):(list.length?list.map(simpleLibraryCard).join(''):'<div class="notice">Aucun contenu disponible.</div>');
-  library.innerHTML=`<div class="library-fixed-head"><div class="library-main-tabs"><button class="btn ${libraryFamily==='audio'?'primary':''}" data-library-family="audio">Tous les audios</button><button class="btn ${libraryFamily==='video'?'primary':''}" data-library-family="video">Toutes les vidéos</button><button class="btn ${libraryFamily==='text'?'primary':''}" data-library-family="text">Tous les textes</button><button class="btn ${libraryFamily==='image'?'primary':''}" data-library-family="image">Toutes les images</button><button class="btn ${libraryFamily==='pdf'?'primary':''}" data-library-family="pdf">Tous les PDF</button></div>${audioSubs}</div><div class="library-scroll"><div class="grid3" ${libraryFamily==='image'?'data-image-gallery-grid':''}>${cards}</div></div>`;
+  library.innerHTML=`<div class="library-fixed-head"><div class="library-main-tabs"><button class="btn ${libraryFamily==='audio'?'primary':''}" data-library-family="audio">Tous les audios</button><button class="btn ${libraryFamily==='video'?'primary':''}" data-library-family="video">Toutes les vidéos</button><button class="btn ${libraryFamily==='text'?'primary':''}" data-library-family="text">Tous les textes et PDF</button><button class="btn ${libraryFamily==='image'?'primary':''}" data-library-family="image">Toutes les images</button></div>${audioSubs}</div><div class="library-scroll"><div class="grid3" ${libraryFamily==='image'?'data-image-gallery-grid':''}>${cards}</div></div>`;
   library.querySelectorAll('[data-library-family]').forEach(b=>b.onclick=()=>{libraryFamily=b.dataset.libraryFamily;libraryAudioKind='all';renderLibrary()});
   library.querySelectorAll('[data-audio-kind]').forEach(b=>b.onclick=()=>{libraryAudioKind=b.dataset.audioKind;renderLibrary()});
   if(libraryFamily==='image')hydrateGalleryImages(imageItems);else hydrateDynamic(library);
@@ -122,16 +121,15 @@ openContentFamily=function(category){
   if(category==='Chants audio'){libraryFamily='audio';libraryAudioKind='chant'}
   else if(category==='Audios parlés'||category==='Audio'){libraryFamily='audio';libraryAudioKind='other'}
   else if(category==='Vidéos'){libraryFamily='video';libraryAudioKind='all'}
-  else if(category==='Textes'){libraryFamily='text';libraryAudioKind='all'}
+  else if(category==='Textes'||category==='PDF'){libraryFamily='text';libraryAudioKind='all'}
   else if(category==='Images'){libraryFamily='image';libraryAudioKind='all'}
-  else if(category==='PDF'){libraryFamily='pdf';libraryAudioKind='all'}
   showTab('library');renderLibrary();
 };
 
 const libraryStyle=document.createElement('style');
 libraryStyle.textContent=`
 body.public-app #library:not(.hidden){display:grid;grid-template-rows:auto minmax(0,1fr);overflow:hidden!important;gap:10px}
-.library-fixed-head{display:grid;gap:8px}.library-main-tabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}.library-main-tabs .btn{white-space:normal}.library-audio-tabs{display:flex;gap:7px;flex-wrap:wrap}.library-scroll{min-height:0;overflow:auto;overscroll-behavior:contain;padding-right:2px}.content-event-meta{font-size:.72rem;color:var(--muted);margin:7px 0 10px;line-height:1.35;font-style:italic}
+.library-fixed-head{display:grid;gap:8px}.library-main-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.library-main-tabs .btn{white-space:normal}.library-audio-tabs{display:flex;gap:7px;flex-wrap:wrap}.library-scroll{min-height:0;overflow:auto;overscroll-behavior:contain;padding-right:2px}.content-event-meta{font-size:.72rem;color:var(--muted);margin:7px 0 10px;line-height:1.35;font-style:italic}
 .simple-library-card.has-library-visual{display:grid;grid-template-columns:92px minmax(0,1fr);gap:12px;align-items:start}.simple-library-visual{width:92px;aspect-ratio:1/1}.library-thumb{width:100%;height:100%;aspect-ratio:1/1;object-fit:cover;border-radius:10px;margin:0;background:#f3f4f6}.simple-library-body{min-width:0}.simple-library-body h3{margin-top:3px}
 .image-gallery-card{display:grid;gap:10px;padding:12px}.image-gallery-card[hidden]{display:none!important}.image-gallery-open{appearance:none;border:0;padding:0;background:transparent;display:block;width:100%;cursor:pointer}.image-gallery-thumb{display:block;width:100%;height:190px;object-fit:cover;border-radius:10px;background:#f3f4f6}.image-gallery-body{min-width:0}.image-gallery-body h3{margin:4px 0 0;font-size:.95rem;line-height:1.3}
 @media(max-width:850px){body.public-app{height:auto;min-height:100dvh;overflow-x:hidden;overflow-y:auto}body.public-app .container{overflow:visible;min-height:auto}body.public-app #library:not(.hidden){display:block;overflow:visible!important}.library-scroll{min-height:auto;overflow:visible;overscroll-behavior:auto;padding-right:0}.library-main-tabs{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}.library-main-tabs .btn{font-size:.7rem;padding:7px 5px;min-height:38px}.library-audio-tabs{gap:5px}.library-audio-tabs .chip{font-size:.7rem;padding:6px 9px}.library-scroll .grid3{gap:8px}.simple-library-card{padding:9px}.simple-library-card h3{font-size:.92rem;margin:3px 0}.simple-library-card .muted{font-size:.75rem;margin:3px 0;line-height:1.35}.simple-library-card.has-library-visual{display:grid;grid-template-columns:82px minmax(0,1fr);gap:9px;align-items:start}.simple-library-visual{width:82px;aspect-ratio:1/1}.library-thumb{width:82px;height:82px;max-height:82px;aspect-ratio:1/1;object-fit:cover;margin:0}.content-fallback-thumb.library-thumb{width:82px!important;height:82px!important;max-height:82px!important;aspect-ratio:1/1!important;border-radius:9px}.content-fallback-thumb.library-thumb span{font-size:.7rem}.content-event-meta{font-size:.68rem;margin:4px 0 6px;line-height:1.3}.simple-library-card .resource-type{font-size:.68rem}.simple-library-card .resources{margin-top:4px}.simple-library-card audio{height:38px}.image-gallery-card{grid-template-columns:96px minmax(0,1fr);gap:9px;padding:9px;align-items:start}.image-gallery-thumb{width:96px;height:82px}.image-gallery-body h3{font-size:.88rem;margin:3px 0}.image-gallery-card .content-event-meta{margin-bottom:0}}
