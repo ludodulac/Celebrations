@@ -7,11 +7,13 @@
     const keep=(e.links||[]).filter(l=>l.kind!==KIND);
     e.links=id?[...keep,{label:'Image d’illustration',url:'content:'+id,kind:KIND}]:keep;
   };
+  const usableIllustrations=()=>state.contents.filter(x=>(x.type==='Image'&&x.sourceType==='file')||x.hasCover);
+  const illustrationLabel=c=>c.type==='Image'&&c.sourceType==='file'?c.name:`${c.name} — image d’illustration`;
 
   window.showDayEventForm=function(dayKey,eventId=null){
     const c=selected(),e=eventId!=null?state.events.find(x=>String(x.id)===String(eventId)):null,target=document.getElementById('dayEventForm');if(!target)return;
     const currentIllustration=illustrationId(e);
-    const images=state.contents.filter(x=>x.type==='Image'&&x.sourceType==='file');
+    const images=usableIllustrations();
     target.innerHTML=`<div class="notice" style="margin-bottom:14px">
       <div class="form-grid">
         <label class="field"><span>Heure</span><input id="evtTime" type="time" value="${esc(e?.time||'')}"></label>
@@ -21,8 +23,8 @@
       </div>
       <div class="card" style="margin-top:14px;border-left:5px solid var(--accent)">
         <div class="eyebrow">Illustration du rendez-vous</div>
-        <div class="meta" style="margin:5px 0 10px">Cette image apparaît en haut à gauche du rendez-vous. Elle est indépendante des documents associés.</div>
-        <label class="field"><span>Choisir une image existante</span><select id="evtIllustration"><option value="">Aucune illustration</option>${images.map(img=>`<option value="${esc(String(img.id))}" ${String(img.id)===currentIllustration?'selected':''}>${esc(img.name)}</option>`).join('')}</select></label>
+        <div class="meta" style="margin:5px 0 10px">Tu peux choisir n’importe quelle image autonome de la bibliothèque, ainsi que toutes les images d’illustration déjà attachées aux PDF, audios, textes, vidéos ou liens.</div>
+        <label class="field"><span>Choisir une image existante</span><select id="evtIllustration"><option value="">Aucune illustration</option>${images.map(img=>`<option value="${esc(String(img.id))}" ${String(img.id)===currentIllustration?'selected':''}>${esc(illustrationLabel(img))}</option>`).join('')}</select></label>
         <label class="field" style="margin-top:10px"><span>Ou importer / remplacer l’illustration</span><input id="evtIllustrationFile" type="file" accept="image/*"></label>
       </div>
       <h4>Documents et contenus associés</h4>
