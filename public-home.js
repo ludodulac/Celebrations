@@ -5,7 +5,7 @@
   function homeBlock(c){
     const text=String(c.text||c.description||'');
     const hasResource=(c.sourceType==='file'&&c.storagePath)||c.url;
-    const resource=!text&&hasResource&&typeof contentTitle==='function'?`<div class="home-resource">${contentTitle(c)}</div>`:'';
+    const resource=hasResource&&typeof contentTitle==='function'?`<div class="home-resource">${contentTitle(c)}</div>`:'';
     return `<article class="card home-editorial-block"><div><h2>${esc(c.name||'')}</h2>${text?`<div class="home-copy">${esc(text).replace(/\n/g,'<br>')}</div>`:''}${resource}</div></article>`;
   }
   renderInfo=function(){
