@@ -33,7 +33,8 @@ function openPublicCelebration(id,pushHistory=false){
   state.currentCelebrationId=id;state.profile='all';saveState(state);activeDay='';publicCelebrationOpen=true;setAccent();
   if(pushHistory)history.pushState({screen:'celebration',id},'',`#celebration-${id}`);
   const r=celebrationRange(c);
-  hero.innerHTML=`<div class="celebration-page-head"><div class="celebration-title-block"><h1>${esc(celebrationPublicLabel(c))}</h1>${r.start?`<div class="date-range">${formatDate(r.start)} → ${formatDate(r.end)}</div>`:''}<nav class="nav celebration-inner-nav" aria-label="Navigation de la célébration"><button class="nav-btn active" data-tab="info">Accueil</button><button class="nav-btn" data-tab="program">Programme</button><button class="nav-btn" data-tab="library">Médiathèque</button></nav></div></div>`;
+  const flame='<img class="celebration-flame" src="assets/shin.png" alt="" aria-hidden="true">';
+  hero.innerHTML=`<div class="celebration-page-head"><div class="celebration-title-block"><div class="celebration-identity">${flame}<div class="celebration-title-copy"><h1>${esc(celebrationPublicLabel(c))}</h1>${r.start?`<div class="date-range">${formatDate(r.start)} → ${formatDate(r.end)}</div>`:''}</div>${flame}</div><nav class="nav celebration-inner-nav" aria-label="Navigation de la célébration"><button class="nav-btn active" data-tab="info">Accueil</button><button class="nav-btn" data-tab="program">Programme</button><button class="nav-btn" data-tab="library">Médiathèque</button></nav></div></div>`;
   hero.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
   program.classList.add('hidden');library.classList.add('hidden');info.classList.remove('hidden');
   renderInfo();
