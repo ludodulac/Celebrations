@@ -31,13 +31,13 @@ function discardDayDraft(celebrationId,dayKey){
 
 // Navigation directe : les lignes ouvrent l'élément, les boutons restent réservés aux actions distinctes.
 dayCard=function(d){const c=selected(),events=state.events.filter(e=>e.celebrationId===c.id&&e.dayKey===d.key);return `<div class="admin-row admin-clickable" role="button" tabindex="0" onclick="editDay('${d.key}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editDay('${d.key}')}" ><div><strong>${esc(d.label)}</strong><div class="meta">${esc(dayDateLabel(d))} · ${events.length} rendez-vous</div></div></div>`};
-eventRow=function(e){return `<div class="admin-row admin-clickable" role="button" tabindex="0" onclick="showDayEventForm('${e.dayKey}',${e.id})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showDayEventForm('${e.dayKey}',${e.id})}"><div><strong>${esc(e.time||'—')} — ${esc(e.title)}</strong></div><div class="row-actions"><button class="btn small danger" onclick="event.stopPropagation();removeEvent(${e.id},'${e.dayKey}')">Supprimer</button></div></div>`};
+eventRow=function(e){return `<div class="admin-row"><div><strong>${esc(e.time||'—')} — ${esc(e.title)}</strong></div><div class="row-actions"><button class="btn small" onclick="showDayEventForm('${e.dayKey}',${e.id})">Modifier</button></div></div>`};
 
 function dayLinkedContentRows(d){
   const ids=d.contentIds||[];
   const rows=ids.map(id=>state.contents.find(c=>c.id===id)).filter(Boolean);
   if(!rows.length)return '<div class="notice">Aucun contenu.</div>';
-  return `<div class="list">${rows.map(c=>`<div class="admin-row admin-clickable" role="button" tabindex="0" onclick="editDayLinkedContent(${c.id},'${d.key}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editDayLinkedContent(${c.id},'${d.key}')}" ><div><strong>${icon(c.type)} ${esc(c.name)}</strong><div class="meta">${esc(c.type)}</div></div><div class="row-actions"><button type="button" class="btn small danger" onclick="event.stopPropagation();unlinkDayContent('${d.key}',${c.id})">Retirer</button></div></div>`).join('')}</div>`;
+  return `<div class="list">${rows.map(c=>`<div class="admin-row"><div><strong>${icon(c.type)} ${esc(c.name)}</strong><div class="meta">${esc(c.type)}</div></div><div class="row-actions"><button type="button" class="btn small" onclick="editDayLinkedContent(${c.id},'${d.key}')">Modifier</button><button type="button" class="btn small" onclick="unlinkDayContent('${d.key}',${c.id})">Retirer de l’étape</button></div></div>`).join('')}</div>`;
 }
 
 function dayContentPicker(d){
@@ -49,7 +49,7 @@ function dayContentPicker(d){
 
 function linkDayContent(dayKey,contentId){const d=selected()?.days?.find(x=>x.key===dayKey);if(!d)return;d.contentIds=[...new Set([...(d.contentIds||[]),contentId])];saveState(state);dayContentPickerOpen=false;editDay(dayKey);toast('Contenu associé')}
 function unlinkDayContent(dayKey,contentId){const d=selected()?.days?.find(x=>x.key===dayKey);if(!d)return;d.contentIds=(d.contentIds||[]).filter(id=>id!==contentId);saveState(state);editDay(dayKey);toast('Contenu retiré')}
-function editDayLinkedContent(contentId,dayKey){captureCurrentDayDraft();editContent(contentId);const back=[...panel.querySelectorAll('button')].find(b=>b.textContent.trim()==='Retour');if(back){back.onclick=()=>editDay(dayKey);back.textContent='Retour'}}
+function editDayLinkedContent(contentId,dayKey){captureCurrentDayDraft();editContent(contentId,()=>editDay(dayKey))}
 
 editDay=function(key){
   if(skipNextDayDraftCapture)skipNextDayDraftCapture=false;else captureCurrentDayDraft();
