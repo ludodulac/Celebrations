@@ -15,6 +15,6 @@
     return `<div class="${className} content-fallback-thumb" style="${inlineStyle}" aria-hidden="true"><span>${esc(label)}</span></div>`;
   };
   const style=document.createElement('style');
-  style.textContent=`.content-fallback-thumb{display:grid!important;place-items:center!important;box-sizing:border-box;background:var(--accent)!important;color:#fff!important;font-weight:800!important;letter-spacing:.04em;text-align:center;overflow:hidden}.content-fallback-thumb span{font-size:clamp(.72rem,2vw,1.05rem);line-height:1}`;
+  style.textContent=`.content-fallback-thumb{display:grid;place-items:center!important;box-sizing:border-box;background:var(--accent)!important;color:#fff!important;font-weight:800!important;letter-spacing:.04em;text-align:center;overflow:hidden}.content-fallback-thumb span{font-size:clamp(.72rem,2vw,1.05rem);line-height:1}`;
   document.head.appendChild(style);
 })();
