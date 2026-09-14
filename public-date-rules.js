@@ -18,11 +18,12 @@ function contentVisual(c){
   const size='var(--public-content-visual-size,96px)';
   const boxStyle=`width:${size}!important;height:${size}!important;min-width:${size}!important;max-width:${size}!important;min-height:${size}!important;max-height:${size}!important;aspect-ratio:1/1!important;border-radius:10px;margin:0!important;overflow:hidden`;
   const imgStyle=`display:none!important;${boxStyle};object-fit:cover!important;background:#f3f4f6`;
-  const fallback=window.contentFallbackVisual?window.contentFallbackVisual(c,'public-inline-image',boxStyle):'';
-  const paired=(attr)=>`<span class="public-content-visual-slot" style="display:block;${boxStyle}"><img ${attr} alt="" class="public-inline-image" style="${imgStyle}" onload="this.style.setProperty('display','block','important');this.nextElementSibling&&this.nextElementSibling.style.setProperty('display','none','important')" onerror="this.style.setProperty('display','none','important');this.nextElementSibling&&this.nextElementSibling.style.setProperty('display','grid','important')">${fallback}</span>`;
+  const fallback=window.contentFallbackVisual?window.contentFallbackVisual(c,'public-program-fallback',boxStyle):'';
+  const slot=(inner)=>`<span class="public-content-visual-slot" style="display:block;${boxStyle}">${inner}</span>`;
+  const paired=(attr)=>slot(`<img ${attr} alt="" class="public-inline-image" style="${imgStyle}" onload="this.style.setProperty('display','block','important');this.nextElementSibling&&this.nextElementSibling.style.setProperty('display','none','important')" onerror="this.style.setProperty('display','none','important');this.nextElementSibling&&this.nextElementSibling.style.setProperty('display','grid','important')">${fallback}`);
   if(c.type==='Image'&&c.sourceType==='file')return paired(`data-image-id="${c.id}"`);
   if(c.hasCover)return paired(`data-cover-id="${c.id}"`);
-  return fallback;
+  return slot(fallback);
 }
 function contentTitle(c){
   const label=`${icon(c.type)} ${esc(c.name||'Contenu')}`,id=esc(JSON.stringify(c.id));
