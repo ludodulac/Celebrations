@@ -77,6 +77,13 @@ body.public-app #program .day-screen-body > .card{
     grid-template-columns:48px minmax(0,1fr)!important;
     border-radius:13px!important;
   }
+  /* Un rendez-vous sans horaire ne réserve pas une colonne vide à gauche. */
+  body.public-app #program .event:has(> .time:empty){
+    grid-template-columns:minmax(0,1fr)!important;
+  }
+  body.public-app #program .event:has(> .time:empty) > .time{
+    display:none!important;
+  }
   body.public-app #program .event > *,
   body.public-app #program .public-event-contents,
   body.public-app #program .public-content,
