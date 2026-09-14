@@ -25,7 +25,7 @@ function contentVisual(c){
   return fallback;
 }
 function contentTitle(c){
-  const label=`${icon(c.type)} ${esc(c.name||'Contenu')}`,id=JSON.stringify(c.id);
+  const label=`${icon(c.type)} ${esc(c.name||'Contenu')}`,id=esc(JSON.stringify(c.id));
   if(c.type==='Texte'&&c.sourceType==='text')return `<button type="button" class="public-content-title" onclick="alert(${JSON.stringify(c.text||'')})">${label}</button>`;
   if(c.url)return `<a class="public-content-title" href="${esc(c.url)}" target="_blank" rel="noopener">${label}</a>`;
   if(c.sourceType==='file')return `<button type="button" class="public-content-title" onclick="openStoredFile(state.contents.find(x=>x.id===${id}),false)">${label}</button>`;
