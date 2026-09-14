@@ -30,16 +30,15 @@
     return `<div class="admin-row admin-clickable" data-event-order="${order}" style="order:${order}" role="button" tabindex="0" onclick='showDayEventForm(${dayKey},${eventId})' onkeydown='if(event.key==="Enter"||event.key===" "){event.preventDefault();showDayEventForm(${dayKey},${eventId})}'><div><strong>${esc(e.time||'—')} — ${esc(e.title)}</strong></div><div class="row-actions"><button type="button" class="btn small" title="Monter" aria-label="Monter ce rendez-vous" onclick='event.stopPropagation();moveEventOrder(${dayKey},${eventId},-1)'>↑</button><button type="button" class="btn small" title="Descendre" aria-label="Descendre ce rendez-vous" onclick='event.stopPropagation();moveEventOrder(${dayKey},${eventId},1)'>↓</button><button class="btn small danger" onclick='event.stopPropagation();removeEvent(${eventId},${dayKey})'>Supprimer</button></div></div>`;
   };
 
-  // À l'ouverture d'une étape, normalise les rendez-vous sans sortOrder
-  // afin qu'un nouveau rendez-vous arrive naturellement à la fin.
+  // À l'ouverture d'une étape, si un nouveau rendez-vous n'a pas encore d'ordre,
+  // on renumérote toute la liste dans l'ordre courant. Le nouveau reste ainsi à la fin.
   const originalEditDay=editDay;
   editDay=function(key){
     const events=orderedDayEvents(key);
-    let changed=false;
-    events.forEach((e,i)=>{
-      if(!Number.isFinite(Number(e.sortOrder))){e.sortOrder=i;changed=true}
-    });
-    if(changed)saveState(state);
+    if(events.some(e=>!Number.isFinite(Number(e.sortOrder)))){
+      events.forEach((e,i)=>{e.sortOrder=i});
+      saveState(state);
+    }
     originalEditDay(key);
   };
 })();
