@@ -24,7 +24,7 @@ body.public-app .footer .admin-footer-link{display:inline-flex!important;align-i
 .celebration-page-head h1{margin:0!important;font-size:clamp(1.75rem,2.5vw,2.125rem)!important;line-height:1.08!important;letter-spacing:-.02em!important;white-space:normal!important}
 .celebration-page-head .date-range{font-size:clamp(1.125rem,1.6vw,1.375rem)!important;line-height:1.2!important;white-space:nowrap!important}
 .celebration-page-head .chips{justify-content:center!important}
-.celebration-inner-nav{margin-top:0!important}
+.celebration-inner-nav{margin-top:0!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;width:min(100%,560px)!important}
 @media(max-width:850px){
   body.public-app .top-inner{padding:7px 10px!important;gap:6px!important}
   body.public-app .brand{font-size:.82rem!important}
@@ -39,9 +39,10 @@ body.public-app .footer .admin-footer-link{display:inline-flex!important;align-i
   .celebration-page-head .celebration-title-block{gap:5px!important;width:100%!important}
   .celebration-page-head .celebration-identity{grid-template-columns:auto minmax(0,1fr) auto!important;gap:clamp(5px,1.8vw,9px)!important;width:100%!important}
   .celebration-page-head .celebration-flame{width:clamp(36px,10.8vw,48px)!important;height:clamp(36px,10.8vw,48px)!important}
-  .celebration-page-head h1{font-size:clamp(1.35rem,6.1vw,1.65rem)!important;line-height:1.05!important}
+  .celebration-page-head h1{font-size:clamp(1.375rem,6.1vw,1.65rem)!important;line-height:1.05!important}
   .celebration-page-head .date-range{font-size:clamp(.94rem,4.1vw,1.1rem)!important;line-height:1.15!important;white-space:nowrap!important;letter-spacing:-.015em!important}
   .celebration-page-head .chips{display:none!important}
+  .celebration-inner-nav{grid-template-columns:repeat(3,minmax(0,1fr))!important;width:min(100%,360px)!important}
   body.public-app .footer{padding:16px 8px calc(20px + env(safe-area-inset-bottom))!important}
   body.public-app .footer .admin-footer-link{font-size:.72rem!important;padding:8px 13px!important}
 }
@@ -49,6 +50,6 @@ body.public-app .footer .admin-footer-link{display:inline-flex!important;align-i
   .celebration-page-head{padding-left:5px!important;padding-right:5px!important}
   .celebration-page-head .celebration-flame{width:38px!important;height:38px!important}
   .celebration-page-head .celebration-identity{gap:4px!important}
-  .celebration-page-head h1{font-size:clamp(1.28rem,5.8vw,1.45rem)!important}
-  .celebration-page-head .date-range{font-size:clamp(.84rem,3.75vw,.98rem)!important}
+  .celebration-page-head h1{font-size:clamp(1.375rem,6vw,1.48rem)!important}
+  .celebration-page-head .date-range{font-size:clamp(.88rem,3.95vw,1rem)!important}
 }
