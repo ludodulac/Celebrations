@@ -36,7 +36,7 @@ function libraryMatches(c){
 }
 function simpleLibraryCard(c){
   const fallback=window.contentFallbackVisual?window.contentFallbackVisual(c):'';
-  const visual=c.type==='Image'&&c.sourceType==='file'?`<img data-image-id="${c.id}" alt="" class="library-thumb" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='grid')">${fallback?fallback.replace('class="library-thumb','style="display:none" class="library-thumb'):''}`:c.hasCover?`<img data-cover-id="${c.id}" alt="" class="library-thumb" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='grid')">${fallback?fallback.replace('class="library-thumb','style="display:none" class="library-thumb'):''}`:fallback;
+  const visual=c.type==='Image'&&c.sourceType==='file'?`<img data-image-id="${c.id}" alt="" class="library-thumb" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='grid')">${fallback}`:c.hasCover?`<img data-cover-id="${c.id}" alt="" class="library-thumb" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='grid')">${fallback}`:fallback;
   const body=`<div class="simple-library-body"><div class="resource-type">${esc(c.type)}${c.type==='Audio'&&c.category?` · ${esc(c.category)}`:''}</div><h3>${esc(c.name)}</h3>${c.description?`<p class="muted">${esc(c.description)}</p>`:''}${contentLocationMeta(c)}<div class="resources">${contentButtons(c)}</div></div>`;
   return `<article class="resource-card simple-library-card ${visual?'has-library-visual':''}">${visual?`<div class="simple-library-visual">${visual}</div>`:''}${body}</article>`;
 }
