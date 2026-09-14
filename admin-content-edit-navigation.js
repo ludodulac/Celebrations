@@ -31,9 +31,15 @@
     const draft=captureEventDraft(dayKey,eventId);
     editContent(contentId,()=>{
       editDay(dayKey);
-      showDayEventForm(dayKey,eventId);
-      restoreEventDraft(draft);
+      if(eventId!=null){showDayEventForm(dayKey,eventId);restoreEventDraft(draft)}
     });
+  };
+
+  window.deleteEditedContent=async function(contentId){
+    const returning=contentEditReturn&&String(contentId)===contentEditReturnId?contentEditReturn:null;
+    contentEditReturn=null;
+    contentEditReturnId=null;
+    await removeContent(contentId,returning);
   };
 
   const originalContentChecks=window.contentChecks;
