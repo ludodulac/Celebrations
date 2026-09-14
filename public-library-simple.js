@@ -21,6 +21,22 @@ function contentLocationMeta(c){
   const text=locations.length===1?`Se trouve dans ${locations[0]}`:`Se trouve dans ${locations.slice(0,-1).join(', ')} et dans ${locations[locations.length-1]}`;
   return `<div class="content-event-meta">${esc(text)}</div>`;
 }
+function normalizeLibraryText(v){
+  return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' ');
+}
+function libraryDescription(c){
+  const description=String(c?.description||'').trim();if(!description)return '';
+  const title=normalizeLibraryText(c?.name),desc=normalizeLibraryText(description);
+  if(!desc||desc===title)return '';
+  const shorter=title.length<desc.length?title:desc,longer=title.length<desc.length?desc:title;
+  if(shorter.length>=24&&longer.includes(shorter)&&shorter.length/longer.length>=.88)return '';
+  return description;
+}
+function libraryLocationLabel(c){
+  const locations=contentLocations(c.id);
+  if(locations.length)return locations.join(' · ');
+  return String(c.category||'').trim();
+}
 function libraryMatches(c){
   if(c.category==='Accueil')return false;
   if(libraryFamily==='audio'){
@@ -37,7 +53,10 @@ function libraryMatches(c){
 function simpleLibraryCard(c){
   const fallback=window.contentFallbackVisual?window.contentFallbackVisual(c):'';
   const visual=c.type==='Image'&&c.sourceType==='file'?`<img data-image-id="${c.id}" alt="" class="library-thumb" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='grid')">${fallback}`:c.hasCover?`<img data-cover-id="${c.id}" alt="" class="library-thumb" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='grid')">${fallback}`:fallback;
-  const body=`<div class="simple-library-body"><div class="resource-type">${esc(c.type)}${c.type==='Audio'&&c.category?` · ${esc(c.category)}`:''}</div><h3>${esc(c.name)}</h3>${c.description?`<p class="muted">${esc(c.description)}</p>`:''}${contentLocationMeta(c)}<div class="resources">${contentButtons(c)}</div></div>`;
+  const location=libraryLocationLabel(c),description=libraryDescription(c);
+  const meta=`${esc(c.type)}${location?` · ${esc(location)}`:''}`;
+  const action=c.type==='Audio'&&c.sourceType==='file'?`<div data-audio-id="${esc(c.id)}"></div>`:`<div class="resources">${contentButtons(c)}</div>`;
+  const body=`<div class="simple-library-body"><div class="resource-type">${meta}</div><h3>${esc(c.name)}</h3>${description?`<p class="muted">${esc(description)}</p>`:''}${action}</div>`;
   return `<article class="resource-card simple-library-card ${visual?'has-library-visual':''}">${visual?`<div class="simple-library-visual">${visual}</div>`:''}${body}</article>`;
 }
 function normalizeGallerySource(v){

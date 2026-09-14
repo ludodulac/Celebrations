@@ -13,6 +13,9 @@ function publicCelebrationChoices(){
   const list=publicShowOtherCelebrations?all:all.filter(c=>c.id===state.currentCelebrationId);
   return `<div class="celebration-home"><div class="public-page-title"><div class="eyebrow">Bienvenue</div><p>Choisissez une célébration</p></div><div class="celebration-choice-grid">${list.map(c=>`<button class="celebration-choice" data-open-celebration="${c.id}" style="--celebration-color:${ARCHANGELS[c.archangel]||'#172033'}"><strong>${esc(celebrationPublicLabel(c))}</strong></button>`).join('')}</div></div>`;
 }
+function publicFlameContent(){
+  return (state.contents||[]).find(c=>c.type==='Image'&&c.sourceType==='file'&&[c.name,c.fileName].some(v=>String(v||'').trim().toLowerCase()==='shin.png'))||null;
+}
 function showCelebrationHome(updateHistory=false){
   if(!publicShowOtherCelebrations){const c=current();if(c){openPublicCelebration(c.id,updateHistory);return}}
   publicCelebrationOpen=false;
@@ -32,9 +35,10 @@ function openPublicCelebration(id,pushHistory=false){
   if(!publicShowOtherCelebrations&&c.id!==state.currentCelebrationId){c=state.celebrations.find(x=>x.id===state.currentCelebrationId);if(!c)return;id=c.id}
   state.currentCelebrationId=id;state.profile='all';saveState(state);activeDay='';publicCelebrationOpen=true;setAccent();
   if(pushHistory)history.pushState({screen:'celebration',id},'',`#celebration-${id}`);
-  const r=celebrationRange(c);
-  const flame='<img class="celebration-flame" src="assets/shin.png" alt="" aria-hidden="true">';
+  const r=celebrationRange(c),flameContent=publicFlameContent();
+  const flame=flameContent?`<img class="celebration-flame" data-image-id="${esc(flameContent.id)}" alt="" aria-hidden="true" style="display:none!important" onload="this.style.setProperty('display','block','important')" onerror="this.style.setProperty('display','none','important')">`:'';
   hero.innerHTML=`<div class="celebration-page-head"><div class="celebration-title-block"><div class="celebration-identity">${flame}<div class="celebration-title-copy"><h1>${esc(celebrationPublicLabel(c))}</h1></div>${flame}</div>${r.start?`<div class="date-range">${formatDate(r.start)} → ${formatDate(r.end)}</div>`:''}<nav class="nav celebration-inner-nav" aria-label="Navigation de la célébration"><button class="nav-btn active" data-tab="info">Accueil</button><button class="nav-btn" data-tab="program">Programme</button><button class="nav-btn" data-tab="library">Médiathèque</button></nav></div></div>`;
+  if(typeof hydrateDynamic==='function')hydrateDynamic(hero);
   hero.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
   program.classList.add('hidden');library.classList.add('hidden');info.classList.remove('hidden');
   renderInfo();
