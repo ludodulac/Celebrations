@@ -42,8 +42,8 @@ function libraryMatches(c){
   if(c.category==='Accueil')return false;
   if(libraryFamily==='audio'){
     if(c.type!=='Audio')return false;
-    if(libraryAudioKind==='chant')return c.category==='Chants audio';
-    if(libraryAudioKind==='other')return c.category!=='Chants audio';
+    if(libraryAudioKind==='chant')return String(c.audioKind||'').toLowerCase()==='chant';
+    if(libraryAudioKind==='other')return String(c.audioKind||'').toLowerCase()!=='chant';
     return true;
   }
   if(libraryFamily==='video')return c.type==='Vidéo';
@@ -109,7 +109,7 @@ function renderLibrary(){
   clearGalleryObjectUrls();
   const imageItems=libraryFamily==='image'?imageGalleryItems():null;
   const list=imageItems||state.contents.filter(libraryMatches);
-  const audioSubs=libraryFamily==='audio'?`<div class="library-audio-tabs"><button class="chip ${libraryAudioKind==='all'?'active':''}" data-audio-kind="all">Tous</button><button class="chip ${libraryAudioKind==='chant'?'active':''}" data-audio-kind="chant">Chants</button><button class="chip ${libraryAudioKind==='other'?'active':''}" data-audio-kind="other">Autres audios</button></div>`:'';
+  const audioSubs=libraryFamily==='audio'?`<div class="library-audio-tabs"><button class="chip ${libraryAudioKind==='all'?'active':''}" data-audio-kind="all">Tous</button><button class="chip ${libraryAudioKind==='chant'?'active':''}" data-audio-kind="chant">Chants</button><button class="chip ${libraryAudioKind==='other'?'active':''}" data-audio-kind="other">Audios parlés</button></div>`:'';
   const cards=libraryFamily==='image'?(list.length?list.map(imageGalleryCard).join(''):'<div class="notice">Aucune image disponible.</div>'):(list.length?list.map(simpleLibraryCard).join(''):'<div class="notice">Aucun contenu disponible.</div>');
   library.innerHTML=`<div class="library-fixed-head"><div class="library-main-tabs"><button class="btn ${libraryFamily==='audio'?'primary':''}" data-library-family="audio">Tous les audios</button><button class="btn ${libraryFamily==='video'?'primary':''}" data-library-family="video">Toutes les vidéos</button><button class="btn ${libraryFamily==='text'?'primary':''}" data-library-family="text">Tous les textes et PDF</button><button class="btn ${libraryFamily==='image'?'primary':''}" data-library-family="image">Toutes les images</button></div>${audioSubs}</div><div class="library-scroll"><div class="grid3" ${libraryFamily==='image'?'data-image-gallery-grid':''}>${cards}</div></div>`;
   library.querySelectorAll('[data-library-family]').forEach(b=>b.onclick=()=>{libraryFamily=b.dataset.libraryFamily;libraryAudioKind='all';renderLibrary()});
