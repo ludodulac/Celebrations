@@ -4,7 +4,6 @@
     const mobile=window.matchMedia('(max-width:850px)').matches;
     const size=mobile?72:96;
     document.querySelectorAll('#program .event img').forEach(img=>{
-      img.style.setProperty('display','block','important');
       ['width','min-width','max-width','height','min-height','max-height'].forEach(p=>img.style.setProperty(p,size+'px','important'));
       img.style.setProperty('aspect-ratio','1 / 1','important');
       img.style.setProperty('object-fit','cover','important');
