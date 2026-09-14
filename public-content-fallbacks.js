@@ -1,8 +1,10 @@
 (function(){
   function fallbackKind(c){
-    if(c?.type==='Audio')return String(c.audioKind||'').toLowerCase()==='chant'?'music':'speaker';
-    if(c?.type==='PDF'||c?.type==='Texte')return 'pen';
-    if(c?.type==='Vidéo')return 'video';
+    const type=String(c?.type||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+    const url=String(c?.url||'').toLowerCase();
+    if(type==='audio')return String(c.audioKind||'').toLowerCase()==='chant'?'music':'speaker';
+    if(type==='pdf'||type==='texte')return 'pen';
+    if(type==='video'||/(^|\.)youtube\.com\//.test(url)||/(^|\.)youtu\.be\//.test(url))return 'video';
     return 'dot';
   }
   function fallbackIcon(kind){
