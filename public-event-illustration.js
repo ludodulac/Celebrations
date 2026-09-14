@@ -36,10 +36,22 @@
       .filter(x=>audienceOk(x.audience));
     const illustration=manualIllustration(e)||historicalIllustration(contents);
     const visual=visualHtml(illustration,e.title);
-    return `<article class="event"><div class="time">${esc(e.time||'—')}</div><div class="event-body"><div class="event-head ${visual?'has-event-illustration':''}">${visual}<div><h3 style="margin:0 0 5px">${esc(e.title)}</h3><div class="meta">${esc(d?.label||'')} · ${esc(groupName(state,e.audience))}</div>${e.description?`<p>${esc(e.description)}</p>`:''}</div></div><div class="resources">${contents.map(contentButtons).join('')}</div></div></article>`;
+    const hasTime=String(e.time||'').trim()!=='';
+    const timeHtml=hasTime?`<div class="time">${esc(e.time)}</div>`:'';
+    return `<article class="event ${hasTime?'':'event-no-time'}">${timeHtml}<div class="event-body"><div class="event-head ${visual?'has-event-illustration':''}">${visual}<div><h3 style="margin:0 0 5px">${esc(e.title)}</h3><div class="meta">${esc(d?.label||'')} · ${esc(groupName(state,e.audience))}</div>${e.description?`<p>${esc(e.description)}</p>`:''}</div></div><div class="resources">${contents.map(contentButtons).join('')}</div></div></article>`;
   };
 
   const style=document.createElement('style');
-  style.textContent=`.event-head.has-event-illustration{display:grid;grid-template-columns:96px minmax(0,1fr);gap:12px;align-items:start}.event-illustration{width:96px;height:96px;object-fit:cover;border-radius:10px;background:#f3f4f6;display:block}.event-body{min-width:0}@media(max-width:850px){.event-head.has-event-illustration{grid-template-columns:72px minmax(0,1fr);gap:10px}.event-illustration{width:72px;height:72px}}`;
+  style.textContent=`
+    body.public-app #program .event.event-no-time{grid-template-columns:minmax(0,1fr)!important;gap:0!important}
+    .event-head.has-event-illustration{display:grid;grid-template-columns:96px minmax(0,1fr);gap:12px;align-items:start}
+    .event-illustration{width:96px;height:96px;object-fit:cover;border-radius:10px;background:#f3f4f6;display:block}
+    .event-body{min-width:0}
+    @media(max-width:850px){
+      body.public-app #program .event.event-no-time{grid-template-columns:minmax(0,1fr)!important;gap:0!important}
+      .event-head.has-event-illustration{grid-template-columns:72px minmax(0,1fr);gap:10px}
+      .event-illustration{width:72px;height:72px}
+    }
+  `;
   document.head.appendChild(style);
 })();
