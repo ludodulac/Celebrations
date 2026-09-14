@@ -35,12 +35,12 @@ body.public-app .celebration-inner-nav{margin-top:1px!important;grid-template-co
   .celebration-home{gap:10px!important;align-content:start!important;padding-top:4px!important}
   .public-page-title .eyebrow{font-size:.66rem!important}
   .public-page-title p{font-size:.82rem!important}
-  .celebration-page-head{padding:7px 7px!important;gap:4px!important;border-radius:13px!important}
-  .celebration-page-head .celebration-title-block{gap:4px!important;width:100%!important}
+  .celebration-page-head{padding:7px 7px!important;gap:3px!important;border-radius:13px!important}
+  .celebration-page-head .celebration-title-block{gap:1px!important;width:100%!important}
   .celebration-page-head .celebration-identity{grid-template-columns:auto minmax(0,1fr) auto!important;gap:clamp(5px,1.8vw,9px)!important;width:100%!important}
   .celebration-page-head .celebration-flame{width:clamp(36px,10.8vw,48px)!important;height:clamp(36px,10.8vw,48px)!important}
-  .celebration-page-head h1{font-size:clamp(1.375rem,6.1vw,1.65rem)!important;line-height:1.05!important}
-  .celebration-page-head .date-range{font-size:clamp(1rem,4.4vw,1.1rem)!important;line-height:1.15!important;white-space:nowrap!important;letter-spacing:-.015em!important}
+  .celebration-page-head h1{font-size:clamp(1.6rem,7.2vw,1.9rem)!important;line-height:1!important}
+  .celebration-page-head .date-range{font-size:clamp(1.1rem,5vw,1.25rem)!important;line-height:1.05!important;white-space:nowrap!important;letter-spacing:-.015em!important;margin-top:0!important}
   .celebration-page-head .chips{display:none!important}
   body.public-app .celebration-inner-nav{grid-template-columns:repeat(3,minmax(0,1fr))!important;width:min(100%,360px)!important}
   body.public-app .footer{padding:16px 8px calc(20px + env(safe-area-inset-bottom))!important}
@@ -50,6 +50,6 @@ body.public-app .celebration-inner-nav{margin-top:1px!important;grid-template-co
   .celebration-page-head{padding-left:5px!important;padding-right:5px!important}
   .celebration-page-head .celebration-flame{width:38px!important;height:38px!important}
   .celebration-page-head .celebration-identity{gap:4px!important}
-  .celebration-page-head h1{font-size:clamp(1.375rem,6vw,1.48rem)!important}
-  .celebration-page-head .date-range{font-size:clamp(1rem,4.4vw,1.04rem)!important}
+  .celebration-page-head h1{font-size:clamp(1.52rem,7vw,1.7rem)!important;line-height:1!important}
+  .celebration-page-head .date-range{font-size:clamp(1.08rem,4.9vw,1.18rem)!important;line-height:1.04!important}
 }
