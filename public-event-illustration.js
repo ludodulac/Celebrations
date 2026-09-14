@@ -5,13 +5,15 @@
     const m=(e?.links||[]).find(l=>l.kind===KIND);
     if(!m)return null;
     const id=String(m.url||'').replace(/^content:/,'');
-    return state.contents.find(c=>String(c.id)===id&&c.type==='Image')||null;
+    return state.contents.find(c=>String(c.id)===id&&((c.type==='Image'&&c.sourceType==='file')||c.hasCover))||null;
   }
   window.eventHtml=function(e){
     const c=current(),d=dayForEvent(c,e);
     const illustration=illustrationContent(e);
     const contents=(e.contentIds||[]).map(id=>state.contents.find(x=>String(x.id)===String(id))).filter(Boolean).filter(x=>audienceOk(x.audience));
-    const visual=illustration?`<img class="event-illustration" data-image-id="${esc(illustration.id)}" alt="Illustration de ${esc(e.title)}">`:'';
+    const visual=illustration?(illustration.type==='Image'&&illustration.sourceType==='file'
+      ?`<img class="event-illustration" data-image-id="${esc(illustration.id)}" alt="Illustration de ${esc(e.title)}">`
+      :`<img class="event-illustration" data-cover-id="${esc(illustration.id)}" alt="Illustration de ${esc(e.title)}">`):'';
     return `<article class="event"><div class="time">${esc(e.time||'—')}</div><div class="event-body"><div class="event-head ${illustration?'has-event-illustration':''}">${visual}<div><h3 style="margin:0 0 5px">${esc(e.title)}</h3><div class="meta">${esc(d?.label||'')} · ${esc(groupName(state,e.audience))}</div>${e.description?`<p>${esc(e.description)}</p>`:''}</div></div><div class="resources">${contents.map(contentButtons).join('')}</div></div></article>`;
   };
   const style=document.createElement('style');
