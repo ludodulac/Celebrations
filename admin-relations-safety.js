@@ -2,7 +2,7 @@
 function eventContentActions(e){
   if(!state.contents.length)return '<div class="notice">Aucun contenu.</div>';
   const ids=new Set(e?.contentIds||[]);
-  return `<div class="list">${state.contents.map(c=>{const linked=ids.has(c.id);return `<div class="admin-row"><div><strong>${icon(c.type)} ${esc(c.name)}</strong><div class="meta">${esc(c.type)}</div></div><button type="button" class="btn ${linked?'':'primary'}" onclick="toggleEventContent(${e.id},${c.id})">${linked?'Retirer':'Associer'}</button></div>`}).join('')}</div>`;
+  return `<div class="list">${state.contents.map(c=>{const linked=ids.has(c.id);return `<div class="admin-row"><div><strong>${icon(c.type)} ${esc(c.name)}</strong><div class="meta">${esc(c.type)}</div></div><div class="row-actions">${linked?`<button type="button" class="btn" onclick="editChosenEventContent(${c.id},'${e.dayKey}',${e.id})">Modifier</button>`:''}<button type="button" class="btn ${linked?'':'primary'}" onclick="toggleEventContent(${e.id},${c.id})">${linked?'Retirer':'Associer'}</button></div></div>`}).join('')}</div>`;
 }
 
 function toggleEventContent(eventId,contentId){
@@ -23,9 +23,10 @@ showDayEventForm=function(dayKey,eventId=null){
   const c=selected(),e=eventId?state.events.find(x=>x.id===eventId):null,target=document.getElementById('dayEventForm');if(!target)return;
   if(e&&!Array.isArray(e.links))e.links=[];
   const contentBlock=e?`<h4>Contenus</h4>${eventContentActions(e)}<div class="actions" style="margin-top:10px"><button class="btn small" id="createEventContent">+ Nouveau</button></div><div id="eventInlineContent"></div>`:'';
-  target.innerHTML=`<div class="notice" style="margin-bottom:14px"><div class="form-grid"><label class="field"><span>Heure</span><input id="evtTime" type="time" value="${esc(e?.time||'')}"></label><label class="field"><span>Groupe</span><select id="evtGroup">${groupOptions(e?.audience||'all')}</select></label><label class="field full"><span>Titre</span><input id="evtTitle" value="${esc(e?.title||'')}"></label><label class="field full"><span>Description</span><textarea id="evtDesc">${esc(e?.description||'')}</textarea></label></div><h4>Liens</h4><div id="eventLinks">${(e?.links||[]).map(safeEventLinkRow).join('')}</div><button type="button" class="btn small" id="addEventLink">+ Lien</button>${contentBlock}<div class="actions" style="margin-top:14px"><button class="btn primary" id="saveEventBtn">${e?'Enregistrer':'Ajouter'}</button><button type="button" class="btn" onclick="document.getElementById('dayEventForm').innerHTML=''">Annuler</button></div></div>`;
+  target.innerHTML=`<div class="notice" style="margin-bottom:14px"><div class="form-grid"><label class="field"><span>Heure</span><input id="evtTime" type="time" value="${esc(e?.time||'')}"></label><label class="field"><span>Groupe</span><select id="evtGroup">${groupOptions(e?.audience||'all')}</select></label><label class="field full"><span>Titre</span><input id="evtTitle" value="${esc(e?.title||'')}"></label><label class="field full"><span>Description</span><textarea id="evtDesc">${esc(e?.description||'')}</textarea></label></div><h4>Liens</h4><div id="eventLinks">${(e?.links||[]).map(safeEventLinkRow).join('')}</div><button type="button" class="btn small" id="addEventLink">+ Lien</button>${contentBlock}<div class="actions" style="margin-top:14px"><button class="btn primary" id="saveEventBtn">${e?'Enregistrer':'Ajouter'}</button><button type="button" class="btn" onclick="document.getElementById('dayEventForm').innerHTML=''">Annuler</button>${e?'<button type="button" class="btn danger" id="deleteEventBtn">Supprimer</button>':''}</div></div>`;
   addEventLink.onclick=()=>eventLinks.insertAdjacentHTML('beforeend',safeEventLinkRow());
   if(e&&document.getElementById('createEventContent'))createEventContent.onclick=()=>renderInlineContentCreator('eventInlineContent',id=>{e.contentIds=[...new Set([...(e.contentIds||[]),id])];saveState(state);showDayEventForm(dayKey,e.id)});
+  if(e&&document.getElementById('deleteEventBtn'))deleteEventBtn.onclick=()=>removeEvent(e.id,dayKey);
   saveEventBtn.onclick=()=>{
     const title=evtTitle.value.trim();if(!title)return toast('Titre requis');
     const links=[...document.querySelectorAll('[data-event-link-row]')].map(r=>({label:r.querySelector('[data-event-link-label]').value.trim(),url:r.querySelector('[data-event-link-url]').value.trim()})).filter(x=>x.url);
@@ -37,7 +38,7 @@ showDayEventForm=function(dayKey,eventId=null){
 
 eventRow=function(e){
   const links=(e.links||[]).length,contents=(e.contentIds||[]).length;
-  return `<div class="admin-row"><div><strong>${esc(e.time||'—')} — ${esc(e.title)}</strong><div class="meta">${esc(groupName(state,e.audience))}${links?` · ${links} lien${links>1?'s':''}`:''}${contents?` · ${contents} contenu${contents>1?'s':''}`:''}</div></div><div class="row-actions"><button class="btn small" onclick="showDayEventForm('${e.dayKey}',${e.id})">Modifier</button><button class="btn small danger" onclick="removeEvent(${e.id},'${e.dayKey}')">Supprimer</button></div></div>`;
+  return `<div class="admin-row"><div><strong>${esc(e.time||'—')} — ${esc(e.title)}</strong><div class="meta">${esc(groupName(state,e.audience))}${links?` · ${links} lien${links>1?'s':''}`:''}${contents?` · ${contents} contenu${contents>1?'s':''}`:''}</div></div><div class="row-actions"><button class="btn small" onclick="showDayEventForm('${e.dayKey}',${e.id})">Modifier</button></div></div>`;
 };
 
 removeEvent=function(id,key){
@@ -47,7 +48,7 @@ removeEvent=function(id,key){
   saveState(state);editDay(key);toast('Supprimé');
 };
 
-removeContent=async function(id){
+removeContent=async function(id,returnTo=null){
   const c=state.contents.find(x=>x.id===id);if(!c)return;
   const a=typeof contentAssociationData==='function'?contentAssociationData(id):{days:[],events:[]};
   const used=(a.days?.length||0)+(a.events?.length||0);
@@ -57,5 +58,7 @@ removeContent=async function(id){
   state.events.forEach(e=>{e.contentIds=(e.contentIds||[]).filter(x=>x!==id)});
   state.contents=state.contents.filter(x=>x.id!==id);
   try{await deleteMedia(id);await deleteMedia('cover-'+id)}catch(err){}
-  saveState(state);renderMedia();toast('Supprimé');
+  saveState(state);
+  if(typeof returnTo==='function')returnTo();else renderMedia();
+  toast('Supprimé');
 };
