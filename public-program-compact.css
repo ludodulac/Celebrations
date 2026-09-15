@@ -30,4 +30,11 @@ body.public-app #program .event .resources{min-width:0!important}
     height:72px!important;min-height:72px!important;max-height:72px!important;
   }
   body.public-app #program .event .public-content{grid-template-columns:72px minmax(0,1fr)!important}
+
+  /* Lisibilité mobile : aucune modification de la disposition des cartes. */
+  body.public-app #program .event h3{font-size:1.18rem!important;line-height:1.3!important}
+  body.public-app #program .event p{font-size:1.12rem!important;line-height:1.5!important}
+  body.public-app #program .event .meta{font-size:.92rem!important;line-height:1.4!important}
+  body.public-app #program .event .time{font-size:1.05rem!important;line-height:1.3!important}
+  body.public-app #program .event .resource-link{font-size:1rem!important;line-height:1.35!important}
 }
