@@ -78,7 +78,7 @@ function imageGalleryItems(){
     if(!sourceKey||seen.has(identity))continue;
     seen.add(identity);out.push({content:c,kind,source,identity});
   }
-  return out;
+  return out.sort((a,b)=>String(a.content?.name||'').localeCompare(String(b.content?.name||''),'fr',{sensitivity:'base',numeric:true}));
 }
 function galleryOriginMeta(c){
   const locations=contentLocations(c.id);
@@ -108,7 +108,7 @@ async function hydrateGalleryImages(items){
 function renderLibrary(){
   clearGalleryObjectUrls();
   const imageItems=libraryFamily==='image'?imageGalleryItems():null;
-  const list=imageItems||state.contents.filter(libraryMatches);
+  const list=imageItems||state.contents.filter(libraryMatches).slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'fr',{sensitivity:'base',numeric:true}));
   const audioSubs=libraryFamily==='audio'?`<div class="library-audio-tabs"><button class="chip ${libraryAudioKind==='all'?'active':''}" data-audio-kind="all">Tous</button><button class="chip ${libraryAudioKind==='chant'?'active':''}" data-audio-kind="chant">Chants</button><button class="chip ${libraryAudioKind==='other'?'active':''}" data-audio-kind="other">Audios parlés</button></div>`:'';
   const cards=libraryFamily==='image'?(list.length?list.map(imageGalleryCard).join(''):'<div class="notice">Aucune image disponible.</div>'):(list.length?list.map(simpleLibraryCard).join(''):'<div class="notice">Aucun contenu disponible.</div>');
   library.innerHTML=`<div class="library-fixed-head"><div class="library-main-tabs"><button class="btn ${libraryFamily==='audio'?'primary':''}" data-library-family="audio">Tous les audios</button><button class="btn ${libraryFamily==='video'?'primary':''}" data-library-family="video">Toutes les vidéos</button><button class="btn ${libraryFamily==='text'?'primary':''}" data-library-family="text">Tous les textes et PDF</button><button class="btn ${libraryFamily==='image'?'primary':''}" data-library-family="image">Toutes les images</button></div>${audioSubs}</div><div class="library-scroll"><div class="grid3" ${libraryFamily==='image'?'data-image-gallery-grid':''}>${cards}</div></div>`;
