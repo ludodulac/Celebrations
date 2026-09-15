@@ -12,10 +12,16 @@
   if(typeof previous!=='function')return;
 
   window.contentButtons=function(c){
-    const html=previous(c);
     const action=actionFor(c);
-    if(!action)return html;
-    return `<span class="resource-action-wrap"><span class="resource-action-label">${action}</span>${html}</span>`;
+    if(!action)return previous(c);
+
+    // Dans le programme, le titre de l'événement identifie déjà l'audio :
+    // on affiche seulement « Écouter » puis le lecteur, sans bouton redondant.
+    if(c.type==='Audio'&&c.sourceType==='file'){
+      return `<span class="resource-action-wrap resource-audio-simple"><span class="resource-action-label">Écouter</span><div data-audio-id="${esc(c.id)}"></div></span>`;
+    }
+
+    return `<span class="resource-action-wrap"><span class="resource-action-label">${action}</span>${previous(c)}</span>`;
   };
 
   const style=document.createElement('style');
@@ -23,6 +29,9 @@
     .resource-action-wrap{display:inline-flex;flex-direction:column;align-items:flex-start;max-width:100%;vertical-align:top}
     .resource-action-label{display:block;margin:0 0 4px 4px;font-size:.82rem;line-height:1.15;font-weight:700;color:#596273;letter-spacing:.01em}
     .resources .resource-action-wrap{margin:0 8px 8px 0}
+    .resources .resource-audio-simple{display:flex;width:100%;margin-right:0}
+    .resource-audio-simple [data-audio-id]{width:100%}
+    .resource-audio-simple audio{width:100%}
     @media(max-width:850px){.resource-action-label{font-size:.78rem;margin-bottom:3px}}
   `;
   document.head.appendChild(style);
