@@ -4,22 +4,36 @@
 (function(){
   const KIND='event-illustration';
 
+  function isImage(c){
+    return c?.type==='Image' && (c.sourceType==='file' || (c.sourceType==='link' && c.url));
+  }
+
+  function driveImageUrl(url){
+    const value=String(url||'');
+    const m=value.match(/drive\.google\.com\/file\/d\/([^/?#]+)/i);
+    return m ? `https://drive.google.com/thumbnail?id=${encodeURIComponent(m[1])}&sz=w1200` : value;
+  }
+
   function manualIllustration(e){
     const m=(e?.links||[]).find(l=>l.kind===KIND);
     if(!m)return null;
     const id=String(m.url||'').replace(/^content:/,'');
-    return state.contents.find(c=>String(c.id)===id&&((c.type==='Image'&&c.sourceType==='file')||c.hasCover))||null;
+    return state.contents.find(c=>String(c.id)===id&&(isImage(c)||c.hasCover))||null;
   }
 
   function historicalIllustration(contents){
-    return contents.find(c=>c.type==='Image'&&c.sourceType==='file')
+    return contents.find(isImage)
       || contents.find(c=>c.hasCover)
       || null;
   }
 
   function visualHtml(illustration,title){
     if(!illustration)return '';
-    if(illustration.type==='Image'&&illustration.sourceType==='file'){
+    if(isImage(illustration)){
+      if(illustration.sourceType==='link'){
+        const src=driveImageUrl(illustration.url);
+        return `<img class="event-illustration" src="${esc(src)}" alt="Illustration de ${esc(title)}">`;
+      }
       return `<img class="event-illustration" data-image-id="${esc(illustration.id)}" alt="Illustration de ${esc(title)}">`;
     }
     if(illustration.hasCover){
