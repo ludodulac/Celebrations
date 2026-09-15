@@ -2,24 +2,32 @@
 body.public-app #program .event img,
 body.public-app #program .event img[data-image-id],
 body.public-app #program .event img[data-cover-id]{
-  width:96px!important;min-width:96px!important;max-width:96px!important;
-  height:96px!important;min-height:96px!important;max-height:96px!important;
-  aspect-ratio:1/1!important;object-fit:cover!important;margin:0!important;border-radius:10px!important;
+  width:96px!important;
+  min-width:96px!important;
+  max-width:96px!important;
+  height:96px!important;
+  min-height:96px!important;
+  max-height:96px!important;
+  aspect-ratio:1/1!important;
+  object-fit:cover!important;
+  margin:0!important;
+  border-radius:10px!important;
 }
-body.public-app #program .event .public-content{display:grid!important;grid-template-columns:96px minmax(0,1fr)!important;gap:10px!important;align-items:start!important;width:100%!important}
-body.public-app #program .event .public-content-body,body.public-app #program .event .resources{min-width:0!important}
+body.public-app #program .event .public-content{
+  display:grid!important;
+  grid-template-columns:96px minmax(0,1fr)!important;
+  gap:10px!important;
+  align-items:start!important;
+  width:100%!important;
+}
+body.public-app #program .event .public-content-body,
+body.public-app #program .event .resources{min-width:0!important}
 @media(max-width:850px){
-  /* Compact, mais surtout lisible : tailles adaptées à un vrai écran de téléphone. */
-  body.public-app #program .agenda{gap:9px!important;margin-top:8px!important}
-  body.public-app #program .event{grid-template-columns:50px minmax(0,1fr)!important;padding:11px!important;gap:9px!important;border-radius:14px!important}
-  body.public-app #program .event .time{font-size:1rem!important;line-height:1.25!important;padding-top:1px!important}
-  body.public-app #program .event h3{font-size:1.08rem!important;line-height:1.28!important;margin-bottom:4px!important}
-  body.public-app #program .event .meta{font-size:.82rem!important;line-height:1.3!important}
-  body.public-app #program .event p{font-size:1rem!important;line-height:1.42!important;margin:7px 0!important}
-  body.public-app #program .event img,body.public-app #program .event img[data-image-id],body.public-app #program .event img[data-cover-id]{width:78px!important;min-width:78px!important;max-width:78px!important;height:78px!important;min-height:78px!important;max-height:78px!important;border-radius:10px!important}
-  body.public-app #program .event .public-content{grid-template-columns:78px minmax(0,1fr)!important;gap:9px!important}
-  body.public-app #program .event .public-event-contents{gap:7px!important;margin-top:7px!important}
-  body.public-app #program .event .resources{gap:6px!important;margin-top:6px!important}
-  body.public-app #program .event .resource-link{padding:8px 10px!important;font-size:.9rem!important;line-height:1.3!important;border-radius:9px!important}
-  body.public-app #program .event audio{height:40px!important;margin-top:6px!important}
+  body.public-app #program .event img,
+  body.public-app #program .event img[data-image-id],
+  body.public-app #program .event img[data-cover-id]{
+    width:72px!important;min-width:72px!important;max-width:72px!important;
+    height:72px!important;min-height:72px!important;max-height:72px!important;
+  }
+  body.public-app #program .event .public-content{grid-template-columns:72px minmax(0,1fr)!important}
 }
