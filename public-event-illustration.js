@@ -1,6 +1,5 @@
 // Illustration propre au rendez-vous, séparée des contenus associés.
-// Si aucune illustration manuelle n'est définie, on conserve le comportement historique :
-// première image autonome associée, sinon première couverture disponible d'un contenu associé.
+// Les rendez-vous Programme et Cercle d'Entraide réutilisent toujours leur illustration de référence.
 (function(){
   const KIND='event-illustration';
 
@@ -21,6 +20,20 @@
     return state.contents.find(c=>String(c.id)===id&&(isImage(c)||c.hasCover))||null;
   }
 
+  function namedIllustration(e){
+    const title=String(e?.title||'').toLowerCase();
+    if(title.includes('programme')){
+      return state.contents.find(c=>String(c.id)==='guide-file-30'&&c.hasCover)||null;
+    }
+    if(title.includes('cercle')&&title.includes('entraide')){
+      return state.contents.find(c=>String(c.id)==='guide-file-291'&&c.hasCover)
+        || state.contents.find(c=>String(c.id)==='guide-file-399'&&c.hasCover)
+        || state.contents.find(c=>String(c.id)==='image-1789467043343-6-p1bsh'&&isImage(c))
+        || null;
+    }
+    return null;
+  }
+
   function historicalIllustration(contents){
     return contents.find(isImage)
       || contents.find(c=>c.hasCover)
@@ -37,6 +50,10 @@
       return `<img class="event-illustration" data-image-id="${esc(illustration.id)}" alt="Illustration de ${esc(title)}">`;
     }
     if(illustration.hasCover){
+      const path=String(illustration.coverStoragePath||'');
+      if(/^https?:\/\//i.test(path)){
+        return `<img class="event-illustration" src="${esc(driveImageUrl(path))}" alt="Illustration de ${esc(title)}">`;
+      }
       return `<img class="event-illustration" data-cover-id="${esc(illustration.id)}" alt="Illustration de ${esc(title)}">`;
     }
     return '';
@@ -48,7 +65,7 @@
       .map(id=>state.contents.find(x=>String(x.id)===String(id)))
       .filter(Boolean)
       .filter(x=>audienceOk(x.audience));
-    const illustration=manualIllustration(e)||historicalIllustration(contents);
+    const illustration=manualIllustration(e)||namedIllustration(e)||historicalIllustration(contents);
     const visual=visualHtml(illustration,e.title);
     const hasTime=String(e.time||'').trim()!=='';
     const timeHtml=hasTime?`<div class="time">${esc(e.time)}</div>`:'';
