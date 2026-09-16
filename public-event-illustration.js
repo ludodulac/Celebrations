@@ -67,9 +67,12 @@
       .filter(x=>audienceOk(x.audience));
     const illustration=manualIllustration(e)||namedIllustration(e)||historicalIllustration(contents);
     const visual=visualHtml(illustration,e.title);
+    // Les contenus Image servent uniquement d'illustrations visuelles dans le programme.
+    // Ils restent disponibles dans la bibliothèque, mais ne sont jamais proposés comme document à ouvrir/télécharger ici.
+    const resources=contents.filter(x=>x.type!=='Image');
     const hasTime=String(e.time||'').trim()!=='';
     const timeHtml=hasTime?`<div class="time">${esc(e.time)}</div>`:'';
-    return `<article class="event ${hasTime?'':'event-no-time'}">${timeHtml}<div class="event-body"><div class="event-head ${visual?'has-event-illustration':''}">${visual}<div><h3 style="margin:0 0 5px">${esc(e.title)}</h3><div class="meta">${esc(d?.label||'')} · ${esc(groupName(state,e.audience))}</div>${e.description?`<p>${esc(e.description)}</p>`:''}</div></div><div class="resources">${contents.map(contentButtons).join('')}</div></div></article>`;
+    return `<article class="event ${hasTime?'':'event-no-time'}">${timeHtml}<div class="event-body"><div class="event-head ${visual?'has-event-illustration':''}">${visual}<div><h3 style="margin:0 0 5px">${esc(e.title)}</h3><div class="meta">${esc(d?.label||'')} · ${esc(groupName(state,e.audience))}</div>${e.description?`<p>${esc(e.description)}</p>`:''}</div></div><div class="resources">${resources.map(contentButtons).join('')}</div></div></article>`;
   };
 
   const style=document.createElement('style');
