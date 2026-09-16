@@ -24,25 +24,10 @@
   function replaceLocal(fresh){const pref=preferences();removeStepEventDuplicates(fresh);if(pref.adminCelebrationId&&fresh.celebrations.some(c=>c.id===Number(pref.adminCelebrationId)))fresh.adminCelebrationId=Number(pref.adminCelebrationId);Object.keys(state).forEach(k=>delete state[k]);Object.assign(state,fresh);if(typeof ensureFixedSteps==='function')state.celebrations.forEach(ensureFixedSteps);lastServerFingerprint=fingerprint(fresh)}
 
   async function invoke(payload){if(!sb)return {ok:false,error:'Connexion Supabase indisponible.'};const adminToken=window.getCelebrationsAdminToken?.()||'';const {data,error}=await sb.functions.invoke('celebrations-admin-data',{body:{...payload,admin_token:adminToken}});if(error)return {ok:false,error:data?.error||error.message||'Enregistrement Supabase impossible.'};return data||{ok:false,error:'Réponse Supabase invalide.'}}
-  async function serverStillCurrent(){
-    if(typeof loadStateFromSupabase!=='function')return false;
-    const fresh=await loadStateFromSupabase();removeStepEventDuplicates(fresh);
-    const current=fingerprint(fresh);
-    if(current===lastServerFingerprint)return true;
-    pending=null;pendingMedia.clear();replaceLocal(fresh);render();
-    window.celebrationsCoreSyncStatus='conflict';
-    window.dispatchEvent(new CustomEvent('celebrations-core-conflict'));
-    try{toast('Les données avaient changé ailleurs. La version la plus récente a été rechargée : votre ancienne page n’a rien écrasé.')}catch(e){}
-    return false;
-  }
   async function flush(){
     if(syncing)return;syncing=true;
     while(pending){
       const data=pending;pending=null;
-      window.celebrationsCoreSyncStatus='checking';
-      try{
-        if(!(await serverStillCurrent()))break;
-      }catch(e){pending=data;window.celebrationsCoreSyncStatus='error';try{toast('Vérification de sécurité impossible. Rien n’a été enregistré.')}catch(x){}break}
       window.celebrationsCoreSyncStatus='saving';window.dispatchEvent(new CustomEvent('celebrations-core-saving'));
       const result=await invoke({action:'replace_all',...data});
       if(!result.ok){window.celebrationsCoreSyncStatus='error';console.error('Synchronisation Supabase',result.error);try{toast(result.error||'Enregistrement Supabase impossible')}catch(e){}window.dispatchEvent(new CustomEvent('celebrations-core-error',{detail:{error:result.error||'Enregistrement Supabase impossible'}}));pending=data;break}
