@@ -1,7 +1,7 @@
 (function(){
   const sb=window.celebrationsSupabase||null;
   const PREF_KEY='celebrations-admin-preferences';
-  let coreReady=false,syncing=false,pending=null;
+  let coreReady=false,syncing=false,pending=null,lastServerFingerprint='';
   const pendingMedia=new Map();
 
   function preferences(){try{return JSON.parse(localStorage.getItem(PREF_KEY)||'{}')}catch(e){return {}}}
@@ -20,9 +20,36 @@
     }
   }
   function snapshot(s){applyPendingMedia(s);removeStepEventDuplicates(s);return {celebrations:cloneData(s.celebrations),events:cloneData(s.events),contents:cloneData(s.contents),groups:cloneData(s.groups)}}
+  function fingerprint(s){const d={celebrations:cloneData(s.celebrations),events:cloneData(s.events),contents:cloneData(s.contents),groups:cloneData(s.groups)};return JSON.stringify(d)}
+  function replaceLocal(fresh){const pref=preferences();removeStepEventDuplicates(fresh);if(pref.adminCelebrationId&&fresh.celebrations.some(c=>c.id===Number(pref.adminCelebrationId)))fresh.adminCelebrationId=Number(pref.adminCelebrationId);Object.keys(state).forEach(k=>delete state[k]);Object.assign(state,fresh);if(typeof ensureFixedSteps==='function')state.celebrations.forEach(ensureFixedSteps);lastServerFingerprint=fingerprint(fresh)}
 
   async function invoke(payload){if(!sb)return {ok:false,error:'Connexion Supabase indisponible.'};const adminToken=window.getCelebrationsAdminToken?.()||'';const {data,error}=await sb.functions.invoke('celebrations-admin-data',{body:{...payload,admin_token:adminToken}});if(error)return {ok:false,error:data?.error||error.message||'Enregistrement Supabase impossible.'};return data||{ok:false,error:'Réponse Supabase invalide.'}}
-  async function flush(){if(syncing)return;syncing=true;while(pending){const data=pending;pending=null;window.celebrationsCoreSyncStatus='saving';window.dispatchEvent(new CustomEvent('celebrations-core-saving'));const result=await invoke({action:'replace_all',...data});if(!result.ok){window.celebrationsCoreSyncStatus='error';console.error('Synchronisation Supabase',result.error);try{toast(result.error||'Enregistrement Supabase impossible')}catch(e){}window.dispatchEvent(new CustomEvent('celebrations-core-error',{detail:{error:result.error||'Enregistrement Supabase impossible'}}));pending=data;break}window.celebrationsCoreSyncStatus='saved';window.dispatchEvent(new CustomEvent('celebrations-core-saved'))}syncing=false}
+  async function serverStillCurrent(){
+    if(typeof loadStateFromSupabase!=='function')return false;
+    const fresh=await loadStateFromSupabase();removeStepEventDuplicates(fresh);
+    const current=fingerprint(fresh);
+    if(current===lastServerFingerprint)return true;
+    pending=null;pendingMedia.clear();replaceLocal(fresh);render();
+    window.celebrationsCoreSyncStatus='conflict';
+    window.dispatchEvent(new CustomEvent('celebrations-core-conflict'));
+    try{toast('Les données avaient changé ailleurs. La version la plus récente a été rechargée : votre ancienne page n’a rien écrasé.')}catch(e){}
+    return false;
+  }
+  async function flush(){
+    if(syncing)return;syncing=true;
+    while(pending){
+      const data=pending;pending=null;
+      window.celebrationsCoreSyncStatus='checking';
+      try{
+        if(!(await serverStillCurrent()))break;
+      }catch(e){pending=data;window.celebrationsCoreSyncStatus='error';try{toast('Vérification de sécurité impossible. Rien n’a été enregistré.')}catch(x){}break}
+      window.celebrationsCoreSyncStatus='saving';window.dispatchEvent(new CustomEvent('celebrations-core-saving'));
+      const result=await invoke({action:'replace_all',...data});
+      if(!result.ok){window.celebrationsCoreSyncStatus='error';console.error('Synchronisation Supabase',result.error);try{toast(result.error||'Enregistrement Supabase impossible')}catch(e){}window.dispatchEvent(new CustomEvent('celebrations-core-error',{detail:{error:result.error||'Enregistrement Supabase impossible'}}));pending=data;break}
+      lastServerFingerprint=fingerprint(data);window.celebrationsCoreSyncStatus='saved';window.dispatchEvent(new CustomEvent('celebrations-core-saved'))
+    }
+    syncing=false
+  }
   window.saveState=function(s){savePreferences(s);if(!coreReady)return;pending=snapshot(s);flush()};
   window.celebrationsFlushCore=async()=>{pending=snapshot(state);await flush()};
 
@@ -43,5 +70,5 @@
   };
   window.deleteMedia=async function(key){const raw=String(key),cover=raw.startsWith('cover-'),id=cover?raw.slice(6):raw,c=(state.contents||[]).find(x=>String(x.id)===String(id)),path=cover?c?.coverStoragePath:c?.storagePath;if(!path)return;const result=await invoke({action:'delete_paths',paths:[path]});if(!result.ok)throw new Error(result.error||'Suppression impossible.');if(cover){c.hasCover=false;c.coverStoragePath='';c.coverFileName=''}else{c.storagePath='';c.fileName='';c.mimeType=''}};
 
-  async function boot(){if(window.celebrationsAdminReady)await window.celebrationsAdminReady;if(typeof loadStateFromSupabase!=='function')return;try{const fresh=await loadStateFromSupabase(),pref=preferences();removeStepEventDuplicates(fresh);if(pref.adminCelebrationId&&fresh.celebrations.some(c=>c.id===Number(pref.adminCelebrationId)))fresh.adminCelebrationId=Number(pref.adminCelebrationId);Object.keys(state).forEach(k=>delete state[k]);Object.assign(state,fresh);if(typeof ensureFixedSteps==='function')state.celebrations.forEach(ensureFixedSteps);coreReady=true;localStorage.removeItem('celebrations-state');try{indexedDB.deleteDatabase('celebrations-media-v1')}catch(e){}window.celebrationsCoreSyncStatus='saved';render();window.dispatchEvent(new CustomEvent('celebrations-core-ready'))}catch(e){console.error('Chargement Supabase administration',e);window.celebrationsCoreSyncStatus='error';const p=document.getElementById('panel');if(p)p.innerHTML='<div class="notice">Impossible de charger les données Supabase. Aucune modification locale ne sera utilisée comme source.</div>'}}boot();
+  async function boot(){if(window.celebrationsAdminReady)await window.celebrationsAdminReady;if(typeof loadStateFromSupabase!=='function')return;try{const fresh=await loadStateFromSupabase();replaceLocal(fresh);coreReady=true;localStorage.removeItem('celebrations-state');try{indexedDB.deleteDatabase('celebrations-media-v1')}catch(e){}window.celebrationsCoreSyncStatus='saved';render();window.dispatchEvent(new CustomEvent('celebrations-core-ready'))}catch(e){console.error('Chargement Supabase administration',e);window.celebrationsCoreSyncStatus='error';const p=document.getElementById('panel');if(p)p.innerHTML='<div class="notice">Impossible de charger les données Supabase. Aucune modification locale ne sera utilisée comme source.</div>'}}boot();
 })();
