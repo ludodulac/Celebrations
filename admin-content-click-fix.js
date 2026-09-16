@@ -1,17 +1,20 @@
 // Correctif ciblé : garantit l'ouverture de l'éditeur depuis Contenus > Modifier.
-// On intercepte le clic au niveau du panneau afin de ne pas dépendre des onclick générés.
+// La carte contient déjà l'identifiant exact du contenu dans son onclick ; on le lit
+// directement au lieu de recalculer le contenu à partir de la position visuelle de la carte.
 (function(){
   const panel=document.getElementById('panel');
   if(!panel)return;
 
-  function contentForCard(card){
-    const list=document.getElementById('adminLibraryList');
-    if(!list||!card)return null;
-    const cards=[...list.querySelectorAll('.resource-card')];
-    const index=cards.indexOf(card);
-    if(index<0)return null;
-    const visible=(state.contents||[]).filter(c=>typeof adminLibraryMatches==='function'?adminLibraryMatches(c):true);
-    return visible[index]||null;
+  function contentIdForCard(card){
+    if(!card)return null;
+    const modify=[...card.querySelectorAll('button')].find(button=>button.textContent.trim()==='Modifier');
+    const source=modify?.getAttribute('onclick')||card.getAttribute('onclick')||'';
+    const match=source.match(/editContent\((?:"([^"]+)"|'([^']+)'|([^\)]+))\)/);
+    if(!match)return null;
+    const raw=(match[1]??match[2]??match[3]??'').trim();
+    if(!raw)return null;
+    if(/^[-+]?\d+(?:\.\d+)?$/.test(raw))return Number(raw);
+    return raw;
   }
 
   panel.addEventListener('click',function(event){
@@ -23,12 +26,12 @@
     const isCardClick=!button;
     if(!isModify&&!isCardClick)return;
 
-    const content=contentForCard(card);
-    if(!content)return;
+    const contentId=contentIdForCard(card);
+    if(contentId==null)return;
 
     event.preventDefault();
     event.stopPropagation();
     if(typeof event.stopImmediatePropagation==='function')event.stopImmediatePropagation();
-    if(typeof window.editContent==='function')window.editContent(content.id);
+    if(typeof window.editContent==='function')window.editContent(contentId);
   },true);
 })();
