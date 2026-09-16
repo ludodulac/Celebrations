@@ -29,19 +29,17 @@
     const action=actionFor(c);
     if(!action)return previous(c);
 
-    // Les vidéos YouTube se regardent directement dans le site. Le lecteur YouTube
-    // conserve ses commandes natives, dont le plein écran et l'accès à YouTube.
     if(c.type==='Vidéo'){
       const id=youtubeId(c.url||c.externalUrl||c.external_url);
       if(id){
         const title=esc(c.name||'Vidéo');
-        const src=`https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}?rel=0`;
-        return `<span class="resource-action-wrap resource-youtube"><span class="resource-video-title">${title}</span><div class="youtube-frame"><iframe src="${src}" title="${title}" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div><a class="youtube-open-link" href="https://www.youtube.com/watch?v=${encodeURIComponent(id)}" target="_blank" rel="noopener noreferrer">Ouvrir dans YouTube</a></span>`;
+        // modestbranding réduit l'habillage YouTube disponible. YouTube peut néanmoins
+        // afficher certains éléments de marque dans son lecteur natif selon son contexte.
+        const src=`https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}?rel=0&modestbranding=1`;
+        return `<span class="resource-action-wrap resource-youtube"><span class="resource-video-title">${title}</span><div class="youtube-frame"><iframe src="${src}" title="${title}" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div></span>`;
       }
     }
 
-    // Dans le programme, chaque audio garde un titre clair au-dessus de son lecteur,
-    // qu'il s'agisse d'un chant, d'une méditation ou d'un autre audio parlé.
     if(c.type==='Audio'&&c.sourceType==='file'){
       const title=`<span class="resource-audio-title">${esc(c.name||'Audio')}</span>`;
       return `<span class="resource-action-wrap resource-audio-simple">${title}<span class="resource-action-label">Écouter</span><div data-audio-id="${esc(c.id)}"></div></span>`;
@@ -62,8 +60,6 @@
     .resource-youtube{max-width:760px!important}
     .youtube-frame{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;border-radius:12px;background:#000;box-shadow:0 2px 10px rgba(0,0,0,.12)}
     .youtube-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
-    .youtube-open-link{display:inline-block;margin:7px 0 3px 4px;font-size:.84rem;font-weight:700;text-decoration:none}
-    .youtube-open-link:hover{text-decoration:underline}
     @media(max-width:850px){.resource-action-label{font-size:.78rem;margin-bottom:3px}.resource-audio-title,.resource-video-title{font-size:.92rem}.youtube-frame{border-radius:9px}}
   `;
   document.head.appendChild(style);
