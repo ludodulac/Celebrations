@@ -15,11 +15,10 @@
     const action=actionFor(c);
     if(!action)return previous(c);
 
-    // Dans le programme, pas de bouton redondant pour les fichiers audio.
-    // Pour les chants, on conserve toutefois leur titre lisible au-dessus du lecteur.
+    // Dans le programme, chaque audio garde un titre clair au-dessus de son lecteur,
+    // qu'il s'agisse d'un chant, d'une méditation ou d'un autre audio parlé.
     if(c.type==='Audio'&&c.sourceType==='file'){
-      const isChant=String(c.audioKind||'').toLowerCase()==='chant';
-      const title=isChant?`<span class="resource-audio-title">${esc(c.name||'Chant')}</span>`:'';
+      const title=`<span class="resource-audio-title">${esc(c.name||'Audio')}</span>`;
       return `<span class="resource-action-wrap resource-audio-simple">${title}<span class="resource-action-label">Écouter</span><div data-audio-id="${esc(c.id)}"></div></span>`;
     }
 
