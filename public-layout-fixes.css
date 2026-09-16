@@ -1,3 +1,6 @@
+/* Le contenu public reste invisible jusqu'à la fin du chargement Supabase. */
+html:not(.public-ready) body.public-app main.container{visibility:hidden}
+
 /* Correctif robuste pour les images associées aux étapes et rendez-vous.
    Ces règles passent aussi devant les anciens styles inline éventuellement encore rendus. */
 body.public-app #program img[data-image-id],
