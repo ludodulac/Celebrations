@@ -26,6 +26,7 @@
     const hero=document.getElementById('hero');
     if(hero)hero.insertAdjacentHTML('afterbegin','<div class="notice">Connexion aux données momentanément indisponible.</div>')
   }finally{
+    document.documentElement.classList.add('public-ready');
     document.body.classList.remove('public-loading');
     if(app){app.style.visibility='';app.removeAttribute('aria-busy')}
   }
