@@ -15,7 +15,7 @@ const baseEventHtml=eventHtml;
 eventHtml=function(e){
   let html=baseEventHtml(e);
   if(String(e?.title||'').trim()==='Temple'){
-    const templeNote='<div class="temple-note" style="margin-top:10px">Le psaume sera ajouté ici après avoir été donné dans le Temple au Québec. Dès sa publication, vous pourrez le lire dans votre Temple à l’heure qui vous convient.</div>';
+    const templeNote='<div class="temple-note" style="margin-top:10px">Le numéro du psaume est ajouté ci-dessus quelque temps après avoir été donné dans le Temple au Québec. Dès sa publication, vous pouvez le lire dans votre Temple à l’heure qui vous convient.</div>';
     html=html.replace('</div></article>',`${templeNote}</div></article>`);
   }
   const links=(e.links||[]).filter(l=>l&&l.url);
