@@ -3,7 +3,7 @@ const DEFAULTS={version:7,currentCelebrationId:null,adminCelebrationId:null,prof
 function clone(v){return JSON.parse(JSON.stringify(v))}
 function dateKey(){return 'day-'+Date.now()+'-'+Math.random().toString(36).slice(2,7)}
 function daysBetween(start,end){if(!start||!end)return[];const out=[];let d=new Date(start+'T12:00:00'),e=new Date(end+'T12:00:00');while(d<=e){const key=d.toISOString().slice(0,10);out.push({key,date:key,label:d.toLocaleDateString('fr-FR',{weekday:'long'}),short:d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})});d.setDate(d.getDate()+1)}return out}
-function normalizeDay(d){const oldDate=d?.date||'';return{...d,key:d?.key||oldDate||dateKey(),label:d?.label||'Jour',startDate:d?.startDate||oldDate||'',endDate:d?.endDate||d?.startDate||oldDate||'',text:d?.text||'',links:Array.isArray(d?.links)?d.links.filter(x=>x&&x.url).map(x=>({label:x.label||x.url,url:x.url,kind:x.kind||'link'})):[],contentIds:Array.isArray(d?.contentIds)?d.contentIds.map(Number):[]}}
+function normalizeDay(d){const oldDate=d?.date||'';return{...d,key:d?.key||oldDate||dateKey(),label:d?.label||'Jour',startDate:d?.startDate||oldDate||'',endDate:d?.endDate||d?.startDate||oldDate||'',text:d?.text||'',links:Array.isArray(d?.links)?d.links.filter(x=>x&&x.url).map(x=>({label:x.label||x.url,url:x.url,kind:x.kind||'link'})):[],contentIds:Array.isArray(d?.contentIds)?d.contentIds.map(v=>/^\d+$/.test(String(v??''))?Number(v):String(v??'')).filter(v=>String(v)!==''):[]}}
 // État transitoire uniquement en mémoire. Supabase est la source canonique.
 function loadState(){return clone(DEFAULTS)}
 function saveState(){/* remplacé côté administration par admin-supabase-core.js ; aucune donnée métier locale */}
