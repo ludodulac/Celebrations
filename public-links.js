@@ -13,7 +13,12 @@ function publicSoundCloudPlayer(l){
 }
 const baseEventHtml=eventHtml;
 eventHtml=function(e){
-  const html=baseEventHtml(e),links=(e.links||[]).filter(l=>l&&l.url);
+  let html=baseEventHtml(e);
+  if(String(e?.title||'').trim()==='Temple'){
+    const templeNote='<div class="temple-note" style="margin-top:10px">Le psaume sera ajouté ici après avoir été donné dans le Temple au Québec. Dès sa publication, vous pourrez le lire dans votre Temple à l’heure qui vous convient.</div>';
+    html=html.replace('</div></article>',`${templeNote}</div></article>`);
+  }
+  const links=(e.links||[]).filter(l=>l&&l.url);
   if(!links.length)return html;
   const extra=`<div class="resources" style="margin-top:10px">${links.map(l=>publicSoundCloudPlayer(l)||`<a class="resource-link" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(publicLinkLabel(l))}</a>`).join('')}</div>`;
   return html.replace('</div></article>',`${extra}</div></article>`);
