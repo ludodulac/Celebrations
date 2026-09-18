@@ -10,6 +10,10 @@ async function toggleEventContent(eventId,contentId){
   const e=state.events.find(x=>same(x.id,eventId));if(!e)return;
   const ids=[...(e.contentIds||[])],wasLinked=ids.some(id=>same(id,contentId));
   e.contentIds=wasLinked?ids.filter(id=>!same(id,contentId)):[...ids,contentId];
+  if(wasLinked&&typeof window.celebrationsUnlinkEventContent==='function'){
+    const result=await window.celebrationsUnlinkEventContent(e.id,contentId);
+    if(!result?.ok){e.contentIds=ids;showDayEventForm(e.dayKey,e.id);return toast(result?.error||'Dissociation impossible');}
+  }
   saveState(state);
   if(typeof window.celebrationsFlushCore==='function')await window.celebrationsFlushCore();
   showDayEventForm(e.dayKey,e.id);
