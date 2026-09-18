@@ -72,7 +72,7 @@
     const resources=contents.filter(x=>x.type!=='Image');
     const hasTime=String(e.time||'').trim()!=='';
     const timeHtml=hasTime?`<div class="time">${esc(e.time)}</div>`:'';
-    return `<article class="event ${hasTime?'':'event-no-time'}">${timeHtml}<div class="event-body"><div class="event-head ${visual?'has-event-illustration':''}">${visual}<div><h3 style="margin:0 0 5px">${esc(e.title)}</h3><div class="meta">${esc(d?.label||'')} · ${esc(groupName(state,e.audience))}</div>${e.description?`<p>${esc(e.description)}</p>`:''}</div></div><div class="resources">${resources.map(contentButtons).join('')}</div></div></article>`;
+    return `<article class="event ${hasTime?'':'event-no-time'}">${timeHtml}<div class="event-body"><div class="event-head ${visual?'has-event-illustration':''}">${visual}<div><h3 style="margin:0 0 5px">${esc(e.title)}</h3><div class="meta">${esc(d?.label||'')}</div>${e.description?`<p>${esc(e.description)}</p>`:''}</div></div><div class="resources">${resources.map(contentButtons).join('')}</div></div></article>`;
   };
 
   const style=document.createElement('style');
