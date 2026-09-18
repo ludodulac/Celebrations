@@ -2,7 +2,7 @@
 function eventContentActions(e){
   if(!state.contents.length)return '<div class="notice">Aucun contenu.</div>';
   const ids=new Set(e?.contentIds||[]);
-  return `<div class="list">${state.contents.map(c=>{const linked=ids.has(c.id);return `<div class="admin-row"><div><strong>${icon(c.type)} ${esc(c.name)}</strong><div class="meta">${esc(c.type)}</div></div><div class="row-actions">${linked?`<button type="button" class="btn" onclick="editChosenEventContent(${c.id},'${e.dayKey}',${e.id})">Modifier</button>`:''}<button type="button" class="btn ${linked?'':'primary'}" onclick="toggleEventContent(${e.id},${c.id})">${linked?'Retirer':'Associer'}</button></div></div>`}).join('')}</div>`;
+  return `<div class="list">${state.contents.map(c=>{const linked=ids.has(c.id);return `<div class="admin-row"><div><strong>${icon(c.type)} ${esc(c.name)}</strong><div class="meta">${esc(c.type)}</div></div><div class="row-actions">${linked?`<button type="button" class="btn" onclick="editChosenEventContent(${JSON.stringify(String(c.id))},${JSON.stringify(String(e.dayKey))},${JSON.stringify(String(e.id))})">Modifier</button>`:''}<button type="button" class="btn ${linked?'':'primary'}" onclick="toggleEventContent(${JSON.stringify(String(e.id))},${JSON.stringify(String(c.id))})">${linked?'Retirer':'Associer'}</button></div></div>`}).join('')}</div>`;
 }
 
 async function toggleEventContent(eventId,contentId){
@@ -43,7 +43,7 @@ showDayEventForm=function(dayKey,eventId=null){
 
 eventRow=function(e){
   const links=(e.links||[]).length,contents=(e.contentIds||[]).length;
-  return `<div class="admin-row"><div><strong>${esc(e.time||'—')} — ${esc(e.title)}</strong><div class="meta">${esc(groupName(state,e.audience))}${links?` · ${links} lien${links>1?'s':''}`:''}${contents?` · ${contents} contenu${contents>1?'s':''}`:''}</div></div><div class="row-actions"><button class="btn small" onclick="showDayEventForm('${e.dayKey}',${e.id})">Modifier</button></div></div>`;
+  return `<div class="admin-row"><div><strong>${esc(e.time||'—')} — ${esc(e.title)}</strong><div class="meta">${esc(groupName(state,e.audience))}${links?` · ${links} lien${links>1?'s':''}`:''}${contents?` · ${contents} contenu${contents>1?'s':''}`:''}</div></div><div class="row-actions"><button class="btn small" onclick="showDayEventForm(${JSON.stringify(String(e.dayKey))},${JSON.stringify(String(e.id))})">Modifier</button></div></div>`;
 };
 
 removeEvent=function(id,key){
