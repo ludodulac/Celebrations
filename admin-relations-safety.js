@@ -5,14 +5,15 @@ function eventContentActions(e){
   return `<div class="list">${state.contents.map(c=>{const linked=ids.has(c.id);return `<div class="admin-row"><div><strong>${icon(c.type)} ${esc(c.name)}</strong><div class="meta">${esc(c.type)}</div></div><div class="row-actions">${linked?`<button type="button" class="btn" onclick="editChosenEventContent(${c.id},'${e.dayKey}',${e.id})">Modifier</button>`:''}<button type="button" class="btn ${linked?'':'primary'}" onclick="toggleEventContent(${e.id},${c.id})">${linked?'Retirer':'Associer'}</button></div></div>`}).join('')}</div>`;
 }
 
-function toggleEventContent(eventId,contentId){
-  const e=state.events.find(x=>x.id===eventId);if(!e)return;
-  const ids=new Set(e.contentIds||[]),wasLinked=ids.has(contentId);
-  if(wasLinked)ids.delete(contentId);else ids.add(contentId);
-  e.contentIds=[...ids];
+async function toggleEventContent(eventId,contentId){
+  const same=(a,b)=>String(a??'')===String(b??'');
+  const e=state.events.find(x=>same(x.id,eventId));if(!e)return;
+  const ids=[...(e.contentIds||[])],wasLinked=ids.some(id=>same(id,contentId));
+  e.contentIds=wasLinked?ids.filter(id=>!same(id,contentId)):[...ids,contentId];
   saveState(state);
+  if(typeof window.celebrationsFlushCore==='function')await window.celebrationsFlushCore();
   showDayEventForm(e.dayKey,e.id);
-  toast(wasLinked?'Contenu retiré':'Contenu associé');
+  toast(wasLinked?'Contenu retiré et enregistré':'Contenu associé et enregistré');
 }
 
 function safeEventLinkRow(l={}){
