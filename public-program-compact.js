@@ -1,6 +1,6 @@
-// Correctif final, chargé en dernier : cible uniquement les images des rendez-vous du site public.
+// Correctif final, chargé en dernier : cible uniquement l'affichage des rendez-vous publics.
 (function(){
-  function compactEventImages(){
+  function polishProgram(){
     const mobile=window.matchMedia('(max-width:850px)').matches;
     const size=mobile?72:96;
     document.querySelectorAll('#program .event img').forEach(img=>{
@@ -18,11 +18,14 @@
         box.style.setProperty('width','100%','important');
       }
     });
+    document.querySelectorAll('#program .event .meta').forEach(meta=>{
+      meta.textContent=meta.textContent.replace(/\s*[·•]\s*Tous\s*$/i,'').trim();
+    });
   }
   const program=document.getElementById('program');
   if(program){
-    compactEventImages();
-    new MutationObserver(compactEventImages).observe(program,{childList:true,subtree:true});
-    window.addEventListener('resize',compactEventImages);
+    polishProgram();
+    new MutationObserver(polishProgram).observe(program,{childList:true,subtree:true});
+    window.addEventListener('resize',polishProgram);
   }
 })();
