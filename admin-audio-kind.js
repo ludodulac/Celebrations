@@ -35,17 +35,6 @@ const audioObserver=new MutationObserver(()=>installAudioKindFields());
 audioObserver.observe(document.getElementById('panel'),{childList:true,subtree:true});
 installAudioKindFields();
 
-document.addEventListener('click',e=>{
-  const btn=e.target.closest('button');if(!btn)return;
-  let select=null;
-  if(btn.closest('#mediaForm')&&btn.classList.contains('primary')&&document.querySelector('.type-card.active')?.dataset.type==='Audio')select=document.querySelector('#mediaForm [data-audio-kind=global]');
-  if(btn.matches('[data-a=save]')&&btn.closest('.card')?.querySelector('[data-f=type]')?.value==='Audio')select=btn.closest('.card').querySelector('[data-audio-kind=inline]');
-  if(!select)return;
-  if(!select.value){e.preventDefault();e.stopImmediatePropagation();toast('Choisissez Chant audio ou Audio parlé');return;}
-  const before=new Set(state.contents.map(c=>c.id)),kind=select.value;
-  setTimeout(()=>{const created=state.contents.filter(c=>!before.has(c.id)&&c.type==='Audio');created.forEach(c=>applyAudioKind(c,kind));if(created.length)saveState(state)},0);
-},true);
-
 const editContentBeforeAudioKind=editContent;
 editContent=function(id){
   editContentBeforeAudioKind(id);
