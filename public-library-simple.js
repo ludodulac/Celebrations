@@ -43,8 +43,9 @@ function libraryMatches(c){
   if(c.category==='Accueil')return false;
   if(libraryFamily==='audio'){
     if(c.type!=='Audio')return false;
-    if(libraryAudioKind==='chant')return String(c.audioKind||'').toLowerCase()==='chant';
-    if(libraryAudioKind==='other')return String(c.audioKind||'').toLowerCase()!=='chant';
+    const chant=String(c.audioKind||'').toLowerCase()==='chant'||c.category==='Chants audio';
+    if(libraryAudioKind==='chant')return chant;
+    if(libraryAudioKind==='other')return !chant;
     return true;
   }
   if(libraryFamily==='video')return c.type==='Vidéo';
