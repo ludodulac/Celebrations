@@ -27,7 +27,7 @@
         try{
           await putMedia(id,file);
           const base=file.name.replace(/\.[^.]+$/,'').replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();
-          state.contents.push({id,name:base||file.name,type:'Audio',category:kind,audience:form.querySelector('#mGroup')?.value||'all',description:form.querySelector('#mDesc')?.value||'',sourceType:'file',url:'',text:'',fileName:file.name,mimeType:file.type||'audio/mpeg',hasCover:false});
+          state.contents.push({id,name:base||file.name,type:'Audio',category:kind,audioKind:kind==='Chants audio'?'chant':'spoken',audience:form.querySelector('#mGroup')?.value||'all',description:form.querySelector('#mDesc')?.value||'',sourceType:'file',url:'',text:'',fileName:file.name,mimeType:file.type||'audio/mpeg',hasCover:false});
           saveState(state);ok++;
           if(window.celebrationsFlushCore)await window.celebrationsFlushCore();
         }catch(err){console.error('Upload audio',file.name,err);toast(`Erreur sur ${file.name} — ${ok} audio(s) déjà enregistré(s)`);break;}
