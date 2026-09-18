@@ -40,7 +40,7 @@ const editContentBeforeAudioKind=editContent;
 editContent=function(id){
   editContentBeforeAudioKind(id);
   const c=state.contents.find(x=>x.id===id);if(!c||c.type!=='Audio')return;
-  const value=canonicalAudioKind(c)||'Audios parlés';
+  const value=canonicalAudioKind(c)||'';
   const grid=document.querySelector('#panel .form-grid');if(grid&&!document.querySelector('[data-audio-kind=edit]'))grid.insertAdjacentHTML('beforeend',audioKindField(value,'edit'));
   const save=document.getElementById('saveContentEdit');if(save){const old=save.onclick;save.onclick=async ev=>{const kind=document.querySelector('[data-audio-kind=edit]')?.value;if(!kind)return toast('Choisissez Chant audio ou Audio parlé');applyAudioKind(c,kind);await old?.call(save,ev);saveState(state)}}
 };
