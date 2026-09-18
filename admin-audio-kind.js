@@ -1,4 +1,18 @@
 const AUDIO_KINDS=['Chants audio','Audios parlés'];
+const AUDIO_KIND_VALUES={'Chants audio':'chant','Audios parlés':'spoken'};
+function canonicalAudioKind(c){
+  if(!c||c.type!=='Audio')return '';
+  if(c.category==='Chants audio'||String(c.audioKind||'').toLowerCase()==='chant')return 'Chants audio';
+  if(c.category==='Audios parlés'||['spoken','parle','parlé','speech'].includes(String(c.audioKind||'').toLowerCase()))return 'Audios parlés';
+  return '';
+}
+function applyAudioKind(c,kind){
+  if(!c||c.type!=='Audio'||!AUDIO_KINDS.includes(kind))return false;
+  c.category=kind;c.audioKind=AUDIO_KIND_VALUES[kind];ensureCategory(kind);return true;
+}
+window.canonicalAudioKind=canonicalAudioKind;
+window.applyAudioKind=applyAudioKind;
+window.audioKindField=audioKindField;
 AUDIO_KINDS.forEach(ensureCategory);
 saveState(state);
 
@@ -22,22 +36,11 @@ const audioObserver=new MutationObserver(()=>installAudioKindFields());
 audioObserver.observe(document.getElementById('panel'),{childList:true,subtree:true});
 installAudioKindFields();
 
-document.addEventListener('click',e=>{
-  const btn=e.target.closest('button');if(!btn)return;
-  let select=null;
-  if(btn.closest('#mediaForm')&&btn.classList.contains('primary')&&document.querySelector('.type-card.active')?.dataset.type==='Audio')select=document.querySelector('#mediaForm [data-audio-kind=global]');
-  if(btn.matches('[data-a=save]')&&btn.closest('.card')?.querySelector('[data-f=type]')?.value==='Audio')select=btn.closest('.card').querySelector('[data-audio-kind=inline]');
-  if(!select)return;
-  if(!select.value){e.preventDefault();e.stopImmediatePropagation();toast('Choisissez Chant audio ou Audio parlé');return;}
-  const before=new Set(state.contents.map(c=>c.id)),kind=select.value;
-  setTimeout(()=>{const created=state.contents.filter(c=>!before.has(c.id)&&c.type==='Audio');created.forEach(c=>c.category=kind);if(created.length){ensureCategory(kind);saveState(state)}},0);
-},true);
-
 const editContentBeforeAudioKind=editContent;
 editContent=function(id){
   editContentBeforeAudioKind(id);
   const c=state.contents.find(x=>x.id===id);if(!c||c.type!=='Audio')return;
-  const value=AUDIO_KINDS.includes(c.category)?c.category:'Audios parlés';
+  const value=canonicalAudioKind(c)||'';
   const grid=document.querySelector('#panel .form-grid');if(grid&&!document.querySelector('[data-audio-kind=edit]'))grid.insertAdjacentHTML('beforeend',audioKindField(value,'edit'));
-  const save=document.getElementById('saveContentEdit');if(save){const old=save.onclick;save.onclick=async ev=>{const kind=document.querySelector('[data-audio-kind=edit]')?.value;if(!kind)return toast('Choisissez Chant audio ou Audio parlé');c.category=kind;ensureCategory(kind);await old?.call(save,ev);saveState(state)}}
+  const save=document.getElementById('saveContentEdit');if(save){const old=save.onclick;save.onclick=async ev=>{const kind=document.querySelector('[data-audio-kind=edit]')?.value;if(!kind)return toast('Choisissez Chant audio ou Audio parlé');applyAudioKind(c,kind);await old?.call(save,ev);saveState(state)}}
 };

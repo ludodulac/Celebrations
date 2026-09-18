@@ -6,7 +6,7 @@ function adminContentEventMeta(contentId){
   return rows;
 }
 function adminLibraryMatches(c){
-  if(adminLibraryFamily==='Audio'){if(c.type!=='Audio')return false;if(adminAudioKind==='chants')return c.category==='Chants audio';if(adminAudioKind==='spoken')return c.category!=='Chants audio';return true}
+  if(adminLibraryFamily==='Audio'){if(c.type!=='Audio')return false;const kind=window.canonicalAudioKind?.(c)||'';if(adminAudioKind==='chants')return kind==='Chants audio';if(adminAudioKind==='spoken')return kind!=='Chants audio';return true}
   if(adminLibraryFamily==='Vidéo')return c.type==='Vidéo';
   if(adminLibraryFamily==='Texte')return c.type==='Texte';
   if(adminLibraryFamily==='Image')return c.type==='Image';
@@ -14,7 +14,7 @@ function adminLibraryMatches(c){
   return false;
 }
 function adminLibraryCard(c){
-  const metas=adminContentEventMeta(c.id),label=c.type==='Audio'?(c.category==='Chants audio'?'Chant':'Audio'):c.type;
+  const metas=adminContentEventMeta(c.id),label=c.type==='Audio'?((window.canonicalAudioKind?.(c)||'')==='Chants audio'?'Chant':'Audio'):c.type;
   return `<article class="resource-card admin-clickable" role="button" tabindex="0" onclick="editContent(${JSON.stringify(c.id)})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editContent(${JSON.stringify(c.id)})}"><div class="resource-type">${esc(label)}</div><h3>${esc(c.name)}</h3>${metas.length?`<div class="meta">${metas.slice(0,2).map(esc).join('<br>')}${metas.length>2?`<br>+ ${metas.length-2}`:''}</div>`:''}<div class="actions"><button class="btn small primary" type="button" onclick="event.stopPropagation();editContent(${JSON.stringify(c.id)})">Modifier</button><button class="btn small danger" type="button" onclick="event.stopPropagation();removeContent(${JSON.stringify(c.id)})">Supprimer</button></div></article>`;
 }
 function renderAdminLibraryList(){const box=document.getElementById('adminLibraryList');if(!box)return;const list=state.contents.filter(adminLibraryMatches).slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'fr',{sensitivity:'base',numeric:true}));box.innerHTML=list.length?`<div class="admin-library-grid">${list.map(adminLibraryCard).join('')}</div>`:'<div class="notice">Aucun contenu.</div>'}

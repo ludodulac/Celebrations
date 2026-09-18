@@ -15,7 +15,7 @@ function renderInlineContentCreator(targetId,onCreated){
   target.querySelector('[data-a=cancel]').onclick=()=>target.innerHTML='';
   target.querySelector('[data-a=save]').onclick=async()=>{
     const t=type.value,title=target.querySelector('[data-f=title]').value.trim();if(!title)return toast('Indiquez un titre');
-    const id=Date.now(),item={id,name:title,type:t,category:TYPE_CATEGORY[t]||t,audience:target.querySelector('[data-f=group]').value,description:target.querySelector('[data-f=desc]').value,sourceType:'',url:'',text:'',fileName:'',hasCover:false};
+    const audioKind=t==='Audio'?target.querySelector('[data-audio-kind=inline]')?.value:'';if(t==='Audio'&&!audioKind)return toast('Choisissez Chant audio ou Audio parlé');const id=Date.now(),item={id,name:title,type:t,category:t==='Audio'?audioKind:(TYPE_CATEGORY[t]||t),audioKind:t==='Audio'?(audioKind==='Chants audio'?'chant':'spoken'):'',audience:target.querySelector('[data-f=group]').value,description:target.querySelector('[data-f=desc]').value,sourceType:'',url:'',text:'',fileName:'',hasCover:false};
     ensureCategory(item.category);
     const st=source.querySelector('[data-f=sourceType]')?.value;
     if(t==='Vidéo'||t==='Lien'||st==='url'){const u=source.querySelector('[data-f=url]')?.value.trim();if(!u)return toast('Indiquez un lien');item.sourceType='url';item.url=u;}

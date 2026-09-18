@@ -2,7 +2,7 @@
   function fallbackKind(c){
     const type=String(c?.type||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
     const url=String(c?.url||'').toLowerCase();
-    if(type==='audio')return String(c.audioKind||'').toLowerCase()==='chant'?'music':'speaker';
+    if(type==='audio'){const kind=String(c.audioKind||'').toLowerCase(),category=String(c.category||'');return kind==='chant'||category==='Chants audio'?'music':'speaker'}
     if(type==='pdf'||type==='texte')return 'pen';
     if(type==='video'||/(^|\.)youtube\.com\//.test(url)||/(^|\.)youtu\.be\//.test(url))return 'video';
     return 'dot';
