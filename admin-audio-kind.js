@@ -12,6 +12,7 @@ function applyAudioKind(c,kind){
 }
 window.canonicalAudioKind=canonicalAudioKind;
 window.applyAudioKind=applyAudioKind;
+window.audioKindField=audioKindField;
 AUDIO_KINDS.forEach(ensureCategory);
 saveState(state);
 
