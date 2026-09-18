@@ -49,16 +49,19 @@ removeEvent=function(id,key){
 };
 
 removeContent=async function(id,returnTo=null){
-  const c=state.contents.find(x=>x.id===id);if(!c)return;
-  const a=typeof contentAssociationData==='function'?contentAssociationData(id):{days:[],events:[]};
+  const same=(a,b)=>String(a??'')===String(b??'');
+  const c=state.contents.find(x=>same(x.id,id));if(!c)return;
+  const actualId=c.id;
+  const a=typeof contentAssociationData==='function'?contentAssociationData(actualId):{days:[],events:[]};
   const used=(a.days?.length||0)+(a.events?.length||0);
   const msg=used?`Supprimer « ${c.name} » ?\n\n${used} association${used>1?'s':''} sera${used>1?'ont':''} retirée${used>1?'s':''}.`:`Supprimer « ${c.name} » ?`;
   if(!confirm(msg))return;
-  state.celebrations.forEach(cel=>(cel.days||[]).forEach(d=>{d.contentIds=(d.contentIds||[]).filter(x=>x!==id)}));
-  state.events.forEach(e=>{e.contentIds=(e.contentIds||[]).filter(x=>x!==id)});
-  state.contents=state.contents.filter(x=>x.id!==id);
-  try{await deleteMedia(id);await deleteMedia('cover-'+id)}catch(err){}
+  state.celebrations.forEach(cel=>(cel.days||[]).forEach(d=>{d.contentIds=(d.contentIds||[]).filter(x=>!same(x,actualId))}));
+  state.events.forEach(e=>{e.contentIds=(e.contentIds||[]).filter(x=>!same(x,actualId))});
+  state.contents=state.contents.filter(x=>!same(x.id,actualId));
+  try{await deleteMedia(actualId);await deleteMedia('cover-'+actualId)}catch(err){}
   saveState(state);
+  if(typeof window.celebrationsFlushCore==='function')await window.celebrationsFlushCore();
   if(typeof returnTo==='function')returnTo();else renderMedia();
   toast('Supprimé');
 };
