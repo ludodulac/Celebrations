@@ -8,7 +8,7 @@
   }
   const previous=window.contentButtons;if(typeof previous!=='function')return;
   window.contentButtons=function(c){
-    const action=actionFor(c);if(!action)return previous(c);
+    const action=actionFor(c),rawUrl=String(c?.url||c?.externalUrl||c?.external_url||'');if(/(?:^|\.)soundcloud\.com\//i.test((()=>{try{return new URL(rawUrl).hostname+new URL(rawUrl).pathname}catch(_e){return ''}})()))return `<span class="resource-action-wrap resource-soundcloud-link"><span class="resource-action-label">Écouter sur SoundCloud</span>${previous(c)}</span>`;if(!action)return previous(c);
     if(c.type==='Vidéo'){const id=youtubeId(c.url||c.externalUrl||c.external_url);if(id){const title=esc(c.name||'Vidéo'),src=`https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}?rel=0&modestbranding=1`;return `<span class="resource-action-wrap resource-youtube"><span class="resource-video-title">${title}</span><div class="youtube-frame"><iframe src="${src}" title="${title}" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div></span>`}}
     if(c.type==='Audio'){
       const sc=soundcloudPlayerUrl(c);if(sc){const title=esc(c.name||'Audio');return `<span class="resource-action-wrap resource-soundcloud"><span class="resource-audio-title">${title}</span><span class="resource-action-label">Écouter</span><iframe width="100%" height="166" scrolling="no" frameborder="no" allow="autoplay; encrypted-media" loading="lazy" title="${title}" src="${esc(sc)}"></iframe></span>`}
