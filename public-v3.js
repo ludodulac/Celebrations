@@ -1,4 +1,4 @@
-const state=loadState();let activeDay='',filter='Tous',search='';
+const state=window.CELEBRATIONS_PUBLIC_FALLBACK?.celebrations?.length?clone(window.CELEBRATIONS_PUBLIC_FALLBACK):loadState();let activeDay='',filter='Tous',search='';
 const current=()=>state.celebrations.find(c=>c.id===state.currentCelebrationId)||state.celebrations[0];
 const icon=t=>t==='PDF'?'📄':t==='Audio'?'♫':t==='Vidéo'?'▶':t==='Texte'?'¶':t==='Image'?'🖼️':'↗';
 function setAccent(){document.documentElement.style.setProperty('--accent',ARCHANGELS[current()?.archangel]||'#b42318')}
