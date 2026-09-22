@@ -1,4 +1,4 @@
-(async function(){
+window.publicDataReady=(async function(){
 const app=document.querySelector('main.container');if(app){app.style.visibility='hidden';app.setAttribute('aria-busy','true')}
 const apply=f=>{Object.keys(state).forEach(k=>delete state[k]);Object.assign(state,f);window.state=state};
 const draw=()=>{const c=current();if(typeof openPublicCelebration==='function'&&c)openPublicCelebration(c.id,false);else{renderHero();renderProgram();renderLibrary();renderInfo()}if(typeof window.restorePublicRoute==='function')window.restorePublicRoute()};
