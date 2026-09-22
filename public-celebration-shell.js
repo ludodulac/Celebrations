@@ -43,6 +43,7 @@ function restorePublicRoute(){
 window.restorePublicRoute=restorePublicRoute;
 window.addEventListener('popstate',e=>{if(restorePublicRoute())return;const s=e.state;if(publicShowOtherCelebrations&&s?.screen==='celebration'&&state.celebrations.some(c=>c.id===Number(s.id)))openPublicCelebration(Number(s.id),false);else showCelebrationHome(false)});
 (async()=>{
+  if(window.publicDataReady)await window.publicDataReady;
   await loadPublicCelebrationVisibility();
   const initialMatch=location.hash.match(/^#celebration-(\d+)$/),routeSlug=decodeURIComponent(location.pathname.split('/').filter(Boolean).pop()||'').toLowerCase(),hasPublicRoute=!!routeSlug&&routeSlug!=='index.html';
   if(publicShowOtherCelebrations&&initialMatch&&state.celebrations.some(c=>c.id===Number(initialMatch[1]))){const id=Number(initialMatch[1]);history.replaceState({screen:'celebration',id},'',location.href);openPublicCelebration(id,false)}
