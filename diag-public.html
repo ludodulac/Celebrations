@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Diagnostic public</title></head>
+<body><pre id="out">Diagnostic en cours…</pre>
+<script src="/app-data.js?v=40"></script>
+<script src="/public-fallback-state.js?v=4"></script>
+<script>
+(async()=>{
+ const lines=[];
+ lines.push('DIAG_VERSION=2026-09-22-1');
+ lines.push('PATH='+location.pathname);
+ lines.push('FALLBACK_GLOBAL='+(window.CELEBRATIONS_PUBLIC_FALLBACK?'OUI':'NON'));
+ lines.push('CELEBRATIONS='+(window.CELEBRATIONS_PUBLIC_FALLBACK?.celebrations?.length??0));
+ lines.push('EVENTS='+(window.CELEBRATIONS_PUBLIC_FALLBACK?.events?.length??0));
+ try{
+   const r=await fetch('/public-fallback-state.js?v=4',{cache:'no-store'});
+   const t=await r.text();
+   lines.push('FETCH_STATUS='+r.status);
+   lines.push('FETCH_TYPE='+(r.headers.get('content-type')||''));
+   lines.push('FETCH_LENGTH='+t.length);
+   lines.push('FETCH_START='+t.slice(0,45).replace(/\s+/g,' '));
+ }catch(e){lines.push('FETCH_ERROR='+e.message)}
+ document.getElementById('out').textContent=lines.join('\n');
+})();
+</script></body></html>
