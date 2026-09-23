@@ -28,7 +28,7 @@ function contentVisual(c){
 const NEW_CONTENT_IDS_20260923=new Set(['1790190249384','1790190586586','pdf-1790197070071-0-brr5c','pdf-1790197071492-1-7yfoa','pdf-1790197072141-2-qammn']);
 function isNewContent20260923(c){return NEW_CONTENT_IDS_20260923.has(String(c?.id||''))}
 function newContentDot(c){return isNewContent20260923(c)?'<span class="new-content-dot" aria-label="Nouveau document" title="Nouveau document"></span>':''}
-function newContentNoticeForDay(dayKey){const hasNew=state.events.some(e=>e.celebrationId===current()?.id&&e.dayKey===dayKey&&(e.contentIds||[]).some(id=>NEW_CONTENT_IDS_20260923.has(String(id))));return hasNew?'<div class="new-content-notice"><div class="new-content-notice-title">NOUVEAUX DOCUMENTS AJOUTÉS</div><div>De nouveaux documents sont disponibles dans cette section.<br>Retrouvez-les facilement grâce à la pastille bleue placée devant leur titre.</div></div>':''}
+function newContentNoticeForDay(dayKey){const markedDays=new Set(['preparation-101','dimanche-101']);return current()?.id===101&&markedDays.has(String(dayKey))?'<div class="new-content-notice"><div class="new-content-notice-title">NOUVEAUX DOCUMENTS AJOUTÉS</div><div>De nouveaux documents ont été ajoutés le 23 septembre.<br>Retrouvez-les facilement grâce à la pastille bleue placée devant leur titre.</div></div>':''}
 function contentTitle(c){
   const label=`${newContentDot(c)}${icon(c.type)} ${esc(c.name||'Contenu')}`,id=esc(JSON.stringify(c.id));
   if(c.type==='Texte'&&c.sourceType==='text')return `<button type="button" class="public-content-title" onclick="alert(${JSON.stringify(c.text||'')})">${label}</button>`;
