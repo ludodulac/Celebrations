@@ -17,7 +17,25 @@
   window.saveState=function(s){savePreferences(s);if(!coreReady)return;pending=snapshot(s);flush()};
   window.celebrationsFlushCore=async()=>{pending=snapshot(state);await flush()};
   window.celebrationsUnlinkEventContent=async(eventId,contentId)=>invoke({action:'unlink_event_content',event_id:String(eventId),content_id:String(contentId)},'celebrations-admin-safe-save');
-  window.putMedia=async function(key,file){if(!file)throw new Error('Fichier manquant');const raw=String(key),cover=raw.startsWith('cover-'),contentId=cover?raw.slice(6):raw;uploadStatus({status:'preparing',key:raw,fileName:file.name,size:file.size||0});try{const signed=await invoke({action:'create_upload',content_id:contentId,kind:cover?'cover':'file',file_name:file.name});if(!signed.ok||!signed.path||!signed.token)throw new Error(signed.error||'Préparation de l’upload impossible.');uploadStatus({status:'uploading',mode:'signed-standard',key:raw,fileName:file.name,size:file.size||0});const {error}=await sb.storage.from(CELEBRATIONS_MEDIA_BUCKET).uploadToSignedUrl(signed.path,signed.token,file,{contentType:file.type||undefined});if(error)throw error;pendingMedia.set(raw,{path:signed.path,fileName:file.name,mimeType:file.type||''});uploadStatus({status:'uploaded',key:raw,fileName:file.name,size:file.size||0,uploaded:file.size||0,path:signed.path,percent:100});return signed.path}catch(error){uploadStatus({status:'error',key:raw,fileName:file.name,size:file.size||0,error:error?.message||String(error)});throw error}};
+  function resumableSignedUpload(signed,file,raw){
+    if(!window.tus?.Upload)throw new Error('Module d’envoi résumable indisponible.');
+    return new Promise((resolve,reject)=>{
+      const upload=new window.tus.Upload(file,{
+        endpoint:'https://jwyayfkssyagvnablttg.storage.supabase.co/storage/v1/upload/resumable',
+        retryDelays:[0,3000,5000,10000,20000],
+        headers:{'x-signature':signed.token},
+        uploadDataDuringCreation:true,
+        removeFingerprintOnSuccess:true,
+        chunkSize:6*1024*1024,
+        metadata:{bucketName:CELEBRATIONS_MEDIA_BUCKET,objectName:signed.path,contentType:file.type||'application/octet-stream',cacheControl:'3600'},
+        onProgress:(uploaded,total)=>uploadStatus({status:'uploading',mode:'signed-resumable',key:raw,fileName:file.name,size:total||file.size||0,uploaded,percent:total?Math.round(uploaded*100/total):0}),
+        onError:reject,
+        onSuccess:()=>resolve()
+      });
+      upload.findPreviousUploads().then(previous=>{if(previous.length)upload.resumeFromPreviousUpload(previous[0]);upload.start()}).catch(reject);
+    });
+  }
+  window.putMedia=async function(key,file){if(!file)throw new Error('Fichier manquant');const raw=String(key),cover=raw.startsWith('cover-'),contentId=cover?raw.slice(6):raw;uploadStatus({status:'preparing',key:raw,fileName:file.name,size:file.size||0});try{const signed=await invoke({action:'create_upload',content_id:contentId,kind:cover?'cover':'file',file_name:file.name});if(!signed.ok||!signed.path||!signed.token)throw new Error(signed.error||'Préparation de l’upload impossible.');if((file.size||0)>6*1024*1024){uploadStatus({status:'uploading',mode:'signed-resumable',key:raw,fileName:file.name,size:file.size||0,uploaded:0,percent:0});await resumableSignedUpload(signed,file,raw)}else{uploadStatus({status:'uploading',mode:'signed-standard',key:raw,fileName:file.name,size:file.size||0});const {error}=await sb.storage.from(CELEBRATIONS_MEDIA_BUCKET).uploadToSignedUrl(signed.path,signed.token,file,{contentType:file.type||undefined});if(error)throw error}pendingMedia.set(raw,{path:signed.path,fileName:file.name,mimeType:file.type||''});uploadStatus({status:'uploaded',key:raw,fileName:file.name,size:file.size||0,uploaded:file.size||0,path:signed.path,percent:100});return signed.path}catch(error){uploadStatus({status:'error',key:raw,fileName:file.name,size:file.size||0,error:error?.message||String(error)});throw error}};
   window.deleteMedia=async function(key){const raw=String(key),cover=raw.startsWith('cover-'),id=cover?raw.slice(6):raw,c=(state.contents||[]).find(x=>String(x.id)===String(id)),path=cover?c?.coverStoragePath:c?.storagePath;if(!path)return;const result=await invoke({action:'delete_paths',paths:[path]});if(!result.ok)throw new Error(result.error||'Suppression impossible.');if(cover){c.hasCover=false;c.coverStoragePath='';c.coverFileName=''}else{c.storagePath='';c.fileName='';c.mimeType=''}};
   async function boot(){if(window.celebrationsAdminReady)await window.celebrationsAdminReady;if(typeof loadStateFromSupabase!=='function')return;try{const fresh=await loadStateFromSupabase();replaceLocal(fresh);coreReady=true;localStorage.removeItem('celebrations-state');try{indexedDB.deleteDatabase('celebrations-media-v1')}catch(e){}window.celebrationsCoreSyncStatus='saved';render();window.dispatchEvent(new CustomEvent('celebrations-core-ready'))}catch(e){console.error('Chargement Supabase administration',e);window.celebrationsCoreSyncStatus='error';const p=document.getElementById('panel');if(p)p.innerHTML='<div class="notice">Impossible de charger les données Supabase. Aucune modification locale ne sera utilisée comme source.</div>'}}boot();
 })();
