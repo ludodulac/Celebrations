@@ -56,31 +56,31 @@ class CopyTests(unittest.TestCase):
 
     def test_existing_verified_resumes_without_upload(self):
         self.assertEqual(module.copy_one("dir/a", {"metadata": {"size": len(self.data)}}), "skipped_verified")
-        module.r2.upload_fileobj.assert_not_called()
+        module.r2.put_object.assert_not_called()
 
     def test_existing_same_size_different_content_rejected(self):
         module.r2.get_object.return_value = {"Body": Body(b"x" * len(self.data))}
         with self.assertRaisesRegex(RuntimeError, "CONTENT CONFLICT"):
             module.copy_one("dir/a", {"metadata": {"size": len(self.data)}})
-        module.r2.upload_fileobj.assert_not_called()
+        module.r2.put_object.assert_not_called()
 
     def test_existing_different_size_rejected(self):
         module.r2.head_object.side_effect = [{"ContentLength": 1}]
         with self.assertRaisesRegex(RuntimeError, "SIZE CONFLICT"):
             module.copy_one("a", {"metadata": {"size": len(self.data)}})
-        module.r2.upload_fileobj.assert_not_called()
+        module.r2.put_object.assert_not_called()
 
     def test_interrupted_download_never_uploads(self):
         module.r2.head_object.side_effect = [None]
         module.session.get.return_value = Download(self.data, interrupted=True)
         with self.assertRaises(ConnectionError):
             module.copy_one("a", {"metadata": {"size": len(self.data)}})
-        module.r2.upload_fileobj.assert_not_called()
+        module.r2.put_object.assert_not_called()
 
     def test_new_object_and_retry_after_upload_interruption(self):
         module.r2.head_object.side_effect = [None, None, {"ContentLength": len(self.data)}]
         module.copy_one("a", {"metadata": {"size": len(self.data)}})
-        module.r2.upload_fileobj.assert_called_once()
+        module.r2.put_object.assert_called_once()
         module.seen.clear()
         module.r2.head_object.side_effect = [{"ContentLength": len(self.data)}]
         self.assertEqual(module.copy_one("a", {"metadata": {"size": len(self.data)}}), "skipped_verified")
@@ -109,11 +109,11 @@ class CopyTests(unittest.TestCase):
 
     def test_upload_failure_and_resume(self):
         module.r2.head_object.side_effect = [None, None]
-        module.r2.upload_fileobj.side_effect = OSError("upload failed")
+        module.r2.put_object.side_effect = OSError("upload failed")
         with self.assertRaises(OSError):
             module.copy_one("a", {"metadata": {"size": len(self.data)}})
         module.seen.clear()
-        module.r2.upload_fileobj.side_effect = None
+        module.r2.put_object.side_effect = None
         module.r2.head_object.side_effect = [{"ContentLength": len(self.data)}]
         self.assertEqual(module.copy_one("a", {"metadata": {"size": len(self.data)}}), "skipped_verified")
 
@@ -133,6 +133,26 @@ class CopyTests(unittest.TestCase):
         with patch.object(sys, "stderr", stderr), self.assertRaises(SystemExit):
             module.main()
         self.assertNotIn("fake-secret-token", stderr.getvalue())
+
+    def test_atomic_precondition_refuses_concurrent_writer(self):
+        from botocore.exceptions import ClientError
+        module.r2.head_object.side_effect = [None, None]
+        module.r2.put_object.side_effect = ClientError(
+            {"Error": {"Code": "PreconditionFailed", "Message": "condition failed"}},
+            "PutObject")
+        with self.assertRaisesRegex(RuntimeError, "CONCURRENT DESTINATION WRITE REFUSED"):
+            module.copy_one("a", {"metadata": {"size": len(self.data)}})
+        self.assertEqual(module.r2.put_object.call_args.kwargs["IfNoneMatch"], "*")
+
+    def test_single_put_no_multipart_and_large_object_guard(self):
+        module.r2.head_object.side_effect = [None, None]
+        module.copy_one("a", {"metadata": {"size": len(self.data)}})
+        self.assertEqual(module.r2.put_object.call_args.kwargs["IfNoneMatch"], "*")
+        module.r2.create_multipart_upload.assert_not_called()
+        module.seen.clear()
+        with self.assertRaisesRegex(RuntimeError, "TOO LARGE"):
+            module.copy_one("huge", {"metadata": {"size": module.MAX_SINGLE_PUT + 1}})
+        module.r2.put_object.assert_called_once()
 
     def test_no_delete_methods_in_copy_code(self):
         import inspect
