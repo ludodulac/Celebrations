@@ -48,6 +48,7 @@ class CopyTests(unittest.TestCase):
         module.seen.clear()
         self.data = b"abcdefgh" * 1024
         module.session.get = MagicMock(return_value=Download(self.data))
+        module.session.post = MagicMock()
         module.r2 = MagicMock()
         module.r2.head_object.side_effect = [
             {"ContentLength": len(self.data)}]
@@ -105,6 +106,33 @@ class CopyTests(unittest.TestCase):
         module.session.post.reset_mock()
         module.session.post.side_effect = [response(page), response([])]
         self.assertEqual(len(list(module.objects())), 100)
+
+    def test_upload_failure_and_resume(self):
+        module.r2.head_object.side_effect = [None, None]
+        module.r2.upload_fileobj.side_effect = OSError("upload failed")
+        with self.assertRaises(OSError):
+            module.copy_one("a", {"metadata": {"size": len(self.data)}})
+        module.seen.clear()
+        module.r2.upload_fileobj.side_effect = None
+        module.r2.head_object.side_effect = [{"ContentLength": len(self.data)}]
+        self.assertEqual(module.copy_one("a", {"metadata": {"size": len(self.data)}}), "skipped_verified")
+
+    def test_corrupt_new_upload_detected(self):
+        module.r2.head_object.side_effect = [None, None]
+        module.r2.get_object.return_value = {"Body": Body(b"z" * len(self.data))}
+        with self.assertRaisesRegex(RuntimeError, "CONTENT CONFLICT"):
+            module.copy_one("a", {"metadata": {"size": len(self.data)}})
+
+    def test_secret_not_logged_on_failure(self):
+        import contextlib
+        import io
+        module.session.post.return_value = MagicMock()
+        module.session.post.return_value.json.return_value = [{"name": "a", "id": "1", "metadata": {"size": len(self.data)}}]
+        module.r2.head_object.side_effect = RuntimeError("fake-secret-token")
+        stderr = io.StringIO()
+        with patch.object(sys, "stderr", stderr), self.assertRaises(SystemExit):
+            module.main()
+        self.assertNotIn("fake-secret-token", stderr.getvalue())
 
     def test_no_delete_methods_in_copy_code(self):
         import inspect
