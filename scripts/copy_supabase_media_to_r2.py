@@ -3,6 +3,7 @@
 import os
 import sys
 import tempfile
+import hashlib
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from botocore.exceptions import ClientError
@@ -83,8 +84,7 @@ def copy_one(path, entry):
     if existing is not None:
         if existing != expected:
             raise RuntimeError(f"DESTINATION CONFLICT {path}: source={expected} destination={existing}; refusing overwrite")
-        print(f"SKIPPED VERIFIED {path} ({expected} bytes)")
-        return "skipped"
+        raise RuntimeError(f"UNVERIFIED EXISTING OBJECT {path}: equal size is not proof of identical bytes; refusing overwrite or skip")
     url = f"{URL}/storage/v1/object/{BUCKET}/{quote(path, safe='/')}"
     # Rewindable spool allows multipart retry; never upload an exhausted HTTP stream.
     with tempfile.SpooledTemporaryFile(max_size=8 * 1024 * 1024) as spool:
@@ -100,11 +100,19 @@ def copy_one(path, entry):
         if count != expected:
             raise RuntimeError(f"SOURCE SIZE MISMATCH {path}: expected={expected} downloaded={count}")
         spool.seek(0)
+        digest = hashlib.sha256()
+        while True:
+            block = spool.read(1024 * 1024)
+            if not block:
+                break
+            digest.update(block)
+        source_sha256 = digest.hexdigest()
+        spool.seek(0)
         r2.upload_fileobj(spool, BUCKET, path, Config=transfer)
     actual = remote_size(path)
     if actual != expected:
         raise RuntimeError(f"SIZE MISMATCH {path}: source={expected} R2={actual}")
-    print(f"VERIFIED {path} ({actual} bytes)")
+    print(f"SIZE-VERIFIED ONLY {path} ({actual} bytes; source_sha256={source_sha256}); destination content hash not certified")
     return "copied"
 
 def main():
