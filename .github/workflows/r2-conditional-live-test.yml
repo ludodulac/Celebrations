@@ -1,0 +1,63 @@
+name: R2 isolated conditional PUT live test
+on:
+  push:
+    branches:
+      - chore/r2-copy-celebrations-20261012
+    paths:
+      - .github/workflows/r2-conditional-live-test.yml
+permissions:
+  contents: read
+jobs:
+  conditional:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+    steps:
+      - name: Install boto3
+        run: python -m pip install 'boto3>=1.35,<2'
+      - name: Isolated R2 conditional PUT
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os, uuid, hashlib
+          import boto3
+          from botocore.config import Config
+          from botocore.exceptions import ClientError
+          key = "_validation-r2/conditional-put-" + str(uuid.uuid4()) + ".txt"
+          assert key.startswith("_validation-r2/conditional-put-")
+          bucket = "celebrations-media"
+          first = os.urandom(32)
+          second = os.urandom(32)
+          client = boto3.client(
+              "s3", endpoint_url=os.environ["R2_ENDPOINT"].rstrip("/"),
+              aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
+              aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"],
+              region_name="auto",
+              config=Config(retries={"max_attempts": 0}, read_timeout=30, connect_timeout=15),
+          )
+          print("TEMP_OBJECT_KEY=" + key, flush=True)
+          client.put_object(Bucket=bucket, Key=key, Body=first, IfNoneMatch="*")
+          print("FIRST_PUT=SUCCESS", flush=True)
+          try:
+              client.put_object(Bucket=bucket, Key=key, Body=second, IfNoneMatch="*")
+          except ClientError as exc:
+              status = exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+              print("SECOND_PUT_HTTP_STATUS=" + str(status), flush=True)
+              if status != 412:
+                  raise RuntimeError("Unexpected conditional PUT response") from None
+          else:
+              raise RuntimeError("CONDITIONAL PUT OVERWROTE EXISTING OBJECT")
+          body = client.get_object(Bucket=bucket, Key=key)["Body"]
+          try:
+              actual = body.read()
+          finally:
+              body.close()
+          if hashlib.sha256(actual).digest() != hashlib.sha256(first).digest():
+              raise RuntimeError("SHA256_MISMATCH")
+          print("SHA256_MATCH=YES", flush=True)
+          print("BOTO3_R2_COMPATIBILITY=PASS", flush=True)
+          print("NO_DELETE_PERFORMED=YES", flush=True)
+          PY
