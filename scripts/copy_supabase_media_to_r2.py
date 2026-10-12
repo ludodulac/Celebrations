@@ -11,7 +11,6 @@ from urllib.parse import quote
 import requests
 import boto3
 from botocore.config import Config
-from boto3.s3.transfer import TransferConfig
 
 BUCKET = "celebrations-media"
 URL = os.environ["SUPABASE_URL"].rstrip("/")
@@ -29,7 +28,7 @@ r2 = boto3.client(
     region_name="auto",
     config=Config(retries={"max_attempts": 5, "mode": "standard"}),
 )
-transfer = TransferConfig(multipart_threshold=8 * 1024 * 1024, multipart_chunksize=8 * 1024 * 1024)
+MAX_SINGLE_PUT = 5 * 1024 * 1024 * 1024
 seen = set()
 
 def source_size(entry):
@@ -80,6 +79,8 @@ def copy_one(path, entry):
     if DRY_RUN:
         print(f"PLAN {path} ({expected} bytes)")
         return "planned"
+    if expected > MAX_SINGLE_PUT:
+        raise RuntimeError("SOURCE TOO LARGE FOR CONDITIONAL SINGLE PUT")
     existing = remote_info(path)
     if existing is not None and int(existing["ContentLength"]) != expected:
         raise RuntimeError("DESTINATION SIZE CONFLICT")
@@ -112,7 +113,14 @@ def copy_one(path, entry):
             return "skipped_verified"
         if remote_info(path) is not None:
             raise RuntimeError("DESTINATION APPEARED: refusing overwrite")
-        r2.upload_fileobj(spool, BUCKET, path, ExtraArgs={"Metadata": {"sha256": source_sha256}}, Config=transfer)
+        # Atomic R2 conditional single PUT avoids multipart completion races.
+        try:
+            r2.put_object(Bucket=BUCKET, Key=path, Body=spool,
+                          IfNoneMatch="*", Metadata={"sha256": source_sha256})
+        except ClientError as exc:
+            if exc.response.get("Error", {}).get("Code") in ("PreconditionFailed", "412", "ConditionalRequestConflict", "409"):
+                raise RuntimeError("CONCURRENT DESTINATION WRITE REFUSED") from None
+            raise
     verify_destination(path, expected, source_sha256)
     print("SHA256 VERIFIED")
     return "copied"
