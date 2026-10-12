@@ -38,9 +38,9 @@ def source_size(entry):
         raise RuntimeError("Missing source size metadata")
     return int(value)
 
-def remote_size(path):
+def remote_info(path):
     try:
-        return int(r2.head_object(Bucket=BUCKET, Key=path)["ContentLength"])
+        return r2.head_object(Bucket=BUCKET, Key=path)
     except ClientError as exc:
         if exc.response.get("Error", {}).get("Code") in ("404","NoSuchKey","NotFound"):
             return None
@@ -80,11 +80,9 @@ def copy_one(path, entry):
     if DRY_RUN:
         print(f"PLAN {path} ({expected} bytes)")
         return "planned"
-    existing = remote_size(path)
-    if existing is not None:
-        if existing != expected:
-            raise RuntimeError(f"DESTINATION CONFLICT {path}: source={expected} destination={existing}; refusing overwrite")
-        raise RuntimeError(f"UNVERIFIED EXISTING OBJECT {path}: equal size is not proof of identical bytes; refusing overwrite or skip")
+    existing = remote_info(path)
+    if existing is not None and int(existing["ContentLength"]) != expected:
+        raise RuntimeError("DESTINATION SIZE CONFLICT")
     url = f"{URL}/storage/v1/object/{BUCKET}/{quote(path, safe='/')}"
     # Rewindable spool allows multipart retry; never upload an exhausted HTTP stream.
     with tempfile.SpooledTemporaryFile(max_size=8 * 1024 * 1024) as spool:
@@ -108,12 +106,32 @@ def copy_one(path, entry):
             digest.update(block)
         source_sha256 = digest.hexdigest()
         spool.seek(0)
-        r2.upload_fileobj(spool, BUCKET, path, Config=transfer)
-    actual = remote_size(path)
-    if actual != expected:
-        raise RuntimeError(f"SIZE MISMATCH {path}: source={expected} R2={actual}")
-    print(f"SIZE-VERIFIED ONLY {path} ({actual} bytes; source_sha256={source_sha256}); destination content hash not certified")
+        if existing is not None:
+            verify_destination(path, expected, source_sha256)
+            print("VERIFIED EXISTING OBJECT")
+            return "skipped_verified"
+        if remote_info(path) is not None:
+            raise RuntimeError("DESTINATION APPEARED: refusing overwrite")
+        r2.upload_fileobj(spool, BUCKET, path, ExtraArgs={"Metadata": {"sha256": source_sha256}}, Config=transfer)
+    verify_destination(path, expected, source_sha256)
+    print("SHA256 VERIFIED")
     return "copied"
+
+
+def verify_destination(path, expected_size, expected_sha256):
+    digest = hashlib.sha256()
+    count = 0
+    body = r2.get_object(Bucket=BUCKET, Key=path)["Body"]
+    try:
+        for chunk in body.iter_chunks(chunk_size=1024 * 1024):
+            if chunk:
+                count += len(chunk)
+                digest.update(chunk)
+    finally:
+        body.close()
+    if count != expected_size or digest.hexdigest() != expected_sha256:
+        raise RuntimeError("DESTINATION CONTENT CONFLICT")
+
 
 def main():
     if not DRY_RUN and os.environ.get("CONFIRM_COPY") != "COPY":
@@ -125,7 +143,7 @@ def main():
         try:
             copy_one(path, entry)
         except Exception as error:
-            print(f"FAILED {path}: {type(error).__name__}: {error}", file=sys.stderr)
+            print(f"FAILED object #{total}: {type(error).__name__}", file=sys.stderr)
             failed.append(path)
     print(f"SUMMARY mode={'DRY_RUN' if DRY_RUN else 'COPY'} objects={total} failures={len(failed)}")
     if total == 0 or failed:
