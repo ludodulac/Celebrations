@@ -1,0 +1,24 @@
+name: R2 safe preparation tests
+on:
+  push:
+    branches: [feat/r2-019-safe-preparation]
+    paths:
+      - scripts/r2-media-source-selector.js
+      - tests/test-r2-media-source-selector.cjs
+      - .github/workflows/test-r2-safe-preparation.yml
+  pull_request:
+    paths:
+      - scripts/r2-media-source-selector.js
+      - tests/test-r2-media-source-selector.cjs
+      - .github/workflows/test-r2-safe-preparation.yml
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/test-r2-media-source-selector.cjs
