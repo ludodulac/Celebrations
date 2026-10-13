@@ -6,20 +6,20 @@ export async function handleMedia(request,env){
  if(request.method!=="GET"&&request.method!=="HEAD")return json("Method not allowed",405);
  if(!env.MEDIA_BUCKET||!env.MEDIA_ACL)return json("Gateway unavailable",503);
  const u=new URL(request.url);
- if(!u.pathname.startsWith("/media/"))return json("Not found",404);
- let key;try{key=decodeURIComponent(u.pathname.slice(7))}catch{return json("Not found",404)}
+ const letter=u.pathname.startsWith("/letter/");
+ if(!letter&&!u.pathname.startsWith("/media/"))return json("Not found",404);
+ let key;try{key=decodeURIComponent(u.pathname.slice(letter?8:7))}catch{return json("Not found",404)}
  if(!safeKey(key))return json("Not found",404);
  // Public media requires an explicit, approved allowlist row.
  // Committee media requires a valid active slug. Never accept a raw committee key.
- const committee=key.startsWith("committee/");
+ const committee=letter;
  let authorized=false;
  if(committee){
-  const slug=u.searchParams.get("letter");
-  if(slug&&slug.length<160){
-   const row=await env.MEDIA_ACL.prepare("SELECT 1 FROM committee_media WHERE storage_path=? AND slug=? AND revoked_at IS NULL AND published=1").bind(key,slug).first();
-   authorized=!!row;
-  }
+  if(key.length>=160)return json("Not found",404);
+  const row=await env.MEDIA_ACL.prepare("SELECT storage_path FROM committee_media WHERE slug=? AND revoked_at IS NULL AND published=1").bind(key).first();
+  if(row&&safeKey(row.storage_path)&&row.storage_path.startsWith("committee/")){key=row.storage_path;authorized=true}
  }else{
+  if(key.startsWith("committee/"))return json("Not found",404);
   const row=await env.MEDIA_ACL.prepare("SELECT 1 FROM public_media WHERE storage_path=? AND approved=1 AND revoked_at IS NULL").bind(key).first();
   authorized=!!row;
  }
