@@ -185,3 +185,11 @@ CREATE TABLE IF NOT EXISTS "celebrations_clicks" (
   "visitor_id" TEXT
 );
 -- Auth identity mapping must be implemented independently before use of celebrations_user_profiles.
+
+-- Staging-only persistent login throttling; do not store raw passwords or IP addresses.
+CREATE TABLE IF NOT EXISTS celebrations_login_attempts (
+ identity_hash TEXT PRIMARY KEY,
+ failed_count INTEGER NOT NULL DEFAULT 0,
+ locked_until TEXT,
+ updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
