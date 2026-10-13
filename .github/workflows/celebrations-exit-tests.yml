@@ -1,0 +1,27 @@
+name: Celebrations Supabase exit staging tests
+on:
+  push:
+    branches: [feat/celebrations-supabase-exit-001]
+    paths:
+      - migration/**
+      - tests/test-exit-media-gateway.mjs
+      - tests/test_exit_export.py
+      - .github/workflows/celebrations-exit-tests.yml
+  pull_request:
+    paths:
+      - migration/**
+      - tests/test-exit-media-gateway.mjs
+      - tests/test_exit_export.py
+permissions:
+  contents: read
+jobs:
+  staging-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --test tests/test-exit-media-gateway.mjs
+      - run: python -m pip install 'requests>=2.32,<3'
+      - run: python -m unittest discover -s tests -p test_exit_export.py -v
