@@ -1,3 +1,4 @@
+import {participantIdentity} from "./audience-api.mjs";
 // Preview-only private R2 media gateway. No route deployed.
 // Bind MEDIA_BUCKET (R2) and MEDIA_ACL (D1). No public R2 bucket.
 const json=(message,status)=>new Response(JSON.stringify({error:message}),{status,headers:{"content-type":"application/json","cache-control":"no-store"}});
@@ -22,6 +23,14 @@ export async function handleMedia(request,env){
   if(key.startsWith("committee/"))return json("Not found",404);
   const row=await env.MEDIA_ACL.prepare("SELECT 1 FROM public_media WHERE storage_path=? AND approved=1 AND revoked_at IS NULL").bind(key).first();
   authorized=!!row;
+  if(!authorized&&env.DB){
+   const bearer=request.headers.get("authorization")||"";
+   const user=bearer.startsWith("Bearer ")?await participantIdentity(env,bearer.slice(7)):null;
+   if(["angel","nonangel"].includes(user?.audience)){
+    const match=await env.DB.prepare("SELECT 1 FROM celebrations_contents WHERE (storage_path=? OR cover_storage_path=?) AND audience=? LIMIT 1").bind(key,key,user.audience).first();
+    authorized=!!match;
+   }
+  }
  }
  if(!authorized)return json("Not found",404);
  const range=request.headers.get("range");
@@ -35,7 +44,7 @@ export async function handleMedia(request,env){
  headers.set("accept-ranges","bytes");
  headers.set("etag",object.httpEtag||"");
  headers.set("x-content-type-options","nosniff");
- headers.set("cache-control",committee?"no-store":"private, max-age=60");
+ headers.set("cache-control","no-store");
  if(range&&object.range){
   const offset=object.range.offset??0;
   const length=object.range.length??object.size;
