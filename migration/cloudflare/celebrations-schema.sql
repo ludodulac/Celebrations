@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS "celebrations_steps" (
   "sort_order" INTEGER NOT NULL DEFAULT 0,
   FOREIGN KEY ("celebration_id") REFERENCES "celebrations_celebrations" ("id") ON DELETE RESTRICT
 );
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_celebrations_steps_unique" ON "celebrations_steps" ("celebration_id","step_key");
 CREATE INDEX IF NOT EXISTS "idx_celebrations_steps_celebration_id" ON "celebrations_steps" ("celebration_id");
 CREATE TABLE IF NOT EXISTS "celebrations_events" (
   "id" TEXT NOT NULL,
