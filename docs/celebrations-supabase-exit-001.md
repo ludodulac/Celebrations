@@ -10,7 +10,7 @@
 1. `migration/cloudflare/media-gateway.mjs`: non-deployed Worker-compatible **private R2** read gateway. Deny by default; public media requires explicit ACL approval; committee documents resolved by revocable slug only, not raw committee object keys; HTTP HEAD and single Range requests, partial 206 responses, private/no-store cache headers. No browser R2 credentials.
 2. `migration/cloudflare/media-acl.sql`: **candidate only** SQLite-compatible ACL schema with explicit approval flags defaulting to false. This does not assert full PostgreSQL-to-D1 compatibility and must not be applied without separate authorization.
 3. `migration/export_celebrations_readonly.py`: read-only, paginated JSON export of all 16 Celebrations tables to a newly created private directory, restrictive permissions, SHA-256 manifest, no automatic uploads or overwrite. Includes sensitive account and hash records: **never commit or publish generated output**. Not executed against live user data in this mission.
-4. Node and Python tests plus GitHub Actions CI; no secrets or real media required.
+4. `migration/stage_export_sqlite.py`: offline, SHA-256-validated staging import of the 16 exported JSON datasets into SQLite with one JSON row per source row. This is a lossless **rehearsal archive**, not a compatible replacement relational schema.\n5. Node and Python tests plus GitHub Actions CI; no secrets or real media required.
 
 ## Remaining functional parity work (blocking production)
 - Decide database target after a **real schema compatibility check** covering 16 tables, keys, foreign keys, unique constraints, defaults, sequences, triggers, indexes, date/time and transaction behavior. D1 is NOT approved as a full data target by this document.
