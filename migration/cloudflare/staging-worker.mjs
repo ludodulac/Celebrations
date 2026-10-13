@@ -3,6 +3,7 @@ import {handleMediaAdmin} from "./media-admin-api.mjs";
 import {handleMedia} from "./media-gateway.mjs";
 import {handleAuth} from "./auth-api.mjs";
 import {handleAudience} from "./audience-api.mjs";
+import {handleSafeSave} from "./safe-save-api.mjs";
 import {handleAdmin} from "./admin-api.mjs";
 import {handlePublicData} from "./public-data-api.mjs";
 export default {
@@ -12,6 +13,7 @@ export default {
   if(path==="/api/auth")return handleAuth(request,env);
   if(path==="/api/audience")return handleAudience(request,env);
   if(path==="/api/media-admin")return handleMediaAdmin(request,env);
+  if(path==="/api/safe-save")return handleSafeSave(request,env);
   if(path==="/api/admin")return handleAdmin(request,env);
   if(path==="/api/public-data")return handlePublicData(request,env);
   if((request.method==="GET"||request.method==="HEAD")&&env.ASSETS)return env.ASSETS.fetch(request);
