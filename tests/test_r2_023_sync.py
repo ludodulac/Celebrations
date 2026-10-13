@@ -1,5 +1,5 @@
 import unittest,io,sys,types
-from unittest.mock import Mock
+from unittest.mock import Mock,patch
 try:
  import requests,boto3
 except ImportError:
@@ -30,7 +30,7 @@ class Tests(unittest.TestCase):
   from scripts import r2_023_sync as m
   self.assertIn('CONFIRM_COPY',inspect.getsource(m.main))
  def test_new_copy_and_verification(self):
-  self.assertEqual(sync_one(self.s,self.r,"https://x","a.mp3",5,{},True),"COPIED_VERIFIED")
+  self.assertEqual(sync_one(self.s,self.r,"https://x","a.mp3",5,{},True),"COPIED_UNCERTIFIED_ATOMICITY")
   self.assertEqual(self.r.put_object.call_args.kwargs["IfNoneMatch"],"*")
   self.r.get_object.assert_called_once()
  def test_identical_idempotent(self):
@@ -50,6 +50,19 @@ class Tests(unittest.TestCase):
   with self.assertRaises(Conflict):sync_one(self.s,self.r,"https://x","a.mp3",5,{},True)
  def test_retry_after_copy(self):
   self.assertEqual(sync_one(self.s,self.r,"https://x","a.mp3",5,{"a.mp3":5},True),"IDENTICAL")
+ def test_source_changed_during_download(self):
+  self.s.head.side_effect=[Mock(headers={"ETag":"v1","Content-Length":"5"},raise_for_status=lambda:None),Mock(headers={"ETag":"v2","Content-Length":"5"},raise_for_status=lambda:None)]
+  with self.assertRaises(Exception):sync_one(self.s,self.r,"https://x","a.mp3",5,{},True)
+  self.r.put_object.assert_not_called()
+ def test_source_deleted_during_download(self):
+  self.s.head.side_effect=[Mock(headers={"ETag":"v1","Content-Length":"5"},raise_for_status=lambda:None),RuntimeError("source removed")]
+  with self.assertRaises(RuntimeError):sync_one(self.s,self.r,"https://x","a.mp3",5,{},True)
+  self.r.put_object.assert_not_called()
+ def test_source_change_before_write(self):
+  seq=[{"ETag":"v1","Content-Length":"5"}]*3+[{"ETag":"v2","Content-Length":"5"}]
+  self.s.head.side_effect=[Mock(headers=x,raise_for_status=lambda:None) for x in seq]
+  with self.assertRaises(Exception):sync_one(self.s,self.r,"https://x","a.mp3",5,{},True)
+  self.r.put_object.assert_not_called()
  def test_no_delete_apis(self):
   import inspect
   from scripts import r2_023_sync as m
