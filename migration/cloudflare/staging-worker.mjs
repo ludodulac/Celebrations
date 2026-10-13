@@ -14,6 +14,7 @@ export default {
   if(path==="/api/media-admin")return handleMediaAdmin(request,env);
   if(path==="/api/admin")return handleAdmin(request,env);
   if(path==="/api/public-data")return handlePublicData(request,env);
+  if((request.method==="GET"||request.method==="HEAD")&&env.ASSETS)return env.ASSETS.fetch(request);
   return new Response("Not found",{status:404,headers:{"cache-control":"no-store"}});
  }
 };
