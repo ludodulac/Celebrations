@@ -12,7 +12,7 @@ on:
       - tests/test_r2_023_sync.py
       - .github/workflows/r2-023-sync-tests.yml
 concurrency:
-  group: celebrations-r2-sync-${{ github.repository }}
+  group: celebrations-r2-sync-tests-${{ github.ref }}
   cancel-in-progress: false
 permissions:
   contents: read
