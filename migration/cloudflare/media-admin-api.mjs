@@ -21,6 +21,17 @@ export async function handleMediaAdmin(request,env){
    if(!stored||stored.size!==length)return json({ok:false,error:"Upload not verified"},503);
    return json({ok:true,key,size:length});
   }
+  if(action==="committee-finish"){
+   const id=url.searchParams.get("id"),slug=url.searchParams.get("slug"),key=url.searchParams.get("key"),name=url.searchParams.get("name")||"document.pdf";
+   if(!id||id.length>128||!slug||slug.length>160||!safe(key)||!key.startsWith("committee/")||name.length>255)return json({ok:false,error:"Invalid document"},400);
+   const object=await env.MEDIA_BUCKET.head(key);
+   if(!object||object.size<=0||object.httpMetadata?.contentType!=="application/pdf")return json({ok:false,error:"PDF not verified"},409);
+   await env.DB.batch([
+    env.DB.prepare("INSERT INTO celebrations_committee_letters(id,title,file_name,storage_path,mime_type,slug) VALUES(?,?,?,?,?,?)").bind(id,name.replace(/\\.pdf$/i,""),name,key,"application/pdf",slug),
+    env.DB.prepare("INSERT INTO committee_media(slug,storage_path,published,revoked_at) VALUES(?,?,1,NULL)").bind(slug,key)
+   ]);
+   return json({ok:true,id,slug});
+  }
   if(action==="revoke-committee"){
    const slug=url.searchParams.get("slug");
    if(!slug||slug.length>160)return json({ok:false,error:"Invalid slug"},400);
