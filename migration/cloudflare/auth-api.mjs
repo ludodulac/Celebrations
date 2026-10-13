@@ -24,7 +24,7 @@ export async function authorize(request,env,admin=false){
 
 const validEmail=v=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)&&v.length<=254;
 const questions=new Set(["first_school","memorable_teacher","childhood_book","childhood_game","memorable_trip_city","dream_destination","fictional_character","favorite_childhood_dish"]);
-const answer=v=>String(v||"").trim().toLowerCase().replace(/\s+/g," ");
+const answer=v=>String(v||"").trim().toLocaleLowerCase("fr-FR").normalize("NFKC");
 async function blocked(db,key){
  const row=await db.prepare("SELECT locked_until FROM celebrations_login_attempts WHERE identity_hash=?").bind(await sha256(key)).first();
  return !!row?.locked_until&&Date.parse(row.locked_until)>Date.now();
