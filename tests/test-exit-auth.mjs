@@ -5,16 +5,19 @@ import {handleAdmin} from "../migration/cloudflare/admin-api.mjs";
 const request=(action,payload={})=>new Request("https://staging/api/auth",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action,...payload})});
 function fakeDb(participant){
  const calls=[];
- return {calls,prepare(sql){return {bind(...args){calls.push({sql,args});return {
- async first(){
-  if(sql.includes("FROM celebrations_participants"))return participant||null;
-  if(sql.includes("FROM celebrations_participant_sessions"))return null;
-  if(sql.includes("FROM celebrations_admin_sessions"))return null;
-  return null;
- },
- async run(){return {success:true}},
- async all(){return {results:[]}}
- }}},async all(){return {results:[]}}}}};
+ return {calls,prepare(sql){
+  return {bind(...args){
+   calls.push({sql,args});
+   return {
+    async first(){
+     if(sql.includes("FROM celebrations_participants"))return participant||null;
+     return null;
+    },
+    async run(){return {success:true}},
+    async all(){return {results:[]}}
+   };
+  },async all(){return {results:[]}}};
+ }};
 }
 test("legacy PBKDF2 SHA256 matches WebCrypto",async()=>{assert.equal((await pbkdf("correct-horse","salt")).length,64);assert.equal(await pbkdf("correct-horse","salt"),await pbkdf("correct-horse","salt"));assert.notEqual(await pbkdf("wrong","salt"),await pbkdf("correct-horse","salt"))});
 test("participant login succeeds and stores hash not raw token",async()=>{const password="test-password-123",salt="test-salt";const db=fakeDb({password_salt:salt,password_hash:await pbkdf(password,salt)});const r=await handleAuth(request("participant_login",{email:"USER@TEST.EXAMPLE",password}),{DB:db});const body=await r.json();assert.equal(body.ok,true);assert.equal(body.token.length,64);const insert=db.calls.find(x=>x.sql.includes("INSERT INTO celebrations_participant_sessions"));assert.ok(insert);assert.equal(insert.args[0],await sha256(body.token));assert.equal(insert.args[1],"user@test.example")});
