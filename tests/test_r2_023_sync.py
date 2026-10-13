@@ -30,7 +30,7 @@ class Tests(unittest.TestCase):
   from scripts import r2_023_sync as m
   self.assertIn('CONFIRM_COPY',inspect.getsource(m.main))
  def test_new_copy_and_verification(self):
-  self.assertEqual(sync_one(self.s,self.r,"https://x","a.mp3",5,{},True),"COPIED_UNCERTIFIED_ATOMICITY")
+  self.assertEqual(sync_one(self.s,self.r,"https://x","a.mp3",5,{},True),"CONTENT_VERIFIED")
   self.assertEqual(self.r.put_object.call_args.kwargs["IfNoneMatch"],"*")
   self.r.get_object.assert_called_once()
  def test_identical_idempotent(self):
@@ -63,6 +63,20 @@ class Tests(unittest.TestCase):
   self.s.head.side_effect=[Mock(headers=x,raise_for_status=lambda:None) for x in seq]
   with self.assertRaises(Exception):sync_one(self.s,self.r,"https://x","a.mp3",5,{},True)
   self.r.put_object.assert_not_called()
+ def test_concurrent_same_content_conditional_conflict(self):
+  from botocore.exceptions import ClientError
+  self.r.put_object.side_effect=ClientError({"Error":{"Code":"PreconditionFailed","Message":"raced"}},"PutObject")
+  self.assertEqual(sync_one(self.s,self.r,"https://x","a.mp3",5,{},True),"IDENTICAL_RACE_VERIFIED")
+ def test_concurrent_different_content_conflict(self):
+  from botocore.exceptions import ClientError
+  self.r.put_object.side_effect=ClientError({"Error":{"Code":"PreconditionFailed","Message":"raced"}},"PutObject")
+  self.r.get_object.return_value={"Body":Mock(iter_chunks=lambda chunk_size:iter([b"wrong"]),close=lambda:None)}
+  with self.assertRaises(Conflict):sync_one(self.s,self.r,"https://x","a.mp3",5,{},True)
+ def test_outside_github_copy_refused(self):
+  import os
+  from scripts.r2_023_sync import main
+  with patch.dict(os.environ,{"DRY_RUN":"false","CONFIRM_COPY":"COPY","GITHUB_ACTIONS":"false"}):
+   with self.assertRaises(RuntimeError):main()
  def test_no_delete_apis(self):
   import inspect
   from scripts import r2_023_sync as m
