@@ -9,7 +9,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: celebrations-r2-copy
+  group: celebrations-r2-sync-${{ github.repository }}
   cancel-in-progress: false
 jobs:
   copy:
