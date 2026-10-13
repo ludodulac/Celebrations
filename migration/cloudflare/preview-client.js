@@ -23,6 +23,25 @@
   return {data:{ok:false,error:"Staging operation not implemented"},error:null};
  };
  window.celebrationsSupabase={functions:{invoke},storage:{from(){return {uploadToSignedUrl:async()=>({error:new Error("Use R2 staging uploader")})}}}};
+ const hex=a=>[...a].map(x=>x.toString(16).padStart(2,"0")).join("");
+ const random=()=>hex(crypto.getRandomValues(new Uint8Array(16)));
+ window.celebrationsStagingCommitteeUpload=async file=>{
+  if(file.size<=0||file.size>20*1024*1024||!file.name.toLowerCase().endsWith(".pdf"))throw new Error("PDF invalide ou trop volumineux");
+  const id=random(),slug=random(),key="committee/"+random()+".pdf";
+  const r=await fetch(base+"/api/media-admin?action=upload&key="+encodeURIComponent(key),{method:"POST",headers:{authorization:"Bearer "+adminToken(),"content-type":"application/pdf"},body:file.slice(0,file.size,"application/pdf")});
+  const uploaded=await r.json();if(!r.ok||!uploaded.ok)throw new Error(uploaded.error||"Upload R2 impossible");
+  const finish=await post("/api/media-admin?action=committee-finish&id="+encodeURIComponent(id)+"&slug="+encodeURIComponent(slug)+"&key="+encodeURIComponent(key)+"&name="+encodeURIComponent(file.name),{},true);
+  if(!finish.data?.ok)throw new Error(finish.data?.error||"Publication impossible");
+  return finish.data;
+ };
+ window.celebrationsStagingCommitteeRevoke=async id=>{
+  const rows=await post("/api/admin",{action:"list",table:"celebrations_committee_letters"},true);
+  const row=rows.data?.items?.find(x=>String(x.id)===String(id));
+  if(!row?.slug)throw new Error("Document introuvable");
+  const result=await post("/api/media-admin?action=revoke-committee&slug="+encodeURIComponent(row.slug),{},true);
+  if(!result.data?.ok)throw new Error(result.data?.error||"Révocation impossible");
+  return result.data;
+ };
  window.celebrationsStagingData=async table=>{
   const token=localStorage.getItem("celebrations-participant-token")||"";
   const r=await fetch(base+"/api/public-data?table="+encodeURIComponent(table),{headers:token?{authorization:"Bearer "+token}:{}});
