@@ -1,0 +1,63 @@
+name: R2-027 controlled sync (manual)
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Keep true unless a separately authorized controlled copy"
+        type: choice
+        options: ["true", "false"]
+        default: "true"
+        required: true
+      confirm_copy:
+        description: "For real copy, type COPY; otherwise leave empty"
+        type: string
+        default: ""
+        required: false
+  push:
+    branches: [feat/r2-019-safe-preparation]
+    paths:
+      - .github/workflows/r2-027-controlled-sync.yml
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-r2-sync-${{ github.repository }}
+  cancel-in-progress: false
+jobs:
+  controlled-sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      DRY_RUN: ${{ github.event_name == 'push' && 'true' || inputs.dry_run }}
+      CONFIRM_COPY: ${{ github.event_name == 'push' && '' || inputs.confirm_copy }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate mode and secret presence (no values)
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY R2_ENDPOINT R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY; do
+            if [[ -z "${!name:-}" ]]; then echo "Missing required secret: $name"; exit 1; fi
+          done
+          if [[ "$DRY_RUN" != "true" && "$DRY_RUN" != "false" ]]; then echo "Invalid mode"; exit 1; fi
+          if [[ "$DRY_RUN" == "false" ]]; then
+            if [[ "$CONFIRM_COPY" != "COPY" || "${GITHUB_REF}" != "refs/heads/main" || "${GITHUB_EVENT_NAME}" != "workflow_dispatch" ]]; then
+              echo "Live copy not authorized in this workflow context"; exit 1
+            fi
+          fi
+      - name: Install dependencies
+        run: python -m pip install 'boto3>=1.35,<2' 'requests>=2.32,<3'
+      - name: Execute integrated sync
+        run: python scripts/r2_023_sync.py
+      - name: Upload counts-only report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r2-027-sync-report
+          path: r2-023-sync-report.json
+          if-no-files-found: warn
+          retention-days: 7
