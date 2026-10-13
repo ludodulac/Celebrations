@@ -45,6 +45,8 @@ export async function handleMediaAdmin(request,env){
    if(!safe(key)||key.startsWith("committee/"))return json({ok:false,error:"Committee requires revocation"},400);
    const row=await env.DB.prepare("SELECT 1 FROM public_media WHERE storage_path=? AND approved=1 AND revoked_at IS NULL").bind(key).first();
    if(row)return json({ok:false,error:"Revoke access before deletion"},409);
+   const used=await env.DB.prepare("SELECT 1 FROM celebrations_contents WHERE storage_path=? OR cover_storage_path=? LIMIT 1").bind(key,key).first();
+   if(used)return json({ok:false,error:"Unlink content before deleting media"},409);
    await env.MEDIA_BUCKET.delete(key);
    if(await env.MEDIA_BUCKET.head(key))return json({ok:false,error:"Storage deletion not verified"},503);
    return json({ok:true,deleted:true});
