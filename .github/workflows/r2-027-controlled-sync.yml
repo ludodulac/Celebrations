@@ -1,4 +1,5 @@
 name: R2-027 controlled sync (manual)
+# Push on preparation branch runs DRY_RUN only; manual copy requires main + confirmation.
 on:
   workflow_dispatch:
     inputs:
