@@ -1,0 +1,23 @@
+# Célébrations staging deployment (NOT deployed)
+# Copy to wrangler.toml after assigning a NEW staging-only D1 database and private R2 bucket.
+# Never bind production resources to unreviewed staging code.
+name = "celebrations-exit-staging"
+main = "staging-worker.mjs"
+compatibility_date = "2026-10-13"
+workers_dev = true
+
+# Required bindings (fill in after separate staging resources are created):
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "celebrations-exit-staging"
+# database_id = "STAGING_DATABASE_ID"
+# [[d1_databases]]
+# binding = "MEDIA_ACL"
+# database_name = "celebrations-exit-staging"
+# database_id = "STAGING_DATABASE_ID"
+# [[r2_buckets]]
+# binding = "MEDIA_BUCKET"
+# bucket_name = "STAGING_PRIVATE_BUCKET"
+
+# Set ADMIN_PASSWORD_HASH and ADMIN_PASSWORD_SALT as protected secrets.
+# Do not expose real participant exports or production admin passwords.
