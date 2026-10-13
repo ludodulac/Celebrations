@@ -34,8 +34,8 @@ export async function handleAdmin(request,env){
    if(table==="celebrations_participants")return json({ok:true,items:(rows.results||[]).map(({email,audience})=>({email,audience}))});
    return json({ok:true,items:rows.results||[]});
   }
-  if(!pk.every(k=>Object.hasOwn(b.key||{},k)))return json({ok:false,error:"Missing primary key"},400);
-  const where=pk.map(k=>quoted(k)+"=?").join(" AND "),values=pk.map(k=>b.key[k]);
+  if(action!=="create"&&!pk.every(k=>Object.hasOwn(b.key||{},k)))return json({ok:false,error:"Missing primary key"},400);
+  const where=pk.map(k=>quoted(k)+"=?").join(" AND "),values=pk.map(k=>b.key?.[k]);
   if(action==="create"){
    if(!pk.every(k=>Object.hasOwn(data,k)))return json({ok:false,error:"Missing primary key fields"},400);
    await env.DB.prepare(`INSERT INTO "${table}" (${keys.map(quoted).join(",")}) VALUES (${keys.map(()=>"?").join(",")})`).bind(...keys.map(k=>data[k])).run();
