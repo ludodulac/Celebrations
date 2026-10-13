@@ -25,6 +25,19 @@
  window.celebrationsSupabase={functions:{invoke},storage:{from(){return {uploadToSignedUrl:async()=>({error:new Error("Use R2 staging uploader")})}}}};
  const hex=a=>[...a].map(x=>x.toString(16).padStart(2,"0")).join("");
  const random=()=>hex(crypto.getRandomValues(new Uint8Array(16)));
+ window.celebrationsStagingUpload=async file=>{
+  if(!file||!file.size||file.size>20*1024*1024)throw new Error("Fichier invalide ou trop volumineux");
+  const key="media/"+random();
+  const type=file.type||"application/octet-stream";
+  const response=await fetch(base+"/api/media-admin?action=upload&key="+encodeURIComponent(key),{method:"POST",headers:{authorization:"Bearer "+adminToken(),"content-type":type},body:file});
+  const data=await response.json();if(!response.ok||!data.ok)throw new Error(data.error||"Upload impossible");
+  return key;
+ };
+ window.celebrationsStagingDelete=async key=>{
+  const result=await post("/api/media-admin?action=delete&key="+encodeURIComponent(key),{},true);
+  if(!result.data?.ok)throw new Error(result.data?.error||"Suppression impossible");
+  return result.data;
+ };
  window.celebrationsStagingCommitteeUpload=async file=>{
   if(file.size<=0||file.size>20*1024*1024||!file.name.toLowerCase().endsWith(".pdf"))throw new Error("PDF invalide ou trop volumineux");
   const id=random(),slug=random(),key="committee/"+random()+".pdf";
