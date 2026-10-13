@@ -8,7 +8,11 @@ import {handleAdmin} from "./admin-api.mjs";
 import {handlePublicData} from "./public-data-api.mjs";
 export default {
  async fetch(request,env){
-  const path=new URL(request.url).pathname;
+  const url=new URL(request.url),path=url.pathname;
+  if((path==="/"||path==="/index.html"||path==="/admin.html")&&!url.searchParams.has("staging")){
+   url.searchParams.set("staging","1");
+   return Response.redirect(url.toString(),302);
+  }
   if(path.startsWith("/media/")||path.startsWith("/letter/"))return handleMedia(request,env);
   if(path==="/api/auth")return handleAuth(request,env);
   if(path==="/api/audience")return handleAudience(request,env);
