@@ -6,7 +6,7 @@ on:
       - migration/**
       - tests/test-exit-media-gateway.mjs
       - tests/test-exit-public-data.mjs
-      - tests/test-exit-auth.mjs
+      - tests/test-exit-auth.mjs tests/test-exit-staging-integration.mjs
       - tests/test_exit_export.py
       - .github/workflows/celebrations-exit-tests.yml
   pull_request:
