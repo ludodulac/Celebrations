@@ -1,6 +1,7 @@
 import unittest,tempfile,pathlib,json,sqlite3
 from unittest.mock import Mock
 from migration.export_celebrations_readonly import fetch_table,export,TABLES
+from migration.stage_export_sqlite import stage
 class TestExport(unittest.TestCase):
  def test_pagination(self):
   s=Mock();a=Mock();a.json.return_value=[{"id":1},{"id":2}];b=Mock();b.json.return_value=[{"id":3}]
@@ -20,6 +21,23 @@ class TestExport(unittest.TestCase):
    self.assertEqual(len(m["tables"]),16)
    self.assertEqual((p/"manifest.json").stat().st_mode & 0o777,0o600)
    with self.assertRaises(RuntimeError):export(s,"https://example",p)
+ def test_offline_staging_import(self):
+  s=Mock();r=Mock();r.json.return_value=[{"id":1,"value":"été"}];s.get.return_value=r
+  with tempfile.TemporaryDirectory() as d:
+   p=pathlib.Path(d)/"private"
+   export(s,"https://example",p)
+   result=stage(p,pathlib.Path(d)/"staging.sqlite")
+   self.assertEqual(result["tables"],16)
+   self.assertEqual(result["rows"],16)
+   db=sqlite3.connect(pathlib.Path(d)/"staging.sqlite")
+   self.assertEqual(db.execute("SELECT COUNT(*) FROM staging_rows").fetchone()[0],16)
+ def test_staging_detects_tampering(self):
+  s=Mock();r=Mock();r.json.return_value=[];s.get.return_value=r
+  with tempfile.TemporaryDirectory() as d:
+   p=pathlib.Path(d)/"private"
+   export(s,"https://example",p)
+   (p/"celebrations_contents.json").write_text("[1]")
+   with self.assertRaises(RuntimeError):stage(p,pathlib.Path(d)/"bad.sqlite")
  def test_acl_schema_deny_by_default(self):
   sql=pathlib.Path("migration/cloudflare/media-acl.sql").read_text()
   db=sqlite3.connect(":memory:");db.executescript(sql)
