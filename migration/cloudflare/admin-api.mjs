@@ -30,7 +30,7 @@ export async function handleAdmin(request,env){
  const quoted=x=>'"'+x+'"';
  try{
   if(action==="list"){
-   const rows=await env.DB.prepare(`SELECT * FROM "${table}" LIMIT 1000`).all();
+   const rows=await env.DB.prepare(table==="celebrations_committee_letters"?"SELECT c.* FROM celebrations_committee_letters c JOIN committee_media m ON m.slug=c.slug WHERE m.published=1 AND m.revoked_at IS NULL LIMIT 1000":`SELECT * FROM "${table}" LIMIT 1000`).all();
    if(table==="celebrations_participants")return json({ok:true,items:(rows.results||[]).map(({email,audience})=>({email,audience}))});
    return json({ok:true,items:rows.results||[]});
   }
