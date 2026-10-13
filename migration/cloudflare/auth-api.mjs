@@ -21,6 +21,19 @@ export async function authorize(request,env,admin=false){
  if(!bearer.startsWith("Bearer "))return null;
  return readSession(env.DB,bearer.slice(7),admin);
 }
+
+const validEmail=v=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)&&v.length<=254;
+const questions=new Set(["first_school","memorable_teacher","childhood_book","childhood_game","memorable_trip_city","dream_destination","fictional_character","favorite_childhood_dish"]);
+const answer=v=>String(v||"").trim().toLowerCase().replace(/\s+/g," ");
+async function blocked(db,key){
+ const row=await db.prepare("SELECT locked_until FROM celebrations_login_attempts WHERE identity_hash=?").bind(await sha256(key)).first();
+ return !!row?.locked_until&&Date.parse(row.locked_until)>Date.now();
+}
+async function failure(db,key){
+ const hash=await sha256(key);
+ await db.prepare("INSERT INTO celebrations_login_attempts(identity_hash,failed_count,locked_until,updated_at) VALUES(?,1,NULL,?) ON CONFLICT(identity_hash) DO UPDATE SET failed_count=CASE WHEN updated_at<? THEN 1 ELSE failed_count+1 END,locked_until=CASE WHEN updated_at<? THEN NULL WHEN failed_count>=4 THEN ? ELSE locked_until END,updated_at=?").bind(hash,now(),new Date(Date.now()-3600000).toISOString(),new Date(Date.now()-3600000).toISOString(),new Date(Date.now()+900000).toISOString(),now()).run();
+}
+async function reset(db,key){await db.prepare("DELETE FROM celebrations_login_attempts WHERE identity_hash=?").bind(await sha256(key)).run()}
 export async function handleAuth(request,env){
  if(request.method!=="POST")return result({ok:false,error:"Method not allowed"},405);
  if(!env.DB)return result({ok:false,error:"Database unavailable"},503);
@@ -34,10 +47,12 @@ export async function handleAuth(request,env){
   }
   if(action==="participant_login"){
    const e=email(b.email),password=String(b.password||"");
+   if(!validEmail(e)||await blocked(env.DB,"participant:"+e))return result({ok:false,error:"Réessayez plus tard."},429);
    const row=await env.DB.prepare("SELECT password_salt,password_hash FROM celebrations_participants WHERE email=?").bind(e).first();
    const expected=row?.password_hash||"0".repeat(64);
    const computed=await pbkdf(password,row?.password_salt||"invalid-salt");
-   if(!equal(computed,expected))return result({ok:false,error:"Identifiants incorrects."},401);
+   if(!equal(computed,expected)){await failure(env.DB,"participant:"+e);return result({ok:false,error:"Identifiants incorrects."},401)}
+   await reset(env.DB,"participant:"+e);
    const raw=token(),expires=new Date(Date.now()+30*24*3600*1000).toISOString();
    await env.DB.prepare("INSERT INTO celebrations_participant_sessions(token_hash,participant_email,expires_at) VALUES(?,?,?)").bind(await sha256(raw),e,expires).run();
    return result({ok:true,token:raw,email:e,expires_at:expires});
@@ -53,8 +68,10 @@ export async function handleAuth(request,env){
   }
   if(action==="admin_login"){
    if(!env.ADMIN_PASSWORD_HASH||!env.ADMIN_PASSWORD_SALT)return result({ok:false,error:"Admin not configured"},503);
+   if(await blocked(env.DB,"admin"))return result({ok:false,error:"Réessayez plus tard."},429);
    const computed=await pbkdf(String(b.password||""),env.ADMIN_PASSWORD_SALT);
-   if(!equal(computed,env.ADMIN_PASSWORD_HASH))return result({ok:false,error:"Identifiants incorrects."},401);
+   if(!equal(computed,env.ADMIN_PASSWORD_HASH)){await failure(env.DB,"admin");return result({ok:false,error:"Identifiants incorrects."},401)}
+   await reset(env.DB,"admin");
    const raw=token(),expires=new Date(Date.now()+12*3600*1000).toISOString();
    await env.DB.prepare("INSERT INTO celebrations_admin_sessions(token_hash,admin_email,expires_at) VALUES(?,?,?)").bind(await sha256(raw),email(b.email),expires).run();
    return result({ok:true,token:raw,expires_at:expires});
@@ -67,6 +84,40 @@ export async function handleAuth(request,env){
    if(typeof b.admin_token==="string"&&b.admin_token.length>=32)
     await env.DB.prepare("DELETE FROM celebrations_admin_sessions WHERE token_hash=?").bind(await sha256(b.admin_token)).run();
    return result({ok:true});
+  }
+
+  if(action==="participant_register"){
+   const e=email(b.email),password=String(b.password||""),q1=String(b.question_1||""),q2=String(b.question_2||""),a1=answer(b.answer_1),a2=answer(b.answer_2);
+   if(!validEmail(e)||password.length<8||password.length>256||!questions.has(q1)||!questions.has(q2)||q1===q2||a1.length<2||a2.length<2)return result({ok:false,error:"Inscription invalide"},400);
+   if(await blocked(env.DB,"register:"+e))return result({ok:false,error:"Réessayez plus tard"},429);
+   const ps=token(),s1=token(),s2=token();
+   const [ph,h1,h2]=await Promise.all([pbkdf(password,ps),pbkdf(a1,s1),pbkdf(a2,s2)]);
+   const updated=await env.DB.prepare("UPDATE celebrations_participants SET password_salt=?,password_hash=?,question_1=?,answer_1_salt=?,answer_1_hash=?,question_2=?,answer_2_salt=?,answer_2_hash=?,registered_at=?,updated_at=? WHERE email=? AND password_hash IS NULL").bind(ps,ph,q1,s1,h1,q2,s2,h2,now(),now(),e).run();
+   if(!updated.meta?.changes){await failure(env.DB,"register:"+e);return result({ok:false,error:"Compte indisponible"},403)}
+   await reset(env.DB,"register:"+e);return result({ok:true});
+  }
+  if(action==="recovery_questions"){
+   const e=email(b.email);
+   if(!validEmail(e)||await blocked(env.DB,"recovery:"+e))return result({ok:false,error:"Réessayez plus tard"},429);
+   const row=await env.DB.prepare("SELECT question_1,question_2,password_hash,recovery_locked_until FROM celebrations_participants WHERE email=?").bind(e).first();
+   if(!row?.password_hash||!row.question_1||!row.question_2)return result({ok:false,error:"Compte indisponible"},404);
+   if(row.recovery_locked_until&&Date.parse(row.recovery_locked_until)>Date.now())return result({ok:false,error:"Réessayez plus tard"},429);
+   return result({ok:true,question_1:row.question_1,question_2:row.question_2});
+  }
+  if(action==="recover_password"){
+   const e=email(b.email),password=String(b.password||""),a1=answer(b.answer_1),a2=answer(b.answer_2);
+   if(!validEmail(e)||password.length<8||password.length>256||!a1||!a2)return result({ok:false,error:"Demande invalide"},400);
+   if(await blocked(env.DB,"recovery:"+e))return result({ok:false,error:"Réessayez plus tard"},429);
+   const row=await env.DB.prepare("SELECT answer_1_salt,answer_1_hash,answer_2_salt,answer_2_hash,recovery_locked_until FROM celebrations_participants WHERE email=?").bind(e).first();
+   if(row?.recovery_locked_until&&Date.parse(row.recovery_locked_until)>Date.now())return result({ok:false,error:"Réessayez plus tard"},429);
+   const h1=await pbkdf(a1,row?.answer_1_salt||"invalid"),h2=await pbkdf(a2,row?.answer_2_salt||"invalid");
+   if(!equal(h1,row?.answer_1_hash)||!equal(h2,row?.answer_2_hash)){await failure(env.DB,"recovery:"+e);return result({ok:false,error:"Réponses incorrectes"},401)}
+   const salt=token(),hash=await pbkdf(password,salt);
+   await env.DB.batch([
+    env.DB.prepare("UPDATE celebrations_participants SET password_salt=?,password_hash=?,recovery_failed_count=0,recovery_locked_until=NULL,updated_at=? WHERE email=?").bind(salt,hash,now(),e),
+    env.DB.prepare("DELETE FROM celebrations_participant_sessions WHERE participant_email=?").bind(e)
+   ]);
+   await reset(env.DB,"recovery:"+e);return result({ok:true});
   }
   return result({ok:false,error:"Action not implemented"},501);
  }catch{return result({ok:false,error:"Authentication unavailable"},503)}
