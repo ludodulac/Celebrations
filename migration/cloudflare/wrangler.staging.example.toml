@@ -8,9 +8,9 @@ workers_dev = true
 
 # Static site files must be copied into a separate staging assets directory.
 # Never publish secrets, migrations, Git metadata, or scripts as assets.
-# [assets]
-# directory = "../../staging-public"
-# binding = "ASSETS"
+[assets]
+directory = "../../staging-public"
+binding = "ASSETS"
 
 # Required bindings (fill in after separate staging resources are created):
 # [[d1_databases]]
