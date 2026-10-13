@@ -11,6 +11,9 @@ on:
       - scripts/r2_023_sync.py
       - tests/test_r2_023_sync.py
       - .github/workflows/r2-023-sync-tests.yml
+concurrency:
+  group: celebrations-r2-sync-${{ github.repository }}
+  cancel-in-progress: false
 permissions:
   contents: read
 jobs:
