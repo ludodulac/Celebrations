@@ -4,7 +4,7 @@ from pathlib import Path
 import shutil
 ROOT=Path(__file__).resolve().parents[1]
 OUT=ROOT/"staging-public"
-ALLOWED={".html",".css",".js",".json",".png",".jpg",".jpeg",".webp",".svg",".ico",".gif",".woff",".woff2",".mp3",".ogg",".wav",".pdf",".txt"}
+ALLOWED={".html",".css",".js",".png",".jpg",".jpeg",".webp",".svg",".ico",".gif",".woff",".woff2",".mp3",".ogg",".wav"}
 SKIP={".git",".github","migration","tests","scripts","docs","node_modules","staging-public",".venv"}
 def main():
  if OUT.exists():shutil.rmtree(OUT)
