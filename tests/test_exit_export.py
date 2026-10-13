@@ -2,6 +2,7 @@ import unittest,tempfile,pathlib,json,sqlite3
 from unittest.mock import Mock
 from migration.export_celebrations_readonly import fetch_table,export,TABLES
 from migration.stage_export_sqlite import stage
+from migration.import_relational_sqlite import import_relational
 class TestExport(unittest.TestCase):
  def test_pagination(self):
   s=Mock();a=Mock();a.json.return_value=[{"id":1},{"id":2}];b=Mock();b.json.return_value=[{"id":3}]
@@ -38,6 +39,19 @@ class TestExport(unittest.TestCase):
    export(s,"https://example",p)
    (p/"celebrations_contents.json").write_text("[1]")
    with self.assertRaises(RuntimeError):stage(p,pathlib.Path(d)/"bad.sqlite")
+ def test_real_relational_schema_import_and_integrity(self):
+  s=Mock();r=Mock();r.json.return_value=[];s.get.return_value=r
+  with tempfile.TemporaryDirectory() as d:
+   p=pathlib.Path(d)/"private";export(s,"https://example",p)
+   target=pathlib.Path(d)/"relational.sqlite"
+   result=import_relational(p,target,"migration/cloudflare/celebrations-schema.sql")
+   self.assertEqual(result["tables"],16)
+   db=sqlite3.connect(target)
+   self.assertEqual(db.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name LIKE 'celebrations_%'").fetchone()[0],16)
+   self.assertEqual(db.execute("PRAGMA foreign_key_check").fetchall(),[])
+   db.execute("PRAGMA foreign_keys=ON")
+   with self.assertRaises(sqlite3.IntegrityError):
+    db.execute("INSERT INTO celebrations_events(id,celebration_id,step_key,title) VALUES ('orphan',999,'x','Test')")
  def test_acl_schema_deny_by_default(self):
   sql=pathlib.Path("migration/cloudflare/media-acl.sql").read_text()
   db=sqlite3.connect(":memory:");db.executescript(sql)
