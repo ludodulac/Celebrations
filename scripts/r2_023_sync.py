@@ -12,6 +12,7 @@ from botocore.config import Config
 
 BUCKET="celebrations-media"
 class Conflict(RuntimeError):pass
+class SourceChangedStop(Conflict):pass
 def digest_stream(stream, spool=None):
  h=hashlib.sha256();count=0
  for chunk in stream:
@@ -56,12 +57,13 @@ def read_source(session,base,path):
   return digest_stream(r.iter_content(chunk_size=1024*1024))
 
 def source_check(session,base,path,before,sha,size):
- if source_snapshot(session,base,path)!=before:raise SourceChanged("SOURCE_METADATA_CHANGED")
+ if source_snapshot(session,base,path)!=before:raise SourceChangedStop("SOURCE_CHANGED_STOP")
  post_sha,post_size=read_source(session,base,path)
- if (post_sha,post_size)!=(sha,size):raise SourceChanged("SOURCE_CONTENT_CHANGED")
+ if (post_sha,post_size)!=(sha,size):raise SourceChangedStop("SOURCE_CHANGED_STOP")
  if source_snapshot(session,base,path)!=before:raise SourceChanged("SOURCE_METADATA_CHANGED")
  # Source version or ETag is advisory; no atomic source snapshot is guaranteed.
- certify_snapshot(before,bytes.fromhex(sha),before,bytes.fromhex(post_sha))
+ try:certify_snapshot(before,bytes.fromhex(sha),before,bytes.fromhex(post_sha))
+ except SourceChanged as e:raise SourceChangedStop("SOURCE_CHANGED_STOP") from None
 
 def sync_one(session,client,base,path,size,destination,copy=False):
  # Recompute SHA256 for both existing and new objects, not ETag.
@@ -84,11 +86,14 @@ def sync_one(session,client,base,path,size,destination,copy=False):
   try:
    client.put_object(Bucket=BUCKET,Key=path,Body=tmp,IfNoneMatch="*",ContentType=mimetypes.guess_type(path)[0] or "application/octet-stream",Metadata={"sha256":sha})
   except ClientError as e:
-   if e.response.get("Error",{}).get("Code") in ("PreconditionFailed","412","ConditionalRequestConflict","409"):raise Conflict("CONCURRENT_OBJECT")
+   if e.response.get("Error",{}).get("Code") in ("PreconditionFailed","412","ConditionalRequestConflict","409"):
+    verify_r2(client,path,sha,size)
+    source_check(session,base,path,before,sha,size)
+    return "IDENTICAL_RACE_VERIFIED"
    raise
   verify_r2(client,path,sha,size)
   source_check(session,base,path,before,sha,size)
-  return "COPIED_UNCERTIFIED_ATOMICITY"
+  return "CONTENT_VERIFIED"
 def execute(session,client,base,copy=False):
  dest=inventory_r2(client);source=set();counts={};failures=0
  for path,size in inventory_source(session,base):
@@ -105,10 +110,11 @@ def execute(session,client,base,copy=False):
  for path in dest.keys()-source:
   # Only meaningful after a complete source inventory; no deletion ever.
   pass
- return {"mode":"COPY" if copy else "DRY_RUN","counts":counts,"failures":failures,"source_scan_complete":failures==0,"fully_certified":False,"blocker":"SOURCE_ATOMIC_SNAPSHOT_AND_CROSS_RUN_LOCK_NOT_PROVEN"}
+ return {"mode":"COPY" if copy else "DRY_RUN","counts":counts,"failures":failures,"source_scan_complete":failures==0,"CONTENT_VERIFIED":failures==0 and all(k in ("IDENTICAL","IDENTICAL_RACE_VERIFIED","CONTENT_VERIFIED","WOULD_COPY") for k in counts),"SOURCE_STABLE_DURING_CHECKS":failures==0,"ATOMIC_SNAPSHOT":False}
 def main():
  copy=os.environ.get("DRY_RUN","true").lower()=="false"
  if copy and os.environ.get("CONFIRM_COPY")!="COPY":raise RuntimeError("Explicit CONFIRM_COPY=COPY required")
+ if copy and os.environ.get("GITHUB_ACTIONS")!="true":raise RuntimeError("Live copy outside GitHub Actions is prohibited: no distributed lock")
  base=os.environ["SUPABASE_URL"].rstrip("/")
  key=os.environ["SUPABASE_SERVICE_ROLE_KEY"]
  session=requests.Session();session.headers.update({"apikey":key,"Authorization":"Bearer "+key})
