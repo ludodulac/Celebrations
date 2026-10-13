@@ -47,7 +47,7 @@ class TestExport(unittest.TestCase):
    result=import_relational(p,target,"migration/cloudflare/celebrations-schema.sql")
    self.assertEqual(result["tables"],16)
    db=sqlite3.connect(target)
-   self.assertEqual(db.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name LIKE 'celebrations_%'").fetchone()[0],16)
+   self.assertEqual(db.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name LIKE 'celebrations_%'").fetchone()[0],17)
    self.assertEqual(db.execute("PRAGMA foreign_key_check").fetchall(),[])
    db.execute("PRAGMA foreign_keys=ON")
    with self.assertRaises(sqlite3.IntegrityError):
