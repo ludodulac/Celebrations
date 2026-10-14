@@ -54,6 +54,15 @@ jobs:
           set -euo pipefail
           printf %s "$STAGING_ADMIN_HASH" | npx wrangler secret put ADMIN_PASSWORD_HASH --name celebrations-exit-staging
           printf %s "$STAGING_ADMIN_SALT" | npx wrangler secret put ADMIN_PASSWORD_SALT --name celebrations-exit-staging
+      - name: Verify isolated Wrangler assets configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'name = "celebrations-exit-staging"' migration/cloudflare/wrangler.toml
+          grep -Fq 'directory = "../../staging-public"' migration/cloudflare/wrangler.toml
+          test -f staging-public/index.html
+          test ! -d staging-public/node_modules
+          echo 'Verified staging-only config and static assets directory.'
       - name: Deploy staging Worker
         working-directory: migration/cloudflare
-        run: npx wrangler deploy
+        run: npx wrangler deploy --config wrangler.toml
