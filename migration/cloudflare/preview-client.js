@@ -9,8 +9,10 @@
    const headers={"content-type":"application/json"};
    if(admin)headers.authorization="Bearer "+adminToken();
    const response=await fetch(base+path,{method:"POST",headers,body:JSON.stringify(body),credentials:"omit"});
-   return {data:await response.json(),error:null};
-  }catch{return {data:{ok:false,error:"Staging API unavailable"},error:null}}
+   const data=await response.json();
+   // Preserve the backend error body even when the HTTP status is non-2xx.
+   return {data,error:null};
+  }catch{return {data:{ok:false,error:"Connexion au serveur de test indisponible."},error:null}}
  };
  const invoke=async(name,{body={}}={})=>{
   if(name==="celebrations-access")return post("/api/auth",body);
