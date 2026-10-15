@@ -15,6 +15,10 @@ export async function handleSafeSave(request,env){
  if(b.action!=="safe_merge")return reply({ok:false,error:"Unknown action"},400);
  const cs=Array.isArray(b.contents)?b.contents:[],gs=Array.isArray(b.groups)?b.groups:[],cels=Array.isArray(b.celebrations)?b.celebrations:[],evs=Array.isArray(b.events)?b.events:[];
  if([cs,gs,cels,evs].some(a=>a.length>1500))return reply({ok:false,error:"Payload too large"},413);
+ // Staging safety: never report a successful save when links are present but
+ // their synchronization is not implemented. This prevents silent data loss.
+ const linkCount=cels.reduce((n,c)=>n+(c.days||[]).reduce((m,d)=>m+(d.links||[]).length,0),0)+evs.reduce((n,e)=>n+(e.links||[]).length,0);
+ if(linkCount)return reply({ok:false,error:"Sauvegarde bloquée : la synchronisation des liens n’est pas encore disponible sur le site de test. Aucune modification enregistrée."},409);
  const now=new Date().toISOString(),jobs=[];
  const add=(table,fields,rows)=>jobs.push(...insert(table,fields,rows));
  add("celebrations_groups",["id","name","sort_order","is_system","updated_at"],gs.map((g,i)=>({id:text(g.id),name:text(g.name),sort_order:i,is_system:["all","angel","nonangel"].includes(text(g.id))?1:0,updated_at:now})));
