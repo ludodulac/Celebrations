@@ -13,7 +13,13 @@ export async function handleSafeSave(request,env){
   try{await env.DB.prepare("DELETE FROM celebrations_event_contents WHERE event_id=? AND content_id=?").bind(text(b.event_id),text(b.content_id)).run();return reply({ok:true,unlinked:true})}catch{return reply({ok:false,error:"Failed"},409)}
  }
  if(b.action!=="safe_merge")return reply({ok:false,error:"Unknown action"},400);
+ // A full snapshot is required: missing collections must never mean "empty".
+ if(!b||typeof b!=="object"||!["contents","groups","celebrations","events"].every(k=>Array.isArray(b[k])))
+  return reply({ok:false,error:"Sauvegarde refusée : données incomplètes."},400);
  const cs=Array.isArray(b.contents)?b.contents:[],gs=Array.isArray(b.groups)?b.groups:[],cels=Array.isArray(b.celebrations)?b.celebrations:[],evs=Array.isArray(b.events)?b.events:[];
+ const celebrationIds=new Set(cels.map(c=>Number(c.id)));
+ if(cels.some(c=>!Number.isSafeInteger(Number(c.id))||!Array.isArray(c.days))||evs.some(e=>!celebrationIds.has(Number(e.celebrationId))))
+  return reply({ok:false,error:"Sauvegarde refusée : célébration ou événements incomplets."},400);
  if([cs,gs,cels,evs].some(a=>a.length>1500))return reply({ok:false,error:"Payload too large"},413);
  // The client submits a complete snapshot. Refuse malformed link arrays so a
  // partial payload cannot accidentally remove links during reconciliation.
