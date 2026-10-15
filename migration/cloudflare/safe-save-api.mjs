@@ -19,6 +19,12 @@ export async function handleSafeSave(request,env){
  // their synchronization is not implemented. This prevents silent data loss.
  const linkCount=cels.reduce((n,c)=>n+(c.days||[]).reduce((m,d)=>m+(d.links||[]).length,0),0)+evs.reduce((n,e)=>n+(e.links||[]).length,0);
  if(linkCount)return reply({ok:false,error:"Sauvegarde bloquée : la synchronisation des liens n’est pas encore disponible sur le site de test. Aucune modification enregistrée."},409);
+ // Even an empty incoming link list cannot prove that the database has no
+ // links: a stale/incomplete client snapshot must never silently bypass guard.
+ try{
+  const existing=await env.DB.prepare("SELECT COUNT(*) AS count FROM celebrations_links").first();
+  if(Number(existing?.count||0)>0)return reply({ok:false,error:"Sauvegarde bloquée : des liens existent dans la base Cloudflare et leur synchronisation doit être terminée avant toute modification."},409);
+ }catch{return reply({ok:false,error:"Vérification des liens indisponible. Aucune modification enregistrée."},503)}
  const now=new Date().toISOString(),jobs=[];
  const add=(table,fields,rows)=>jobs.push(...insert(table,fields,rows));
  add("celebrations_groups",["id","name","sort_order","is_system","updated_at"],gs.map((g,i)=>({id:text(g.id),name:text(g.name),sort_order:i,is_system:["all","angel","nonangel"].includes(text(g.id))?1:0,updated_at:now})));
