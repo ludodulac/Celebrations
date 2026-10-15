@@ -15,16 +15,20 @@ export async function handleSafeSave(request,env){
  if(b.action!=="safe_merge")return reply({ok:false,error:"Unknown action"},400);
  const cs=Array.isArray(b.contents)?b.contents:[],gs=Array.isArray(b.groups)?b.groups:[],cels=Array.isArray(b.celebrations)?b.celebrations:[],evs=Array.isArray(b.events)?b.events:[];
  if([cs,gs,cels,evs].some(a=>a.length>1500))return reply({ok:false,error:"Payload too large"},413);
- // Staging safety: never report a successful save when links are present but
- // their synchronization is not implemented. This prevents silent data loss.
- const linkCount=cels.reduce((n,c)=>n+(c.days||[]).reduce((m,d)=>m+(d.links||[]).length,0),0)+evs.reduce((n,e)=>n+(e.links||[]).length,0);
- if(linkCount)return reply({ok:false,error:"Sauvegarde bloquée : la synchronisation des liens n’est pas encore disponible sur le site de test. Aucune modification enregistrée."},409);
- // Even an empty incoming link list cannot prove that the database has no
- // links: a stale/incomplete client snapshot must never silently bypass guard.
- try{
-  const existing=await env.DB.prepare("SELECT COUNT(*) AS count FROM celebrations_links").first();
-  if(Number(existing?.count||0)>0)return reply({ok:false,error:"Sauvegarde bloquée : des liens existent dans la base Cloudflare et leur synchronisation doit être terminée avant toute modification."},409);
- }catch{return reply({ok:false,error:"Vérification des liens indisponible. Aucune modification enregistrée."},503)}
+ // The client submits a complete snapshot. Refuse malformed link arrays so a
+ // partial payload cannot accidentally remove links during reconciliation.
+ if(cels.some(c=>(c.days||[]).some(d=>!Array.isArray(d.links)))||evs.some(e=>!Array.isArray(e.links)))
+  return reply({ok:false,error:"Snapshot de liens incomplet. Aucune modification enregistrée."},409);
+ const normalizedLinks=[];
+ for(const c of cels)for(const d of c.days||[])for(const l of d.links){
+  if(!l?.url||typeof l.url!=="string")return reply({ok:false,error:"Lien de journée invalide."},400);
+  normalizedLinks.push({celebration_id:Number(c.id),step_key:text(d.key),event_id:null,label:text(l.label),url:l.url,link_type:text(l.kind||"link")});
+ }
+ for(const e of evs)for(const l of e.links){
+  if(!l?.url||typeof l.url!=="string")return reply({ok:false,error:"Lien d’événement invalide."},400);
+  normalizedLinks.push({celebration_id:Number(e.celebrationId),step_key:text(e.dayKey),event_id:text(e.id),label:text(l.label),url:l.url,link_type:text(l.kind||"link")});
+ }
+ if(normalizedLinks.length>1500)return reply({ok:false,error:"Trop de liens."},413);
  const now=new Date().toISOString(),jobs=[];
  const add=(table,fields,rows)=>jobs.push(...insert(table,fields,rows));
  add("celebrations_groups",["id","name","sort_order","is_system","updated_at"],gs.map((g,i)=>({id:text(g.id),name:text(g.name),sort_order:i,is_system:["all","angel","nonangel"].includes(text(g.id))?1:0,updated_at:now})));
@@ -36,6 +40,10 @@ export async function handleSafeSave(request,env){
  add("celebrations_events",["id","celebration_id","step_key","title","event_time","description","audience","sort_order","updated_at"],evs.map((e,i)=>({id:text(e.id),celebration_id:Number(e.celebrationId),step_key:text(e.dayKey),title:text(e.title),event_time:e.time||null,description:text(e.description),audience:text(e.audience||"all"),sort_order:i,updated_at:now})));
  add("celebrations_step_contents",["celebration_id","step_key","content_id","sort_order"],cels.flatMap(c=>(c.days||[]).flatMap(d=>ids(d.contentIds).map((id,i)=>({celebration_id:Number(c.id),step_key:text(d.key),content_id:id,sort_order:i})))));
  add("celebrations_event_contents",["event_id","content_id","sort_order"],evs.flatMap(e=>ids(e.contentIds).map((id,i)=>({event_id:text(e.id),content_id:id,sort_order:i}))));
+ // Replace only links belonging to celebrations included in this snapshot.
+ // D1 batch commits deletions and inserts together, avoiding partial writes.
+ for(const c of cels)jobs.push({sql:"DELETE FROM celebrations_links WHERE celebration_id=?",args:[Number(c.id)]});
+ normalizedLinks.forEach((l,i)=>jobs.push({sql:"INSERT INTO celebrations_links (celebration_id,step_key,event_id,label,url,link_type,sort_order) VALUES (?,?,?,?,?,?,?)",args:[l.celebration_id,l.step_key,l.event_id,l.label,l.url,l.link_type,i]}));
  if(jobs.length>2000)return reply({ok:false,error:"Too many changes"},413);
  try{
   // D1 batch is transactional: either all statements commit or none.
