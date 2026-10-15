@@ -20,13 +20,15 @@ export async function handleSafeSave(request,env){
  if(cels.some(c=>(c.days||[]).some(d=>!Array.isArray(d.links)))||evs.some(e=>!Array.isArray(e.links)))
   return reply({ok:false,error:"Snapshot de liens incomplet. Aucune modification enregistrée."},409);
  const normalizedLinks=[];
- for(const c of cels)for(const d of c.days||[])for(const l of d.links){
-  if(!l?.url||typeof l.url!=="string")return reply({ok:false,error:"Lien de journée invalide."},400);
-  normalizedLinks.push({celebration_id:Number(c.id),step_key:text(d.key),event_id:null,label:text(l.label),url:l.url,link_type:text(l.kind||"link")});
+ for(const c of cels)for(const d of c.days||[]){
+  for(const [i,l] of d.links.entries()){
+   if(!l?.url||typeof l.url!=="string")return reply({ok:false,error:"Lien de journée invalide."},400);
+   normalizedLinks.push({celebration_id:Number(c.id),step_key:text(d.key),event_id:null,label:text(l.label),url:l.url,link_type:text(l.kind||"link"),sort_order:i});
+  }
  }
- for(const e of evs)for(const l of e.links){
+ for(const e of evs)for(const [i,l] of e.links.entries()){
   if(!l?.url||typeof l.url!=="string")return reply({ok:false,error:"Lien d’événement invalide."},400);
-  normalizedLinks.push({celebration_id:Number(e.celebrationId),step_key:text(e.dayKey),event_id:text(e.id),label:text(l.label),url:l.url,link_type:text(l.kind||"link")});
+  normalizedLinks.push({celebration_id:Number(e.celebrationId),step_key:text(e.dayKey),event_id:text(e.id),label:text(l.label),url:l.url,link_type:text(l.kind||"link"),sort_order:i});
  }
  if(normalizedLinks.length>1500)return reply({ok:false,error:"Trop de liens."},413);
  const now=new Date().toISOString(),jobs=[];
@@ -43,7 +45,7 @@ export async function handleSafeSave(request,env){
  // Replace only links belonging to celebrations included in this snapshot.
  // D1 batch commits deletions and inserts together, avoiding partial writes.
  for(const c of cels)jobs.push({sql:"DELETE FROM celebrations_links WHERE celebration_id=?",args:[Number(c.id)]});
- normalizedLinks.forEach((l,i)=>jobs.push({sql:"INSERT INTO celebrations_links (celebration_id,step_key,event_id,label,url,link_type,sort_order) VALUES (?,?,?,?,?,?,?)",args:[l.celebration_id,l.step_key,l.event_id,l.label,l.url,l.link_type,i]}));
+ normalizedLinks.forEach(l=>jobs.push({sql:"INSERT INTO celebrations_links (celebration_id,step_key,event_id,label,url,link_type,sort_order) VALUES (?,?,?,?,?,?,?)",args:[l.celebration_id,l.step_key,l.event_id,l.label,l.url,l.link_type,l.sort_order]}));
  if(jobs.length>2000)return reply({ok:false,error:"Too many changes"},413);
  try{
   // D1 batch is transactional: either all statements commit or none.
