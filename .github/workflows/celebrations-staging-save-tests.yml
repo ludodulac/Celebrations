@@ -27,6 +27,7 @@ jobs:
         run: node --test tests/safe-save-*.test.mjs
 
   d1-staging:
+    if: github.ref == 'refs/heads/fix/celebrations-d1-save-002'
     needs: safe-save
     runs-on: ubuntu-latest
     environment: celebrations-staging
@@ -44,5 +45,24 @@ jobs:
           node-version: '22'
       - name: Check validation script syntax
         run: node --check scripts/validate-staging-d1.mjs
+      - name: Fail-closed check of remote staging isolation (NO WRITES)
+        run: node scripts/validate-staging-d1.mjs --preflight
+      - name: Prepare isolated staging assets
+        run: python scripts/build_staging_assets.py
+      - name: Install Wrangler for staging only
+        run: npm install --no-save --no-package-lock wrangler@4
+      - name: Generate staging-only bindings
+        run: python scripts/configure_staging_wrangler.py
+      - name: Verify staging deployment cannot target production
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'name = "celebrations-exit-staging"' migration/cloudflare/wrangler.toml
+          grep -Fq 'directory = "../../staging-public"' migration/cloudflare/wrangler.toml
+          grep -Fq 'bucket_name = "celebrations-exit-staging"' migration/cloudflare/wrangler.toml
+          test -f staging-public/index.html
+      - name: Refresh only isolated staging Worker with latest safe-save handler
+        working-directory: migration/cloudflare
+        run: npx wrangler deploy --config wrangler.toml
       - name: Verify Cloudflare isolation and test real staging Worker against D1
         run: node scripts/validate-staging-d1.mjs
