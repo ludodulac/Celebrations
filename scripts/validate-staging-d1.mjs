@@ -129,6 +129,7 @@ async function cleanup(){
  console.log('CLEANUP PASS: validation records removed');
 }
 await verifyIsolation(); // NO WRITES before this line succeeds
+if(process.argv.includes('--preflight')) { console.log('PREFLIGHT PASS: all staging isolation checks succeeded; no writes performed'); process.exit(0); }
 // Verify all synthetic IDs are unused, including adjacent control record.
 const collisions=[
  await one('SELECT COUNT(*) AS n FROM celebrations_celebrations WHERE id IN (?,?)',[idA,idB]),
