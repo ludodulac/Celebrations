@@ -6,6 +6,7 @@ on:
     paths:
       - 'migration/cloudflare/safe-save-api.mjs'
       - 'tests/safe-save-links.test.mjs'
+      - 'tests/safe-save-sqlite.test.mjs'
       - '.github/workflows/celebrations-staging-save-tests.yml'
   workflow_dispatch:
 jobs:
@@ -21,4 +22,4 @@ jobs:
       - name: Check syntax
         run: node --check migration/cloudflare/safe-save-api.mjs
       - name: Test staging safe-save (no Cloudflare credentials)
-        run: node --test tests/safe-save-links.test.mjs
+        run: node --test tests/safe-save-*.test.mjs
