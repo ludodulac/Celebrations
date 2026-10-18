@@ -85,7 +85,7 @@ function imageGalleryItems(allowedIds){
 }
 function galleryOriginMeta(c){
   const locations=contentLocations(c.id);
-  const origin=locations.length?locations.join(' · '):libraryLocationLabel(c);
+  const origin=locations.length?locations.join(' · '):'';
   return origin?`<div class="content-event-meta">${esc(origin)}</div>`:'';
 }
 function imageGalleryCard(item,index){
