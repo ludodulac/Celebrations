@@ -21,13 +21,13 @@ export async function handleMedia(request,env){
   if(row&&safeKey(row.storage_path)&&row.storage_path.startsWith("committee/")){key=row.storage_path;authorized=true}
  }else{
   if(key.startsWith("committee/"))return json("Not found",404);
-  const row=await env.MEDIA_ACL.prepare("SELECT 1 FROM public_media WHERE storage_path=? AND approved=1 AND revoked_at IS NULL").bind(key).first();
-  authorized=!!row;
-  if(!authorized&&env.DB){
+  const row=await env.MEDIA_ACL.prepare("SELECT approved,revoked_at FROM public_media WHERE storage_path=?").bind(key).first();
+  authorized=!!row&&row.approved===1&&!row.revoked_at;
+  if(!row&&env.DB){
    const publicContent=await env.DB.prepare("SELECT 1 FROM celebrations_contents WHERE (storage_path=? OR cover_storage_path=?) AND audience='all' LIMIT 1").bind(key,key).first();
    authorized=!!publicContent;
   }
-  if(!authorized&&env.DB){
+  if(!authorized&&!row&&env.DB){
    const bearer=request.headers.get("authorization")||"";
    const user=bearer.startsWith("Bearer ")?await participantIdentity(env,bearer.slice(7)):null;
    if(["angel","nonangel"].includes(user?.audience)){
