@@ -28,7 +28,7 @@ jobs:
       - name: Charger uniquement le code de la branche de travail
         uses: actions/checkout@v4
         with:
-          ref: fix/celebrations-programme-library-006
+          ref: 8c7864fa2e563f17ffb04a942ea1c79c349a3968
           persist-credentials: false
       - name: Préparer Python
         uses: actions/setup-python@v5
