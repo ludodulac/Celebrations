@@ -5,6 +5,8 @@ on:
     paths:
       - migration/**
       - tests/test-exit-media-gateway.mjs
+      - scripts/test-public-library-programme.cjs
+      - public-library-simple.js
       - tests/test-exit-public-data.mjs
       - tests/test-exit-auth.mjs
       - tests/test-exit-staging-integration.mjs
@@ -27,6 +29,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - run: node --test scripts/test-public-library-programme.cjs
       - run: node --test tests/test-exit-media-gateway.mjs tests/test-exit-public-data.mjs tests/test-exit-auth.mjs tests/test-exit-staging-integration.mjs
       - run: python scripts/build_staging_assets.py
       - run: STAGING_D1_ID=00000000-0000-4000-8000-000000000000 STAGING_R2_BUCKET=celebrations-exit-staging python scripts/configure_staging_wrangler.py
