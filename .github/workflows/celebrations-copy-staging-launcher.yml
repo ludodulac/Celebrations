@@ -1,0 +1,40 @@
+name: Copier les médias vers le stockage de test
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Écrire COPIER_97_MEDIAS_TEST pour confirmer la copie vers R2 de test"
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  copy:
+    if: inputs.confirmation == 'COPIER_97_MEDIAS_TEST'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: celebrations-staging
+    env:
+      CONFIRM_STAGING_COPY: COPY_PROGRAMME_TO_STAGING
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      SOURCE_R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      SOURCE_R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      STAGING_R2_ACCESS_KEY_ID: ${{ secrets.CELEBRATIONS_STAGING_R2_ACCESS_KEY_ID }}
+      STAGING_R2_SECRET_ACCESS_KEY: ${{ secrets.CELEBRATIONS_STAGING_R2_SECRET_ACCESS_KEY }}
+    steps:
+      - name: Charger uniquement le code de la branche de travail
+        uses: actions/checkout@v4
+        with:
+          ref: 8c7864fa2e563f17ffb04a942ea1c79c349a3968
+          persist-credentials: false
+      - name: Préparer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Installer les dépendances
+        run: python -m pip install 'boto3>=1.35,<2' 'requests>=2.32,<3'
+      - name: Copier et vérifier uniquement les médias de test
+        run: python scripts/copy-programme-media-to-staging.py
