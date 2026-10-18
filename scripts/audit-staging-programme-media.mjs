@@ -17,6 +17,10 @@ for(const table of tables){
   data[table]=rows;
  }catch(e){issues.push({stage:'public-data',table,error:String(e.message)});data[table]=[]}
 }
+// Empty staging tables are not proof that media migration succeeded.
+if(!issues.length&&(!data.celebrations_celebrations.length||!data.celebrations_contents.length||!data.celebrations_events.length)){
+ issues.push({stage:'inventory',error:'Staging public API returned an empty/incomplete programme; cannot certify R2 access'});
+}
 const byId=(rows)=>new Map(rows.map(r=>[String(r.id),r]));
 const cels=byId(data.celebrations_celebrations),events=byId(data.celebrations_events),contents=byId(data.celebrations_contents);
 const eventIds=new Set(),linkedIds=new Set(),refs=[];
@@ -57,5 +61,5 @@ const report={generatedAt:new Date().toISOString(),endpoint:base,readOnly:true,t
 mkdirSync('audit-output',{recursive:true});
 writeFileSync('audit-output/staging-programme-media.json',JSON.stringify(report,null,2));
 console.log('AUDIT_SUMMARY '+JSON.stringify({tables:report.tables,linked:linkedIds.size,paths:checks.length,results:counts,issues:issues.length}));
-if(issues.some(x=>x.stage==='public-data')){console.error('BLOCKED: staging public-data API unavailable; no real R2 inventory can be certified');process.exitCode=2}
+if(issues.some(x=>x.stage==='public-data'||x.stage==='inventory')){console.error('BLOCKED: staging public-data API unavailable; no real R2 inventory can be certified');process.exitCode=2}
 else if(checks.some(x=>x.result!=='ACCESSIBLE')){console.error('BLOCKED: some referenced media not accessible; report distinguishes HTTP from missing/ACL ambiguity');process.exitCode=1}
