@@ -16,6 +16,7 @@ on:
       - scripts/configure_staging_wrangler.py
   pull_request:
     paths:
+      - .github/workflows/celebrations-exit-tests.yml
       - migration/**
       - tests/test-exit-media-gateway.mjs
       - tests/test_exit_export.py
