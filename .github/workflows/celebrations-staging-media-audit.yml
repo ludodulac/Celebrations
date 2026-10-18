@@ -1,0 +1,29 @@
+name: Celebrations staging media HTTP audit
+on:
+  push:
+    branches: [fix/celebrations-programme-library-006]
+    paths:
+      - scripts/audit-staging-programme-media.mjs
+      - .github/workflows/celebrations-staging-media-audit.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  read-only-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify actual staging D1 references and HTTP R2 access
+        run: node scripts/audit-staging-programme-media.mjs
+      - name: Save diagnostic report even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-programme-media-evidence
+          path: audit-output/staging-programme-media.json
+          retention-days: 7
+          if-no-files-found: warn
