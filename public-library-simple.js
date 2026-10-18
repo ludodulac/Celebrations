@@ -95,18 +95,19 @@ function imageGalleryCard(item,index){
 function clearGalleryObjectUrls(){galleryObjectUrls.forEach(URL.revokeObjectURL);galleryObjectUrls=[]}
 async function hydrateGalleryImages(items){
   const grid=library.querySelector('[data-image-gallery-grid]');if(!grid)return;
-  let visible=0;
+  let visible=0,unavailable=0;
   await Promise.all(items.map(async(item,index)=>{
     const card=library.querySelector(`[data-gallery-card="${index}"]`),img=library.querySelector(`[data-gallery-image="${index}"]`),button=library.querySelector(`[data-gallery-open="${index}"]`);
     if(!card||!img||!button)return;
     try{
       const key=item.kind==='cover'?`cover-${item.content.id}`:String(item.content.id);
-      const file=await getMedia(key);if(!file||!String(file.type||'').startsWith('image/')){card.remove();return}
+      const file=await getMedia(key);if(!file||!String(file.type||'').startsWith('image/')){unavailable++;card.remove();return}
       const url=URL.createObjectURL(file);galleryObjectUrls.push(url);img.src=url;card.hidden=false;visible++;
       button.onclick=()=>window.open(url,'_blank','noopener');
-    }catch(e){card.remove()}
+    }catch(e){unavailable++;card.remove()}
   }));
   if(!visible)grid.innerHTML='<div class="notice">Aucune image disponible.</div>';
+  if(unavailable)grid.insertAdjacentHTML('afterbegin',`<div class="notice" role="status">${unavailable} image(s) du programme momentanément indisponible(s).</div>`);
 }
 function renderLibrary(){
   clearGalleryObjectUrls();
