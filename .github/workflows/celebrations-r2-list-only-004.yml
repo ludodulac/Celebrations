@@ -1,0 +1,97 @@
+# PROPOSITION SEULEMENT — NON INSTALLÉE, NON EXÉCUTÉE.
+# Mission CELEBRATIONS-R2-LIST-ONLY-004.
+# Précondition: autorisation distincte d'ajouter le workflow et de le déclencher.
+# Préférer des identifiants R2 dédiés limités au droit de lecture/liste.
+name: Celebrations R2 inventory — LIST ONLY (proposal)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    name: Inspect only celebrations-media in R2
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      EXPECTED_R2_ACCOUNT_ID: ${{ vars.CELEBRATIONS_R2_ACCOUNT_ID }}
+    steps:
+      - name: Install client
+        run: python -m pip install 'boto3>=1.35,<2'
+      - name: Fail-closed account verification and read-only listing
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os, re
+          from urllib.parse import urlparse
+          from datetime import datetime, timezone
+          import boto3
+          from botocore.config import Config
+
+          # Aucun import du code de synchronisation; aucune méthode write/delete.
+          bucket = 'celebrations-media'
+          staging_bucket = 'celebrations-exit-staging'
+          assert bucket != staging_bucket
+          endpoint = os.environ.get('R2_ENDPOINT', '')
+          expected = os.environ.get('EXPECTED_R2_ACCOUNT_ID', '').lower().strip()
+          access = os.environ.get('R2_ACCESS_KEY_ID', '')
+          secret = os.environ.get('R2_SECRET_ACCESS_KEY', '')
+          parsed = urlparse(endpoint)
+          match = re.fullmatch(r'([0-9a-f]{32})\.r2\.cloudflarestorage\.com', parsed.hostname or '')
+          if parsed.scheme != 'https' or parsed.path not in ('','/') or parsed.query or parsed.fragment or not match:
+              raise SystemExit('STOP: R2 endpoint not a canonical account endpoint')
+          account = match.group(1)
+          if not re.fullmatch(r'[0-9a-f]{32}', expected) or account != expected:
+              raise SystemExit('STOP: R2 account ID missing or mismatch')
+          if not access or not secret:
+              raise SystemExit('STOP: R2 read credentials not available')
+
+          s3 = boto3.client('s3',
+              endpoint_url=endpoint,
+              aws_access_key_id=access,
+              aws_secret_access_key=secret,
+              region_name='auto',
+              config=Config(retries={'max_attempts': 3, 'mode': 'standard'}))
+          objects = []
+          seen = set()
+          for page in s3.get_paginator('list_objects_v2').paginate(Bucket=bucket):
+              for obj in page.get('Contents', []):
+                  key = obj['Key']
+                  if key in seen:
+                      raise SystemExit('STOP: repeated R2 key')
+                  seen.add(key)
+                  objects.append({'key': key, 'bytes': int(obj['Size']), 'etag': obj.get('ETag', '')})
+          objects.sort(key=lambda x: x['key'])
+          report = {
+              'scope': 'R2 LIST ONLY',
+              'account_id': account,
+              'bucket': bucket,
+              'not_staging_bucket': bucket != staging_bucket,
+              'timestamp_utc': datetime.now(timezone.utc).isoformat(),
+              'object_count_live': len(objects),
+              'bytes_total_live': sum(x['bytes'] for x in objects),
+              'historical_count_expected': 158,
+              'historical_bytes_expected': 830312417,
+              'objects': objects,
+              'binary_sha256_recomputed': False,
+              'mutations_performed': 0,
+          }
+          with open('celebrations-r2-list-only-manifest.json', 'w', encoding='utf8') as f:
+              json.dump(report, f, ensure_ascii=False, indent=2)
+          print('R2_LIST_ONLY_SUMMARY', json.dumps({
+              k:v for k,v in report.items() if k != 'objects'}, ensure_ascii=False))
+          PY
+      - name: Preserve the result as a GitHub Actions report
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: celebrations-r2-list-only-manifest
+          path: celebrations-r2-list-only-manifest.json
+          if-no-files-found: error
+          retention-days: 7
