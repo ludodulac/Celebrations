@@ -5,14 +5,17 @@ let galleryObjectUrls=[];
 function publicLibraryName(c){return window.cleanPublicName?window.cleanPublicName(c?.name||c?.fileName||'Contenu'):String(c?.name||c?.fileName||'Contenu').replace(/^\s*\d+(?:[.,]\d+)*\s*[.\-_–—:]\s*/u,'').trim()}
 function contentLocations(contentId){
   const locations=[];
+  const selected=typeof current==='function'?current():null;
+  if(!selected)return locations;
+  const id=String(contentId);
   const add=label=>{if(label&&!locations.includes(label))locations.push(label)};
-  state.celebrations.forEach(c=>(c.days||[]).forEach(d=>{
-    if((d.contentIds||[]).includes(contentId))add(d.label);
-  }));
-  state.events.forEach(e=>{
-    if(!(e.contentIds||[]).includes(contentId))return;
-    const cel=state.celebrations.find(c=>c.id===e.celebrationId);
-    const day=cel?.days?.find(d=>d.key===e.dayKey);
+  (selected.days||[]).forEach(d=>{
+    if((d.contentIds||[]).some(x=>String(x)===id))add(d.label);
+  });
+  (state.events||[]).forEach(e=>{
+    if(String(e.celebrationId)!==String(selected.id)||!audienceOk(e.audience))return;
+    if(!(e.contentIds||[]).some(x=>String(x)===id))return;
+    const day=(selected.days||[]).find(d=>d.key===e.dayKey);
     if(day?.label)add(day.label);
   });
   return locations;
