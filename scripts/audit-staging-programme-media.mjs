@@ -18,7 +18,7 @@ for(const table of tables){
  }catch(e){issues.push({stage:'public-data',table,error:String(e.message)});data[table]=[]}
 }
 // Empty staging tables are not proof that media migration succeeded.
-if(!issues.length&&(!data.celebrations_celebrations.length||!data.celebrations_contents.length||!data.celebrations_events.length)){
+if(!issues.length&&(!data.celebrations_celebrations.length||!data.celebrations_contents.length||!data.celebrations_events.length||!data.celebrations_event_contents.length)){
  issues.push({stage:'inventory',error:'Staging public API returned an empty/incomplete programme; cannot certify R2 access'});
 }
 const byId=(rows)=>new Map(rows.map(r=>[String(r.id),r]));
