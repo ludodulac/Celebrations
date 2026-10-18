@@ -41,7 +41,7 @@ export async function handleMedia(request,env){
  if(!object)return json("Not found",404);
  const headers=new Headers();
  object.writeHttpMetadata?.(headers);
- if(!headers.has("content-type"))headers.set("content-type","application/octet-stream");
+ if(!headers.has("content-type")){const ext=key.split(".").pop()?.toLowerCase();const mime={jpg:"image/jpeg",jpeg:"image/jpeg",png:"image/png",webp:"image/webp",gif:"image/gif",svg:"image/svg+xml",pdf:"application/pdf",mp3:"audio/mpeg",mp4:"video/mp4",ogg:"audio/ogg",wav:"audio/wav"};headers.set("content-type",mime[ext]||"application/octet-stream")}
  headers.set("accept-ranges","bytes");
  headers.set("etag",object.httpEtag||"");
  headers.set("x-content-type-options","nosniff");
