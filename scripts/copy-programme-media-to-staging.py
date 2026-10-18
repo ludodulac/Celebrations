@@ -3,7 +3,13 @@
 import os, hashlib, json, boto3
 from botocore.config import Config
 from botocore.exceptions import ClientError
-from verify_programme_staging_copy_readiness import src,dst,keys,source_keys,destination_keys
+import importlib.util
+from pathlib import Path
+preflight=Path(__file__).with_name("verify-programme-staging-copy-readiness.py")
+spec=importlib.util.spec_from_file_location("programme_staging_preflight",preflight)
+module=importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+src,dst,keys,source_keys,destination_keys=(module.src,module.dst,module.keys,module.source_keys,module.destination_keys)
 SOURCE="celebrations-media"
 TARGET="celebrations-exit-staging"
 if os.getenv("CONFIRM_STAGING_COPY")!="COPY_PROGRAMME_TO_STAGING":
