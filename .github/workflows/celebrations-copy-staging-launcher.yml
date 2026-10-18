@@ -28,7 +28,7 @@ jobs:
       - name: Charger uniquement le code de la branche de travail
         uses: actions/checkout@v4
         with:
-          ref: 8c7864fa2e563f17ffb04a942ea1c79c349a3968
+          ref: 7aa8c0eb33aea852b9dd875dfc168d6efac5deba
           persist-credentials: false
       - name: Préparer Python
         uses: actions/setup-python@v5
