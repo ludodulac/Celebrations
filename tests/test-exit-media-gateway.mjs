@@ -35,7 +35,7 @@ test("infers PDF MIME for legacy R2 objects without metadata",async()=>{
 
 test("serves public D1 content without an extra ACL row",async()=>{
  const {env}=setup();
- env.DB={prepare(sql){assert.match(sql,/audience='all'/);return {bind(...args){assert.deepEqual(args,['media/a.jpg','media/a.jpg']);return {async first(){return {1:1}}}}}}};
+ env.DB={prepare(sql){assert.match(sql,/audience='all'/);assert.match(sql,/celebrations_event_contents/);assert.match(sql,/celebrations_step_contents/);return {bind(...args){assert.deepEqual(args,['media/a.jpg','media/a.jpg']);return {async first(){return {1:1}}}}}}};
  const r=await handleMedia(new Request("https://test/media/media/a.jpg"),env);
  assert.equal(r.status,200);
 });
@@ -58,5 +58,12 @@ test("explicit unapproved ACL row blocks D1 fallback",async()=>{
  env.MEDIA_ACL={prepare(){return {bind(){return {async first(){return {approved:0,revoked_at:null}}}}}}};
  env.DB={prepare(){throw Error('unapproved key must not query D1')}};
  const r=await handleMedia(new Request('https://test/media/media/denied.jpg'),env);
+ assert.equal(r.status,404);
+});
+
+test("public D1 fallback never accepts unlinked content solely because audience is all",async()=>{
+ const {env}=setup();
+ env.DB={prepare(sql){assert.match(sql,/EXISTS/);assert.match(sql,/celebrations_event_contents/);assert.match(sql,/celebrations_step_contents/);return {bind(){return {async first(){return null}}}}}};
+ const r=await handleMedia(new Request("https://test/media/media/unlinked.jpg"),env);
  assert.equal(r.status,404);
 });
