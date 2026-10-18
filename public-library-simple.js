@@ -76,8 +76,7 @@ function imageGalleryItems(allowedIds){
     else if(c.hasCover&&c.coverStoragePath){source=c.coverStoragePath;kind='cover';fileName=c.coverFileName||''}
     else continue;
     const sourceKey=normalizeGallerySource(source);
-    const nameKey=kind==='cover'?normalizeGalleryName(fileName):'';
-    const identity=nameKey?`cover-name:${nameKey}`:`source:${sourceKey}`;
+    const identity=`source:${sourceKey}`;
     if(!sourceKey||seen.has(identity))continue;
     seen.add(identity);out.push({content:c,kind,source,identity});
   }
