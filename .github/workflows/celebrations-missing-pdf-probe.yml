@@ -1,0 +1,22 @@
+name: Celebrations missing programme PDF probe
+on:
+  push:
+    branches: [fix/celebrations-programme-library-006]
+    paths: [scripts/probe-missing-programme-pdf.py, .github/workflows/celebrations-missing-pdf-probe.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  read-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install 'requests>=2.32,<3'
+      - run: python scripts/probe-missing-programme-pdf.py
