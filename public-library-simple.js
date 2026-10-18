@@ -99,6 +99,7 @@ function clearGalleryObjectUrls(){galleryObjectUrls.forEach(URL.revokeObjectURL)
 async function hydrateGalleryImages(items){
   const grid=library.querySelector('[data-image-gallery-grid]');if(!grid)return;
   let visible=0,unavailable=0;
+  const activeGrid=grid;
   await Promise.all(items.map(async(item,index)=>{
     const card=library.querySelector(`[data-gallery-card="${index}"]`),img=library.querySelector(`[data-gallery-image="${index}"]`),button=library.querySelector(`[data-gallery-open="${index}"]`);
     if(!card||!img||!button)return;
@@ -109,6 +110,7 @@ async function hydrateGalleryImages(items){
       button.onclick=()=>window.open(url,'_blank','noopener');
     }catch(e){unavailable++;card.remove()}
   }));
+  if(!activeGrid.isConnected||library.querySelector('[data-image-gallery-grid]')!==activeGrid)return;
   if(!visible)grid.innerHTML='<div class="notice">Aucune image disponible.</div>';
   if(unavailable)grid.insertAdjacentHTML('afterbegin',`<div class="notice" role="status">${unavailable} image(s) du programme momentanément indisponible(s).</div>`);
 }
