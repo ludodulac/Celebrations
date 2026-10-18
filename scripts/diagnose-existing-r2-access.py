@@ -22,6 +22,12 @@ source="celebrations-media";staging="celebrations-exit-staging"
 missing="media/pdf-1789466878259-22-9vktt/file-1789466879911-Pardon-des-Offenses-version-raccourcie.pdf"
 candidate="media/1789570893634/file-1789570894958-Pardon-des-Offenses-version-raccourcie.pdf"
 checks={"source_list":check(source),"staging_list":check(staging),"missing_pdf_source":check(source,missing),"candidate_pdf_source":check(source,candidate),"candidate_pdf_staging":check(staging,candidate)}
+for bucket in (source,staging):
+ try:
+  client.head_bucket(Bucket=bucket)
+  checks[bucket+"_head"]={"result":"OK"}
+ except ClientError as e:
+  checks[bucket+"_head"]={"result":e.response.get("Error",{}).get("Code","UNKNOWN"),"http":e.response.get("ResponseMetadata",{}).get("HTTPStatusCode")}
 # Inspect whether the already configured staging token can read bucket identity.
 for bucket in (source,staging):
  try:
