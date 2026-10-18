@@ -1,4 +1,5 @@
 name: Celebrations one-time isolated staging programme import
+# Wrangler remote D1 import owns its transaction; do not include SQL BEGIN/COMMIT.
 on:
   push:
     branches: [fix/celebrations-programme-library-006]
