@@ -6,7 +6,7 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 const source=fs.readFileSync('public-library-simple.js','utf8');
 const locationBegin=source.indexOf('function contentLocations(');
-const locationEnd=source.indexOf('\\nfunction contentLocationMeta',locationBegin);
+const locationEnd=source.indexOf('\nfunction contentLocationMeta',locationBegin);
 assert.ok(locationBegin>=0&&locationEnd>locationBegin);
 const locationsContext={
  state:{celebrations:[],events:[]},
