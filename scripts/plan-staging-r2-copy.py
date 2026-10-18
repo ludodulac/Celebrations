@@ -17,12 +17,13 @@ if not j.get("success"):raise RuntimeError("D1 query failed")
 all_paths={v for row in j["result"][0]["results"] for v in (row["storage_path"],row["cover_storage_path"]) if v}
 external={p for p in all_paths if p.startswith(("https://","http://","data:"))}
 paths=all_paths-external
-client=boto3.client("s3",endpoint_url=endpoint,aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"],region_name="auto",config=Config(retries={"max_attempts":2}))
+source_client=boto3.client("s3",endpoint_url=endpoint,aws_access_key_id=os.environ["SOURCE_R2_ACCESS_KEY_ID"],aws_secret_access_key=os.environ["SOURCE_R2_SECRET_ACCESS_KEY"],region_name="auto",config=Config(retries={"max_attempts":2}))
+target_client=boto3.client("s3",endpoint_url=endpoint,aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"],region_name="auto",config=Config(retries={"max_attempts":2}))
 source=set()
-for page in client.get_paginator("list_objects_v2").paginate(Bucket="celebrations-media"):
+for page in source_client.get_paginator("list_objects_v2").paginate(Bucket="celebrations-media"):
  source.update(x["Key"] for x in page.get("Contents",[]))
 try:
- client.list_objects_v2(Bucket="celebrations-exit-staging",MaxKeys=1)
+ target_client.list_objects_v2(Bucket="celebrations-exit-staging",MaxKeys=1)
  target_access=True
 except ClientError as e:
  target_access=False
