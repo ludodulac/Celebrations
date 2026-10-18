@@ -1,0 +1,190 @@
+{
+  "source": "CELEBRATIONS-PUBLIC-MEDIA-HTTP-005.xlsx; historical R2 inventory 004A",
+  "site": "https://www.ronde-des-archanges-universelle.eu",
+  "staging": "https://celebrations-exit-staging.rondes.workers.dev",
+  "supabase_origin": "https://jwyayfkssyagvnablttg.supabase.co",
+  "bucket": "celebrations-media",
+  "pdf": {
+    "id": "pdf-1789466878259-22-9vktt",
+    "key": "media/pdf-1789466878259-22-9vktt/file-1789466879911-Pardon-des-Offenses-version-raccourcie.pdf",
+    "candidate": "media/1789570893634/file-1789570894958-Pardon-des-Offenses-version-raccourcie.pdf",
+    "candidate_expected_bytes": 1189910
+  },
+  "drive": {
+    "id": "guide-file-30",
+    "url": "https://drive.google.com/file/d/1GkVSdxxxALogdBXhoKrvomcYxTbzoBmf/view?usp=drivesdk",
+    "field": "cover_storage_path",
+    "events": 5
+  },
+  "images": [
+    {
+      "id": "image-1789467011796-0-bsdon",
+      "key": "media/image-1789467011796-0-bsdon/file-1789467013598-45.-Aigle-messager-sceau-du-pardon-des-offenses-web.jpg",
+      "candidates": []
+    },
+    {
+      "id": "image-1789467013738-1-f9qac",
+      "key": "media/image-1789467013738-1-f9qac/file-1789467015307-46.-Arbre-de-la-conscience-du-bien-et-du-mal-II-web.jpg",
+      "candidates": [
+        "media/1789664859240/file-1789664860141-Arbre-de-la-conscience-du-bien-et-du-mal-II-web.jpg"
+      ]
+    },
+    {
+      "id": "image-1789467016198-2-9u2c5",
+      "key": "media/image-1789467016198-2-9u2c5/file-1789467017559-43.-MANDALA-SOLEILNATION.png",
+      "candidates": []
+    },
+    {
+      "id": "image-1789467037281-3-tsl7k",
+      "key": "media/image-1789467037281-3-tsl7k/file-1789467039401-42.-bible-essenienne-lever-du-soleil-essenia-web.jpg",
+      "candidates": [
+        "media/guide-file-28a/cover-drive-28.-bible-essenienne-lever-du-soleil-essenia-web.jpg",
+        "media/guide-file-28b/cover-drive-28.-bible-essenienne-lever-du-soleil-essenia-web.jpg",
+        "media/guide-file-28c/cover-drive-28.-bible-essenienne-lever-du-soleil-essenia-web.jpg"
+      ]
+    },
+    {
+      "id": "image-1789467038925-4-lm2oi",
+      "key": "media/image-1789467038925-4-lm2oi/file-1789467040502-3999.-PHOTO-2026-09-08-19-13-16.jpg",
+      "candidates": [
+        "media/guide-file-3999/cover-drive-3999.-PHOTO-2026-09-08-19-13-16.jpg"
+      ]
+    },
+    {
+      "id": "image-1789467041991-5-egj4i",
+      "key": "media/image-1789467041991-5-egj4i/file-1789467043376-47.-Manitara-sepia-claire.jpg",
+      "candidates": []
+    },
+    {
+      "id": "image-1789467045989-7-znb1c",
+      "key": "media/image-1789467045989-7-znb1c/file-1789467047382-44.-Loic-web.jpg",
+      "candidates": [
+        "media/1789613673157/file-1789613674287-Loic-web.jpg",
+        "media/1789613674590/file-1789613674922-Loic-web.jpg",
+        "media/1789616786068/file-1789616786959-39.-Loic-web.jpg",
+        "media/guide-image-39/file-drive-39.-Loic-web.jpg"
+      ]
+    },
+    {
+      "id": "image-1789467047325-8-ep9l5",
+      "key": "media/image-1789467047325-8-ep9l5/file-1789467048676-41.-sceau-du-travail.jpg",
+      "candidates": []
+    },
+    {
+      "id": "image-1789467049059-9-4gvli",
+      "key": "media/image-1789467049059-9-4gvli/file-1789467050320-53.-Ange-Soleil-Lettres-web.jpg",
+      "candidates": []
+    },
+    {
+      "id": "image-1789467050906-10-zbrxz",
+      "key": "media/image-1789467050906-10-zbrxz/file-1789467052166-54.-Menora.png",
+      "candidates": []
+    },
+    {
+      "id": "image-1789467054282-11-40tjn",
+      "key": "media/image-1789467054282-11-40tjn/file-1789467055637-55.-sun-light.png",
+      "candidates": []
+    },
+    {
+      "id": "image-1789467057049-12-56u9g",
+      "key": "media/image-1789467057049-12-56u9g/file-1789467058309-52.-Ange-du-Sacre-web.jpg",
+      "candidates": []
+    },
+    {
+      "id": "image-1789467057661-13-wgmnk",
+      "key": "media/image-1789467057661-13-wgmnk/file-1789467058992-51.-Aigle-telesma-web.jpg",
+      "candidates": []
+    },
+    {
+      "id": "image-1789467059199-14-20giy",
+      "key": "media/image-1789467059199-14-20giy/file-1789467060764-61.-Ronde-des-Archanges-web.jpg",
+      "candidates": [
+        "media/guide-file-20/cover-drive-20.-Ronde-des-Archanges-web.jpg"
+      ]
+    },
+    {
+      "id": "image-1789467061346-15-74bmt",
+      "key": "media/image-1789467061346-15-74bmt/file-1789467062679-64.-sceau-du-travail-copie.jpg",
+      "candidates": []
+    },
+    {
+      "id": "image-1789467062885-16-f166t",
+      "key": "media/image-1789467062885-16-f166t/file-1789467064753-62.-Tapis-de-priere_800x.webp",
+      "candidates": []
+    },
+    {
+      "id": "image-1789467065339-17-mkvme",
+      "key": "media/image-1789467065339-17-mkvme/file-1789467066590-65.-Monde-des-conscients-web.jpg",
+      "candidates": []
+    },
+    {
+      "id": "image-1789467066980-18-cai3c",
+      "key": "media/image-1789467066980-18-cai3c/file-1789467068335-67.-Mandala-du-feu-web.jpg",
+      "candidates": []
+    },
+    {
+      "id": "image-1789467068110-19-psmvq",
+      "key": "media/image-1789467068110-19-psmvq/file-1789467069399-68.christ-.jpeg",
+      "candidates": []
+    },
+    {
+      "id": "image-1789467069333-20-9dtk2",
+      "key": "media/image-1789467069333-20-9dtk2/file-1789467070800-69.2-Feu-B.jpg",
+      "candidates": []
+    },
+    {
+      "id": "image-1789467070986-21-ye7yf",
+      "key": "media/image-1789467070986-21-ye7yf/file-1789467072283-69.3-Feu-C.jpg",
+      "candidates": []
+    },
+    {
+      "id": "image-1789467072189-22-iqmf2",
+      "key": "media/image-1789467072189-22-iqmf2/file-1789467073471-66.-Michael2-web.jpg",
+      "candidates": [
+        "media/guide-file-23/cover-drive-23.-Michael2-web.jpg"
+      ]
+    },
+    {
+      "id": "image-1789467073022-23-4izws",
+      "key": "media/image-1789467073022-23-4izws/file-1789467074338-69.1-Feu-A.jpg",
+      "candidates": []
+    },
+    {
+      "id": "image-1789467074251-24-tgzlu",
+      "key": "media/image-1789467074251-24-tgzlu/file-1789467075548-69.4-Zoroastre-sepia-web.jpg",
+      "candidates": []
+    },
+    {
+      "id": "image-1789467076092-25-ei7pt",
+      "key": "media/image-1789467076092-25-ei7pt/file-1789467077398-63.-Tenture-du-culte-web.jpg",
+      "candidates": [
+        "media/1789646809251/file-1789646810158-Tenture-du-culte-web.jpg"
+      ]
+    },
+    {
+      "id": "image-1789467077016-26-gtbf0",
+      "key": "media/image-1789467077016-26-gtbf0/file-1789467078326-60.-Mandala-Travail-web.jpg",
+      "candidates": []
+    },
+    {
+      "id": "image-1789467077942-27-gjazu",
+      "key": "media/image-1789467077942-27-gjazu/file-1789467079237-71.-sol-2.jpg",
+      "candidates": []
+    },
+    {
+      "id": "image-1789467078863-28-2md7d",
+      "key": "media/image-1789467078863-28-2md7d/file-1789467080180-73.-sol-4.jpg",
+      "candidates": []
+    },
+    {
+      "id": "image-1789467079745-29-b4kqi",
+      "key": "media/image-1789467079745-29-b4kqi/file-1789467080989-70.-sol-1.jpg",
+      "candidates": []
+    },
+    {
+      "id": "image-1789467080649-30-nkxdf",
+      "key": "media/image-1789467080649-30-nkxdf/file-1789467082581-72.-sol-3.jpg",
+      "candidates": []
+    }
+  ]
+}
