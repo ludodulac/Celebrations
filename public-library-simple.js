@@ -65,8 +65,8 @@ function simpleLibraryCard(c){
 }
 function normalizeGallerySource(v){
   const raw=String(v||'').trim();if(!raw)return '';
-  if(!/^https?:\/\//i.test(raw))return raw.replace(/^\/+|\/+$/g,'').toLowerCase();
-  try{const u=new URL(raw);u.hash='';return u.toString().toLowerCase()}catch(e){return raw.toLowerCase()}
+  if(!/^https?:\/\//i.test(raw))return raw.replace(/^\/+|\/+$/g,'');
+  try{const u=new URL(raw);u.hash='';return u.toString()}catch(e){return raw}
 }
 function normalizeGalleryName(v){return String(v||'').trim().toLowerCase().replace(/\s+/g,' ')}
 function imageGalleryItems(allowedIds){
