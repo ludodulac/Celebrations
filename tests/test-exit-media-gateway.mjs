@@ -4,7 +4,7 @@ import {handleMedia} from "../migration/cloudflare/media-gateway.mjs";
 function setup({publicApproved=false,committeeRow=null,range=false}={}){
  const calls=[];
  const env={
-  MEDIA_ACL:{prepare(sql){return {bind(...args){return {async first(){calls.push({sql,args});return sql.includes("committee_media")?committeeRow:(publicApproved?{1:1}:null)}}}}}},
+  MEDIA_ACL:{prepare(sql){return {bind(...args){return {async first(){calls.push({sql,args});return sql.includes("committee_media")?committeeRow:(publicApproved?{approved:1,revoked_at:null}:null)}}}}}},
   MEDIA_BUCKET:{async get(key,opts){calls.push({key,opts});return {body:"ABC",size:3,httpEtag:'"hash"',range:range?{offset:0,length:2}:undefined,writeHttpMetadata(headers){headers.set("content-type","audio/mpeg")}}}}
  };
  return {env,calls};
@@ -43,5 +43,20 @@ test("does not serve audience-restricted content to anonymous visitors",async()=
  const {env}=setup();
  env.DB={prepare(){return {bind(){return {async first(){return null}}}}}};
  const r=await handleMedia(new Request("https://test/media/media/private.jpg"),env);
+ assert.equal(r.status,404);
+});
+
+test("explicit ACL revocation overrides public D1 content and participant access",async()=>{
+ const {env,calls}=setup();
+ env.MEDIA_ACL={prepare(){return {bind(){return {async first(){return {approved:1,revoked_at:'2026-10-18'}}}}}}};
+ env.DB={prepare(){throw Error('revoked key must not query D1')}};
+ const r=await handleMedia(new Request('https://test/media/media/revoked.jpg'),env);
+ assert.equal(r.status,404);assert.equal(calls.filter(x=>x.key).length,0);
+});
+test("explicit unapproved ACL row blocks D1 fallback",async()=>{
+ const {env}=setup();
+ env.MEDIA_ACL={prepare(){return {bind(){return {async first(){return {approved:0,revoked_at:null}}}}}}};
+ env.DB={prepare(){throw Error('unapproved key must not query D1')}};
+ const r=await handleMedia(new Request('https://test/media/media/denied.jpg'),env);
  assert.equal(r.status,404);
 });
