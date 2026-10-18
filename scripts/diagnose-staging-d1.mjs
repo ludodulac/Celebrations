@@ -20,6 +20,14 @@ for(const table of tables){
  const r=await cf('/accounts/'+account+'/d1/database/'+db+'/query',{method:'POST',body:JSON.stringify({sql:'SELECT COUNT(*) AS n FROM "'+table+'"',params:[]})});
  counts[table]=r?.[0]?.results?.[0]?.n??null;
 }
+const publicCounts={};
+for(const table of tables.filter(t=>t!=='public_media')){
+ const response=await fetch('https://celebrations-exit-staging.rondes.workers.dev/api/public-data?table='+table);
+ if(!response.ok)throw Error('Public staging API HTTP '+response.status+' for '+table);
+ const rows=await response.json();
+ if(!Array.isArray(rows))throw Error('Public staging API malformed '+table);
+ publicCounts[table]=rows.length;
+}
 console.log('D1_DIAGNOSTIC '+JSON.stringify({database:database.name,bindings:matched,counts}));
 if(counts.celebrations_celebrations===0||counts.celebrations_contents===0)throw Error('STAGING_D1_EMPTY: database has no programme; an import is required before HTTP media audit');
 if(publicCounts.celebrations_celebrations!==counts.celebrations_celebrations)throw Error('D1_API_MISMATCH: celebrations count differs');
