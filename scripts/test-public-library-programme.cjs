@@ -55,7 +55,7 @@ test('deduplicates identical media paths, not matching filenames',()=>{
  context.state.contents=[item(1),item(2,{storagePath:'media/1.jpg'}),item(3,{storagePath:'media/3.jpg'})];
  assert.equal(context.imageGalleryItems(new Set(['1','2','3'])).length,2);
 });
-test('respects audience and excludes welcome-only assets',()=>{
+test('respects audience while retaining programme-linked welcome assets',()=>{
  context.state.contents=[item(1,{audience:'nonangel'}),item(2,{category:'Accueil'}),item(3)];
- assert.equal(context.imageGalleryItems(new Set(['1','2','3'])).length,1);
+ assert.equal(context.imageGalleryItems(new Set(['1','2','3'])).length,2);
 });
