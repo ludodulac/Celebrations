@@ -41,6 +41,7 @@ export async function handleMedia(request,env){
  if(!object)return json("Not found",404);
  const headers=new Headers();
  object.writeHttpMetadata?.(headers);
+ if(!headers.has("content-type"))headers.set("content-type","application/octet-stream");
  headers.set("accept-ranges","bytes");
  headers.set("etag",object.httpEtag||"");
  headers.set("x-content-type-options","nosniff");
