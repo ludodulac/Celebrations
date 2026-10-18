@@ -44,6 +44,14 @@ try:
   except Exception as e: result["errors"].append("initial navigation: "+type(e).__name__+": "+str(e)[:240])
   if result.get("homepage_status") and result["homepage_status"]<400:
    try:
+    # Public homepage is a landing screen. Enter celebrations before opening the real gallery.
+    entrance=page.get_by_text("Accéder aux célébrations",exact=True).first
+    if entrance.count() and entrance.is_visible():
+     entrance.click(timeout=7000)
+     result["entered_public_application"]=True
+     page.wait_for_timeout(4500)
+    else:
+     result["entered_public_application"]=False
     available=page.evaluate("() => typeof window.openContentFamily === 'function'")
     if available:
      # Calls the same public UI action as the site's "Images" category button.
@@ -62,10 +70,15 @@ try:
      page.wait_for_timeout(18000)
      result["visible_cards"]=page.locator(".image-gallery-card:visible").count()
      result["gallery_dom_cards"]=page.locator(".image-gallery-card").count()
+     result["gallery_parent_visible"]=page.locator("#library").is_visible()
+     result["gallery_removed_cards_estimate"]=None
+     result["gallery_active_tab"]=page.locator('[data-library-family="image"]').first.get_attribute("class") if page.locator('[data-library-family="image"]').count() else None
      result["gallery_observed"]=True
      try:
       result["gallery_items"]=page.evaluate("() => typeof imageGalleryItems === 'function' ? imageGalleryItems().map(x=>({id:x.content.id,source:x.source,kind:x.kind})) : null")
      except Exception as e:result["errors"].append("gallery item enumeration: "+str(e)[:140])
+     if isinstance(result.get("gallery_items"),list):
+      result["gallery_removed_cards_estimate"]=len(result["gallery_items"])-result["gallery_dom_cards"]
      result["gallery_notices"]=page.locator('[data-image-gallery-grid] .notice').all_text_contents()
      page.screenshot(path=str(OUT/"gallery-public.png"),full_page=True,timeout=10000)
    except Exception as e: result["errors"].append("gallery: "+type(e).__name__+": "+str(e)[:300])
