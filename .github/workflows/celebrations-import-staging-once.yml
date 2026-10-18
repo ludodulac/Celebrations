@@ -1,0 +1,50 @@
+name: Celebrations one-time isolated staging programme import
+on:
+  push:
+    branches: [fix/celebrations-programme-library-006]
+    paths: [.github/workflows/celebrations-import-staging-once.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-staging-programme-import-once
+  cancel-in-progress: false
+jobs:
+  staging-only-import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: celebrations-staging
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+      STAGING_IMPORT_SQL: /tmp/celebrations-public-staging-import.sql
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install 'requests>=2.32,<3'
+      - name: Step 1 — Validate staging-only D1 identity, bindings and zero existing records
+        run: node scripts/preflight-public-staging-import.mjs
+      - name: Step 2 — Re-export and verify source, prepare public-programme-only SQL
+        run: python -m scripts.prepare-public-staging-import
+      - name: Install Wrangler
+        run: npm install --no-save --no-package-lock wrangler@4
+      - name: Step 3 — Import programme into isolated staging D1 only
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$STAGING_IMPORT_SQL"
+          npx wrangler d1 execute celebrations-exit-staging --remote --file "$STAGING_IMPORT_SQL" --yes
+      - name: Step 4 — Verify D1 after import, fail if programme missing
+        run: node scripts/diagnose-staging-d1.mjs
+      - name: Delete temporary import SQL
+        if: always()
+        run: rm -f /tmp/celebrations-public-staging-import.sql
