@@ -5,6 +5,29 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 const source=fs.readFileSync('public-library-simple.js','utf8');
+const locationBegin=source.indexOf('function contentLocations(');
+const locationEnd=source.indexOf('\\nfunction contentLocationMeta',locationBegin);
+assert.ok(locationBegin>=0&&locationEnd>locationBegin);
+const locationsContext={
+ state:{celebrations:[],events:[]},
+ current:()=>locationsContext.state.celebrations[0]||null,
+ audienceOk:a=>a==='all'||a==='angel',
+};
+vm.createContext(locationsContext);
+vm.runInContext(source.slice(locationBegin,locationEnd),locationsContext);
+test('media origin stays inside selected celebration and audience',()=>{
+ locationsContext.state.celebrations=[
+  {id:101,days:[{key:'w',label:'Mercredi',contentIds:[]}]},
+  {id:102,days:[{key:'t',label:'Jeudi',contentIds:['42']}]}
+ ];
+ locationsContext.state.events=[
+  {celebrationId:101,dayKey:'w',audience:'all',contentIds:['42']},
+  {celebrationId:101,dayKey:'w',audience:'nonangel',contentIds:['43']},
+  {celebrationId:102,dayKey:'t',audience:'all',contentIds:['42']}
+ ];
+ assert.deepEqual(Array.from(locationsContext.contentLocations(42)),['Mercredi']);
+ assert.equal(locationsContext.contentLocations(43).length,0);
+});
 const begin=source.indexOf('function imageGalleryItems(');
 const end=source.indexOf('\nfunction galleryOriginMeta',begin);
 assert.ok(begin>=0&&end>begin,'Gallery selection function exists');
