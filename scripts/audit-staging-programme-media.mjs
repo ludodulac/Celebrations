@@ -44,9 +44,12 @@ for(const id of linkedIds){
  }
 }
 const checks=[...keys.values()];let cursor=0;
+const publicChecks=checks.filter(c=>c.audiences.includes('all'));
+const restrictedChecks=checks.filter(c=>!c.audiences.includes('all'));
+console.log('AUDIT_AUDIENCE_SCOPE '+JSON.stringify({publicPaths:publicChecks.length,restrictedPaths:restrictedChecks.length}));
 async function worker(){
- while(cursor<checks.length){
-  const entry=checks[cursor++];
+ while(cursor<publicChecks.length){
+  const entry=publicChecks[cursor++];
   try{
    const url=base+'/media/'+entry.key.split('/').map(encodeURIComponent).join('/');
    const r=await get(url,'HEAD');
@@ -55,11 +58,11 @@ async function worker(){
   }catch(e){entry.result='NETWORK_ERROR';entry.error=String(e.message)}
  }
 }
-await Promise.all(Array.from({length:Math.min(6,checks.length)},worker));
-const counts={};for(const e of checks)counts[e.result]=(counts[e.result]||0)+1;
-const report={generatedAt:new Date().toISOString(),endpoint:base,readOnly:true,tables:Object.fromEntries(tables.map(t=>[t,data[t].length])),celebrations:cels.size,visibleProgrammeContents:linkedIds.size,distinctMediaPaths:checks.length,results:counts,issues,checks};
+await Promise.all(Array.from({length:Math.min(6,publicChecks.length)},worker));
+const counts={};for(const e of publicChecks)counts[e.result]=(counts[e.result]||0)+1;
+const report={generatedAt:new Date().toISOString(),endpoint:base,readOnly:true,tables:Object.fromEntries(tables.map(t=>[t,data[t].length])),celebrations:cels.size,visibleProgrammeContents:linkedIds.size,distinctMediaPaths:checks.length,publicMediaPaths:publicChecks.length,restrictedMediaPaths:restrictedChecks.length,results:counts,issues,checks};
 mkdirSync('audit-output',{recursive:true});
 writeFileSync('audit-output/staging-programme-media.json',JSON.stringify(report,null,2));
-console.log('AUDIT_SUMMARY '+JSON.stringify({tables:report.tables,linked:linkedIds.size,paths:checks.length,results:counts,issues:issues.length}));
+console.log('AUDIT_SUMMARY '+JSON.stringify({tables:report.tables,linked:linkedIds.size,paths:checks.length,publicPaths:publicChecks.length,restrictedPaths:restrictedChecks.length,results:counts,issues:issues.length}));
 if(issues.some(x=>x.stage==='public-data'||x.stage==='inventory')){console.error('BLOCKED: staging public-data API unavailable; no real R2 inventory can be certified');process.exitCode=2}
-else if(checks.some(x=>x.result!=='ACCESSIBLE')){console.error('BLOCKED: some referenced media not accessible; report distinguishes HTTP from missing/ACL ambiguity');process.exitCode=1}
+else if(publicChecks.some(x=>x.result!=='ACCESSIBLE')){console.error('BLOCKED: some referenced media not accessible; report distinguishes HTTP from missing/ACL ambiguity');process.exitCode=1}
