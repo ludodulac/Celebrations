@@ -38,7 +38,7 @@ for(const id of linkedIds){
  const c=contents.get(id);
  if(!c){issues.push({stage:'content',id,error:'Missing visible content'});continue}
  for(const field of ['storage_path','cover_storage_path']){
-  const key=c[field];if(!key)continue;
+  const key=c[field];if(!key||/^(https?:\/\/|data:)/i.test(key))continue;
   if(!keys.has(key))keys.set(key,{key,contentIds:[],fields:[]});
   const entry=keys.get(key);entry.contentIds.push(id);entry.fields.push(field);
  }
