@@ -15,5 +15,14 @@ client=boto3.client("s3",endpoint_url=os.environ["R2_ENDPOINT"],aws_access_key_i
 source=set()
 for page in client.get_paginator("list_objects_v2").paginate(Bucket="celebrations-media"):
  source.update(o["Key"] for o in page.get("Contents",[]) if not o["Key"].startswith("_validation-r2/"))
-print("SOURCE_R2_COMPARISON "+json.dumps({"public_programme_paths":len(paths),"source_bucket_objects":len(source),"present_in_source":len(paths&source),"missing_in_source":len(paths-source),"staging_bucket_not_verified":True,"read_only":True}),flush=True)
-if paths-source:raise RuntimeError("Some programme references missing in source bucket; do not copy blindly")
+missing=sorted(paths-source)
+diagnostics=[]
+for path in missing:
+ matching=[k for k in source if k.lower()==path.lower()]
+ basename=path.rsplit("/",1)[-1].lower()
+ candidates=[k for k in source if k.rsplit("/",1)[-1].lower()==basename]
+ refs=[row for row in j["result"][0]["results"] if path in (row["storage_path"],row["cover_storage_path"])]
+ diagnostics.append({"path":path,"case_insensitive_match":matching,"same_filename_candidates":candidates[:10],"referenced_as":["cover" if row["cover_storage_path"]==path else "media" for row in refs]})
+print("SOURCE_R2_COMPARISON "+json.dumps({"public_programme_paths":len(paths),"source_bucket_objects":len(source),"present_in_source":len(paths&source),"missing_in_source":len(missing),"staging_bucket_not_verified":True,"read_only":True}),flush=True)
+print("MISSING_MEDIA_DIAGNOSTIC "+json.dumps(diagnostics,ensure_ascii=False),flush=True)
+if missing:raise RuntimeError("Programme media references missing from source bucket; review diagnostics before copy")
