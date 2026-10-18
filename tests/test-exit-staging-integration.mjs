@@ -10,7 +10,7 @@ function env(){
 }
 function req(path,body,token="t".repeat(64)){return new Request("https://preview.invalid"+path,{method:"POST",headers:{"content-type":"application/json",authorization:"Bearer "+token},body:JSON.stringify(body)})}
 test("staging Worker routes admin save to transactional D1 batch",async()=>{
- const e=env(),r=await worker.fetch(req("/api/safe-save",{action:"safe_merge",contents:[{id:"x",name:"Test",type:"PDF"}],celebrations:[{id:1,archangel:"Michael",days:[{key:"day1",label:"Jour 1",contentIds:["x"]}]}],events:[{id:"evt",celebrationId:1,dayKey:"day1",title:"Event",contentIds:["x"]}]}),e);
+ const e=env(),r=await worker.fetch(req("/api/safe-save",{action:"safe_merge",contents:[{id:"x",name:"Test",type:"PDF"}],groups:[],celebrations:[{id:1,archangel:"Michael",days:[{key:"day1",label:"Jour 1",contentIds:["x"],links:[]}]}],events:[{id:"evt",celebrationId:1,dayKey:"day1",title:"Event",contentIds:["x"],links:[]}]}),e);
  assert.equal(r.status,200);assert.equal((await r.json()).ok,true);assert.equal(e.calls.length,1);assert.ok(e.calls[0]>=5);assert.ok(e.statements.some(x=>x.sql.includes("celebrations_step_contents")));
 });
 test("atomic save rejects without admin token and writes nothing",async()=>{
@@ -19,7 +19,7 @@ test("atomic save rejects without admin token and writes nothing",async()=>{
 });
 test("atomic batch failure returns non-success",async()=>{
  const e=env();e.DB.batch=async()=>{throw new Error("constraint")};
- const r=await handleSafeSave(req("/api/safe-save",{action:"safe_merge",contents:[{id:"x",name:"Test"}]}),e);
+ const r=await handleSafeSave(req("/api/safe-save",{action:"safe_merge",contents:[{id:"x",name:"Test"}],groups:[],celebrations:[],events:[]}),e);
  assert.equal(r.status,409);assert.equal((await r.json()).ok,false);
 });
 test("unknown staging route does not fall through to Supabase",async()=>{
