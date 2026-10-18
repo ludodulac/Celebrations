@@ -69,16 +69,17 @@ function normalizeGallerySource(v){
 function normalizeGalleryName(v){return String(v||'').trim().toLowerCase().replace(/\s+/g,' ')}
 function imageGalleryItems(allowedIds){
   const out=[],seen=new Set();
+  const add=(content,kind,source)=>{
+    const sourceKey=normalizeGallerySource(source);
+    if(!sourceKey||seen.has(sourceKey))return;
+    seen.add(sourceKey);
+    out.push({content,kind,source,identity:`source:${sourceKey}`});
+  };
   for(const c of state.contents||[]){
     if(!allowedIds.has(String(c.id)))continue;
-    let source='',kind='',fileName='';
-    if(c.type==='Image'&&c.sourceType==='file'&&c.storagePath){source=c.storagePath;kind='image';fileName=c.fileName||''}
-    else if(c.hasCover&&c.coverStoragePath){source=c.coverStoragePath;kind='cover';fileName=c.coverFileName||''}
-    else continue;
-    const sourceKey=normalizeGallerySource(source);
-    const identity=`source:${sourceKey}`;
-    if(!sourceKey||seen.has(identity))continue;
-    seen.add(identity);out.push({content:c,kind,source,identity});
+    if(c.type==='Image'&&c.sourceType==='file'&&c.storagePath)add(c,'image',c.storagePath);
+    // A programme resource may have both an image and a distinct cover.
+    if(c.hasCover&&c.coverStoragePath)add(c,'cover',c.coverStoragePath);
   }
   return out.sort((a,b)=>publicLibraryName(a.content).localeCompare(publicLibraryName(b.content),'fr',{sensitivity:'base',numeric:true}));
 }
