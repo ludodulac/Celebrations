@@ -1,4 +1,5 @@
 # CELEBRATIONS-PUBLIC-MEDIA-HTTP-005B. Anonymous, read-only HTTP / browser diagnostic.
+# Recheck: enter public celebrations app before rendering image gallery.
 # No secrets, no Cloudflare/Supabase credentials, no deployment, no data mutations.
 name: Celebrations public media HTTP 005B (read only)
 on:
