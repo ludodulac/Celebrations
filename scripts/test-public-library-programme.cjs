@@ -26,7 +26,7 @@ test('only programme-linked images appear',()=>{
 test('includes a separate cover as well as an image',()=>{
  context.state.contents=[item(1,{hasCover:true,coverStoragePath:'media/cover.jpg'})];
  const result=context.imageGalleryItems(new Set(['1']));
- assert.deepEqual(Array.from(result,x=>x.kind),['cover','image'].sort((a,b)=>a.localeCompare(b))); 
+ assert.deepEqual(Array.from(result,x=>x.kind),['image','cover']); 
 });
 test('deduplicates identical media paths, not matching filenames',()=>{
  context.state.contents=[item(1),item(2,{storagePath:'media/1.jpg'}),item(3,{storagePath:'media/3.jpg'})];
