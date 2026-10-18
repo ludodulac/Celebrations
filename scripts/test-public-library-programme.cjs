@@ -33,11 +33,15 @@ const end=source.indexOf('\nfunction galleryOriginMeta',begin);
 assert.ok(begin>=0&&end>begin,'Gallery selection function exists');
 const context={
  state:{contents:[]},
- normalizeGallerySource:v=>String(v||'').trim().toLowerCase(),
+ URL,
  publicLibraryName:c=>c.name,
  audienceOk:a=>a==='all'||a==='angel',
 };
 vm.createContext(context);
+const normalizeBegin=source.indexOf('function normalizeGallerySource(');
+const normalizeEnd=source.indexOf('\nfunction normalizeGalleryName',normalizeBegin);
+assert.ok(normalizeBegin>=0&&normalizeEnd>normalizeBegin);
+vm.runInContext(source.slice(normalizeBegin,normalizeEnd),context);
 vm.runInContext(source.slice(begin,end),context);
 const item=(id,props={})=>({id,name:'Content '+id,audience:'all',category:'Mercredi',type:'Image',sourceType:'file',storagePath:'media/'+id+'.jpg',hasCover:false,...props});
 test('only programme-linked images appear',()=>{
@@ -58,4 +62,13 @@ test('deduplicates identical media paths, not matching filenames',()=>{
 test('respects audience while retaining programme-linked welcome assets',()=>{
  context.state.contents=[item(1,{audience:'nonangel'}),item(2,{category:'Accueil'}),item(3)];
  assert.equal(context.imageGalleryItems(new Set(['1','2','3'])).length,2);
+});
+
+test('R2 keys with different capitalization remain distinct',()=>{
+ context.state.contents=[item(1,{storagePath:'media/Photo.JPG'}),item(2,{storagePath:'media/photo.jpg'})];
+ assert.equal(context.imageGalleryItems(new Set(['1','2'])).length,2);
+});
+test('exactly identical case-sensitive R2 paths deduplicate',()=>{
+ context.state.contents=[item(1,{storagePath:'media/Photo.JPG'}),item(2,{storagePath:'media/Photo.JPG'})];
+ assert.equal(context.imageGalleryItems(new Set(['1','2'])).length,1);
 });
