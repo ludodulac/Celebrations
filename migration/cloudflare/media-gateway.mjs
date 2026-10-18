@@ -24,6 +24,10 @@ export async function handleMedia(request,env){
   const row=await env.MEDIA_ACL.prepare("SELECT 1 FROM public_media WHERE storage_path=? AND approved=1 AND revoked_at IS NULL").bind(key).first();
   authorized=!!row;
   if(!authorized&&env.DB){
+   const publicContent=await env.DB.prepare("SELECT 1 FROM celebrations_contents WHERE (storage_path=? OR cover_storage_path=?) AND audience='all' LIMIT 1").bind(key,key).first();
+   authorized=!!publicContent;
+  }
+  if(!authorized&&env.DB){
    const bearer=request.headers.get("authorization")||"";
    const user=bearer.startsWith("Bearer ")?await participantIdentity(env,bearer.slice(7)):null;
    if(["angel","nonangel"].includes(user?.audience)){
