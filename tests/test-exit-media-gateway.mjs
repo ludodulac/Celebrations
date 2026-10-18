@@ -18,3 +18,17 @@ test("revoked committee returns 404",async()=>{const {env}=setup();const r=await
 test("rejects traversal",async()=>{const {env}=setup({publicApproved:true});const r=await handleMedia(new Request("https://test/media/media/%2e%2e%2fsecret"),env);assert.equal(r.status,404)});
 test("rejects malformed range",async()=>{const {env}=setup({publicApproved:true});const r=await handleMedia(new Request("https://test/media/media/a.mp3",{headers:{range:"bytes=0-1,3-4"}}),env);assert.equal(r.status,416)});
 test("HEAD returns no body",async()=>{const {env}=setup({publicApproved:true});const r=await handleMedia(new Request("https://test/media/media/a.mp3",{method:"HEAD"}),env);assert.equal(r.status,200);assert.equal(await r.text(),"")});
+
+test("infers image MIME for legacy R2 objects without metadata",async()=>{
+ const {env}=setup({publicApproved:true});
+ env.MEDIA_BUCKET.get=async()=>({body:"IMG",size:3,httpEtag:'"hash"'});
+ const r=await handleMedia(new Request("https://test/media/media/old-photo.jpg"),env);
+ assert.equal(r.status,200);
+ assert.equal(r.headers.get("content-type"),"image/jpeg");
+});
+test("infers PDF MIME for legacy R2 objects without metadata",async()=>{
+ const {env}=setup({publicApproved:true});
+ env.MEDIA_BUCKET.get=async()=>({body:"PDF",size:3,httpEtag:'"hash"'});
+ const r=await handleMedia(new Request("https://test/media/media/document.pdf"),env);
+ assert.equal(r.headers.get("content-type"),"application/pdf");
+});
