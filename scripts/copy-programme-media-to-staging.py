@@ -8,8 +8,10 @@ SOURCE="celebrations-media"
 TARGET="celebrations-exit-staging"
 if os.getenv("CONFIRM_STAGING_COPY")!="COPY_PROGRAMME_TO_STAGING":
  raise SystemExit("Staging copy not confirmed")
-if os.getenv("GITHUB_REF")!="refs/heads/fix/celebrations-programme-library-006":
+if os.getenv("GITHUB_REF") not in ("refs/heads/fix/celebrations-programme-library-006","refs/heads/main"):
  raise SystemExit("Wrong branch")
+if os.getenv("GITHUB_REF")=="refs/heads/main" and os.getenv("GITHUB_WORKFLOW")!="Copier les médias vers le stockage de test":
+ raise SystemExit("Unrecognized staging launcher")
 available=sorted(keys & source_keys)
 missing=sorted(keys - source_keys)
 if len(available)!=97 or len(missing)!=1 or destination_keys:
