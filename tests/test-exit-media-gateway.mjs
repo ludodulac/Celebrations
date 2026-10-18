@@ -32,3 +32,16 @@ test("infers PDF MIME for legacy R2 objects without metadata",async()=>{
  const r=await handleMedia(new Request("https://test/media/media/document.pdf"),env);
  assert.equal(r.headers.get("content-type"),"application/pdf");
 });
+
+test("serves public D1 content without an extra ACL row",async()=>{
+ const {env}=setup();
+ env.DB={prepare(sql){assert.match(sql,/audience='all'/);return {bind(...args){assert.deepEqual(args,['media/a.jpg','media/a.jpg']);return {async first(){return {1:1}}}}}}};
+ const r=await handleMedia(new Request("https://test/media/media/a.jpg"),env);
+ assert.equal(r.status,200);
+});
+test("does not serve audience-restricted content to anonymous visitors",async()=>{
+ const {env}=setup();
+ env.DB={prepare(){return {bind(){return {async first(){return null}}}}}};
+ const r=await handleMedia(new Request("https://test/media/media/private.jpg"),env);
+ assert.equal(r.status,404);
+});
