@@ -1,0 +1,26 @@
+name: Celebrations D1 staging diagnostic
+on:
+  push:
+    branches: [fix/celebrations-programme-library-006]
+    paths:
+      - scripts/diagnose-staging-d1.mjs
+      - .github/workflows/celebrations-d1-diagnostic.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  read-only-d1:
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    timeout-minutes: 8
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify real staging database and bindings, count rows only
+        run: node scripts/diagnose-staging-d1.mjs
