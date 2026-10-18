@@ -6,10 +6,14 @@ on:
       - scripts/audit-staging-programme-media.mjs
       - .github/workflows/celebrations-staging-media-audit.yml
   workflow_dispatch:
+  workflow_run:
+    workflows: [Celebrations one-time isolated staging programme import]
+    types: [completed]
 permissions:
   contents: read
 jobs:
   read-only-audit:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
