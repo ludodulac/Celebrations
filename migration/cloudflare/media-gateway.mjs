@@ -24,7 +24,7 @@ export async function handleMedia(request,env){
   const row=await env.MEDIA_ACL.prepare("SELECT approved,revoked_at FROM public_media WHERE storage_path=?").bind(key).first();
   authorized=!!row&&row.approved===1&&!row.revoked_at;
   if(!row&&env.DB){
-   const publicContent=await env.DB.prepare("SELECT 1 FROM celebrations_contents WHERE (storage_path=? OR cover_storage_path=?) AND audience='all' LIMIT 1").bind(key,key).first();
+   const publicContent=await env.DB.prepare("SELECT 1 FROM celebrations_contents c WHERE (c.storage_path=? OR c.cover_storage_path=?) AND c.audience='all' AND (EXISTS (SELECT 1 FROM celebrations_event_contents ec JOIN celebrations_events e ON e.id=ec.event_id WHERE ec.content_id=c.id AND e.audience='all') OR EXISTS (SELECT 1 FROM celebrations_step_contents sc WHERE sc.content_id=c.id)) LIMIT 1").bind(key,key).first();
    authorized=!!publicContent;
   }
   if(!authorized&&!row&&env.DB){
