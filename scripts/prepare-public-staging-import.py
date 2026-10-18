@@ -17,15 +17,15 @@ with tempfile.TemporaryDirectory(prefix="celebrations-import-plan-") as t:
  if conn.execute("PRAGMA foreign_key_check").fetchall():raise RuntimeError("FK failed")
  expected={table:manifest["tables"][table]["rows"] for table in PUBLIC}
  if not expected["celebrations_celebrations"] or not expected["celebrations_contents"]:raise RuntimeError("Empty programme")
- lines=["BEGIN TRANSACTION;"]
+ lines=[]
  for table in PUBLIC:
   rows=conn.execute('SELECT * FROM "'+table+'"').fetchall()
   for row in rows:
    cols=list(row.keys())
    quote=lambda v:"NULL" if v is None else str(int(v)) if isinstance(v,(int,bool)) else "'"+str(v).replace("'","''")+"'"
    lines.append('INSERT INTO "'+table+'" ('+','.join('"'+c+'"' for c in cols)+') VALUES ('+','.join(quote(row[c]) for c in cols)+');')
- lines.append("COMMIT;")
+
  output=pathlib.Path(os.environ.get("STAGING_IMPORT_SQL","/tmp/celebrations-public-staging-import.sql"))
  if output.exists():raise RuntimeError("Refusing overwrite")
  output.write_text("\n".join(lines)+"\n");output.chmod(0o600)
- print("STAGING_PUBLIC_IMPORT_PLAN "+json.dumps({"tables":expected,"excluded_sensitive_tables":list(SENSITIVE),"sql_statements":len(lines)-2,"remote_writes":0,"local_sql_ready":True}))
+ print("STAGING_PUBLIC_IMPORT_PLAN "+json.dumps({"tables":expected,"excluded_sensitive_tables":list(SENSITIVE),"sql_statements":len(lines),"remote_writes":0,"local_sql_ready":True}))
