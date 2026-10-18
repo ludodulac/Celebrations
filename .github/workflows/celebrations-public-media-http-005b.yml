@@ -1,0 +1,56 @@
+# CELEBRATIONS-PUBLIC-MEDIA-HTTP-005B. Anonymous, read-only HTTP / browser diagnostic.
+# No secrets, no Cloudflare/Supabase credentials, no deployment, no data mutations.
+name: Celebrations public media HTTP 005B (read only)
+on:
+  push:
+    branches:
+      - audit/celebrations-public-media-http-005b
+    paths:
+      - .github/workflows/celebrations-public-media-http-005b.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  public-http:
+    if: github.ref == 'refs/heads/audit/celebrations-public-media-http-005b'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate fixed audit inputs (no credentials)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          x=json.load(open('tests/fixtures/celebrations-http-005b-targets.json',encoding='utf8'))
+          assert len(x['images'])==30 and sum(bool(i['candidates']) for i in x['images'])==7
+          assert x['bucket']=='celebrations-media'
+          assert x['site']=='https://www.ronde-des-archanges-universelle.eu'
+          assert all(i['key'].startswith('media/') for i in x['images'])
+          print('005B INPUT PASS: 30 exact historical paths + seven candidate groups')
+          PY
+      - name: Anonymous HEAD and bounded range GET
+        shell: bash
+        run: python tests/http_005b_probe.py
+      - name: Install optional Chromium (no site mutation)
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          python -m pip install 'playwright==1.56.0'
+          python -m playwright install chromium
+      - name: Observe actual gallery anonymously in Chromium
+        if: always()
+        shell: bash
+        run: python tests/http_005b_browser.py
+      - name: Preserve diagnostic files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: celebrations-public-media-http-005b
+          path: http-005b-results/
+          if-no-files-found: error
+          retention-days: 14
