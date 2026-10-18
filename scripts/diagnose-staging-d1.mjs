@@ -21,4 +21,6 @@ for(const table of tables){
  counts[table]=r?.[0]?.results?.[0]?.n??null;
 }
 console.log('D1_DIAGNOSTIC '+JSON.stringify({database:database.name,bindings:matched,counts}));
-if(counts.celebrations_celebrations===0||counts.celebrations_contents===0)throw Error('STAGING_D1_EMPTY: do not deploy or certify media; restore via approved verified import');
+if(counts.celebrations_celebrations===0||counts.celebrations_contents===0)throw Error('STAGING_D1_EMPTY: database has no programme; an import is required before HTTP media audit');
+if(publicCounts.celebrations_celebrations!==counts.celebrations_celebrations)throw Error('D1_API_MISMATCH: celebrations count differs');
+if(publicCounts.celebrations_steps!==counts.celebrations_steps)throw Error('D1_API_MISMATCH: steps count differs');
