@@ -11,6 +11,7 @@ on:
       - admin-media-batch.js
       - admin-text-files.js
       - migration/cloudflare/media-admin-api.mjs
+      - migration/cloudflare/preview-client.js
       - migration/cloudflare/footer-admin-api.mjs
       - tests/test-exit-media-admin.mjs
       - scripts/verify-staging-authenticated-admin.mjs
