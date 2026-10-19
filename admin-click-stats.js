@@ -2,11 +2,23 @@
   function escStats(v){return String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[ch]))}
   async function loadStats(){
     const box=document.getElementById('clickStatsBox');if(!box)return;box.innerHTML='<div class="muted">Chargement des statistiques…</div>';
-    if(window.CELEBRATIONS_STAGING_BACKEND){box.innerHTML='<div class="notice">Statistiques indisponibles dans le serveur de test : les visites ne sont pas enregistrées sur Cloudflare pour le moment.</div>';return}
     const sb=window.celebrationsSupabase,token=window.getCelebrationsAdminToken?.()||'';if(!sb)return;
-    const [clicks,visits]=await Promise.all([sb.rpc('celebrations_click_stats',{admin_token:token}),sb.rpc('celebrations_visit_stats',{admin_token:token})]);
-    if(clicks.error||visits.error){box.innerHTML='<div class="notice">Impossible de charger les statistiques.</div>';return}
-    const list=clicks.data||[],v=visits.data||{},total=list.reduce((n,x)=>n+Number(x.click_count||0),0),pages=Array.isArray(v.pages)?v.pages:[];
+    let list=[],v={};
+    if(window.CELEBRATIONS_STAGING_BACKEND){
+      try{
+        const r=await fetch('/api/stats',{method:'POST',headers:{'content-type':'application/json',
+          authorization:'Bearer '+(localStorage.getItem('celebrations-admin-token')||'')},
+          body:JSON.stringify({action:'summary'})});
+        const data=await r.json();
+        if(!r.ok||!data.ok)throw Error('Statistiques Cloudflare indisponibles.');
+        list=data.clicks||[];v=data.visits||{};
+      }catch{box.innerHTML='<div class="notice">Impossible de charger les statistiques Cloudflare.</div>';return}
+    }else{
+      const [clicks,visits]=await Promise.all([sb.rpc('celebrations_click_stats',{admin_token:token}),sb.rpc('celebrations_visit_stats',{admin_token:token})]);
+      if(clicks.error||visits.error){box.innerHTML='<div class="notice">Impossible de charger les statistiques.</div>';return}
+      list=clicks.data||[];v=visits.data||{};
+    }
+    const total=list.reduce((n,x)=>n+Number(x.click_count||0),0),pages=Array.isArray(v.pages)?v.pages:[];
     box.innerHTML=`<div class="grid3"><div class="card"><strong style="font-size:1.5rem">${Number(v.visitors||0)}</strong><div class="meta">visiteurs uniques approximatifs</div></div><div class="card"><strong style="font-size:1.5rem">${Number(v.visits||0)}</strong><div class="meta">pages vues</div></div><div class="card"><strong style="font-size:1.5rem">${total}</strong><div class="meta">clics sur les ressources</div></div></div><h3>Pages visitées</h3>${pages.length?`<div class="list">${pages.map(x=>`<div class="admin-row"><div><strong>${escStats(x.page||'/')}</strong><div class="meta">${Number(x.visitors||0)} visiteur(s)</div></div><strong>${Number(x.cnt||0)} vue(s)</strong></div>`).join('')}</div>`:'<div class="notice">Aucune visite enregistrée pour le moment.</div>'}<h3>Clics sur les ressources</h3>${list.length?`<div class="list">${list.filter(x=>x.target_kind!=='page-view').map(x=>`<div class="admin-row"><div><strong>${escStats(x.target_label)}</strong><div class="meta">${escStats(x.target_kind)} · dernier clic ${new Date(x.last_clicked_at).toLocaleString('fr-FR')}</div></div><strong>${Number(x.click_count||0)}</strong></div>`).join('')}</div>`:'<div class="notice">Aucun clic enregistré pour le moment.</div>'}`;
   }
   const nav=document.querySelector('.admin-nav');if(nav&&!nav.querySelector('[data-admin="stats"]')){const b=document.createElement('button');b.className='btn';b.dataset.admin='stats';b.textContent='Statistiques';nav.appendChild(b);b.onclick=()=>{document.querySelectorAll('[data-admin]').forEach(x=>x.classList.toggle('active',x===b));panel.innerHTML='<div class="card"><div class="eyebrow">Statistiques</div><h2>Visites et utilisation du site</h2><p class="muted">Comptage anonyme. Un identifiant aléatoire conservé dans le navigateur sert uniquement à estimer le nombre de visiteurs différents. Aucune identité, adresse e-mail ou adresse IP n’est enregistrée dans ce tableau.</p><div id="clickStatsBox"></div></div>';loadStats()}}
