@@ -89,3 +89,20 @@ test("only published legal page content can be read anonymously",async()=>{
   assert.equal(invalid.status,404);
  }finally{sqlite.close()}
 });
+
+test("real legal template placeholders remain unpublished even when an admin selects visibility",async()=>{
+ const {sqlite,DB}=db();
+ try{
+  const p=await invoke({DB},"admin_publish_footer",{
+   slug:"confidentialite",draft_number:1,title:"Confidentialité",
+   content:"# Confidentialité\n[Indiquez l’identité du responsable du traitement.]"
+  });
+  assert.equal(p.status,200);
+  const attempted=await invoke({DB},"admin_set_footer_public",{
+   slug:"confidentialite",is_public:true
+  });
+  assert.equal(attempted.status,409);
+  assert.match(attempted.body.error,/Complétez/);
+  assert.equal(sqlite.prepare("SELECT is_public FROM celebrations_footer_drafts WHERE slug='confidentialite'").get().is_public,0);
+ }finally{sqlite.close()}
+});
