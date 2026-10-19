@@ -2,6 +2,7 @@
 // The synthetic account cannot receive mail; it is removed in finally.
 // Existing participants and all production resources must remain untouched.
 import assert from "node:assert/strict";
+import {pbkdf2Sync,randomBytes} from "node:crypto";
 const origin="https://celebrations-exit-staging.rondes.workers.dev";
 const bearer=process.env.STAGING_TEMP_ADMIN_BEARER;
 assert.match(bearer||"",/^[0-9a-f]{64}$/);
@@ -52,16 +53,23 @@ try{
  const assigned=await list();
  assert.equal(assigned.audiences.find(x=>x.email===email)?.audience,"angel",
   "Access category not persisted in isolated D1");
- // Exercise the real public registration + PBKDF2 login and password
- // recovery on this disposable account, NOT on the genuine participant.
+ // 180k PBKDF2 is computed in browser (here: Node test), not by
+ // Cloudflare Workers, whose free runtime limits derivations to 100k.
+ const derive=(v,salt)=>pbkdf2Sync(String(v),String(salt),180000,32,"sha256").toString("hex");
+ const salt=()=>randomBytes(32).toString("hex");
  const firstPassword="synthetic-pass-2026-strong",updatedPassword="synthetic-rotated-2026-strong";
- const register=await auth("participant_register",{
-  email,password:firstPassword,question_1:"first_school",question_2:"childhood_book",
-  answer_1:"école test fictive",answer_2:"livre fictif"
+ const ps=salt(),s1=salt(),s2=salt();
+ const register=await auth("participant_register_derived",{
+  email,question_1:"first_school",question_2:"childhood_book",
+  password_salt:ps,password_proof:derive(firstPassword,ps),
+  answer_1_salt:s1,answer_1_proof:derive("école test fictive",s1),
+  answer_2_salt:s2,answer_2_proof:derive("livre fictif",s2)
  });
- assert.equal(register.status,200,"Cloudflare participant registration failed; category="+register.diagnostic_category+" name="+register.diagnostic_name);
- const login=await auth("participant_login",{email,password:firstPassword});
- assert.equal(login.status,200,"Cloudflare PBKDF2 participant login failed");
+ assert.equal(register.status,200,"Cloudflare participant registration failed");
+ const begin=await auth("participant_begin",{email});
+ assert.equal(begin.status,200,"Registered participant PBKDF2 salt unavailable");
+ const login=await auth("participant_login_derived",{email,password_proof:derive(firstPassword,begin.salt)});
+ assert.equal(login.status,200,"Original password login failed");
  assert.match(login.token||"",/^[a-f0-9]{64}$/);
  const session=await auth("participant_session",{participant_token:login.token});
  assert.equal(session.status,200,"Participant session validation failed");
@@ -70,13 +78,18 @@ try{
  const question=await auth("recovery_questions",{email});
  assert.equal(question.status,200,"Recovery questions not available");
  assert.equal(question.question_1,"first_school");
- const recovered=await auth("recover_password",{
-  email,new_password:updatedPassword,answer_1:"école test fictive",answer_2:"livre fictif"
+ const newSalt=salt();
+ const recovered=await auth("recover_password_derived",{
+  email,password_salt:newSalt,password_proof:derive(updatedPassword,newSalt),
+  answer_1_proof:derive("école test fictive",question.answer_1_salt),
+  answer_2_proof:derive("livre fictif",question.answer_2_salt)
  });
  assert.equal(recovered.status,200,"Password recovery compatibility failed");
  const oldSession=await auth("participant_session",{participant_token:login.token});
  assert.equal(oldSession.status,401,"Recovery failed to revoke old sessions");
- const relogin=await auth("participant_login",{email,password:updatedPassword});
+ const renew=await auth("participant_begin",{email});
+ assert.equal(renew.status,200);
+ const relogin=await auth("participant_login_derived",{email,password_proof:derive(updatedPassword,renew.salt)});
  assert.equal(relogin.status,200,"New password login failed");
  const logout=await auth("participant_logout",{participant_token:relogin.token});
  assert.equal(logout.status,200,"Logout failed");
