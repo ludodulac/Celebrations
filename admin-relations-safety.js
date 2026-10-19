@@ -46,10 +46,16 @@ eventRow=function(e){
   return `<div class="admin-row"><div><strong>${esc(e.time||'—')} — ${esc(e.title)}</strong><div class="meta">${esc(groupName(state,e.audience))}${links?` · ${links} lien${links>1?'s':''}`:''}${contents?` · ${contents} contenu${contents>1?'s':''}`:''}</div></div><div class="row-actions"><button class="btn small" onclick="showDayEventForm(${JSON.stringify(String(e.dayKey))},${JSON.stringify(String(e.id))})">Modifier</button></div></div>`;
 };
 
-removeEvent=function(id,key){
-  const e=state.events.find(x=>x.id===id);if(!e)return;
+removeEvent=async function(id,key){
+  const e=state.events.find(x=>String(x.id)===String(id));if(!e)return;
   if(!confirm(`Supprimer « ${e.time||''} ${e.title||''} » ?`))return;
-  state.events=state.events.filter(x=>x.id!==id);
+  if(window.CELEBRATIONS_STAGING_BACKEND){
+    const result=await window.celebrationsDeleteStagingRecord?.('delete_event',e.id);
+    if(!result?.ok)return toast(result?.error||'Suppression impossible.');
+    state.events=state.events.filter(x=>String(x.id)!==String(e.id));
+    editDay(key);toast('Rendez-vous supprimé');return;
+  }
+  state.events=state.events.filter(x=>String(x.id)!==String(id));
   saveState(state);editDay(key);toast('Supprimé');
 };
 
@@ -61,6 +67,16 @@ removeContent=async function(id,returnTo=null){
   const used=(a.days?.length||0)+(a.events?.length||0);
   const msg=used?`Supprimer « ${c.name} » ?\n\n${used} association${used>1?'s':''} sera${used>1?'ont':''} retirée${used>1?'s':''}.`:`Supprimer « ${c.name} » ?`;
   if(!confirm(msg))return;
+  if(window.CELEBRATIONS_STAGING_BACKEND){
+    const result=await window.celebrationsDeleteStagingRecord?.('delete_content',actualId);
+    if(!result?.ok)return toast(result?.error||'Suppression impossible.');
+    state.celebrations.forEach(cel=>(cel.days||[]).forEach(d=>{d.contentIds=(d.contentIds||[]).filter(x=>!same(x,actualId))}));
+    state.events.forEach(e=>{e.contentIds=(e.contentIds||[]).filter(x=>!same(x,actualId))});
+    state.contents=state.contents.filter(x=>!same(x.id,actualId));
+    // R2 bytes are retained until an independent, explicit storage audit.
+    if(typeof returnTo==='function')returnTo();else renderMedia();
+    toast('Contenu supprimé');return;
+  }
   state.celebrations.forEach(cel=>(cel.days||[]).forEach(d=>{d.contentIds=(d.contentIds||[]).filter(x=>!same(x,actualId))}));
   state.events.forEach(e=>{e.contentIds=(e.contentIds||[]).filter(x=>!same(x,actualId))});
   state.contents=state.contents.filter(x=>!same(x.id,actualId));
