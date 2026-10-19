@@ -15,7 +15,7 @@
     if(!source||source.value!=='file')return;
     const input=form.querySelector('#mFile');
     if(!input)return;
-    input.accept='.txt,.md,.markdown,.rtf,.doc,.docx,.odt,.pages,.csv,.html,.htm,.xml,.json,.epub,text/*,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text,application/rtf';
+    input.accept='.txt,.md,.markdown,.rtf,.doc,.docx,.odt,.csv,text/plain,text/markdown,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text,application/rtf';
     input.multiple=true;
     const label=input.closest('label')?.querySelector('span');if(label)label.textContent='Documents texte (TXT, Word, ODT, RTF, Markdown, CSV, HTML… — plusieurs possibles)';
   }
