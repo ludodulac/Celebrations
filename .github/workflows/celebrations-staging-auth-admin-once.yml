@@ -6,6 +6,7 @@ on:
       - .github/workflows/celebrations-staging-auth-admin-once.yml
       - scripts/verify-staging-authenticated-admin.py
       - scripts/verify-staging-authenticated-admin.mjs
+      - scripts/verify-staging-participant-roundtrip.mjs
 permissions:
   contents: read
 concurrency:
@@ -37,5 +38,7 @@ jobs:
           python -m pip install 'requests>=2.32,<3'
           npm install --no-save --no-package-lock playwright@1.58.2
           npx playwright install --with-deps chromium
-      - name: Check admin login and D1 UI using automatically revoked synthetic staging session
+      - name: Verify live synthetic participant operations and reversible cleanup in staging
+        env:
+          STAGING_SYNTHETIC_PARTICIPANT_WRITE: "1"
         run: python scripts/verify-staging-authenticated-admin.py
