@@ -9,7 +9,7 @@
     const title=form.querySelector('#mTitle');if(title){title.required=false;title.placeholder='Facultatif : le nom du fichier d’origine sera utilisé'}
     const btn=form.querySelector('#saveMedia');if(btn&&!btn.dataset.batchMedia){btn.dataset.batchMedia='1';btn.textContent=type==='PDF'?'Ajouter les PDF':type==='Image'?'Ajouter les images':'Ajouter les textes';btn.addEventListener('click',batchSave,true)}
   }
-  function valid(type,file){if(type==='PDF')return file.type==='application/pdf'||/\.pdf$/i.test(file.name);if(type==='Image')return (file.type||'').startsWith('image/')||/\.(jpe?g|png|gif|webp|avif|svg)$/i.test(file.name);return (file.type||'').startsWith('text/')||/\.(txt|pdf|doc|docx|rtf|odt)$/i.test(file.name)}
+  function valid(type,file){if(type==='PDF')return file.type==='application/pdf'||/\.pdf$/i.test(file.name);if(type==='Image')return (file.type||'').startsWith('image/')||/\.(jpe?g|png|gif|webp|avif)$/i.test(file.name);return (file.type||'').startsWith('text/')||/\.(txt|pdf|doc|docx|rtf|odt)$/i.test(file.name)}
   async function batchSave(e){
     const type=currentType(),form=document.getElementById('mediaForm'),input=form?.querySelector('#mFile');if(!['PDF','Image','Texte'].includes(type)||!input||input.files.length<2||(type==='Texte'&&form.querySelector('#mSource')?.value!=='file'))return;
     e.preventDefault();e.stopImmediatePropagation();if(busy)return;const files=[...input.files];if(files.some(f=>!valid(type,f))){toast(`Tous les fichiers doivent correspondre au type ${type}`);return}
