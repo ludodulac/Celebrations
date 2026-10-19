@@ -52,7 +52,7 @@ export async function handleFooterAdmin(request,env){
     ).bind(slug).first();
     // The existing site contains editorial templates, not completed legal
     // notices. Never publish placeholders as though they were binding legal text.
-    if(!active?.content?.trim()||/\\[[^\\]\\n]{5,250}\\]/.test(active.content))
+    if(!active?.content?.trim()||active.content.split(String.fromCharCode(10)).some(line=>line.trim().startsWith("[")&&line.trim().endsWith("]")))
      return json({ok:false,error:"Complétez les informations entre crochets avant de publier cette page."},409);
    }
    const updated=await env.DB.prepare(
