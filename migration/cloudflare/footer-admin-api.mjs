@@ -46,6 +46,15 @@ export async function handleFooterAdmin(request,env){
    const {slug}=body;
    if(!allowed(slug)||typeof body.is_public!=="boolean")
     return json({ok:false,error:"Invalid footer visibility"},400);
+   if(body.is_public){
+    const active=await env.DB.prepare(
+     "SELECT content FROM celebrations_footer_drafts WHERE slug=? AND is_active=1 ORDER BY updated_at DESC,id DESC LIMIT 1"
+    ).bind(slug).first();
+    // The existing site contains editorial templates, not completed legal
+    // notices. Never publish placeholders as though they were binding legal text.
+    if(!active?.content?.trim()||/\\[[^\\]\\n]{5,250}\\]/.test(active.content))
+     return json({ok:false,error:"Complétez les informations entre crochets avant de publier cette page."},409);
+   }
    const updated=await env.DB.prepare(
     "UPDATE celebrations_footer_drafts SET is_public=?,updated_at=? WHERE slug=? AND is_active=1"
    ).bind(body.is_public?1:0,now(),slug).run();
