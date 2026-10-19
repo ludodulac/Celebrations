@@ -1,0 +1,45 @@
+name: Verify real D1 save on synthetic isolated staging records
+on:
+  push:
+    branches: [feat/celebrations-supabase-exit-001]
+    paths:
+      - .github/workflows/celebrations-staging-synthetic-save-once.yml
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-staging-synthetic-save-once
+  cancel-in-progress: false
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/feat/celebrations-supabase-exit-001'
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    timeout-minutes: 12
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+      STAGING_SYNTHETIC_SAVE_WRITE: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Syntax and staging-only safeguards
+        run: |
+          node --check scripts/verify-staging-safe-save-roundtrip.mjs
+          python -m py_compile scripts/verify-staging-authenticated-admin.py
+          test "$STAGING_R2_BUCKET" = 'celebrations-exit-staging'
+      - name: Install isolated browser dependencies
+        run: |
+          python -m pip install 'requests>=2.32,<3'
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Create, edit and fully revert only random synthetic staging D1 programme rows
+        run: python scripts/verify-staging-authenticated-admin.py
