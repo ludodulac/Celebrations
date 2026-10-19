@@ -38,7 +38,7 @@ export async function handleSafeSave(request,env){
   if(!b.event_id||!b.content_id)return reply({ok:false,error:"Invalid relation"},400);
   try{await env.DB.prepare("DELETE FROM celebrations_event_contents WHERE event_id=? AND content_id=?").bind(text(b.event_id),text(b.content_id)).run();return reply({ok:true,unlinked:true})}catch{return reply({ok:false,error:"Failed"},409)}
  }
- if(b.action!=="safe_merge")return reply({ok:false,error:"Unknown action"},400);
+ if(b.action!=="safe_merge"&&b.action!=="safe_merge_preview")return reply({ok:false,error:"Unknown action"},400);
  // A full snapshot is required: missing collections must never mean "empty".
  if(!b||typeof b!=="object"||!["contents","groups","celebrations","events"].every(k=>Array.isArray(b[k])))
   return reply({ok:false,error:"Sauvegarde refusée : données incomplètes."},400);
@@ -81,6 +81,12 @@ export async function handleSafeSave(request,env){
  // Authorization already consumes one D1 query. Never send a batch that
  // would silently exceed the free-tier query budget (50 per invocation).
  if(jobs.length>48)return reply({ok:false,error:"Sauvegarde trop volumineuse pour Cloudflare : fractionnement nécessaire."},413);
+ // Admin-only preflight: validate exactly the same serialized snapshot without
+ // touching any programme, event, content, participant or media record.
+ if(b.action==="safe_merge_preview")return reply({ok:true,dry_run:true,statements:jobs.length,
+   counts:{groups:gs.length,celebrations:cels.length,events:evs.length,contents:cs.length,
+    steps:steps.length,event_content_links:evs.reduce((n,e)=>n+ids(e.contentIds).length,0)}
+ });
  try{
   // D1 batch is transactional: either all statements commit or none.
   await env.DB.batch(jobs.map(j=>env.DB.prepare(j.sql).bind(...j.args)));
