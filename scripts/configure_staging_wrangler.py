@@ -18,6 +18,7 @@ workers_dev = true
 [assets]
 directory = "../../staging-public"
 binding = "ASSETS"
+run_worker_first = ["/", "/index.html", "/admin.html"]
 [[d1_databases]]
 binding = "DB"
 database_name = "celebrations-exit-staging"
