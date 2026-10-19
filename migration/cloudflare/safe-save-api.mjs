@@ -34,6 +34,32 @@ export async function handleSafeSave(request,env){
  if(request.method!=="POST")return reply({ok:false,error:"Method not allowed"},405);
  if(!env.DB||!await authorize(request,env,true))return reply({ok:false,error:"Unauthorized"},401);
  let b;try{b=await request.json()}catch{return reply({ok:false,error:"Invalid JSON"},400)}
+ // Explicit authenticated deletion, scoped to a single selected record.
+ // All relational deletions are atomic; bytes in R2 are deliberately retained.
+ if(b.action==="delete_event"||b.action==="delete_content"){
+  const value=b.action==="delete_event"?b.event_id:b.content_id;
+  if((typeof value!=="string"&&typeof value!=="number")||
+     !String(value).trim()||String(value).length>128)
+   return reply({ok:false,error:"Identifiant invalide."},400);
+  const id=String(value);
+  const event=b.action==="delete_event";
+  const table=event?"celebrations_events":"celebrations_contents";
+  try{
+   const existing=await env.DB.prepare('SELECT id FROM "'+table+'" WHERE id=? LIMIT 1').bind(id).first();
+   if(!existing)return reply({ok:false,error:"Élément introuvable. Rechargez la page."},404);
+   const statements=event?[
+    ["DELETE FROM celebrations_links WHERE event_id=?",id],
+    ["DELETE FROM celebrations_event_contents WHERE event_id=?",id],
+    ["DELETE FROM celebrations_events WHERE id=?",id]
+   ]:[
+    ["DELETE FROM celebrations_event_contents WHERE content_id=?",id],
+    ["DELETE FROM celebrations_step_contents WHERE content_id=?",id],
+    ["DELETE FROM celebrations_contents WHERE id=?",id]
+   ];
+   await env.DB.batch(statements.map(([sql,value])=>env.DB.prepare(sql).bind(value)));
+   return reply({ok:true,deleted:true,kind:event?"event":"content",media_deleted:false});
+  }catch{return reply({ok:false,error:"Suppression atomique impossible."},409)}
+ }
  if(b.action==="unlink_event_content"){
   if(!b.event_id||!b.content_id)return reply({ok:false,error:"Invalid relation"},400);
   try{await env.DB.prepare("DELETE FROM celebrations_event_contents WHERE event_id=? AND content_id=?").bind(text(b.event_id),text(b.content_id)).run();return reply({ok:true,unlinked:true})}catch{return reply({ok:false,error:"Failed"},409)}
