@@ -23,6 +23,9 @@ const participants=await adminCall("/api/participants-admin","admin_list_partici
 assert.ok(Array.isArray(participants.participants));
 assert.ok(participants.participants.every(p=>Object.keys(p).every(k=>["email","registered_at"].includes(k))),
  "Participant admin list must exclude password, recovery secrets and hashes");
+const stats=await adminCall("/api/stats","summary");
+assert.ok(stats.visits&&Number(stats.visits.visits)>=1,"Historical visitor statistics not available");
+assert.ok(Array.isArray(stats.clicks),"Historical resource clicks not available");
 const audiences=await adminCall("/api/participants-admin","admin_list");
 assert.ok(Array.isArray(audiences.participants));
 assert.ok(audiences.participants.every(p=>Object.keys(p).every(k=>["email","audience"].includes(k))));
@@ -47,6 +50,7 @@ try{
    "/api/auth":new Set(["admin_session"]),
    "/api/admin":new Set(["list"]),
    "/api/footer-admin":new Set(["admin_footer_drafts"]),
+   "/api/stats":new Set(["summary"]),
    "/api/participants-admin":new Set(["admin_list_participants","admin_list"])
   };
   if(reads[path]?.has(action)){await route.continue();return}
@@ -124,7 +128,7 @@ try{
  " | saveState call sites "+JSON.stringify(stacks.slice(0,6)));
  console.log("STAGING_AUTHENTICATED_ADMIN_SMOKE "+JSON.stringify({
   authenticated:true,celebration_rows_visible:rows,loaded_data:data,save_preflight_queries:preview.statements,media_panel:true,footer_editor:true,
-  footer_drafts:footer.drafts.length,participant_count:participants.participants.length,
+  footer_drafts:footer.drafts.length,stats_page_views:stats.visits.visits,participant_count:participants.participants.length,
   audience_count:audiences.participants.length,
   browser_requests:browserWrites.length,legacy_supabase_requests:legacy.length,js_errors:errors
  }));
