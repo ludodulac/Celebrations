@@ -77,6 +77,20 @@
   return result.data;
  };
  window.celebrationsStagingData=async table=>{
+  // Admin must read the full D1 dataset, including restricted programme content.
+  // Public visitors use the audience-filtered endpoint, never admin credentials.
+  const adminTables=new Set([
+   "celebrations_celebrations","celebrations_steps","celebrations_events",
+   "celebrations_contents","celebrations_event_contents",
+   "celebrations_step_contents","celebrations_links","celebrations_groups"
+  ]);
+  const isAdminPage=typeof document!=="undefined"&&document.body?.classList?.contains("admin-app");
+  if(isAdminPage&&adminTables.has(table)){
+   const result=await post("/api/admin",{action:"list",table},true);
+   if(!result.data?.ok||!Array.isArray(result.data.items))
+    throw new Error("Lecture des données administrateur D1 impossible.");
+   return result.data.items;
+  }
   const token=localStorage.getItem("celebrations-participant-token")||"";
   const r=await fetch(base+"/api/public-data?table="+encodeURIComponent(table),{headers:token?{authorization:"Bearer "+token}:{}});
   if(!r.ok)throw new Error("Staging data unavailable");
