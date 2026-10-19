@@ -6,6 +6,15 @@ export async function handlePublicData(request,env){
  if(request.method!=="GET")return respond({error:"Method not allowed"},405);
  if(!env.DB)return respond({error:"Database unavailable"},503);
  const u=new URL(request.url),name=u.searchParams.get("table");
+ if(name==="celebrations_footer_page"){
+  const slug=u.searchParams.get("slug");
+  if(!["mentions-legales","confidentialite","cookies"].includes(slug))
+   return respond({error:"Not found"},404);
+  try{
+   const r=await env.DB.prepare("SELECT title,content FROM celebrations_footer_drafts WHERE slug=? AND is_active=1 AND is_public=1 ORDER BY updated_at DESC,id DESC LIMIT 1").bind(slug).all();
+   return respond(r.results||[]);
+  }catch{return respond({error:"Query unavailable"},503)}
+ }
  if(!tables.has(name))return respond({error:"Not found"},404);
  const bearer=request.headers.get("authorization")||"";
  const identity=bearer.startsWith("Bearer ")?await participantIdentity(env,bearer.slice(7)):null;
