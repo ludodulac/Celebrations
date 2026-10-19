@@ -51,6 +51,90 @@ export async function handleAuth(request,env){
  if(!b||typeof b!=="object")return result({ok:false,error:"Invalid request"},400);
  const action=String(b.action||"");
  try{
+  // Cloudflare Workers Free caps PBKDF2 at 100k per invocation. Supabase
+  // historical hashes require 180k; the browser computes this unchanged.
+  // D1 stores SHA256(PBKDF2_180k), NOT the replayable browser proof.
+  // Never transmit the raw password or recovery answer to this endpoint.
+  const proof=v=>typeof v==="string"&&/^[a-f0-9]{64}$/.test(v);
+  const salt=v=>typeof v==="string"&&/^[a-f0-9]{32,128}$/.test(v);
+  if(action==="admin_salt"){
+   return env.ADMIN_PASSWORD_SALT?result({ok:true,salt:env.ADMIN_PASSWORD_SALT}):
+    result({ok:false,error:"Admin not configured"},503);
+  }
+  if(action==="participant_begin"){
+   const e=email(b.email);
+   if(!validEmail(e)||await blocked(env.DB,"participant:"+e))return result({ok:false,error:"Réessayez plus tard"},429);
+   const row=await env.DB.prepare("SELECT password_salt,password_hash FROM celebrations_participants WHERE email=?").bind(e).first();
+   if(!row?.password_hash||!row.password_salt?.startsWith("client180:"))
+    return result({ok:false,error:"Compte indisponible"},404);
+   return result({ok:true,salt:row.password_salt.slice(10)});
+  }
+  if(action==="admin_login_derived"){
+   if(!env.ADMIN_PASSWORD_HASH||!env.ADMIN_PASSWORD_SALT||!proof(b.password_proof))
+    return result({ok:false,error:"Identifiants incorrects"},401);
+   if(await blocked(env.DB,"admin"))return result({ok:false,error:"Réessayez plus tard"},429);
+   if(!equal(b.password_proof,env.ADMIN_PASSWORD_HASH)){
+    await failure(env.DB,"admin");return result({ok:false,error:"Identifiants incorrects"},401);
+   }
+   await reset(env.DB,"admin");
+   const raw=token(),expires=new Date(Date.now()+12*3600*1000).toISOString();
+   await env.DB.prepare("INSERT INTO celebrations_admin_sessions(token_hash,admin_email,expires_at) VALUES(?,?,?)")
+    .bind(await sha256(raw),email(b.email),expires).run();
+   return result({ok:true,token:raw,expires_at:expires});
+  }
+  if(action==="participant_login_derived"){
+   const e=email(b.email);
+   if(!validEmail(e)||!proof(b.password_proof)||await blocked(env.DB,"participant:"+e))
+    return result({ok:false,error:"Identifiants incorrects"},401);
+   const row=await env.DB.prepare("SELECT password_salt,password_hash FROM celebrations_participants WHERE email=?").bind(e).first();
+   if(!row?.password_salt?.startsWith("client180:")||
+      !equal(await sha256(b.password_proof),row.password_hash)){
+    await failure(env.DB,"participant:"+e);return result({ok:false,error:"Identifiants incorrects"},401);
+   }
+   await reset(env.DB,"participant:"+e);
+   const raw=token(),expires=new Date(Date.now()+30*24*3600*1000).toISOString();
+   await env.DB.prepare("INSERT INTO celebrations_participant_sessions(token_hash,participant_email,expires_at) VALUES(?,?,?)")
+    .bind(await sha256(raw),e,expires).run();
+   return result({ok:true,token:raw,email:e,expires_at:expires});
+  }
+  if(action==="participant_register_derived"){
+   const e=email(b.email),q1=String(b.question_1||""),q2=String(b.question_2||"");
+   if(!validEmail(e)||!questions.has(q1)||!questions.has(q2)||q1===q2||
+      !proof(b.password_proof)||!proof(b.answer_1_proof)||!proof(b.answer_2_proof)||
+      !salt(b.password_salt)||!salt(b.answer_1_salt)||!salt(b.answer_2_salt))
+    return result({ok:false,error:"Inscription invalide"},400);
+   if(await blocked(env.DB,"register:"+e))return result({ok:false,error:"Réessayez plus tard"},429);
+   const hashes=await Promise.all([sha256(b.password_proof),sha256(b.answer_1_proof),sha256(b.answer_2_proof)]);
+   const updated=await env.DB.prepare(
+    "UPDATE celebrations_participants SET password_salt=?,password_hash=?,question_1=?,answer_1_salt=?,answer_1_hash=?,question_2=?,answer_2_salt=?,answer_2_hash=?,registered_at=?,updated_at=? WHERE email=? AND password_hash IS NULL"
+   ).bind("client180:"+b.password_salt,hashes[0],q1,b.answer_1_salt,hashes[1],q2,b.answer_2_salt,hashes[2],now(),now(),e).run();
+   if(!updated.meta?.changes)return result({ok:false,error:"Compte indisponible"},403);
+   await reset(env.DB,"register:"+e);return result({ok:true});
+  }
+  if(action==="recover_password_derived"){
+   const e=email(b.email);
+   if(!validEmail(e)||!proof(b.answer_1_proof)||!proof(b.answer_2_proof)||
+      !proof(b.password_proof)||!salt(b.password_salt))
+    return result({ok:false,error:"Demande invalide"},400);
+   if(await blocked(env.DB,"recovery:"+e))return result({ok:false,error:"Réessayez plus tard"},429);
+   const row=await env.DB.prepare(
+    "SELECT password_salt,answer_1_hash,answer_2_hash,recovery_locked_until FROM celebrations_participants WHERE email=?"
+   ).bind(e).first();
+   if(!row?.password_salt?.startsWith("client180:"))return result({ok:false,error:"Compte indisponible"},404);
+   if(row.recovery_locked_until&&Date.parse(row.recovery_locked_until)>Date.now())
+    return result({ok:false,error:"Réessayez plus tard"},429);
+   if(!equal(await sha256(b.answer_1_proof),row.answer_1_hash)||
+      !equal(await sha256(b.answer_2_proof),row.answer_2_hash)){
+    await failure(env.DB,"recovery:"+e);return result({ok:false,error:"Réponses incorrectes"},401);
+   }
+   await env.DB.batch([
+    env.DB.prepare("UPDATE celebrations_participants SET password_salt=?,password_hash=?,recovery_failed_count=0,recovery_locked_until=NULL,updated_at=? WHERE email=?")
+      .bind("client180:"+b.password_salt,await sha256(b.password_proof),now(),e),
+    env.DB.prepare("DELETE FROM celebrations_participant_sessions WHERE participant_email=?").bind(e)
+   ]);
+   await reset(env.DB,"recovery:"+e);
+   return result({ok:true});
+  }
   if(action==="participant_status"){
    const row=await env.DB.prepare("SELECT password_hash FROM celebrations_participants WHERE email=?").bind(email(b.email)).first();
    return result({ok:true,authorized:!!row,registered:!!row?.password_hash});
@@ -109,10 +193,10 @@ export async function handleAuth(request,env){
   if(action==="recovery_questions"){
    const e=email(b.email);
    if(!validEmail(e)||await blocked(env.DB,"recovery:"+e))return result({ok:false,error:"Réessayez plus tard"},429);
-   const row=await env.DB.prepare("SELECT question_1,question_2,password_hash,recovery_locked_until FROM celebrations_participants WHERE email=?").bind(e).first();
+   const row=await env.DB.prepare("SELECT question_1,question_2,password_salt,password_hash,answer_1_salt,answer_2_salt,recovery_locked_until FROM celebrations_participants WHERE email=?").bind(e).first();
    if(!row?.password_hash||!row.question_1||!row.question_2)return result({ok:false,error:"Compte indisponible"},404);
    if(row.recovery_locked_until&&Date.parse(row.recovery_locked_until)>Date.now())return result({ok:false,error:"Réessayez plus tard"},429);
-   return result({ok:true,question_1:row.question_1,question_2:row.question_2});
+   return result({ok:true,question_1:row.question_1,question_2:row.question_2,answer_1_salt:row.answer_1_salt,answer_2_salt:row.answer_2_salt});
   }
   if(action==="recover_password"){
    // Production and the existing public form use new_password, not password.
