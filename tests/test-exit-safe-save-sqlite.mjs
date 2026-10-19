@@ -147,3 +147,18 @@ test("incomplete snapshots fail closed before any database mutation",async()=>{
   assert.equal(f.metrics.batchCalls,0);
  }finally{f.close()}
 });
+
+test("staging dry-run validates a real snapshot without changing a single D1 row",async()=>{
+ const f=fixture();try{
+  const payload=snapshot();payload.action="safe_merge_preview";
+  const result=await f.save(payload);
+  assert.equal(result.status,200,JSON.stringify(result));
+  assert.equal(result.body.ok,true);
+  assert.equal(result.body.dry_run,true);
+  assert.ok(result.body.statements<=48);
+  assert.deepEqual(result.body.counts,{groups:2,celebrations:1,events:1,contents:2,steps:1,event_content_links:2});
+  assert.equal(f.metrics.batchCalls,0,"Preflight must not call D1 batch");
+  assert.equal(count(f.db,"celebrations_celebrations"),0);
+  assert.equal(count(f.db,"celebrations_contents"),0);
+ }finally{f.close()}
+});
