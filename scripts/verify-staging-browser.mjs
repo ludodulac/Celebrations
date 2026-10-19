@@ -34,6 +34,10 @@ try{
  results.admin_gate=true;
  results.legacy_supabase_requests=legacy;
  results.page_errors=errors.slice(0,12);
+ if(process.env.REQUIRE_CLOUDFLARE_ONLY==="1"){
+   assert.equal(legacy.length,0,"Isolated Cloudflare site still requests "+legacy.length+" legacy Supabase resources: "+JSON.stringify(legacy.slice(0,4)));
+   assert.equal(errors.length,0,"JavaScript errors in staging UI: "+JSON.stringify(errors.slice(0,4)));
+ }
  console.log("STAGING_BROWSER_SMOKE "+JSON.stringify(results));
  // Known legacy welcome illustration needs migration; do not silently declare parity.
  if(errors.length)console.warn("STAGING_BROWSER_PAGE_ERRORS "+JSON.stringify(errors.slice(0,12)));
