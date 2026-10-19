@@ -55,6 +55,7 @@ async function worker(){
    const url=base+'/media/'+entry.key.split('/').map(encodeURIComponent).join('/');
    const r=await get(url,'HEAD');
    entry.status=r.status;entry.mime=r.headers.get('content-type');
+   if(r.status===404){const sample=await get(url,'GET');entry.errorDetail=(await sample.text()).slice(0,180)}
    entry.result=r.status===200||r.status===206?'ACCESSIBLE':r.status===404?'NOT_FOUND_OR_NOT_AUTHORIZED':'HTTP_'+r.status;
   }catch(e){entry.result='NETWORK_ERROR';entry.error=String(e.message)}
  }
@@ -64,6 +65,7 @@ const counts={};for(const e of publicChecks)counts[e.result]=(counts[e.result]||
 const report={generatedAt:new Date().toISOString(),endpoint:base,readOnly:true,tables:Object.fromEntries(tables.map(t=>[t,data[t].length])),celebrations:cels.size,visibleProgrammeContents:linkedIds.size,distinctMediaPaths:checks.length,publicMediaPaths:publicChecks.length,restrictedMediaPaths:restrictedChecks.length,results:counts,issues,checks};
 mkdirSync('audit-output',{recursive:true});
 writeFileSync('audit-output/staging-programme-media.json',JSON.stringify(report,null,2));
+console.log('AUDIT_HTTP_SAMPLE '+JSON.stringify(checks.slice(0,3).map(x=>({key:x.key,status:x.status,detail:x.errorDetail}))));
 console.log('AUDIT_SUMMARY '+JSON.stringify({tables:report.tables,linked:linkedIds.size,paths:checks.length,publicPaths:publicChecks.length,restrictedPaths:restrictedChecks.length,results:counts,issues:issues.length}));
 if(issues.some(x=>x.stage==='public-data'||x.stage==='inventory')){console.error('BLOCKED: staging public-data API unavailable; no real R2 inventory can be certified');process.exitCode=2}
 else if(publicChecks.some(x=>x.result!=='ACCESSIBLE')){console.error('BLOCKED: some referenced media not accessible; report distinguishes HTTP from missing/ACL ambiguity');process.exitCode=1}
