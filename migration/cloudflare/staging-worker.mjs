@@ -7,6 +7,7 @@ import {handleSafeSave} from "./safe-save-api.mjs";
 import {handleAdmin} from "./admin-api.mjs";
 import {handlePublicData} from "./public-data-api.mjs";
 import {handleFooterAdmin} from "./footer-admin-api.mjs";
+import {handleParticipantsAdmin} from "./participants-admin-api.mjs";
 export default {
  async fetch(request,env){
   const url=new URL(request.url),path=url.pathname;
@@ -22,6 +23,7 @@ export default {
   if(path==="/api/admin")return handleAdmin(request,env);
   if(path==="/api/public-data")return handlePublicData(request,env);
   if(path==="/api/footer-admin")return handleFooterAdmin(request,env);
+  if(path==="/api/participants-admin")return handleParticipantsAdmin(request,env);
   if((request.method==="GET"||request.method==="HEAD")&&env.ASSETS)return env.ASSETS.fetch(request);
   return new Response("Not found",{status:404,headers:{"cache-control":"no-store"}});
  }
