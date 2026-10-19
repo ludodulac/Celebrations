@@ -17,6 +17,7 @@ on:
       - tests/test-exit-public-data.mjs
       - tests/test-exit-auth.mjs
       - tests/test-exit-staging-integration.mjs
+      - tests/test-exit-safe-save-sqlite.mjs
       - tests/test_exit_export.py
       - .github/workflows/celebrations-exit-tests.yml
       - .github/workflows/celebrations-staging-deploy.yml
@@ -50,7 +51,7 @@ jobs:
           node-version: "22"
       - run: node --check migration/cloudflare/preview-client.js
       - run: node --check public-v3.js && node --check public-date-rules.js && node --check public-content-nav.js && node --check public-library-simple.js && node --check admin-date-rules.js
-      - run: node --test tests/test-exit-media-gateway.mjs tests/test-exit-public-data.mjs tests/test-exit-auth.mjs tests/test-exit-staging-integration.mjs tests/test-exit-preview-client.mjs tests/test-exit-client-isolation.mjs tests/test-exit-footer-admin.mjs tests/test-exit-participants-admin.mjs
+      - run: node --test tests/test-exit-media-gateway.mjs tests/test-exit-public-data.mjs tests/test-exit-auth.mjs tests/test-exit-staging-integration.mjs tests/test-exit-preview-client.mjs tests/test-exit-client-isolation.mjs tests/test-exit-footer-admin.mjs tests/test-exit-participants-admin.mjs tests/test-exit-safe-save-sqlite.mjs
       - run: python scripts/build_staging_assets.py
       - name: Verify isolated assets have no Supabase image or CDN SDK
         run: |
