@@ -48,7 +48,16 @@ try{
  await page.waitForFunction(()=>window.celebrationsCoreSyncStatus==="saved",{timeout:30000});
  await page.locator(".admin-nav [data-admin=celebrations]").click();
  const rows=await page.locator("#panel .admin-row").count();
- assert.ok(rows>=4,"Admin did not render at least four D1 celebrations: "+rows);
+ const data=await page.evaluate(()=>({
+  celebrations:state.celebrations.length,
+  events:state.events.length,
+  contents:state.contents.length
+ }));
+ // The current guided admin intentionally shows only the active celebration;
+ // its D1-backed state must nevertheless include the full administrative corpus.
+ assert.equal(rows,1,"Guided admin should display exactly one active celebration");
+ assert.ok(data.celebrations>=4&&data.events>=62&&data.contents>=211,
+  "Authenticated admin is missing D1 programme rows: "+JSON.stringify(data));
  await page.locator(".admin-nav [data-admin=media]").click();
  const library=await page.locator("#panel").innerText();
  assert.ok(library.length>40,"Admin media panel unexpectedly empty");
@@ -67,7 +76,7 @@ try{
  assert.ok(browserWrites.every(x=>readActions[x.path]?.has(x.action)),
  "Unexpected authenticated admin mutation: "+JSON.stringify(browserWrites));
  console.log("STAGING_AUTHENTICATED_ADMIN_SMOKE "+JSON.stringify({
-  authenticated:true,celebration_rows:rows,media_panel:true,footer_editor:true,
+  authenticated:true,celebration_rows_visible:rows,loaded_data:data,media_panel:true,footer_editor:true,
   footer_drafts:footer.drafts.length,participant_count:participants.participants.length,
   audience_count:audiences.participants.length,
   browser_requests:browserWrites.length,legacy_supabase_requests:legacy.length,js_errors:errors
