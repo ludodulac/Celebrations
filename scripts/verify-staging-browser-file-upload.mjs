@@ -27,7 +27,7 @@ try{
  await page.locator(".admin-nav [data-admin=media]").click();
  await page.locator("#mFile").setInputFiles({name:"verification-cf.pdf",mimeType:"application/pdf",buffer:body});
  await page.locator("#mTitle").fill(name);
- await page.locator("#mGroup").selectOption("angel");
+ await page.locator("#mGroup").selectOption("all");
  await page.locator("#saveMedia").click();
  const end=Date.now()+45000;
  while(Date.now()<end){
