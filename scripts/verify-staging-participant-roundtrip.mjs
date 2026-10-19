@@ -3,6 +3,7 @@
 // Existing participants and all production resources must remain untouched.
 import assert from "node:assert/strict";
 import {pbkdf2Sync,randomBytes} from "node:crypto";
+import {chromium} from "playwright";
 const origin="https://celebrations-exit-staging.rondes.workers.dev";
 const bearer=process.env.STAGING_TEMP_ADMIN_BEARER;
 assert.match(bearer||"",/^[0-9a-f]{64}$/);
@@ -95,6 +96,27 @@ try{
  assert.equal(logout.status,200,"Logout failed");
  const revoked=await auth("participant_session",{participant_token:relogin.token});
  assert.equal(revoked.status,401,"Logout failed to invalidate session");
+ // Exercise the ACTUAL staging browser bridge and its WebCrypto PBKDF2 path.
+ const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+ try{
+  const page=await browser.newPage();
+  await page.goto(origin+"/?staging=1",{waitUntil:"domcontentloaded",timeout:45000});
+  await page.waitForFunction(()=>Boolean(window.celebrationsSupabase?.functions?.invoke),{timeout:15000});
+  const proofBrowser=await page.evaluate(async payload=>{
+   const sb=window.celebrationsSupabase;
+   const login=await sb.functions.invoke("celebrations-access",{
+    body:{action:"participant_login",email:payload.email,password:payload.password}
+   });
+   if(!login.data?.ok)return {login:false};
+   const logout=await sb.functions.invoke("celebrations-access",{
+    body:{action:"participant_logout",participant_token:login.data.token}
+   });
+   return {login:true,logout:logout.data?.ok===true};
+  },{email,password:updatedPassword});
+  assert.equal(proofBrowser.login,true,"Browser WebCrypto 180k login did not match original-password verifier");
+  assert.equal(proofBrowser.logout,true,"Browser account logout failed");
+  console.log("STAGING_PARTICIPANT_BROWSER_LOGIN WebCrypto_180k=true account_hash_unexposed=true");
+ }finally{await browser.close()}
  console.log("STAGING_PARTICIPANT_AUTH_FULL_ROUNDTRIP registration=true login=true audience=true recovery=true logout=true");
  console.log("STAGING_PARTICIPANT_ROUNDTRIP stage=create-and-assign passed=true");
 }finally{
