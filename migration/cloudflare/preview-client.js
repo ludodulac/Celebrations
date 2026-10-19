@@ -18,9 +18,15 @@
   if(name==="celebrations-access"){
    if(["admin_footer_drafts","admin_publish_footer","admin_set_footer_public"].includes(body.action))
     return post("/api/footer-admin",body,true);
+   if(["admin_list_participants","admin_add_participant","admin_remove_participant"].includes(body.action))
+    return post("/api/participants-admin",body,true);
    return post("/api/auth",body);
   }
-  if(name==="celebrations-audience")return post("/api/audience",body);
+  if(name==="celebrations-audience"){
+   if(["admin_list","admin_set"].includes(body.action))
+    return post("/api/participants-admin",body,true);
+   return post("/api/audience",body);
+  }
   if(name==="celebrations-admin-safe-save")return post("/api/safe-save",body,true);
   if(name==="celebrations-visibility"&&body.action==="get"){
    try{
