@@ -8,7 +8,7 @@ const errors=[],legacy=[],results={origin};
 try{
  const context=await browser.newContext({viewport:{width:390,height:844},serviceWorkers:"block"});
  const page=await context.newPage();
- page.on("pageerror",e=>errors.push(e.message.slice(0,240)));
+ page.on("pageerror",e=>errors.push(String(e.stack||e.message).slice(0,900)));
  page.on("request",r=>{if(/jwyayfkssyagvnablttg\.(supabase\.co|storage\.supabase\.co)/.test(r.url()))legacy.push({method:r.method(),url:r.url().slice(0,150)});});
  await page.goto(origin+"/?staging=1",{waitUntil:"domcontentloaded",timeout:45000});
  await page.locator("#welcome-open-program").waitFor({state:"visible",timeout:20000});
