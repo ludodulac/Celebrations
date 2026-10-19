@@ -4,6 +4,7 @@ on:
     branches: [feat/celebrations-supabase-exit-001]
     paths:
       - .github/workflows/celebrations-staging-synthetic-save-once.yml
+      - scripts/verify-staging-safe-save-roundtrip.mjs
 permissions:
   contents: read
 concurrency:
@@ -21,6 +22,7 @@ jobs:
       STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
       STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
       STAGING_SYNTHETIC_SAVE_WRITE: '1'
+      STAGING_SYNTHETIC_DELETE_WRITE: '1'
     steps:
       - uses: actions/checkout@v4
         with:
