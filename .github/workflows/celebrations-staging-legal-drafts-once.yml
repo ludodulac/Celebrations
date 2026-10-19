@@ -1,0 +1,32 @@
+name: Prepare existing legal templates as private Cloudflare staging drafts
+on:
+  push:
+    branches: [feat/celebrations-supabase-exit-001]
+    paths:
+      - .github/workflows/celebrations-staging-legal-drafts-once.yml
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-staging-legal-private-drafts
+  cancel-in-progress: false
+jobs:
+  staging-legal:
+    if: github.ref == 'refs/heads/feat/celebrations-supabase-exit-001'
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    timeout-minutes: 10
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install 'requests>=2.32,<3'
+      - name: Initialize private editable legal drafts without publishing placeholders
+        run: python scripts/seed-staging-footer-drafts.py
