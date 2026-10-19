@@ -11,11 +11,17 @@ const check=async(path,{method="GET",body,headers={},follow=false}={})=>{
 const record={origin};
 const root=await check("/");
 record.root_status=root.status;
-// The current deployment still serves / as an asset (200). New Worker-first
-// config will enforce the redirect only after a separate staging deployment.
-assert.ok([200,302].includes(root.status),"Unexpected root status");
-if(root.status===302){assert.ok((root.headers.get("location")||"").includes("staging=1"));}
-else console.warn("STAGING_ROOT_REDIRECT_PENDING_DEPLOYMENT");
+// Worker-first asset routing must force the isolated staging mode.
+assert.equal(root.status,302,"Staging root must enter isolated mode before assets");
+assert.ok((root.headers.get("location")||"").includes("staging=1"));
+const adminNoQuery=await check("/admin.html");
+record.admin_default_status=adminNoQuery.status;
+assert.ok([302,307].includes(adminNoQuery.status),
+ "Admin entry must not bypass the staging-mode redirect");
+const adminDefault=await check("/admin.html",{follow:true});
+assert.equal(adminDefault.status,200);
+assert.equal(new URL(adminDefault.url).searchParams.get("staging"),"1",
+ "Admin entry without query must end in staging mode");
 for(const [label,path] of [
  ["home","/?staging=1"],
  ["admin","/admin.html?staging=1"],
