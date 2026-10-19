@@ -35,6 +35,25 @@ try{
     localStorage.setItem("celebrations-admin-token",token);
  },bearer);
  const page=await context.newPage();
+ // Fail-closed: a read-only audit must NEVER allow a business mutation to
+ // reach staging D1, even if a UI regression automatically calls saveState().
+ const interceptedMutations=[];
+ await page.route("**/api/**",async route=>{
+  const req=route.request();
+  if(req.method()==="GET"||req.method()==="HEAD"){await route.continue();return}
+  let action="";try{action=JSON.parse(req.postData()||"{}").action||""}catch{}
+  const path=new URL(req.url()).pathname;
+  const reads={
+   "/api/auth":new Set(["admin_session"]),
+   "/api/admin":new Set(["list"]),
+   "/api/footer-admin":new Set(["admin_footer_drafts"]),
+   "/api/participants-admin":new Set(["admin_list_participants","admin_list"])
+  };
+  if(reads[path]?.has(action)){await route.continue();return}
+  interceptedMutations.push({path,action});
+  await route.fulfill({status:409,contentType:"application/json",
+    body:JSON.stringify({ok:false,error:"Read-only audit: mutation intentionally blocked"})});
+ });
  page.on("pageerror",e=>errors.push(String(e.stack||e.message).slice(0,700)));
  page.on("request",r=>{
   if(r.url().includes("jwyayfkssyagvnablttg.supabase.co"))legacy.push(r.method());
@@ -73,8 +92,8 @@ try{
   "/api/admin":new Set(["list"]),
   "/api/footer-admin":new Set(["admin_footer_drafts"])
  };
- assert.ok(browserWrites.every(x=>readActions[x.path]?.has(x.action)),
- "Unexpected authenticated admin mutation: "+JSON.stringify(browserWrites));
+ assert.ok(browserWrites.every(x=>readActions[x.path]?.has(x.action))&&interceptedMutations.length===0,
+ "Admin browsing attempted business writes (BLOCKED, zero audit writes): "+JSON.stringify(interceptedMutations));
  console.log("STAGING_AUTHENTICATED_ADMIN_SMOKE "+JSON.stringify({
   authenticated:true,celebration_rows_visible:rows,loaded_data:data,media_panel:true,footer_editor:true,
   footer_drafts:footer.drafts.length,participant_count:participants.participants.length,
