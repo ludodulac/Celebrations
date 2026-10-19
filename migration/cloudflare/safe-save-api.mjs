@@ -3,7 +3,33 @@ const reply=(x,status=200)=>new Response(JSON.stringify(x),{status,headers:{"con
 const ids=v=>Array.isArray(v)?[...new Set(v.map(String).filter(Boolean))]:[];
 const text=v=>String(v??"");
 const pick=(obj,fields)=>fields.map(k=>obj[k]??null);
-const insert=(table,fields,rows)=>rows.map(row=>({sql:`INSERT INTO "${table}" (${fields.map(k=>'"'+k+'"').join(",")}) VALUES (${fields.map(()=>"?").join(",")}) ON CONFLICT DO UPDATE SET ${fields.filter(k=>!["id","event_id","content_id","celebration_id","step_key"].includes(k)).map(k=>'"'+k+'"=excluded."'+k+'"').join(",")}`,args:pick(row,fields)}));
+// Cloudflare D1's free tier permits 50 SQL queries per Worker invocation.
+// Group rows through D1-supported SQLite JSON functions, while retaining
+// identical SQL conflict rules, one atomic batch, and a single bound JSON
+// parameter per statement. No raw user-supplied SQL identifiers are accepted.
+const insert=(table,fields,rows)=>{
+ if(!rows.length)return [];
+ const quoted=k=>'"'+k+'"';
+ const cols=fields.map(quoted).join(",");
+ const extracts=fields.map(k=>"json_extract(value, '$."+k+"')").join(",");
+ const updated=fields.filter(k=>!["id","event_id","content_id","celebration_id","step_key"].includes(k));
+ const conflict=updated.length
+  ?"DO UPDATE SET "+updated.map(k=>quoted(k)+"=excluded."+quoted(k)).join(",")
+  :"DO NOTHING";
+ // WHERE true disambiguates SQLite's INSERT ... SELECT ... ON CONFLICT syntax.
+ const sql='INSERT INTO "'+table+'" ('+cols+') SELECT '+extracts+' FROM json_each(?) WHERE true ON CONFLICT '+conflict;
+ const out=[];
+ let chunk=[],size=2;
+ const flush=()=>{if(chunk.length){out.push({sql,args:[JSON.stringify(chunk)]});chunk=[];size=2}};
+ for(const row of rows){
+  const normalized=Object.fromEntries(fields.map(k=>[k,row[k]??null]));
+  const encoded=JSON.stringify(normalized);
+  if(chunk.length&&(chunk.length>=80||size+encoded.length+1>120000))flush();
+  chunk.push(normalized);size+=encoded.length+1;
+ }
+ flush();
+ return out;
+};
 export async function handleSafeSave(request,env){
  if(request.method!=="POST")return reply({ok:false,error:"Method not allowed"},405);
  if(!env.DB||!await authorize(request,env,true))return reply({ok:false,error:"Unauthorized"},401);
@@ -52,7 +78,9 @@ export async function handleSafeSave(request,env){
  // D1 batch commits deletions and inserts together, avoiding partial writes.
  for(const c of cels)jobs.push({sql:"DELETE FROM celebrations_links WHERE celebration_id=?",args:[Number(c.id)]});
  normalizedLinks.forEach(l=>jobs.push({sql:"INSERT INTO celebrations_links (celebration_id,step_key,event_id,label,url,link_type,sort_order) VALUES (?,?,?,?,?,?,?)",args:[l.celebration_id,l.step_key,l.event_id,l.label,l.url,l.link_type,l.sort_order]}));
- if(jobs.length>2000)return reply({ok:false,error:"Too many changes"},413);
+ // Authorization already consumes one D1 query. Never send a batch that
+ // would silently exceed the free-tier query budget (50 per invocation).
+ if(jobs.length>48)return reply({ok:false,error:"Sauvegarde trop volumineuse pour Cloudflare : fractionnement nécessaire."},413);
  try{
   // D1 batch is transactional: either all statements commit or none.
   await env.DB.batch(jobs.map(j=>env.DB.prepare(j.sql).bind(...j.args)));
