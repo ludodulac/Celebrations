@@ -2,9 +2,9 @@
 // are GET/HEAD except unauthorized POST probes, which must never write data.
 import assert from "node:assert/strict";
 const origin="https://celebrations-exit-staging.rondes.workers.dev";
-const check=async(path,{method="GET",body,headers={}}={})=>{
+const check=async(path,{method="GET",body,headers={},follow=false}={})=>{
  const response=await fetch(origin+path,{
-  method,headers,body,redirect:"manual",signal:AbortSignal.timeout(20000)
+  method,headers,body,redirect:follow?"follow":"manual",signal:AbortSignal.timeout(20000)
  });
  return response;
 };
@@ -20,8 +20,9 @@ for(const [label,path] of [
  ["home","/?staging=1"],
  ["admin","/admin.html?staging=1"],
  ["bridge","/migration/cloudflare/preview-client.js"]]){
- const r=await check(path);
+ const r=await check(path,{follow:true});
  record[label+"_status"]=r.status;
+ if(label!=="bridge")assert.equal(new URL(r.url).searchParams.get("staging"),"1",label+" must remain staging-only after redirects");
  assert.equal(r.status,200,label+" page/static asset should load");
  const data=await r.text();
  assert.ok(data.length>100,label+" returned an unexpectedly empty document");
