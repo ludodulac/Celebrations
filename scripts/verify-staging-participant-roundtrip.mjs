@@ -18,6 +18,19 @@ async function action(name,body={}){
  });
  return {status:r.status,...await r.json()};
 }
+async function auth(action,body={}){
+ const response=await fetch(origin+"/api/auth",{
+  method:"POST",headers:{"content-type":"application/json"},
+  body:JSON.stringify({action,...body}),signal:AbortSignal.timeout(30000)
+ });
+ return {status:response.status,...await response.json()};
+}
+async function access(token){
+ const r=await fetch(origin+"/api/audience",{method:"POST",
+  headers:{"content-type":"application/json"},
+  body:JSON.stringify({action:"participant_get",participant_token:token}),signal:AbortSignal.timeout(20000)});
+ return {status:r.status,...await r.json()};
+}
 async function list(){
  const a=await action("admin_list_participants");
  const b=await action("admin_list");
@@ -39,6 +52,37 @@ try{
  const assigned=await list();
  assert.equal(assigned.audiences.find(x=>x.email===email)?.audience,"angel",
   "Access category not persisted in isolated D1");
+ // Exercise the real public registration + PBKDF2 login and password
+ // recovery on this disposable account, NOT on the genuine participant.
+ const firstPassword="synthetic-pass-2026-strong",updatedPassword="synthetic-rotated-2026-strong";
+ const register=await auth("participant_register",{
+  email,password:firstPassword,question_1:"first_school",question_2:"childhood_book",
+  answer_1:"école test fictive",answer_2:"livre fictif"
+ });
+ assert.equal(register.status,200,"Cloudflare participant registration failed");
+ const login=await auth("participant_login",{email,password:firstPassword});
+ assert.equal(login.status,200,"Cloudflare PBKDF2 participant login failed");
+ assert.match(login.token||"",/^[a-f0-9]{64}$/);
+ const session=await auth("participant_session",{participant_token:login.token});
+ assert.equal(session.status,200,"Participant session validation failed");
+ const audience=await access(login.token);
+ assert.equal(audience.status,200);assert.equal(audience.audience,"angel");
+ const question=await auth("recovery_questions",{email});
+ assert.equal(question.status,200,"Recovery questions not available");
+ assert.equal(question.question_1,"first_school");
+ const recovered=await auth("recover_password",{
+  email,new_password:updatedPassword,answer_1:"école test fictive",answer_2:"livre fictif"
+ });
+ assert.equal(recovered.status,200,"Password recovery compatibility failed");
+ const oldSession=await auth("participant_session",{participant_token:login.token});
+ assert.equal(oldSession.status,401,"Recovery failed to revoke old sessions");
+ const relogin=await auth("participant_login",{email,password:updatedPassword});
+ assert.equal(relogin.status,200,"New password login failed");
+ const logout=await auth("participant_logout",{participant_token:relogin.token});
+ assert.equal(logout.status,200,"Logout failed");
+ const revoked=await auth("participant_session",{participant_token:relogin.token});
+ assert.equal(revoked.status,401,"Logout failed to invalidate session");
+ console.log("STAGING_PARTICIPANT_AUTH_FULL_ROUNDTRIP registration=true login=true audience=true recovery=true logout=true");
  console.log("STAGING_PARTICIPANT_ROUNDTRIP stage=create-and-assign passed=true");
 }finally{
  try{
