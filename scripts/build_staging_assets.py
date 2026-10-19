@@ -17,6 +17,19 @@ def main():
   target=OUT/path.relative_to(ROOT)
   target.parent.mkdir(parents=True,exist_ok=True)
   shutil.copy2(path,target);count+=1
+ # Isolated Cloudflare pages must never boot the legacy Supabase CDN SDK.
+ sdk='<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>'
+ for name in ("index.html","admin.html"):
+  target=OUT/name
+  html=target.read_text(encoding="utf-8")
+  assert html.count(sdk)==1, f"Unexpected Supabase script tag in {name}"
+  html=html.replace(sdk,"")
+  if name=="index.html":
+   original="https://jwyayfkssyagvnablttg.supabase.co/storage/v1/object/public/celebrations-media/media/1791723108110/file-1791723109615-1000040461.jpg"
+   destination="/media/media/celebrations-staging-welcome-autumn-2026.jpg"
+   assert html.count(original)==1, "Unexpected staging homepage illustration source"
+   html=html.replace(original,destination)
+  target.write_text(html,encoding="utf-8")
  bridge=OUT/"migration/cloudflare/preview-client.js"
  bridge.parent.mkdir(parents=True,exist_ok=True)
  shutil.copy2(ROOT/"migration/cloudflare/preview-client.js",bridge)
