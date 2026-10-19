@@ -8,6 +8,8 @@ on:
       - admin-date-rules.js
       - admin-v3.js
       - scripts/verify-staging-authenticated-admin.mjs
+      - migration/cloudflare/safe-save-api.mjs
+      - tests/test-exit-safe-save-sqlite.mjs
 permissions:
   contents: read
 concurrency:
@@ -60,7 +62,7 @@ jobs:
           PY
       - name: Ensure changes pass staging unit and integration tests
         run: |
-          node --test tests/test-exit-media-gateway.mjs tests/test-exit-public-data.mjs tests/test-exit-auth.mjs tests/test-exit-staging-integration.mjs tests/test-exit-preview-client.mjs tests/test-exit-client-isolation.mjs tests/test-exit-footer-admin.mjs tests/test-exit-participants-admin.mjs
+          node --test tests/test-exit-media-gateway.mjs tests/test-exit-public-data.mjs tests/test-exit-auth.mjs tests/test-exit-staging-integration.mjs tests/test-exit-preview-client.mjs tests/test-exit-client-isolation.mjs tests/test-exit-footer-admin.mjs tests/test-exit-participants-admin.mjs tests/test-exit-safe-save-sqlite.mjs
       - name: Build Cloudflare-only static assets
         run: python scripts/build_staging_assets.py
       - name: Verify no legacy image or Supabase SDK in staging pages
