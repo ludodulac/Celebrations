@@ -18,7 +18,8 @@ on:
       - tests/test-exit-auth.mjs
       - tests/test-exit-staging-integration.mjs
       - tests/test-exit-safe-save-sqlite.mjs
-      - tests/test-exit-stats.mjs
+      - tests/test-exit-stats.mjs tests/test-exit-participant-full.mjs
+      - tests/test-exit-participant-full.mjs
       - admin-click-stats.js
       - public-click-tracking.js
       - tests/test_exit_export.py
