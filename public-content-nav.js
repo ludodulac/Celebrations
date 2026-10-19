@@ -17,4 +17,4 @@ renderProgram=function(){
   hydrateDynamic(program);
 };
 
-renderProgram();
+if(!window.CELEBRATIONS_STAGING_BACKEND)renderProgram();
