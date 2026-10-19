@@ -25,6 +25,9 @@ on:
       - scripts/verify-staging-public-http.mjs
       - scripts/verify-staging-browser.mjs
       - public-v3.js
+      - public-date-rules.js
+      - public-content-nav.js
+      - public-library-simple.js
       - index.html
       - scripts/build_staging_assets.py
   pull_request:
@@ -45,6 +48,7 @@ jobs:
         with:
           node-version: "22"
       - run: node --check migration/cloudflare/preview-client.js
+      - run: node --check public-v3.js && node --check public-date-rules.js && node --check public-content-nav.js && node --check public-library-simple.js
       - run: node --test tests/test-exit-media-gateway.mjs tests/test-exit-public-data.mjs tests/test-exit-auth.mjs tests/test-exit-staging-integration.mjs tests/test-exit-preview-client.mjs tests/test-exit-client-isolation.mjs tests/test-exit-footer-admin.mjs tests/test-exit-participants-admin.mjs
       - run: python scripts/build_staging_assets.py
       - name: Verify isolated assets have no Supabase image or CDN SDK
