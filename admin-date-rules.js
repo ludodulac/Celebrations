@@ -66,4 +66,5 @@ editDay=function(key){
     saveState(state);editDay(key);toast('Enregistré');
   };
 };
-renderProgram();
+// Cloudflare preview loads D1 state only after the admin session is validated.
+if(!window.CELEBRATIONS_STAGING_BACKEND)renderProgram();
