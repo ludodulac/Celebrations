@@ -4,6 +4,9 @@ on:
     branches: [feat/celebrations-supabase-exit-001]
     paths:
       - .github/workflows/celebrations-staging-autodeploy-once.yml
+      - admin-celebrations.js
+      - admin-date-rules.js
+      - scripts/verify-staging-authenticated-admin.mjs
 permissions:
   contents: read
 concurrency:
@@ -39,6 +42,18 @@ jobs:
             [[ -n "${!var:-}" ]] || { echo "Missing staging configuration: $var"; exit 1; }
           done
           [[ "$STAGING_R2_BUCKET" == "celebrations-exit-staging" ]]
+      - name: Require view-only admin screens before uploading
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          c=Path("admin-celebrations.js").read_text()
+          d=Path("admin-date-rules.js").read_text()
+          view=c.split("editCelebration=function(id)",1)[1].split("saveC.onclick",1)[0]
+          assert "saveState(state)" not in view, "Opening a celebration still saves all D1 content"
+          programme=d.split("renderProgram=function()",1)[1].split("dayCard=function",1)[0]
+          assert "saveState(state)" not in programme, "Viewing the programme still saves D1"
+          print("STAGING_VIEW_ONLY_ADMIN_GUARD_OK")
+          PY
       - name: Ensure changes pass staging unit and integration tests
         run: |
           node --test tests/test-exit-media-gateway.mjs tests/test-exit-public-data.mjs tests/test-exit-auth.mjs tests/test-exit-staging-integration.mjs tests/test-exit-preview-client.mjs tests/test-exit-client-isolation.mjs tests/test-exit-footer-admin.mjs tests/test-exit-participants-admin.mjs
