@@ -2,6 +2,17 @@
 import {authorize} from "./auth-api.mjs";
 const json=(x,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{"content-type":"application/json","cache-control":"no-store"}});
 const safe=k=>typeof k==="string"&&k.length>0&&k.length<512&&/^(media|committee)\/[a-zA-Z0-9_./-]+$/.test(k)&&!k.split("/").some(p=>p===".."||p===".") ;
+// Only safe, non-executable media formats. In particular, SVG and HTML
+// must not be served from the site's own origin as user-uploaded scripts.
+const mimeAllowed=new Set([
+ "application/pdf","application/msword",
+ "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+ "application/vnd.oasis.opendocument.text","application/rtf",
+ "text/plain","text/markdown","text/csv","text/rtf",
+ "image/jpeg","image/png","image/gif","image/webp","image/avif",
+ "audio/mpeg","audio/mp3","audio/ogg","audio/wav","audio/x-wav","audio/mp4","audio/aac","audio/webm",
+ "video/mp4","video/webm","video/quicktime","video/ogg"
+]);
 export async function handleMediaAdmin(request,env){
  if(!env.DB||!env.MEDIA_BUCKET)return json({ok:false,error:"Unavailable"},503);
  if(!await authorize(request,env,true))return json({ok:false,error:"Unauthorized"},401);
@@ -9,12 +20,13 @@ export async function handleMediaAdmin(request,env){
  const url=new URL(request.url),action=url.searchParams.get("action");
  try{
   if(action==="upload"){
-   const key=url.searchParams.get("key"),type=request.headers.get("content-type")||"application/octet-stream";
-   if(!safe(key)||!["audio/","image/","video/","application/pdf","text/"].some(x=>type.startsWith(x)))return json({ok:false,error:"Invalid upload"},400);
+   const key=url.searchParams.get("key"),type=(request.headers.get("content-type")||"").split(";")[0].trim().toLowerCase();
+   if(!safe(key)||!mimeAllowed.has(type)||(key.startsWith("committee/")&&type!=="application/pdf"))return json({ok:false,error:"Format non autorisé"},400);
    const length=Number(request.headers.get("content-length"));
    if(!Number.isSafeInteger(length)||length<=0||length>20*1024*1024)return json({ok:false,error:"Invalid size"},413);
    const data=await request.arrayBuffer();
    if(data.byteLength!==length)return json({ok:false,error:"Size mismatch"},400);
+   if(type==="application/pdf"&&new TextDecoder().decode(data.slice(0,5))!=="%PDF-")return json({ok:false,error:"PDF invalide"},400);
    if(await env.MEDIA_BUCKET.head(key))return json({ok:false,error:"Already exists"},409);
    await env.MEDIA_BUCKET.put(key,data,{httpMetadata:{contentType:type},onlyIf:{etagDoesNotMatch:"*"}});
    const stored=await env.MEDIA_BUCKET.head(key);
