@@ -21,9 +21,13 @@ export async function handleMedia(request,env){
   if(row&&safeKey(row.storage_path)&&row.storage_path.startsWith("committee/")){key=row.storage_path;authorized=true}
  }else{
   if(key.startsWith("committee/"))return json("Not found",404);
-  const row=await env.MEDIA_ACL.prepare("SELECT 1 FROM public_media WHERE storage_path=? AND approved=1 AND revoked_at IS NULL").bind(key).first();
-  authorized=!!row;
-  if(!authorized&&env.DB){
+  const row=await env.MEDIA_ACL.prepare("SELECT approved,revoked_at FROM public_media WHERE storage_path=?").bind(key).first();
+  authorized=!!row&&row.approved===1&&!row.revoked_at;
+  if(!row&&env.DB){
+   const publicContent=await env.DB.prepare("SELECT 1 FROM celebrations_contents c WHERE (c.storage_path=? OR c.cover_storage_path=?) AND c.audience='all' AND (EXISTS (SELECT 1 FROM celebrations_event_contents ec JOIN celebrations_events e ON e.id=ec.event_id WHERE ec.content_id=c.id AND e.audience='all') OR EXISTS (SELECT 1 FROM celebrations_step_contents sc WHERE sc.content_id=c.id)) LIMIT 1").bind(key,key).first();
+   authorized=!!publicContent;
+  }
+  if(!authorized&&!row&&env.DB){
    const bearer=request.headers.get("authorization")||"";
    const user=bearer.startsWith("Bearer ")?await participantIdentity(env,bearer.slice(7)):null;
    if(["angel","nonangel"].includes(user?.audience)){
@@ -41,6 +45,7 @@ export async function handleMedia(request,env){
  if(!object)return json("Not found",404);
  const headers=new Headers();
  object.writeHttpMetadata?.(headers);
+ if(!headers.has("content-type")){const ext=key.split(".").pop()?.toLowerCase();const mime={jpg:"image/jpeg",jpeg:"image/jpeg",png:"image/png",webp:"image/webp",gif:"image/gif",svg:"image/svg+xml",pdf:"application/pdf",mp3:"audio/mpeg",mp4:"video/mp4",ogg:"audio/ogg",wav:"audio/wav"};headers.set("content-type",mime[ext]||"application/octet-stream")}
  headers.set("accept-ranges","bytes");
  headers.set("etag",object.httpEtag||"");
  headers.set("x-content-type-options","nosniff");
