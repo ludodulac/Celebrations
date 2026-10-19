@@ -24,6 +24,9 @@ on:
       - scripts/verify-staging-media-http.mjs
       - scripts/verify-staging-public-http.mjs
       - scripts/verify-staging-browser.mjs
+      - public-v3.js
+      - index.html
+      - scripts/build_staging_assets.py
   pull_request:
     paths:
       - migration/**
@@ -44,6 +47,17 @@ jobs:
       - run: node --check migration/cloudflare/preview-client.js
       - run: node --test tests/test-exit-media-gateway.mjs tests/test-exit-public-data.mjs tests/test-exit-auth.mjs tests/test-exit-staging-integration.mjs tests/test-exit-preview-client.mjs tests/test-exit-client-isolation.mjs tests/test-exit-footer-admin.mjs tests/test-exit-participants-admin.mjs
       - run: python scripts/build_staging_assets.py
+      - name: Verify isolated assets have no Supabase image or CDN SDK
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          home=Path("staging-public/index.html").read_text()
+          admin=Path("staging-public/admin.html").read_text()
+          assert 'src="/media/media/celebrations-staging-welcome-autumn-2026.jpg"' in home
+          assert "cdn.jsdelivr.net/npm/@supabase/supabase-js" not in home+admin
+          assert "storage/v1/object/public/celebrations-media/media/1791723108110" not in home
+          assert "celebrationsStagingMedia" in Path("staging-public/migration/cloudflare/preview-client.js").read_text()
+          PY
       - run: STAGING_D1_ID=00000000-0000-4000-8000-000000000000 STAGING_R2_BUCKET=celebrations-exit-staging python scripts/configure_staging_wrangler.py
       - name: Check Worker handles HTML staging redirects before assets
         run: grep -Fq 'run_worker_first = ["/", "/index.html", "/admin.html", "/admin"]' migration/cloudflare/wrangler.toml
