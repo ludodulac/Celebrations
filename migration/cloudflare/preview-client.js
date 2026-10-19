@@ -15,7 +15,11 @@
   }catch{return {data:{ok:false,error:"Connexion au serveur de test indisponible."},error:null}}
  };
  const invoke=async(name,{body={}}={})=>{
-  if(name==="celebrations-access")return post("/api/auth",body);
+  if(name==="celebrations-access"){
+   if(["admin_footer_drafts","admin_publish_footer","admin_set_footer_public"].includes(body.action))
+    return post("/api/footer-admin",body,true);
+   return post("/api/auth",body);
+  }
   if(name==="celebrations-audience")return post("/api/audience",body);
   if(name==="celebrations-admin-safe-save")return post("/api/safe-save",body,true);
   if(name==="celebrations-visibility"&&body.action==="get"){
