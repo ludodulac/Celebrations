@@ -4,6 +4,7 @@ on:
     branches: [feat/celebrations-supabase-exit-001]
     paths:
       - .github/workflows/celebrations-staging-browser-file-once.yml
+      - scripts/verify-staging-browser-file-upload.mjs
 permissions:
   contents: read
 concurrency:
