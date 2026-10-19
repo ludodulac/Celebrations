@@ -13,3 +13,11 @@ test("public visibility reads only the intended D1 display flag",async()=>{
  const rows=await r.json();
  assert.equal(rows[0].sql,"SELECT show_other_celebrations FROM celebrations_public_settings WHERE id=1 LIMIT 1");
 });
+
+test("only published footer slugs are readable; drafts stay private",async()=>{
+ const response=await handlePublicData(new Request("https://staging/api/public-data?table=celebrations_footer_drafts"),env);
+ assert.equal(response.status,200);
+ const rows=await response.json();
+ assert.equal(rows[0].sql,"SELECT slug FROM celebrations_footer_drafts WHERE is_active=1 AND is_public=1");
+ assert.ok(!rows[0].sql.includes("SELECT *"));
+});
