@@ -63,5 +63,10 @@
   if(!r.ok)throw new Error("Staging data unavailable");
   return r.json();
  };
- window.celebrationsStagingMedia=path=>{\n  const value=String(path||"");\n  // Already-public external links (e.g. Drive viewers) are not R2 object keys.\n  if(/^https?:///i.test(value))return value;\n  return base+"/media/"+value.split("/").map(encodeURIComponent).join("/");\n };
+ window.celebrationsStagingMedia=path=>{
+  const value=String(path||"");
+  // Public external URLs (such as Drive) are not private R2 keys.
+  if(value.startsWith("https://")||value.startsWith("http://"))return value;
+  return base+"/media/"+value.split("/").map(encodeURIComponent).join("/");
+};
 })();
