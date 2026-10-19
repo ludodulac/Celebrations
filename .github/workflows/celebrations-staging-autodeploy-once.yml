@@ -80,3 +80,4 @@ jobs:
         env:
           REQUIRE_CLOUDFLARE_ONLY: "1"
         run: node scripts/verify-staging-browser.mjs
+# Second isolated staging run: verify deferred admin initialisation after real Chromium stack trace.
