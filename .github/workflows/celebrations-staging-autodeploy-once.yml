@@ -80,4 +80,11 @@ jobs:
         env:
           REQUIRE_CLOUDFLARE_ONLY: "1"
         run: node scripts/verify-staging-browser.mjs
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install read-only admin browser audit dependency
+        run: python -m pip install 'requests>=2.32,<3'
+      - name: Verify authenticated admin UI without business changes
+        run: python scripts/verify-staging-authenticated-admin.py
 # Second isolated staging run: verify deferred admin initialisation after real Chromium stack trace.
