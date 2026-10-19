@@ -10,7 +10,13 @@ try{
  const page=await context.newPage();
  page.on("pageerror",e=>errors.push(String(e.stack||e.message).slice(0,900)));
  page.on("request",r=>{if(/jwyayfkssyagvnablttg\.(supabase\.co|storage\.supabase\.co)/.test(r.url()))legacy.push({method:r.method(),url:r.url().slice(0,150)});});
+ const track=page.waitForResponse(r=>r.url()===origin+"/api/stats"&&r.request().method()==="POST",{timeout:15000}).catch(()=>null);
  await page.goto(origin+"/?staging=1",{waitUntil:"domcontentloaded",timeout:45000});
+ const eventResponse=await track;
+ results.cloudflare_tracking_status=eventResponse?.status()??null;
+ if(process.env.REQUIRE_CLOUDFLARE_ONLY==="1")
+  assert.equal(results.cloudflare_tracking_status,200,"Staging public page view not stored in Cloudflare D1");
+
  await page.locator("#welcome-open-program").waitFor({state:"visible",timeout:20000});
  await page.evaluate(()=>window.publicDataReady);
  const before=await page.evaluate(()=>({staging:window.CELEBRATIONS_STAGING_BACKEND,celebrations:window.state?.celebrations?.length,events:window.state?.events?.length,contents:window.state?.contents?.length}));
