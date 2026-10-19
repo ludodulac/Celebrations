@@ -42,10 +42,10 @@ async function worker(){
   try{
    const r=await request(url,"HEAD");
    statuses.set(r.status,(statuses.get(r.status)||0)+1);
-   if(r.status!==200 && errors.length<8) errors.push({index:paths.indexOf(key)+1,status:r.status});
+   if(r.status!==200 && errors.length<8) errors.push({path:key,status:r.status});
   }catch(e){
    statuses.set("NETWORK_ERROR",(statuses.get("NETWORK_ERROR")||0)+1);
-   if(errors.length<8)errors.push({index:paths.indexOf(key)+1,error:e.name||"error"});
+   if(errors.length<8)errors.push({path:key,error:e.name||"error"});
   }
  }
 }
