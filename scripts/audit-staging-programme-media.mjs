@@ -44,6 +44,7 @@ for(const id of linkedIds){
  }
 }
 const checks=[...keys.values()];let cursor=0;
+if(checks.length){const key=checks[0].key;for(const variant of [key,key.replace(/^media\\//,'')]){const u=base+'/media/'+variant.split('/').map(encodeURIComponent).join('/');try{const r=await get(u,'GET');console.log('MEDIA_DIAGNOSTIC '+JSON.stringify({variant:variant===key?'full-key':'without-media-prefix',status:r.status,body:r.ok?'OK':(await r.text()).slice(0,180)}))}catch(e){console.log('MEDIA_DIAGNOSTIC '+String(e.message))}}}
 const publicChecks=checks.filter(c=>c.audiences.includes('all'));
 const restrictedChecks=checks.filter(c=>!c.audiences.includes('all'));
 console.log('AUDIT_AUDIENCE_SCOPE '+JSON.stringify({publicPaths:publicChecks.length,restrictedPaths:restrictedChecks.length}));
