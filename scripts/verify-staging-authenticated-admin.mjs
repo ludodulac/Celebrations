@@ -65,6 +65,14 @@ try{
  await page.goto(origin+"/admin.html?staging=1",{waitUntil:"domcontentloaded",timeout:45000});
  await page.waitForFunction(()=>!document.body.classList.contains("admin-auth-locked"),{timeout:25000});
  await page.waitForFunction(()=>window.celebrationsCoreSyncStatus==="saved",{timeout:30000});
+ await page.evaluate(()=>{
+  window.__stagingAuditSaveStacks=[];
+  const prior=window.saveState;
+  window.saveState=function(...args){
+   window.__stagingAuditSaveStacks.push(String(new Error("view-triggered saveState").stack||"").slice(0,950));
+   return prior.apply(this,args);
+  };
+ });
  await page.locator(".admin-nav [data-admin=celebrations]").click();
  const rows=await page.locator("#panel .admin-row").count();
  const data=await page.evaluate(()=>({
@@ -92,8 +100,10 @@ try{
   "/api/admin":new Set(["list"]),
   "/api/footer-admin":new Set(["admin_footer_drafts"])
  };
+ const stacks=await page.evaluate(()=>window.__stagingAuditSaveStacks||[]);
  assert.ok(browserWrites.every(x=>readActions[x.path]?.has(x.action))&&interceptedMutations.length===0,
- "Admin browsing attempted business writes (BLOCKED, zero audit writes): "+JSON.stringify(interceptedMutations));
+ "Admin browsing attempted business writes (BLOCKED): "+JSON.stringify(interceptedMutations)+
+ " | saveState call sites "+JSON.stringify(stacks.slice(0,6)));
  console.log("STAGING_AUTHENTICATED_ADMIN_SMOKE "+JSON.stringify({
   authenticated:true,celebration_rows_visible:rows,loaded_data:data,media_panel:true,footer_editor:true,
   footer_drafts:footer.drafts.length,participant_count:participants.participants.length,
