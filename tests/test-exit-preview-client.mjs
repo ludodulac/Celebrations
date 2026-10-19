@@ -39,3 +39,19 @@ test("media URLs on staging do not rewrite public external links",()=>{
  assert.equal(window.celebrationsStagingMedia("https://drive.google.com/file/d/example/view"),"https://drive.google.com/file/d/example/view");
  assert.equal(window.celebrationsStagingMedia("media/example.pdf"),"https://isolated-staging.invalid/media/media/example.pdf");
 });
+
+test("legacy footer administration actions route only to authenticated staging D1",async()=>{
+ const actions=["admin_footer_drafts","admin_publish_footer","admin_set_footer_public"];
+ for(const action of actions){
+  const calls=[];
+  const token="isolated-admin-token";
+  const window={CELEBRATIONS_STAGING_BACKEND:"https://isolated-staging.invalid"};
+  const fetch=async(url,options)=>{calls.push({url,options});return new Response(JSON.stringify({ok:true}),{status:200})};
+  vm.runInNewContext(source,{window,fetch,localStorage:{getItem:()=>token}});
+  const {data}=await window.celebrationsSupabase.functions.invoke("celebrations-access",{body:{action}});
+  assert.equal(data.ok,true);
+  assert.equal(calls.length,1);
+  assert.equal(calls[0].url,"https://isolated-staging.invalid/api/footer-admin");
+  assert.equal(calls[0].options.headers.authorization,"Bearer "+token);
+ }
+});
