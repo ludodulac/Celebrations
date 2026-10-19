@@ -75,3 +75,31 @@ test("participant management actions use isolated authenticated D1 API",async()=
   assert.equal(calls[0].options.headers.authorization,"Bearer admin-test-token");
  }
 });
+
+test("staging admin loads protected programme rows via bearer-authenticated D1 list",async()=>{
+ const calls=[],window={CELEBRATIONS_STAGING_BACKEND:"https://isolated-staging.invalid"};
+ const document={body:{classList:{contains:name=>name==="admin-app"}}};
+ const fetch=async(url,options={})=>{
+  calls.push({url,options});
+  assert.equal(url,"https://isolated-staging.invalid/api/admin");
+  return new Response(JSON.stringify({ok:true,items:[{id:"private-id",audience:"angel"}]}),{status:200});
+ };
+ vm.runInNewContext(source,{window,document,fetch,localStorage:{getItem:key=>key==="celebrations-admin-token"?"staging-admin-bearer":null}});
+ const rows=await window.celebrationsStagingData("celebrations_contents");
+ assert.equal(rows.length,1);assert.equal(rows[0].audience,"angel");
+ assert.equal(calls[0].options.method,"POST");
+ assert.equal(calls[0].options.headers.authorization,"Bearer staging-admin-bearer");
+ assert.equal(JSON.parse(calls[0].options.body).table,"celebrations_contents");
+});
+test("staging public visitor never calls administrator D1 API",async()=>{
+ const calls=[],window={CELEBRATIONS_STAGING_BACKEND:"https://isolated-staging.invalid"};
+ const document={body:{classList:{contains:()=>false}}};
+ const fetch=async(url,options={})=>{
+  calls.push({url,options});return new Response(JSON.stringify([{id:"public-id",audience:"all"}]),{status:200});
+ };
+ vm.runInNewContext(source,{window,document,fetch,localStorage:{getItem:()=>null}});
+ const rows=await window.celebrationsStagingData("celebrations_contents");
+ assert.equal(rows.length,1);
+ assert.equal(calls[0].url,"https://isolated-staging.invalid/api/public-data?table=celebrations_contents");
+ assert.ok(!calls[0].options.headers?.authorization);
+});
