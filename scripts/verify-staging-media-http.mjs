@@ -22,11 +22,12 @@ const eligibleIds=new Set([
  ...eventLinks.filter(x=>publicEvents.has(String(x.event_id))).map(x=>String(x.content_id))
 ]);
 const keys=new Set();
-let ignoredCommittee=0;
+let ignoredCommittee=0, externalLinks=0;
 for(const c of contents){
  if(c.audience!=="all"||!eligibleIds.has(String(c.id)))continue;
  for(const path of [c.storage_path,c.cover_storage_path]){
   if(typeof path!=="string"||!path.trim())continue;
+  if(/^https?:\/\//i.test(path)){externalLinks++;continue} // External links are not private R2 object keys.
   if(path.startsWith("committee/")){ignoredCommittee++;continue}
   keys.add(path);
  }
@@ -55,7 +56,7 @@ const denyUnlisted=await request(origin+"/media/__unlisted_staging_smoke__.pdf",
 const report={
  origin,contents:contents.length,public_events:publicEvents.size,
  eligible_content_ids:eligibleIds.size,media_keys_tested:paths.length,
- ignored_committee_paths:ignoredCommittee,
+ ignored_committee_paths:ignoredCommittee,external_links:externalLinks,
  statuses:Object.fromEntries([...statuses].sort((a,b)=>String(a[0]).localeCompare(String(b[0])))),
  denied_committee_status:denyCommittee.status,
  denied_unknown_status:denyUnlisted.status,
