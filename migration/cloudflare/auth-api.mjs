@@ -142,7 +142,7 @@ export async function handleAuth(request,env){
   else if(/not implemented|not supported|unsupported/i.test(message))category="UNSUPPORTED";
   else if(/not a function|undefined|cannot read/i.test(message))category="RUNTIME";
   else if(/cpu|limit|time/i.test(message))category="RESOURCE";
-  const synthetic=/^migration-check-[a-f0-9-]{36}@invalid\\.example$/.test(email(b?.email));
+  const synthetic=/^migration-check-[a-f0-9-]{36}@invalid\.example$/.test(email(b?.email));
   return result({ok:false,error:"Authentication unavailable",
    ...(synthetic?{diagnostic_category:category,diagnostic_name:String(err?.name||"unknown").slice(0,45)}:{})},503);
  }
