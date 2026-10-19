@@ -29,18 +29,27 @@ def query(sql, params=()):
     response = requests.post(root + "/query", headers=headers, timeout=25,
                              json={"sql": sql, "params": list(params)}).json()
     if not response.get("success"):
-        raise RuntimeError("Isolated D1 request failed (no credentials printed)")
+        codes = [item.get("code") for item in response.get("errors", [])]
+        raise RuntimeError("Isolated D1 write failed; Cloudflare error codes=" + repr(codes))
     return response.get("result", [{}])[0].get("results", [])
 
 token = secrets.token_hex(32)
 digest = hashlib.sha256(token.encode()).hexdigest()
 expiry = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=5)).isoformat()
 inserted = False
+verify_url = "https://celebrations-exit-staging.rondes.workers.dev/api/auth"
+def valid_session():
+    response = requests.post(verify_url, json={"action":"admin_session","admin_token":token},
+                             timeout=25)
+    return response.status_code == 200 and response.json().get("ok") is True
 try:
     query("INSERT INTO celebrations_admin_sessions(token_hash,admin_email,expires_at) VALUES(?,?,?)",
           (digest, "staging-readonly-check@invalid.example", expiry))
     inserted = True
-    assert len(query("SELECT token_hash FROM celebrations_admin_sessions WHERE token_hash=?", (digest))) == 1
+    # The staging Cloudflare API credential has D1 write access; its D1 read
+    # permission may be intentionally restricted. Validate via the actual
+    # Worker auth endpoint, whose DB binding handles authorized SELECTs.
+    assert valid_session(), "New staging admin session not recognized by Worker"
     safe_env = dict(os.environ)
     safe_env["STAGING_TEMP_ADMIN_BEARER"] = token
     print("STAGING_SYNTHETIC_ADMIN_SESSION_CREATED expires_in_minutes=5")
@@ -50,7 +59,7 @@ finally:
     if inserted:
         try:
             query("DELETE FROM celebrations_admin_sessions WHERE token_hash=?", (digest,))
-            assert not query("SELECT token_hash FROM celebrations_admin_sessions WHERE token_hash=?", (digest,))
+            assert not valid_session(), "Revoked synthetic staging session still active"
             print("STAGING_SYNTHETIC_ADMIN_SESSION_REVOKED success=true")
         except Exception as error:
             raise RuntimeError("CRITICAL: Staging synthetic admin session cleanup failed; five-minute TTL will expire") from error
