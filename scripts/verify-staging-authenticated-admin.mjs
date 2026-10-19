@@ -17,6 +17,7 @@ async function adminCall(path,action){
 }
 const footer=await adminCall("/api/footer-admin","admin_footer_drafts");
 assert.ok(Array.isArray(footer.drafts),"Footer drafts must be an array");
+assert.ok(["mentions-legales","confidentialite","cookies"].every(slug=>footer.drafts.some(d=>d.slug===slug)),"Three editable legal draft pages missing");
 assert.ok(footer.drafts.every(x=>Object.keys(x).every(k=>
  ["slug","draft_number","title","content","is_active","is_public","updated_at"].includes(k))));
 const participants=await adminCall("/api/participants-admin","admin_list_participants");
@@ -112,6 +113,7 @@ try{
  assert.ok(library.length>40,"Admin media panel unexpectedly empty");
  await page.locator("[data-footer-page=mentions-legales]").first().click();
  await page.locator("#footerPageText").waitFor({state:"visible",timeout:15000});
+ assert.ok((await page.locator("#footerPageText").inputValue()).length>120,"Legal editor has no saved draft");
  const editor=await page.locator("#footerPageText").count();
  assert.equal(editor,1,"Legal page editor did not open");
  assert.deepEqual(legacy,[],"Admin browser contacted production Supabase");
