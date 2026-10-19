@@ -1,0 +1,50 @@
+name: Complete all media and nine committee PDFs in isolated Cloudflare staging
+on:
+  push:
+    branches: [feat/celebrations-supabase-exit-001]
+    paths:
+      - .github/workflows/celebrations-staging-complete-media-committee-once.yml
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-staging-media-committee-migration
+  cancel-in-progress: false
+jobs:
+  stage-only:
+    if: github.ref == 'refs/heads/feat/celebrations-supabase-exit-001'
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    timeout-minutes: 105
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+      STAGING_R2_ACCESS_KEY_ID: ${{ secrets.CELEBRATIONS_STAGING_R2_ACCESS_KEY_ID }}
+      STAGING_R2_SECRET_ACCESS_KEY: ${{ secrets.CELEBRATIONS_STAGING_R2_SECRET_ACCESS_KEY }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      CELEBRATIONS_COMMITTEE_APPLY: COPY_AND_VERIFY
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Require exact isolated staging resource identifiers and source credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/feat/celebrations-supabase-exit-001'
+          test "$STAGING_R2_BUCKET" = 'celebrations-exit-staging'
+          for v in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_API_TOKEN STAGING_D1_ID STAGING_R2_ACCESS_KEY_ID STAGING_R2_SECRET_ACCESS_KEY R2_ENDPOINT; do
+            test -n "${!v:-}" || { echo "Missing credential variable: $v"; exit 1; }
+          done
+      - name: Install isolated transfer dependencies
+        run: python -m pip install 'boto3>=1.35,<2' 'requests>=2.32,<3'
+      - name: Step 1 - Copy all 158 Supabase media files and SHA256-verify each R2 staging byte
+        run: python scripts/migrate_all_celebrations_media_staging.py
+      - name: Step 2 - Import nine original committee PDF records, preserve slugs and check links
+        run: python scripts/migrate_committee_pdfs_staging.py
