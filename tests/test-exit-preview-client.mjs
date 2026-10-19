@@ -55,3 +55,23 @@ test("legacy footer administration actions route only to authenticated staging D
   assert.equal(calls[0].options.headers.authorization,"Bearer "+token);
  }
 });
+
+test("participant management actions use isolated authenticated D1 API",async()=>{
+ for(const [name,action] of [
+  ["celebrations-access","admin_list_participants"],
+  ["celebrations-access","admin_add_participant"],
+  ["celebrations-access","admin_remove_participant"],
+  ["celebrations-audience","admin_list"],
+  ["celebrations-audience","admin_set"]
+ ]){
+  const calls=[];
+  const window={CELEBRATIONS_STAGING_BACKEND:"https://staging.invalid"};
+  const fetch=async(url,options)=>{calls.push({url,options});return new Response(JSON.stringify({ok:true}),{status:200})};
+  vm.runInNewContext(source,{window,fetch,localStorage:{getItem:()=>"admin-test-token"}});
+  const {data}=await window.celebrationsSupabase.functions.invoke(name,{body:{action,email:"test@staging.invalid",audience:"angel"}});
+  assert.equal(data.ok,true);
+  assert.equal(calls.length,1);
+  assert.equal(calls[0].url,"https://staging.invalid/api/participants-admin");
+  assert.equal(calls[0].options.headers.authorization,"Bearer admin-test-token");
+ }
+});
