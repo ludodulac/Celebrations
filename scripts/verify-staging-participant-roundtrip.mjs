@@ -59,7 +59,7 @@ try{
   email,password:firstPassword,question_1:"first_school",question_2:"childhood_book",
   answer_1:"école test fictive",answer_2:"livre fictif"
  });
- assert.equal(register.status,200,"Cloudflare participant registration failed");
+ assert.equal(register.status,200,"Cloudflare participant registration failed; category="+register.diagnostic_category+" name="+register.diagnostic_name);
  const login=await auth("participant_login",{email,password:firstPassword});
  assert.equal(login.status,200,"Cloudflare PBKDF2 participant login failed");
  assert.match(login.token||"",/^[a-f0-9]{64}$/);
