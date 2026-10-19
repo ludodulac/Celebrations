@@ -14,14 +14,21 @@ test("staging skips Supabase SDK initialization while default production still u
  }
 });
 
-test("staging page views never send POST telemetry to production Supabase",async()=>{
+test("staging page views are written only to same-origin Cloudflare D1 statistics",async()=>{
  const code=await src("public-click-tracking.js");
- let attempts=0;
+ const calls=[];
  const window={CELEBRATIONS_STAGING_BACKEND:"https://isolated-staging.invalid",addEventListener(){}};
  const document={title:"Test",addEventListener(){}};
  const location={pathname:"/",search:"?staging=1",hash:""};
- vm.runInNewContext(code,{window,document,location,fetch(){attempts++;throw Error("Production traffic prohibited")}});
- assert.equal(attempts,0);
+ const localStorage={getItem(){return "randombrowservisitor123"},setItem(){}};
+ const fetch=(url,opts)=>{calls.push({url,opts});return Promise.resolve({ok:true})};
+ vm.runInNewContext(code,{window,document,location,fetch,localStorage});
+ assert.equal(calls.length,1);
+ assert.equal(calls[0].url,"/api/stats");
+ assert.equal(calls[0].opts.method,"POST");
+ const data=JSON.parse(calls[0].opts.body);
+ assert.equal(data.action,"track");assert.equal(data.target_kind,"page-view");
+ assert.equal(data.visitor_id,"randombrowservisitor123");
 });
 
 test("footer visibility uses D1 staging projection, not Supabase REST",async()=>{
@@ -57,18 +64,23 @@ test("legal page renderer fetches only isolated D1 URL on staging hostname",asyn
  assert.equal(url,location.origin+"/api/public-data?table=celebrations_footer_page&slug=mentions-legales");
  assert.ok(content.innerHTML.includes("Site de test"));
 });
-test("unavailable staging statistics never invoke legacy Supabase RPC",async()=>{
+test("staging statistics dashboard calls only authenticated Cloudflare summary, never Supabase RPC",async()=>{
  const code=await src("admin-click-stats.js");
  const box={innerHTML:""};
  const button={dataset:{},className:"",textContent:"",onclick:null};
  const nav={querySelector(){return null},appendChild(){}};
- const document={getElementById(id){return id==="clickStatsBox"?box:null},querySelector(s){if(s===".admin-nav")return nav;if(s==="#clickStatsBox")return box;return null},querySelectorAll(){return []},createElement(){return button}};
+ const document={getElementById(id){return id==="clickStatsBox"?box:null},querySelector(s){if(s===".admin-nav")return nav;return null},querySelectorAll(){return []},createElement(){return button}};
  const window={CELEBRATIONS_STAGING_BACKEND:"https://isolated-staging.invalid",celebrationsSupabase:{rpc(){throw Error("Production RPC is forbidden")}}};
+ const localStorage={getItem(){return "synthetic-admin-test"}};
+ const calls=[];
+ const fetch=async(url,opts)=>{calls.push({url,opts});return {ok:true,json:async()=>({ok:true,visits:{visitors:17,visits:29,pages:[]},clicks:[]})}};
  const panel={innerHTML:""};
- vm.runInNewContext(code,{document,window,panel});
- button.onclick();
- await new Promise(resolve=>setImmediate(resolve));
- assert.ok(box.innerHTML.includes("Statistiques indisponibles"));
+ vm.runInNewContext(code,{document,window,panel,localStorage,fetch});
+ button.onclick();await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(calls.length,1);assert.equal(calls[0].url,"/api/stats");
+ assert.equal(calls[0].opts.headers.authorization,"Bearer synthetic-admin-test");
+ assert.equal(JSON.parse(calls[0].opts.body).action,"summary");
+ assert.ok(box.innerHTML.includes("29"));
 });
 test("decorative flame media URL uses staging-aware helper",async()=>{
  const code=await src("public-celebration-shell.js");
