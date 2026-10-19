@@ -18,6 +18,15 @@
   if(name==="celebrations-access")return post("/api/auth",body);
   if(name==="celebrations-audience")return post("/api/audience",body);
   if(name==="celebrations-admin-safe-save")return post("/api/safe-save",body,true);
+  if(name==="celebrations-visibility"&&body.action==="get"){
+   try{
+    const response=await fetch(base+"/api/public-data?table=celebrations_public_settings",{credentials:"omit"});
+    if(!response.ok)return {data:{ok:false,error:"Réglage indisponible."},error:null};
+    const rows=await response.json();
+    if(!Array.isArray(rows))return {data:{ok:false,error:"Réponse de réglage invalide."},error:null};
+    return {data:{ok:true,show_other_celebrations:Number(rows[0]?.show_other_celebrations)===1},error:null};
+   }catch{return {data:{ok:false,error:"Connexion au réglage indisponible."},error:null}}
+  }
   if(name==="celebrations-admin-data"){
    if(body.action==="committee_list")return post("/api/admin",{action:"list",table:"celebrations_committee_letters"},true).then(r=>({data:{...r.data,items:r.data.items||[]},error:r.error}));
    return {data:{ok:false,error:"Operation not yet supported by staging"},error:null};
