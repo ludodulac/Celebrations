@@ -62,6 +62,10 @@ try:
         safe_env["STAGING_SYNTHETIC_PARTICIPANT_EMAIL"] = synthetic_email
         subprocess.run(["node", "scripts/verify-staging-participant-roundtrip.mjs"],
                        env=safe_env, timeout=85, check=True)
+    if os.getenv("STAGING_SYNTHETIC_MEDIA_WRITE") == "1":
+        safe_env["STAGING_SYNTHETIC_CONTENT_ID"] = synthetic_content_id
+        subprocess.run(["node", "scripts/verify-staging-media-roundtrip.mjs"],
+                       env=safe_env, timeout=130, check=True)
     if os.getenv("STAGING_SYNTHETIC_SAVE_WRITE") == "1":
         safe_env.update({
             "STAGING_SYNTHETIC_CELEBRATION_ID": str(synthetic_celebration_id),
@@ -74,6 +78,27 @@ try:
 finally:
     if inserted:
         errors = []
+        if os.getenv("STAGING_SYNTHETIC_MEDIA_WRITE") == "1":
+            # Second-pass cleanup, even if the media test crashed while uploading.
+            # Never match or delete any genuine user content or bucket prefix.
+            for suffix in ("pdf","image","audio","texte","video","note"):
+                media_id = synthetic_content_id + "-" + suffix
+                try:
+                    query("DELETE FROM celebrations_contents WHERE id=?", (media_id,))
+                except Exception as error:
+                    errors.append("media D1 cleanup " + type(error).__name__)
+            for suffix in ("pdf","image","audio","texte"):
+                key = "media/" + synthetic_content_id + "-" + suffix
+                try:
+                    response = requests.post(
+                        "https://celebrations-exit-staging.rondes.workers.dev/api/media-admin",
+                        params={"action":"delete","key":key},
+                        headers={"Authorization":"Bearer "+token},timeout=30)
+                    assert response.status_code == 200, "Staging media cleanup returned non-success"
+                except Exception as error:
+                    errors.append("media R2 cleanup " + type(error).__name__)
+            if not errors:
+                print("STAGING_SYNTHETIC_MEDIA_FALLBACK_CLEANUP success=true")
         if os.getenv("STAGING_SYNTHETIC_SAVE_WRITE") == "1":
             # Failsafe cleanup by exact random staging identifiers, in strict FK order.
             # No bulk deletion, no media deletion and NO production database calls.
