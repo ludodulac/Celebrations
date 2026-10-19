@@ -38,7 +38,10 @@ try{
  page.on("pageerror",e=>errors.push(String(e.stack||e.message).slice(0,700)));
  page.on("request",r=>{
   if(r.url().includes("jwyayfkssyagvnablttg.supabase.co"))legacy.push(r.method());
-  if(r.method()!=="GET"&&r.method()!=="HEAD"&&r.url().includes("/api/"))browserWrites.push(r.url().replace(origin,""));
+  if(r.method()!=="GET"&&r.method()!=="HEAD"&&r.url().includes("/api/")){
+   let action="";try{action=JSON.parse(r.postData()||"{}").action||""}catch{}
+   browserWrites.push({path:new URL(r.url()).pathname,action});
+  }
  });
  await page.goto(origin+"/admin.html?staging=1",{waitUntil:"domcontentloaded",timeout:45000});
  await page.waitForFunction(()=>!document.body.classList.contains("admin-auth-locked"),{timeout:25000});
@@ -56,8 +59,13 @@ try{
  assert.deepEqual(legacy,[],"Admin browser contacted production Supabase");
  assert.deepEqual(errors,[],"Admin browser runtime exceptions");
  // Session validation and metadata reads are permitted. No program writes.
- assert.ok(browserWrites.every(x=>x==="/api/auth"||x==="/api/footer-admin"),
- "Unexpected authenticated admin browser mutations: "+JSON.stringify(browserWrites));
+ const readActions={
+  "/api/auth":new Set(["admin_session"]),
+  "/api/admin":new Set(["list"]),
+  "/api/footer-admin":new Set(["admin_footer_drafts"])
+ };
+ assert.ok(browserWrites.every(x=>readActions[x.path]?.has(x.action)),
+ "Unexpected authenticated admin mutation: "+JSON.stringify(browserWrites));
  console.log("STAGING_AUTHENTICATED_ADMIN_SMOKE "+JSON.stringify({
   authenticated:true,celebration_rows:rows,media_panel:true,footer_editor:true,
   footer_drafts:footer.drafts.length,participant_count:participants.participants.length,
