@@ -2,13 +2,13 @@
 // The synthetic account cannot receive mail; it is removed in finally.
 // Existing participants and all production resources must remain untouched.
 import assert from "node:assert/strict";
-import {randomUUID} from "node:crypto";
 const origin="https://celebrations-exit-staging.rondes.workers.dev";
 const bearer=process.env.STAGING_TEMP_ADMIN_BEARER;
 assert.match(bearer||"",/^[0-9a-f]{64}$/);
 assert.equal(process.env.STAGING_R2_BUCKET,"celebrations-exit-staging",
  "Refusing any non-staging resource");
-const email="migration-check-"+randomUUID()+"@invalid.example";
+const email=process.env.STAGING_SYNTHETIC_PARTICIPANT_EMAIL;
+assert.match(email||"",/^migration-check-[0-9a-f-]{36}@invalid\.example$/);
 async function action(name,body={}){
  const r=await fetch(origin+"/api/participants-admin",{
   method:"POST",
@@ -41,8 +41,9 @@ try{
   "Access category not persisted in isolated D1");
  console.log("STAGING_PARTICIPANT_ROUNDTRIP stage=create-and-assign passed=true");
 }finally{
- if(created){
-  try{
+ try{
+  const current=await list();
+  if(created||current.access.some(x=>x.email===email)){
    const removed=await action("admin_remove_participant",{email});
    assert.equal(removed.status,200,JSON.stringify(removed));
    const after=await list();
@@ -52,7 +53,7 @@ try{
    assert.deepEqual(after.audiences,before.audiences,
     "Existing participant access assignments changed");
    console.log("STAGING_PARTICIPANT_ROUNDTRIP restored=true production_untouched=true");
-  }catch(e){cleanupError=e}
- }
+  }
+ }catch(e){cleanupError=e}
 }
 if(cleanupError)throw Error("Synthetic participant cleanup failed: "+cleanupError.message);
