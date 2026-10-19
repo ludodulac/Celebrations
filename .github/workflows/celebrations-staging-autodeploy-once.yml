@@ -6,6 +6,7 @@ on:
       - .github/workflows/celebrations-staging-autodeploy-once.yml
       - admin-celebrations.js
       - admin-date-rules.js
+      - admin-v3.js
       - scripts/verify-staging-authenticated-admin.mjs
 permissions:
   contents: read
@@ -48,10 +49,13 @@ jobs:
           from pathlib import Path
           c=Path("admin-celebrations.js").read_text()
           d=Path("admin-date-rules.js").read_text()
+          m=Path("admin-v3.js").read_text()
           view=c.split("editCelebration=function(id)",1)[1].split("saveC.onclick",1)[0]
           assert "saveState(state)" not in view, "Opening a celebration still saves all D1 content"
           programme=d.split("renderProgram=function()",1)[1].split("dayCard=function",1)[0]
           assert "saveState(state)" not in programme, "Viewing the programme still saves D1"
+          media_form=m.split("function renderMediaForm(type)",1)[1].split("function ",1)[0]
+          assert "saveState(state)" not in media_form, "Opening the media chooser still saves D1"
           print("STAGING_VIEW_ONLY_ADMIN_GUARD_OK")
           PY
       - name: Ensure changes pass staging unit and integration tests
