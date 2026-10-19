@@ -62,6 +62,10 @@ try:
         safe_env["STAGING_SYNTHETIC_PARTICIPANT_EMAIL"] = synthetic_email
         subprocess.run(["node", "scripts/verify-staging-participant-roundtrip.mjs"],
                        env=safe_env, timeout=85, check=True)
+    if os.getenv("STAGING_SYNTHETIC_BROWSER_MEDIA_WRITE") == "1":
+        safe_env["STAGING_SYNTHETIC_CONTENT_ID"] = synthetic_content_id
+        subprocess.run(["node", "scripts/verify-staging-browser-file-upload.mjs"],
+                       env=safe_env, timeout=130, check=True)
     if os.getenv("STAGING_SYNTHETIC_MEDIA_WRITE") == "1":
         safe_env["STAGING_SYNTHETIC_CONTENT_ID"] = synthetic_content_id
         subprocess.run(["node", "scripts/verify-staging-media-roundtrip.mjs"],
@@ -78,6 +82,22 @@ try:
 finally:
     if inserted:
         errors = []
+        if os.getenv("STAGING_SYNTHETIC_BROWSER_MEDIA_WRITE") == "1":
+            # Crash-safe second pass: only records tagged with this unique UUID.
+            try:
+                rows = query("SELECT id,storage_path FROM celebrations_contents WHERE name=?",
+                             (synthetic_content_id + "-browser-pdf",))
+                for row in rows:
+                    query("DELETE FROM celebrations_contents WHERE id=?", (row["id"],))
+                    if row.get("storage_path"):
+                        response = requests.post(
+                            "https://celebrations-exit-staging.rondes.workers.dev/api/media-admin",
+                            params={"action":"delete","key":row["storage_path"]},
+                            headers={"Authorization":"Bearer "+token},timeout=30)
+                        assert response.status_code == 200
+                print("STAGING_SYNTHETIC_BROWSER_FILE_FALLBACK_CLEANUP success=true")
+            except Exception as error:
+                errors.append("browser media cleanup " + type(error).__name__)
         if os.getenv("STAGING_SYNTHETIC_MEDIA_WRITE") == "1":
             # Second-pass cleanup, even if the media test crashed while uploading.
             # Never match or delete any genuine user content or bucket prefix.
