@@ -100,7 +100,19 @@
  window.celebrationsStagingUpload=async file=>{
   if(!file||!file.size||file.size>20*1024*1024)throw new Error("Fichier invalide ou trop volumineux");
   const key="media/"+random();
-  const type=file.type||"application/octet-stream";
+  const extension=String(file.name||"").toLowerCase().split(".").pop();
+  const guesses={
+   pdf:"application/pdf",txt:"text/plain",md:"text/markdown",markdown:"text/markdown",csv:"text/csv",
+   rtf:"application/rtf",doc:"application/msword",
+   docx:"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+   odt:"application/vnd.oasis.opendocument.text",
+   jpg:"image/jpeg",jpeg:"image/jpeg",png:"image/png",gif:"image/gif",
+   webp:"image/webp",avif:"image/avif",
+   mp3:"audio/mpeg",wav:"audio/wav",ogg:"audio/ogg",m4a:"audio/mp4",
+   aac:"audio/aac",mp4:"video/mp4",webm:"video/webm",mov:"video/quicktime"
+  };
+  const type=(file.type&&file.type!=="application/octet-stream"?file.type:guesses[extension])||"";
+  if(!type||type==="image/svg+xml"||type==="text/html")throw new Error("Format de fichier non pris en charge par Cloudflare.");
   const response=await fetch(base+"/api/media-admin?action=upload&key="+encodeURIComponent(key),{method:"POST",headers:{authorization:"Bearer "+adminToken(),"content-type":type},body:file});
   const data=await response.json();if(!response.ok||!data.ok)throw new Error(data.error||"Upload impossible");
   return key;
