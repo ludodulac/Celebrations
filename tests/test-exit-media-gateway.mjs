@@ -67,3 +67,36 @@ test("public D1 fallback never accepts unlinked content solely because audience 
  const r=await handleMedia(new Request("https://test/media/media/unlinked.jpg"),env);
  assert.equal(r.status,404);
 });
+
+test("only authenticated admin can preview referenced private draft media",async()=>{
+ const {env}=setup();
+ let referenced=true,adminLookups=0;
+ env.DB={prepare(sql){
+  return {bind(...args){return {async first(){
+   if(sql.includes("FROM celebrations_participant_sessions"))return null;
+   if(sql.includes("FROM celebrations_admin_sessions")){adminLookups++;return {email:"admin@staging.invalid",expires_at:"2999-01-01T00:00:00Z"}}
+   if(sql.includes("audience='all'"))return null;
+   if(sql.includes("SELECT 1 FROM celebrations_contents")&&!sql.includes("audience="))
+    return referenced?{exists:1}:null;
+   return null;
+  }}}};
+ }};
+ const privateUrl="https://test/media/media/private-draft.jpg";
+ const denied=await handleMedia(new Request(privateUrl),env);
+ assert.equal(denied.status,404);
+ const allowed=await handleMedia(new Request(privateUrl,{headers:{authorization:"Bearer "+"t".repeat(64)}}),env);
+ assert.equal(allowed.status,200);
+ assert.equal(adminLookups,1);
+ referenced=false;
+ const absent=await handleMedia(new Request(privateUrl,{headers:{authorization:"Bearer "+"t".repeat(64)}}),env);
+ assert.equal(absent.status,404,"Admin bearer must not enumerate arbitrary R2 objects");
+ const committee=await handleMedia(new Request("https://test/media/committee/private.pdf",{headers:{authorization:"Bearer "+"t".repeat(64)}}),env);
+ assert.equal(committee.status,404,"Admin cannot fetch raw private committee paths");
+});
+test("explicit media ACL denial defeats authenticated admin fallback",async()=>{
+ const {env}=setup();
+ env.MEDIA_ACL={prepare(){return {bind(){return {async first(){return {approved:0,revoked_at:null}}}}}}};
+ env.DB={prepare(){throw Error("ACL denial must prevent all database fallback and admin queries")}};
+ const r=await handleMedia(new Request("https://test/media/media/blocked.jpg",{headers:{authorization:"Bearer "+"t".repeat(64)}}),env);
+ assert.equal(r.status,404);
+});
