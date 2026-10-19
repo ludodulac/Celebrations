@@ -4,6 +4,8 @@ on:
     branches: [feat/celebrations-supabase-exit-001]
     paths:
       - .github/workflows/celebrations-staging-auth-admin-once.yml
+      - scripts/verify-staging-authenticated-admin.py
+      - scripts/verify-staging-authenticated-admin.mjs
 permissions:
   contents: read
 concurrency:
