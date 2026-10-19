@@ -5,7 +5,11 @@ on:
     paths:
       - migration/**
       - tests/test-exit-media-gateway.mjs
-      - tests/test-exit-preview-client.mjs
+      - tests/test-exit-preview-client.mjs tests/test-exit-client-isolation.mjs
+      - tests/test-exit-client-isolation.mjs
+      - public-click-tracking.js
+      - public-footer-visibility.js
+      - supabase-client.js
       - tests/test-exit-public-data.mjs
       - tests/test-exit-auth.mjs
       - tests/test-exit-staging-integration.mjs
