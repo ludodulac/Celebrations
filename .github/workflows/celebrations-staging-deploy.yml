@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   deploy:
-    if: ${{ (github.ref == 'refs/heads/fix/celebrations-programme-library-006' && github.event_name == 'push') || (github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && inputs.confirm == 'DEPLOY_STAGING') }}
+    if: ${{ (github.ref == 'refs/heads/fix/celebrations-programme-library-006' && github.event_name == 'push') || ((github.event_name == 'push' && github.ref == 'refs/heads/fix/celebrations-programme-library-006') || (github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && inputs.confirm == 'DEPLOY_STAGING')) }}
     runs-on: ubuntu-latest
     environment: celebrations-staging
     env:
