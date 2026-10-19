@@ -9,7 +9,7 @@ function fixture(){
  const db=new DatabaseSync(":memory:");db.exec(schema);
  const token="a".repeat(64);
  const digest=createHash("sha256").update(token).digest("hex");
- db.prepare("INSERT INTO celebrations_admin_sessions(token_hash,expires_at) VALUES (?,?)").run(digest,"2999-01-01T00:00:00Z");
+ db.prepare("INSERT INTO celebrations_admin_sessions(token_hash,admin_email,expires_at) VALUES (?,?,?)").run(digest,"admin@isolated.invalid","2999-01-01T00:00:00Z");
  function prepare(sql,args=[]){return {
   bind(...values){return prepare(sql,values)},
   async first(){return db.prepare(sql).get(...args)||null},
