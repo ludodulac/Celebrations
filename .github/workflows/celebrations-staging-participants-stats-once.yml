@@ -1,0 +1,46 @@
+name: Migrate participant account and historic statistics to isolated Cloudflare staging
+on:
+  push:
+    branches: [feat/celebrations-supabase-exit-001]
+    paths:
+      - .github/workflows/celebrations-staging-participants-stats-once.yml
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-staging-accounts-stats-migration
+  cancel-in-progress: false
+jobs:
+  staging-only:
+    if: github.ref == 'refs/heads/feat/celebrations-supabase-exit-001'
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    timeout-minutes: 35
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Require exact staging scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/feat/celebrations-supabase-exit-001"
+          test "$STAGING_R2_BUCKET" = "celebrations-exit-staging"
+          for name in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_API_TOKEN STAGING_D1_ID; do
+            test -n "${!name:-}" || { echo "Missing staging credential"; exit 1; }
+          done
+      - name: Install private migration dependencies
+        run: python -m pip install 'requests>=2.32,<3'
+      - name: Step 3 - Transfer existing participant and independently verify password/recovery hash preservation
+        run: python scripts/migrate_participant_staging.py
+      - name: Step 4 - Transfer historical visits and clicks with exhaustive row-level verification
+        run: python scripts/migrate_click_statistics_staging.py
