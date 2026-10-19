@@ -105,7 +105,8 @@ export async function handleAuth(request,env){
    return result({ok:true,question_1:row.question_1,question_2:row.question_2});
   }
   if(action==="recover_password"){
-   const e=email(b.email),password=String(b.password||""),a1=answer(b.answer_1),a2=answer(b.answer_2);
+   // Production and the existing public form use new_password, not password.
+   const e=email(b.email),password=String(b.new_password||""),a1=answer(b.answer_1),a2=answer(b.answer_2);
    if(!validEmail(e)||password.length<8||password.length>256||!a1||!a2)return result({ok:false,error:"Demande invalide"},400);
    if(await blocked(env.DB,"recovery:"+e))return result({ok:false,error:"Réessayez plus tard"},429);
    const row=await env.DB.prepare("SELECT answer_1_salt,answer_1_hash,answer_2_salt,answer_2_hash,recovery_locked_until FROM celebrations_participants WHERE email=?").bind(e).first();
