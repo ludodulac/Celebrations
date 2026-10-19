@@ -46,7 +46,7 @@ for(const id of linkedIds){
 const checks=[...keys.values()];let cursor=0;
 if (checks.length) {
  const key=checks[0].key;
- for (const variant of [key,key.replace(/^media\\//,'')]) {
+ for (const variant of [key,key.startsWith('media/')?key.slice(6):key]) {
   const url=base+'/media/'+variant.split('/').map(encodeURIComponent).join('/');
   try {
    const response=await get(url,'GET');
