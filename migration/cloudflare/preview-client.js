@@ -14,8 +14,59 @@
    return {data,error:null};
   }catch{return {data:{ok:false,error:"Connexion au serveur de test indisponible."},error:null}}
  };
+ // Original Supabase passwords use 180,000 PBKDF2 iterations, exceeding
+ // Cloudflare Workers Free's 100,000-iteration limit. The browser performs
+ // the full original derivation and transmits only a derived proof over TLS.
+ // The Worker stores an additional SHA-256 verifier, not this replayable proof.
+ const hexProof=bytes=>[...new Uint8Array(bytes)].map(x=>x.toString(16).padStart(2,"0")).join("");
+ const saltHex=()=>hexProof(crypto.getRandomValues(new Uint8Array(32)));
+ const normalizeAnswer=v=>String(v||"").trim().toLocaleLowerCase("fr-FR").normalize("NFKC");
+ const deriveProof=async(value,salt)=>{
+  const enc=new TextEncoder();
+  const key=await crypto.subtle.importKey("raw",enc.encode(String(value)),"PBKDF2",false,["deriveBits"]);
+  const bits=await crypto.subtle.deriveBits({
+   name:"PBKDF2",hash:"SHA-256",salt:enc.encode(String(salt)),iterations:180000
+  },key,256);
+  return hexProof(bits);
+ };
  const invoke=async(name,{body={}}={})=>{
   if(name==="celebrations-access"){
+   if(body.action==="admin_login"){
+    const salt=await post("/api/auth",{action:"admin_salt"});
+    if(!salt.data?.ok)return salt;
+    const password_proof=await deriveProof(body.password,salt.data.salt);
+    return post("/api/auth",{action:"admin_login_derived",email:body.email,password_proof});
+   }
+   if(body.action==="participant_login"){
+    const begin=await post("/api/auth",{action:"participant_begin",email:body.email});
+    if(!begin.data?.ok)return begin;
+    const password_proof=await deriveProof(body.password,begin.data.salt);
+    return post("/api/auth",{action:"participant_login_derived",email:body.email,password_proof});
+   }
+   if(body.action==="participant_register"){
+    if(String(body.password||"").length<8)return {data:{ok:false,error:"Mot de passe trop court."},error:null};
+    const password_salt=saltHex(),answer_1_salt=saltHex(),answer_2_salt=saltHex();
+    const [password_proof,answer_1_proof,answer_2_proof]=await Promise.all([
+     deriveProof(body.password,password_salt),
+     deriveProof(normalizeAnswer(body.answer_1),answer_1_salt),
+     deriveProof(normalizeAnswer(body.answer_2),answer_2_salt)
+    ]);
+    return post("/api/auth",{action:"participant_register_derived",
+     email:body.email,question_1:body.question_1,question_2:body.question_2,
+     password_salt,password_proof,answer_1_salt,answer_1_proof,answer_2_salt,answer_2_proof});
+   }
+   if(body.action==="recover_password"){
+    const questions=await post("/api/auth",{action:"recovery_questions",email:body.email});
+    if(!questions.data?.ok)return questions;
+    const password_salt=saltHex();
+    const [password_proof,answer_1_proof,answer_2_proof]=await Promise.all([
+     deriveProof(body.new_password,password_salt),
+     deriveProof(normalizeAnswer(body.answer_1),questions.data.answer_1_salt),
+     deriveProof(normalizeAnswer(body.answer_2),questions.data.answer_2_salt)
+    ]);
+    return post("/api/auth",{action:"recover_password_derived",email:body.email,
+     password_salt,password_proof,answer_1_proof,answer_2_proof});
+   }
    if(["admin_footer_drafts","admin_publish_footer","admin_set_footer_public"].includes(body.action))
     return post("/api/footer-admin",body,true);
    if(["admin_list_participants","admin_add_participant","admin_remove_participant"].includes(body.action))
