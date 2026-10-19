@@ -74,5 +74,22 @@ assert.equal(second.ok,true);
 assert.ok(second.rows<=48);
 await check("Migration modifiée","Événement modifié");
 console.log("STAGING_SAFE_SAVE_ROUNDTRIP created=true modified=true atomic=true existing_records_untouched=true");
+if(process.env.STAGING_SYNTHETIC_DELETE_WRITE==="1"){
+ const erasedEvent=await call("/api/safe-save",{action:"delete_event",event_id:eventId});
+ assert.equal(erasedEvent.status,200,"Staging event deletion failed: "+JSON.stringify(erasedEvent));
+ assert.equal(erasedEvent.deleted,true);
+ assert.equal(erasedEvent.media_deleted,false);
+ const afterEvent=await table("celebrations_events");
+ assert.ok(!afterEvent.some(x=>x.id===eventId),"Deleted synthetic event still exists in D1");
+ assert.equal(afterEvent.length,prior[1].length,"Other existing events were altered");
+ const erasedContent=await call("/api/safe-save",{action:"delete_content",content_id:contentId});
+ assert.equal(erasedContent.status,200,"Staging content deletion failed: "+JSON.stringify(erasedContent));
+ assert.equal(erasedContent.deleted,true);
+ assert.equal(erasedContent.media_deleted,false);
+ const afterContent=await table("celebrations_contents");
+ assert.ok(!afterContent.some(x=>x.id===contentId),"Deleted synthetic content still exists in D1");
+ assert.equal(afterContent.length,prior[2].length,"Other existing contents were altered");
+ console.log("STAGING_SCOPED_DELETE_ROUNDTRIP event=true content=true existing_rows_untouched=true R2_bytes_deleted=false");
+}
 // The staging-only Python harness ALWAYS deletes these exact random IDs,
 // including if this process crashes or throws before reaching this line.
