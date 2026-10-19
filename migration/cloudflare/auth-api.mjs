@@ -1,9 +1,19 @@
 // D1 authentication compatible with existing participant PBKDF2 hashes.
 // This module is staging-only and never exposes stored hashes to the browser.
+// Workers production WebCrypto rejects PBKDF2 >100k iterations; the original
+// Supabase credentials require 180k. The supported Node crypto API is used
+// as a separate runtime path, preserving the original 180k password format.
+import {pbkdf2 as nodePbkdf2} from "node:crypto";
 const encoder=new TextEncoder();
 const hex=bytes=>[...new Uint8Array(bytes)].map(x=>x.toString(16).padStart(2,"0")).join("");
 export async function sha256(value){return hex(await crypto.subtle.digest("SHA-256",encoder.encode(value)))}
-export async function pbkdf(value,salt){const k=await crypto.subtle.importKey("raw",encoder.encode(value),"PBKDF2",false,["deriveBits"]);return hex(await crypto.subtle.deriveBits({name:"PBKDF2",hash:"SHA-256",salt:encoder.encode(salt),iterations:180000},k,256))}
+export async function pbkdf(value,salt){
+ return new Promise((resolve,reject)=>{
+  nodePbkdf2(String(value),String(salt),180000,32,"sha256",(error,key)=>{
+   if(error)reject(error);else resolve(Buffer.from(key).toString("hex"));
+  });
+ });
+}
 function equal(a,b){if(!a||!b||a.length!==b.length)return false;let diff=0;for(let i=0;i<a.length;i++)diff|=a.charCodeAt(i)^b.charCodeAt(i);return diff===0}
 const result=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{"content-type":"application/json","cache-control":"no-store","x-content-type-options":"nosniff"}});
 const token=()=>hex(crypto.getRandomValues(new Uint8Array(32)));
