@@ -8,7 +8,7 @@ const schema=await readFile(new URL("../migration/cloudflare/celebrations-schema
 test("real SQLite participant registration lifecycle",async()=>{
  const db=new DatabaseSync(":memory:");db.exec(schema);
  db.prepare("INSERT INTO celebrations_participants(email,audience) VALUES(?,?)").run("migration-check-00000000-0000-4000-8000-000000000001@invalid.example","angel");
- function prep(sql,args=[]){return {bind(...v){return prep(sql,v)},async first(){return db.prepare(sql).get(...args)||null},async run(){return {meta:{changes:db.prepare(sql).run(...args).changes}}}}}
+ function prep(sql,args=[]){return {sql,args,bind(...v){return prep(sql,v)},async first(){return db.prepare(sql).get(...args)||null},async run(){return {meta:{changes:db.prepare(sql).run(...args).changes}}}}}
  const env={DB:{prepare:prep,async batch(items){db.exec("BEGIN");try{for(const x of items)db.prepare(x.sql).run(...x.args);db.exec("COMMIT")}catch(e){db.exec("ROLLBACK");throw e}}}};
  const call=async(action,data={})=>{const res=await handleAuth(new Request("https://local.invalid/api/auth",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action,...data})}),env);return {status:res.status,...await res.json()}};
  try{
