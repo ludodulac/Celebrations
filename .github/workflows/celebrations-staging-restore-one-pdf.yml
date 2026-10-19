@@ -1,0 +1,48 @@
+name: Restore one missing public PDF to isolated R2 staging
+on:
+  push:
+    branches: [feat/celebrations-supabase-exit-001]
+    paths:
+      - .github/workflows/celebrations-staging-restore-one-pdf.yml
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-staging-single-pdf-restore
+  cancel-in-progress: false
+jobs:
+  restore:
+    if: github.ref == 'refs/heads/feat/celebrations-supabase-exit-001'
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    timeout-minutes: 10
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      STAGING_R2_ACCESS_KEY_ID: ${{ secrets.CELEBRATIONS_STAGING_R2_ACCESS_KEY_ID }}
+      STAGING_R2_SECRET_ACCESS_KEY: ${{ secrets.CELEBRATIONS_STAGING_R2_SECRET_ACCESS_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install isolated restore dependencies
+        run: python -m pip install 'boto3>=1.35,<2' 'requests>=2.32,<3'
+      - name: Restore exactly one missing public PDF to private staging bucket
+        run: python scripts/restore-single-public-pdf-staging.py
+      - name: Verify restored PDF is served by staging gateway
+        shell: bash
+        run: |
+          python - <<'PY'
+          import requests
+          from urllib.parse import quote
+          key='media/pdf-1789466878259-22-9vktt/file-1789466879911-Pardon-des-Offenses-version-raccourcie.pdf'
+          url='https://celebrations-exit-staging.rondes.workers.dev/media/'+quote(key,safe='/')
+          r=requests.head(url,timeout=25,allow_redirects=False)
+          print('STAGING_PDF_HTTP_STATUS',r.status_code,'MIME',r.headers.get('content-type'))
+          assert r.status_code==200 and r.headers.get('content-type','').startswith('application/pdf')
+          PY
