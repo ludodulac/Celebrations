@@ -162,3 +162,49 @@ test("staging dry-run validates a real snapshot without changing a single D1 row
   assert.equal(count(f.db,"celebrations_contents"),0);
  }finally{f.close()}
 });
+
+test("explicit event deletion removes only selected event and its relations",async()=>{
+ const f=fixture();try{
+  const b=snapshot();
+  assert.equal((await f.save(b)).status,200);
+  // Another celebration and unrelated content remain present.
+  const other={...b.events[0],id:"event2",title:"Keep me",contentIds:["doc2"],links:[]};
+  b.events.push(other);
+  assert.equal((await f.save(b)).status,200);
+  const result=await f.save({action:"delete_event",event_id:"event1"});
+  assert.equal(result.status,200,JSON.stringify(result));
+  assert.equal(result.body.deleted,true);
+  assert.equal(result.body.media_deleted,false);
+  assert.equal(count(f.db,"celebrations_events"),1);
+  assert.equal(f.db.prepare("SELECT id FROM celebrations_events").get().id,"event2");
+  assert.equal(count(f.db,"celebrations_contents"),2);
+  assert.equal(count(f.db,"celebrations_event_contents"),1);
+  assert.equal(count(f.db,"celebrations_links"),1,"Day link must survive event deletion");
+ }finally{f.close()}
+});
+test("explicit content deletion unlinks all associations, retains the event and does not access R2",async()=>{
+ const f=fixture();try{
+  assert.equal((await f.save(snapshot())).status,200);
+  const res=await f.save({action:"delete_content",content_id:"doc1"});
+  assert.equal(res.status,200,JSON.stringify(res));
+  assert.equal(res.body.media_deleted,false);
+  assert.equal(count(f.db,"celebrations_contents"),1);
+  assert.equal(count(f.db,"celebrations_events"),1);
+  assert.equal(count(f.db,"celebrations_step_contents"),0);
+  assert.equal(count(f.db,"celebrations_event_contents"),1);
+  assert.equal(f.db.prepare("SELECT id FROM celebrations_contents").get().id,"doc2");
+ }finally{f.close()}
+});
+test("failed deletion, missing id and DB transaction rollback do not remove data",async()=>{
+ const f=fixture();try{
+  assert.equal((await f.save(snapshot())).status,200);
+  assert.equal((await f.save({action:"delete_event",event_id:"missing"})).status,404);
+  assert.equal((await f.save({action:"delete_content",content_id:""})).status,400);
+  const original=f.env.DB.batch;
+  f.env.DB.batch=async()=>{throw Error("simulated constraint")};
+  assert.equal((await f.save({action:"delete_content",content_id:"doc1"})).status,409);
+  f.env.DB.batch=original;
+  assert.equal(count(f.db,"celebrations_contents"),2);
+  assert.equal(count(f.db,"celebrations_events"),1);
+ }finally{f.close()}
+});
