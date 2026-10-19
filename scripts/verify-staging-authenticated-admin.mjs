@@ -85,6 +85,24 @@ try{
  assert.equal(rows,1,"Guided admin should display exactly one active celebration");
  assert.ok(data.celebrations>=4&&data.events>=62&&data.contents>=211,
   "Authenticated admin is missing D1 programme rows: "+JSON.stringify(data));
+ // The actual admin browser snapshot must pass the exact D1 serializer
+ // before edits can be enabled. This endpoint is strictly non-mutating.
+ const snapshot=await page.evaluate(()=>JSON.parse(JSON.stringify({
+  action:"safe_merge_preview",
+  groups:state.groups,celebrations:state.celebrations,
+  events:state.events,contents:state.contents
+ })));
+ const preflight=await fetch(origin+"/api/safe-save",{
+  method:"POST",headers:{"content-type":"application/json",authorization:"Bearer "+bearer},
+  body:JSON.stringify(snapshot),signal:AbortSignal.timeout(25000)
+ });
+ const preview=await preflight.json();
+ assert.equal(preflight.status,200,"Real admin snapshot preflight failed: "+JSON.stringify(preview));
+ assert.equal(preview.ok,true);
+ assert.equal(preview.dry_run,true);
+ assert.ok(preview.statements<=48,"Real staging snapshot exceeds free-tier SQL limit");
+ assert.equal(preview.counts.contents,data.contents);
+ assert.equal(preview.counts.events,data.events);
  await page.locator(".admin-nav [data-admin=media]").click();
  const library=await page.locator("#panel").innerText();
  assert.ok(library.length>40,"Admin media panel unexpectedly empty");
@@ -105,7 +123,7 @@ try{
  "Admin browsing attempted business writes (BLOCKED): "+JSON.stringify(interceptedMutations)+
  " | saveState call sites "+JSON.stringify(stacks.slice(0,6)));
  console.log("STAGING_AUTHENTICATED_ADMIN_SMOKE "+JSON.stringify({
-  authenticated:true,celebration_rows_visible:rows,loaded_data:data,media_panel:true,footer_editor:true,
+  authenticated:true,celebration_rows_visible:rows,loaded_data:data,save_preflight_queries:preview.statements,media_panel:true,footer_editor:true,
   footer_drafts:footer.drafts.length,participant_count:participants.participants.length,
   audience_count:audiences.participants.length,
   browser_requests:browserWrites.length,legacy_supabase_requests:legacy.length,js_errors:errors
