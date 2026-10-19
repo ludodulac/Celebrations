@@ -38,6 +38,10 @@ token = secrets.token_hex(32)
 digest = hashlib.sha256(token.encode()).hexdigest()
 expiry = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=5)).isoformat()
 synthetic_email = "migration-check-" + str(uuid.uuid4()) + "@invalid.example"
+synthetic_celebration_id = 8_000_000_000_000 + (uuid.uuid4().int % 1_000_000_000_000)
+synthetic_content_id = "migration-check-" + str(uuid.uuid4())
+synthetic_event_id = "migration-check-" + str(uuid.uuid4())
+synthetic_step_key = "migration-check-" + str(uuid.uuid4())
 inserted = False
 verify_url = "https://celebrations-exit-staging.rondes.workers.dev/api/auth"
 def valid_session():
@@ -48,9 +52,6 @@ try:
     query("INSERT INTO celebrations_admin_sessions(token_hash,admin_email,expires_at) VALUES(?,?,?)",
           (digest, "staging-readonly-check@invalid.example", expiry))
     inserted = True
-    # The staging Cloudflare API credential has D1 write access; its D1 read
-    # permission may be intentionally restricted. Validate via the actual
-    # Worker auth endpoint, whose DB binding handles authorized SELECTs.
     assert valid_session(), "New staging admin session not recognized by Worker"
     safe_env = dict(os.environ)
     safe_env["STAGING_TEMP_ADMIN_BEARER"] = token
@@ -61,18 +62,52 @@ try:
         safe_env["STAGING_SYNTHETIC_PARTICIPANT_EMAIL"] = synthetic_email
         subprocess.run(["node", "scripts/verify-staging-participant-roundtrip.mjs"],
                        env=safe_env, timeout=85, check=True)
+    if os.getenv("STAGING_SYNTHETIC_SAVE_WRITE") == "1":
+        safe_env.update({
+            "STAGING_SYNTHETIC_CELEBRATION_ID": str(synthetic_celebration_id),
+            "STAGING_SYNTHETIC_CONTENT_ID": synthetic_content_id,
+            "STAGING_SYNTHETIC_EVENT_ID": synthetic_event_id,
+            "STAGING_SYNTHETIC_STEP_KEY": synthetic_step_key,
+        })
+        subprocess.run(["node", "scripts/verify-staging-safe-save-roundtrip.mjs"],
+                       env=safe_env, timeout=85, check=True)
 finally:
     if inserted:
-        try:
-            if os.getenv("STAGING_SYNTHETIC_PARTICIPANT_WRITE") == "1":
-                # Failsafe cleanup of the exact synthetic staging identity,
-                # including if Node crashed between the INSERT and its cleanup.
+        errors = []
+        if os.getenv("STAGING_SYNTHETIC_SAVE_WRITE") == "1":
+            # Failsafe cleanup by exact random staging identifiers, in strict FK order.
+            # No bulk deletion, no media deletion and NO production database calls.
+            cleanup = [
+                ("DELETE FROM celebrations_links WHERE celebration_id=?", (synthetic_celebration_id,)),
+                ("DELETE FROM celebrations_event_contents WHERE event_id=?", (synthetic_event_id,)),
+                ("DELETE FROM celebrations_step_contents WHERE celebration_id=? AND step_key=?",
+                 (synthetic_celebration_id, synthetic_step_key)),
+                ("DELETE FROM celebrations_events WHERE id=?", (synthetic_event_id,)),
+                ("DELETE FROM celebrations_steps WHERE celebration_id=? AND step_key=?",
+                 (synthetic_celebration_id, synthetic_step_key)),
+                ("DELETE FROM celebrations_contents WHERE id=?", (synthetic_content_id,)),
+                ("DELETE FROM celebrations_celebrations WHERE id=?", (synthetic_celebration_id,)),
+            ]
+            for sql, params in cleanup:
+                try:
+                    query(sql, params)
+                except Exception as error:
+                    errors.append("programme cleanup " + type(error).__name__)
+            if not errors:
+                print("STAGING_SYNTHETIC_PROGRAM_CLEANUP success=true")
+        if os.getenv("STAGING_SYNTHETIC_PARTICIPANT_WRITE") == "1":
+            try:
                 query("DELETE FROM celebrations_participant_sessions WHERE participant_email=?",
                       (synthetic_email,))
                 query("DELETE FROM celebrations_participants WHERE email=?", (synthetic_email,))
                 print("STAGING_SYNTHETIC_PARTICIPANT_FALLBACK_CLEANUP success=true")
+            except Exception as error:
+                errors.append("participant cleanup " + type(error).__name__)
+        try:
             query("DELETE FROM celebrations_admin_sessions WHERE token_hash=?", (digest,))
             assert not valid_session(), "Revoked synthetic staging session still active"
             print("STAGING_SYNTHETIC_ADMIN_SESSION_REVOKED success=true")
         except Exception as error:
-            raise RuntimeError("CRITICAL: Staging synthetic admin session cleanup failed; five-minute TTL will expire") from error
+            errors.append("admin session cleanup " + type(error).__name__)
+        if errors:
+            raise RuntimeError("CRITICAL: Isolated staging synthetic cleanup incomplete: " + ", ".join(errors))
