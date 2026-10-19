@@ -9,7 +9,7 @@ import {handlePublicData} from "./public-data-api.mjs";
 export default {
  async fetch(request,env){
   const url=new URL(request.url),path=url.pathname;
-  if((path==="/"||path==="/index.html"||path==="/admin.html")&&!url.searchParams.has("staging")){
+  if((path==="/"||path==="/index.html"||path==="/admin.html"||path==="/admin")&&!url.searchParams.has("staging")){
    url.searchParams.set("staging","1");
    return Response.redirect(url.toString(),302);
   }
