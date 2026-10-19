@@ -40,3 +40,37 @@ test("footer visibility uses D1 staging projection, not Supabase REST",async()=>
  assert.equal(a.hidden,false);
  assert.equal(b.hidden,true);
 });
+
+test("legal page renderer fetches only isolated D1 URL on staging hostname",async()=>{
+ const code=await src("footer-page-public.js");
+ const content={innerHTML:""};
+ const title={textContent:""};
+ const document={title:"",body:{dataset:{legalPage:"mentions-legales"}},getElementById(id){return id==="legalContent"?content:title}};
+ const location={hostname:"celebrations-exit-staging.rondes.workers.dev",origin:"https://celebrations-exit-staging.rondes.workers.dev"};
+ let url=null;
+ const fetch=async function(u){
+   url=u;
+   return new Response(JSON.stringify([{content:"# Site de test",title:"Mentions légales"}]),{status:200});
+ };
+ vm.runInNewContext(code,{document,location,fetch,FOOTER_PAGE_DEFS:{"mentions-legales":{title:"Mentions légales"}}});
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(url,location.origin+"/api/public-data?table=celebrations_footer_page&slug=mentions-legales");
+ assert.ok(content.innerHTML.includes("Site de test"));
+});
+test("unavailable staging statistics never invoke legacy Supabase RPC",async()=>{
+ const code=await src("admin-click-stats.js");
+ const box={innerHTML:""};
+ const button={dataset:{},className:"",textContent:"",onclick:null};
+ const nav={querySelector(){return null},appendChild(){}};
+ const document={querySelector(s){if(s===".admin-nav")return nav;if(s==="#clickStatsBox")return box;return null},querySelectorAll(){return []},createElement(){return button}};
+ const window={CELEBRATIONS_STAGING_BACKEND:"https://isolated-staging.invalid",celebrationsSupabase:{rpc(){throw Error("Production RPC is forbidden")}}};
+ const panel={innerHTML:""};
+ vm.runInNewContext(code,{document,window,panel});
+ button.onclick();
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.ok(box.innerHTML.includes("Statistiques indisponibles"));
+});
+test("decorative flame media URL uses staging-aware helper",async()=>{
+ const code=await src("public-celebration-shell.js");
+ assert.match(code,/function publicFlameUrl\(c\)\{[^}]*supabaseMediaUrl\(c\.storagePath\)/);
+});
