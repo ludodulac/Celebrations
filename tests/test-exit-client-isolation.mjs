@@ -62,7 +62,7 @@ test("unavailable staging statistics never invoke legacy Supabase RPC",async()=>
  const box={innerHTML:""};
  const button={dataset:{},className:"",textContent:"",onclick:null};
  const nav={querySelector(){return null},appendChild(){}};
- const document={querySelector(s){if(s===".admin-nav")return nav;if(s==="#clickStatsBox")return box;return null},querySelectorAll(){return []},createElement(){return button}};
+ const document={getElementById(id){return id==="clickStatsBox"?box:null},querySelector(s){if(s===".admin-nav")return nav;if(s==="#clickStatsBox")return box;return null},querySelectorAll(){return []},createElement(){return button}};
  const window={CELEBRATIONS_STAGING_BACKEND:"https://isolated-staging.invalid",celebrationsSupabase:{rpc(){throw Error("Production RPC is forbidden")}}};
  const panel={innerHTML:""};
  vm.runInNewContext(code,{document,window,panel});
