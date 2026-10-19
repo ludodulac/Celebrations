@@ -1,4 +1,5 @@
 import {participantIdentity} from "./audience-api.mjs";
+import {authorize} from "./auth-api.mjs";
 // Preview-only private R2 media gateway. No route deployed.
 // Bind MEDIA_BUCKET (R2) and MEDIA_ACL (D1). No public R2 bucket.
 const json=(message,status)=>new Response(JSON.stringify({error:message}),{status,headers:{"content-type":"application/json","cache-control":"no-store"}});
@@ -34,6 +35,15 @@ export async function handleMedia(request,env){
     const match=await env.DB.prepare("SELECT 1 FROM celebrations_contents WHERE (storage_path=? OR cover_storage_path=?) AND audience=? LIMIT 1").bind(key,key,user.audience).first();
     authorized=!!match;
    }
+  }
+  // Admin may preview *referenced* draft/private content before publication.
+  // Explicit ACL denial/revocation still wins, and committee paths stay blocked.
+  if(!authorized&&!row&&env.DB&&request.headers.get("authorization")?.startsWith("Bearer ")
+    &&await authorize(request,env,true)){
+   const match=await env.DB.prepare(
+    "SELECT 1 FROM celebrations_contents WHERE storage_path=? OR cover_storage_path=? LIMIT 1"
+   ).bind(key,key).first();
+   authorized=!!match;
   }
  }
  if(!authorized)return json("Not found",404);
