@@ -48,6 +48,45 @@ for(const [table,minExpected] of [
  assert.ok(Array.isArray(rows)&&rows.length>=minExpected,"Empty or incorrect "+table);
  record[table+"_count"]=rows.length;
 }
+// Confirm the newly deployed Cloudflare-only administration routes reject strangers.
+for(const [name,path,action] of [
+ ["participants_admin","/api/participants-admin","admin_list_participants"],
+ ["participant_audience_admin","/api/participants-admin","admin_list"],
+ ["footer_admin","/api/footer-admin","admin_footer_drafts"]
+]){
+ const response=await check(path,{
+  method:"POST",headers:{"content-type":"application/json"},
+  body:JSON.stringify({action})
+ });
+ record[name+"_unauthorized_status"]=response.status;
+ assert.equal(response.status,401,name+" must deny an unauthenticated request");
+}
+for(const [label,table] of [
+ ["visibility","celebrations_public_settings"],
+ ["footer_slugs","celebrations_footer_drafts"]
+]){
+ const response=await check("/api/public-data?table="+table);
+ record[label+"_status"]=response.status;
+ assert.equal(response.status,200,label+" D1 public endpoint must work");
+ const rows=await response.json();
+ assert.ok(Array.isArray(rows));
+ if(label==="visibility")
+  assert.ok(rows.every(row=>Object.keys(row).every(k=>k==="show_other_celebrations")),
+   "Settings API must not disclose any other columns");
+ else
+  assert.ok(rows.every(row=>Object.keys(row).every(k=>k==="slug")),
+   "Only active public legal page identifiers may be exposed");
+}
+for(const slug of ["mentions-legales","confidentialite","cookies"]){
+ const result=await check("/api/public-data?table=celebrations_footer_page&slug="+slug);
+ assert.equal(result.status,200,"Legal page D1 API failed for "+slug);
+ const rows=await result.json();
+ assert.ok(Array.isArray(rows)&&rows.every(row=>Object.keys(row).every(k=>["title","content"].includes(k))));
+ record["legal_"+slug+"_published"]=rows.length;
+}
+const badLegal=await check("/api/public-data?table=celebrations_footer_page&slug=not-allowed");
+assert.equal(badLegal.status,404);
+record.invalid_legal_status=badLegal.status;
 const privateRead=await check("/api/public-data?table=celebrations_participants");
 record.private_table_status=privateRead.status;
 assert.equal(privateRead.status,404,"Private participant data must not be readable");
