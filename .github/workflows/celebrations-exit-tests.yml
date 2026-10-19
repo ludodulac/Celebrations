@@ -5,10 +5,13 @@ on:
     paths:
       - migration/**
       - tests/test-exit-media-gateway.mjs
-      - tests/test-exit-preview-client.mjs tests/test-exit-client-isolation.mjs
+      - tests/test-exit-preview-client.mjs
       - tests/test-exit-client-isolation.mjs
+      - tests/test-exit-footer-admin.mjs
       - public-click-tracking.js
       - public-footer-visibility.js
+      - footer-page-public.js
+      - admin-footer-pages.js
       - supabase-client.js
       - tests/test-exit-public-data.mjs
       - tests/test-exit-auth.mjs
@@ -23,6 +26,8 @@ on:
     paths:
       - migration/**
       - tests/test-exit-media-gateway.mjs
+      - tests/test-exit-footer-admin.mjs
+      - tests/test-exit-preview-client.mjs
       - tests/test_exit_export.py
 permissions:
   contents: read
@@ -35,7 +40,7 @@ jobs:
         with:
           node-version: "22"
       - run: node --check migration/cloudflare/preview-client.js
-      - run: node --test tests/test-exit-media-gateway.mjs tests/test-exit-public-data.mjs tests/test-exit-auth.mjs tests/test-exit-staging-integration.mjs tests/test-exit-preview-client.mjs
+      - run: node --test tests/test-exit-media-gateway.mjs tests/test-exit-public-data.mjs tests/test-exit-auth.mjs tests/test-exit-staging-integration.mjs tests/test-exit-preview-client.mjs tests/test-exit-client-isolation.mjs tests/test-exit-footer-admin.mjs
       - run: python scripts/build_staging_assets.py
       - run: STAGING_D1_ID=00000000-0000-4000-8000-000000000000 STAGING_R2_BUCKET=celebrations-exit-staging python scripts/configure_staging_wrangler.py
       - name: Check Worker handles HTML staging redirects before assets
