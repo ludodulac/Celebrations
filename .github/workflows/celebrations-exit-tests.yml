@@ -23,6 +23,7 @@ on:
       - scripts/configure_staging_wrangler.py
       - scripts/verify-staging-media-http.mjs
       - scripts/verify-staging-public-http.mjs
+      - scripts/verify-staging-browser.mjs
   pull_request:
     paths:
       - migration/**
@@ -52,3 +53,9 @@ jobs:
         run: node scripts/verify-staging-media-http.mjs
       - name: Verify live staging pages, D1 APIs and access control (read-only)
         run: node scripts/verify-staging-public-http.mjs
+      - name: Install Chromium for isolated staging browser smoke
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Verify real mobile browser programme and admin gate
+        run: node scripts/verify-staging-browser.mjs
