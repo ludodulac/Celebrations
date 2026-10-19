@@ -131,5 +131,19 @@ export async function handleAuth(request,env){
    await reset(env.DB,"recovery:"+e);return result({ok:true});
   }
   return result({ok:false,error:"Action not implemented"},501);
- }catch{return result({ok:false,error:"Authentication unavailable"},503)}
+ }catch(err){
+  // Synthetic staging-only diagnostics: classification only, never reveal
+  // query text, stored hashes, salts, passwords, IPs or stack traces.
+  const message=String(err?.message||"");
+  let category="OTHER";
+  if(/100000|iteration counts above|PBKDF2/i.test(message))category="PBKDF_LIMIT";
+  else if(/table|no such column/i.test(message))category="SCHEMA";
+  else if(/D1|SQLITE|database|statement/i.test(message))category="DATABASE";
+  else if(/not implemented|not supported|unsupported/i.test(message))category="UNSUPPORTED";
+  else if(/not a function|undefined|cannot read/i.test(message))category="RUNTIME";
+  else if(/cpu|limit|time/i.test(message))category="RESOURCE";
+  const synthetic=/^migration-check-[a-f0-9-]{36}@invalid\\.example$/.test(email(b?.email));
+  return result({ok:false,error:"Authentication unavailable",
+   ...(synthetic?{diagnostic_category:category,diagnostic_name:String(err?.name||"unknown").slice(0,45)}:{})},503);
+ }
 }
