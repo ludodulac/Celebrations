@@ -7,6 +7,12 @@ on:
       - admin-celebrations.js
       - admin-date-rules.js
       - admin-v3.js
+      - admin-content-details.js
+      - admin-media-batch.js
+      - admin-text-files.js
+      - migration/cloudflare/media-admin-api.mjs
+      - migration/cloudflare/footer-admin-api.mjs
+      - tests/test-exit-media-admin.mjs
       - scripts/verify-staging-authenticated-admin.mjs
       - migration/cloudflare/safe-save-api.mjs
       - migration/cloudflare/auth-api.mjs
