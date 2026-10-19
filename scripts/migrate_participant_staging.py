@@ -7,6 +7,7 @@ Never prints PII, passwords, salts or hash values. Preserves existing accounts
 and refuses conflicts. Explicitly verifies Cloudflare D1 identity before writes.
 """
 import datetime as dt
+import hashlib
 import json
 import os
 import re
@@ -59,16 +60,29 @@ for row in rows:
   assert re.fullmatch(r"[a-f0-9]{64}",row[name],re.I),"Incompatible recovery hash"
  existing=d1("SELECT "+",".join('"'+c+'"' for c in columns)+
   " FROM celebrations_participants WHERE email=?",(row["email"],))
+ converted=dict(row)
+ converted["password_salt"]="client180:"+row["password_salt"]
+ for col in ("password_hash","answer_1_hash","answer_2_hash"):
+  converted[col]=hashlib.sha256(row[col].encode("ascii")).hexdigest()
  if existing:
-  assert len(existing)==1 and all(canonical(existing[0][c])==canonical(row[c]) for c in columns),(
-   "Existing participant differs: refusing overwrite")
+  assert len(existing)==1 and all(
+   canonical(existing[0][c]) in (canonical(row[c]),canonical(converted[c]))
+   for c in columns), "Existing participant differs: refusing overwrite"
  else:
-  sql="INSERT INTO celebrations_participants ("+",".join('"'+c+'"' for c in columns)+   ") VALUES ("+",".join("?" for _ in columns)+") ON CONFLICT(email) DO NOTHING"
+  sql='INSERT INTO celebrations_participants ('+','.join('"'+c+'"' for c in columns)+') VALUES ('+','.join('?' for _ in columns)+') ON CONFLICT(email) DO NOTHING'
   d1(sql,tuple(row[c] for c in columns))
+ current=d1("SELECT password_hash FROM celebrations_participants WHERE email=?",(row["email"],))
+ if current[0]["password_hash"]==row["password_hash"]:
+  d1("""UPDATE celebrations_participants
+   SET password_salt=?,password_hash=?,answer_1_hash=?,answer_2_hash=?
+   WHERE email=? AND password_hash=?""",
+   (converted["password_salt"],converted["password_hash"],
+    converted["answer_1_hash"],converted["answer_2_hash"],
+    row["email"],row["password_hash"]))
  recorded=d1("SELECT "+",".join('"'+c+'"' for c in columns)+
   " FROM celebrations_participants WHERE email=?",(row["email"],))
- assert len(recorded)==1 and all(canonical(recorded[0][c])==canonical(row[c]) for c in columns),(
-  "Private account migration verification failed")
+ assert len(recorded)==1 and all(canonical(recorded[0][c])==canonical(converted[c]) for c in columns),(
+  "Wrapped participant account migration verification failed")
  # No session is migrated; tokens valid on Supabase must not be reused blindly.
  other=d1("SELECT COUNT(*) AS n FROM celebrations_participants")
  assert int(other[0]["n"])>=1
@@ -80,6 +94,6 @@ for row in rows:
  # login cannot be tested without the user and must be checked after cutover.
  print("STAGING_PARTICIPANT_ACCOUNT_IMPORTED "+json.dumps({
   "source_accounts":len(rows),"d1_verified_accounts":len(rows),
-  "password_hash_preserved":True,"recovery_hashes_preserved":True,
+  "password_compatibility_preserved":True,"nonreplayable_sha256_verifiers":True,"recovery_compatibility_preserved":True,
   "old_sessions_migrated":0,"same_password_login_user_test_pending":True,
   "production_writes":0}),flush=True)
