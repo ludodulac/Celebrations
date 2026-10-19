@@ -35,7 +35,7 @@ function toggleDayContent(dayKey,contentId){
 }
 
 renderProgram=function(){
-  const c=selected();ensureFixedSteps(c);saveState(state);
+  const c=selected();ensureFixedSteps(c);
   panel.innerHTML=`${context()}<div class="card"><div class="eyebrow">Programme</div><h2>Étapes</h2><div class="list">${c.days.map(dayCard).join('')}</div></div>`;
 };
 
