@@ -13,6 +13,7 @@ on:
       - .github/workflows/celebrations-staging-deploy.yml
       - scripts/configure_staging_wrangler.py
       - scripts/verify-staging-media-http.mjs
+      - scripts/verify-staging-public-http.mjs
   pull_request:
     paths:
       - migration/**
@@ -36,3 +37,5 @@ jobs:
       - run: python -m unittest discover -s tests -p test_exit_export.py -v
       - name: Verify real public media HTTP access on isolated staging only
         run: node scripts/verify-staging-media-http.mjs
+      - name: Verify live staging pages, D1 APIs and access control (read-only)
+        run: node scripts/verify-staging-public-http.mjs
