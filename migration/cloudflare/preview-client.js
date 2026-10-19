@@ -54,6 +54,15 @@
   const data=await response.json();if(!response.ok||!data.ok)throw new Error(data.error||"Upload impossible");
   return key;
  };
+ // Explicit one-record D1 deletion. Returns an error without changing browser
+ // state on any failed authorization, relation or DB operation.
+ window.celebrationsDeleteStagingRecord=async(action,id)=>{
+  if(!["delete_content","delete_event"].includes(action))return {ok:false,error:"Action invalide."};
+  const body={action};
+  body[action==="delete_event"?"event_id":"content_id"]=String(id);
+  const result=await post("/api/safe-save",body,true);
+  return result.data||{ok:false,error:"Suppression indisponible."};
+ };
  window.celebrationsStagingDelete=async key=>{
   const result=await post("/api/media-admin?action=delete&key="+encodeURIComponent(key),{},true);
   if(!result.data?.ok)throw new Error(result.data?.error||"Suppression impossible");
