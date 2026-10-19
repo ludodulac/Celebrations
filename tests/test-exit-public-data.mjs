@@ -6,3 +6,5 @@ test("public read table allowed",async()=>{const r=await handlePublicData(new Re
 test("private participant table denied",async()=>{const r=await handlePublicData(new Request("https://staging/api/public-data?table=celebrations_participants"),env);assert.equal(r.status,404)});
 test("contents filtered server side",async()=>{const r=await handlePublicData(new Request("https://staging/api/public-data?table=celebrations_contents"),env);assert.ok((await r.json())[0].sql.includes("audience IN"))});
 test("relations exclude restricted content",async()=>{const r=await handlePublicData(new Request("https://staging/api/public-data?table=celebrations_event_contents"),env);assert.match((await r.json())[0].sql,/content_id IN/)});
+
+test("public links exclude restricted events",async()=>{const r=await handlePublicData(new Request("https://staging/api/public-data?table=celebrations_links"),env);assert.match((await r.json())[0].sql,/event_id IN \(SELECT id FROM celebrations_events WHERE audience IN/)});

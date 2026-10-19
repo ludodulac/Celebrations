@@ -5,14 +5,17 @@ let galleryObjectUrls=[];
 function publicLibraryName(c){return window.cleanPublicName?window.cleanPublicName(c?.name||c?.fileName||'Contenu'):String(c?.name||c?.fileName||'Contenu').replace(/^\s*\d+(?:[.,]\d+)*\s*[.\-_–—:]\s*/u,'').trim()}
 function contentLocations(contentId){
   const locations=[];
+  const selected=typeof current==='function'?current():null;
+  if(!selected)return locations;
+  const id=String(contentId);
   const add=label=>{if(label&&!locations.includes(label))locations.push(label)};
-  state.celebrations.forEach(c=>(c.days||[]).forEach(d=>{
-    if((d.contentIds||[]).includes(contentId))add(d.label);
-  }));
-  state.events.forEach(e=>{
-    if(!(e.contentIds||[]).includes(contentId))return;
-    const cel=state.celebrations.find(c=>c.id===e.celebrationId);
-    const day=cel?.days?.find(d=>d.key===e.dayKey);
+  (selected.days||[]).forEach(d=>{
+    if((d.contentIds||[]).some(x=>String(x)===id))add(d.label);
+  });
+  (state.events||[]).forEach(e=>{
+    if(String(e.celebrationId)!==String(selected.id)||!audienceOk(e.audience))return;
+    if(!(e.contentIds||[]).some(x=>String(x)===id))return;
+    const day=(selected.days||[]).find(d=>d.key===e.dayKey);
     if(day?.label)add(day.label);
   });
   return locations;
@@ -40,7 +43,6 @@ function libraryLocationLabel(c){
   return ['Préparation','Mercredi','Jeudi','Vendredi','Samedi','Dimanche','Après célébration'].includes(category)?category:'';
 }
 function libraryMatches(c){
-  if(c.category==='Accueil')return false;
   if(libraryFamily==='audio'){
     if(c.type!=='Audio')return false;
     const chant=String(c.audioKind||'').toLowerCase()==='chant'||c.category==='Chants audio';
@@ -63,28 +65,29 @@ function simpleLibraryCard(c){
 }
 function normalizeGallerySource(v){
   const raw=String(v||'').trim();if(!raw)return '';
-  if(!/^https?:\/\//i.test(raw))return raw.replace(/^\/+|\/+$/g,'').toLowerCase();
-  try{const u=new URL(raw);u.hash='';return u.toString().toLowerCase()}catch(e){return raw.toLowerCase()}
+  if(!/^https?:\/\//i.test(raw))return raw.replace(/^\/+|\/+$/g,'');
+  try{const u=new URL(raw);u.hash='';return u.toString()}catch(e){return raw}
 }
 function normalizeGalleryName(v){return String(v||'').trim().toLowerCase().replace(/\s+/g,' ')}
-function imageGalleryItems(){
+function imageGalleryItems(allowedIds){
   const out=[],seen=new Set();
-  for(const c of state.contents||[]){
-    let source='',kind='',fileName='';
-    if(c.type==='Image'&&c.sourceType==='file'&&c.storagePath){source=c.storagePath;kind='image';fileName=c.fileName||''}
-    else if(c.hasCover&&c.coverStoragePath){source=c.coverStoragePath;kind='cover';fileName=c.coverFileName||''}
-    else continue;
+  const add=(content,kind,source)=>{
     const sourceKey=normalizeGallerySource(source);
-    const nameKey=kind==='cover'?normalizeGalleryName(fileName):'';
-    const identity=nameKey?`cover-name:${nameKey}`:`source:${sourceKey}`;
-    if(!sourceKey||seen.has(identity))continue;
-    seen.add(identity);out.push({content:c,kind,source,identity});
+    if(!sourceKey||seen.has(sourceKey))return;
+    seen.add(sourceKey);
+    out.push({content,kind,source,identity:`source:${sourceKey}`});
+  };
+  for(const c of state.contents||[]){
+    if(!allowedIds.has(String(c.id))||!audienceOk(c.audience))continue;
+    if(c.type==='Image'&&c.sourceType==='file'&&c.storagePath)add(c,'image',c.storagePath);
+    // A programme resource may have both an image and a distinct cover.
+    if(c.hasCover&&c.coverStoragePath)add(c,'cover',c.coverStoragePath);
   }
   return out.sort((a,b)=>publicLibraryName(a.content).localeCompare(publicLibraryName(b.content),'fr',{sensitivity:'base',numeric:true}));
 }
 function galleryOriginMeta(c){
   const locations=contentLocations(c.id);
-  const origin=locations.length?locations.join(' · '):libraryLocationLabel(c);
+  const origin=locations.length?locations.join(' · '):'';
   return origin?`<div class="content-event-meta">${esc(origin)}</div>`:'';
 }
 function imageGalleryCard(item,index){
@@ -94,23 +97,25 @@ function imageGalleryCard(item,index){
 function clearGalleryObjectUrls(){galleryObjectUrls.forEach(URL.revokeObjectURL);galleryObjectUrls=[]}
 async function hydrateGalleryImages(items){
   const grid=library.querySelector('[data-image-gallery-grid]');if(!grid)return;
-  let visible=0;
+  let visible=0,unavailable=0;
+  const activeGrid=grid;
   await Promise.all(items.map(async(item,index)=>{
     const card=library.querySelector(`[data-gallery-card="${index}"]`),img=library.querySelector(`[data-gallery-image="${index}"]`),button=library.querySelector(`[data-gallery-open="${index}"]`);
     if(!card||!img||!button)return;
     try{
       const key=item.kind==='cover'?`cover-${item.content.id}`:String(item.content.id);
-      const file=await getMedia(key);if(!file||!String(file.type||'').startsWith('image/')){card.remove();return}
+      const file=await getMedia(key);if(!file||!String(file.type||'').startsWith('image/')){unavailable++;card.hidden=false;card.classList.add('image-gallery-unavailable');button.disabled=true;button.setAttribute('aria-label','Image momentanément indisponible');img.remove();card.querySelector('.image-gallery-open').textContent='Image indisponible';return}
       const url=URL.createObjectURL(file);galleryObjectUrls.push(url);img.src=url;card.hidden=false;visible++;
       button.onclick=()=>window.open(url,'_blank','noopener');
-    }catch(e){card.remove()}
+    }catch(e){unavailable++;card.hidden=false;card.classList.add('image-gallery-unavailable');button.disabled=true;img.remove();button.textContent='Image indisponible'}
   }));
-  if(!visible)grid.innerHTML='<div class="notice">Aucune image disponible.</div>';
+  if(!activeGrid.isConnected||library.querySelector('[data-image-gallery-grid]')!==activeGrid)return;
+  if(!visible&&!items.length)grid.innerHTML='<div class="notice">Aucune image disponible.</div>';
+  if(unavailable)grid.insertAdjacentHTML('afterbegin',`<div class="notice" role="status">${unavailable} image(s) du programme momentanément indisponible(s).</div>`);
 }
 function renderLibrary(){
   clearGalleryObjectUrls();
-  const imageItems=libraryFamily==='image'?imageGalleryItems():null;
-  const currentCelebration=typeof current==='function'?current():null;const usedIds=new Set((state.events||[]).filter(e=>!currentCelebration||String(e.celebrationId)===String(currentCelebration.id)).flatMap(e=>e.contentIds||[]).map(String));(currentCelebration?.days||[]).forEach(d=>(d.contentIds||[]).forEach(id=>usedIds.add(String(id))));const visibleContents=(state.contents||[]).filter(c=>usedIds.has(String(c.id)));const list=imageItems||visibleContents.filter(libraryMatches).slice().sort((a,b)=>publicLibraryName(a).localeCompare(publicLibraryName(b),'fr',{sensitivity:'base',numeric:true}));
+  const currentCelebration=typeof current==='function'?current():null;const usedIds=new Set((state.events||[]).filter(e=>currentCelebration&&String(e.celebrationId)===String(currentCelebration.id)&&audienceOk(e.audience)).flatMap(e=>e.contentIds||[]).map(String));(currentCelebration?.days||[]).forEach(d=>(d.contentIds||[]).forEach(id=>usedIds.add(String(id))));const imageItems=libraryFamily==='image'?imageGalleryItems(usedIds):null;const visibleContents=(state.contents||[]).filter(c=>usedIds.has(String(c.id))&&audienceOk(c.audience));const list=imageItems||visibleContents.filter(libraryMatches).slice().sort((a,b)=>publicLibraryName(a).localeCompare(publicLibraryName(b),'fr',{sensitivity:'base',numeric:true}));
   const audioSubs=libraryFamily==='audio'?`<div class="library-audio-tabs"><button class="chip ${libraryAudioKind==='all'?'active':''}" data-audio-kind="all">Tous</button><button class="chip ${libraryAudioKind==='chant'?'active':''}" data-audio-kind="chant">Chants</button><button class="chip ${libraryAudioKind==='other'?'active':''}" data-audio-kind="other">Audios parlés</button></div>`:'';
   const cards=libraryFamily==='image'?(list.length?list.map(imageGalleryCard).join(''):'<div class="notice">Aucune image disponible.</div>'):(list.length?list.map(simpleLibraryCard).join(''):'<div class="notice">Aucun contenu disponible.</div>');
   library.innerHTML=`<div class="library-fixed-head"><div class="library-main-tabs"><button class="btn ${libraryFamily==='audio'?'primary':''}" data-library-family="audio">Audio</button><button class="btn ${libraryFamily==='video'?'primary':''}" data-library-family="video">Vidéo</button><button class="btn ${libraryFamily==='text'?'primary':''}" data-library-family="text">Textes & PDF</button><button class="btn ${libraryFamily==='image'?'primary':''}" data-library-family="image">Images</button></div>${audioSubs}</div><div class="library-scroll"><div class="grid3" ${libraryFamily==='image'?'data-image-gallery-grid':''}>${cards}</div></div>`;
@@ -133,7 +138,7 @@ libraryStyle.textContent=`
 body.public-app #library:not(.hidden){display:grid;grid-template-rows:auto minmax(0,1fr);overflow:hidden!important;gap:10px}
 .library-fixed-head{display:grid;gap:8px}.library-main-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.library-main-tabs .btn{white-space:normal}.library-audio-tabs{display:flex;gap:7px;flex-wrap:wrap}.library-scroll{min-height:0;overflow:auto;overscroll-behavior:contain;padding-right:2px}.content-event-meta{font-size:.72rem;color:var(--muted);margin:7px 0 10px;line-height:1.35;font-style:italic}
 .simple-library-card.has-library-visual{display:grid;grid-template-columns:92px minmax(0,1fr);gap:12px;align-items:start}.simple-library-visual{width:92px;aspect-ratio:1/1}.library-thumb{width:100%;height:100%;aspect-ratio:1/1;object-fit:cover;border-radius:10px;margin:0;background:#f3f4f6}.simple-library-body{min-width:0}.simple-library-body h3{margin-top:3px}
-.image-gallery-card{display:grid;gap:10px;padding:12px}.image-gallery-card[hidden]{display:none!important}.image-gallery-open{appearance:none;border:0;padding:0;background:transparent;display:block;width:100%;cursor:pointer}.image-gallery-thumb{display:block;width:100%;height:190px;object-fit:cover;border-radius:10px;background:#f3f4f6}.image-gallery-body{min-width:0}.image-gallery-body h3{margin:4px 0 0;font-size:.95rem;line-height:1.3}
+.image-gallery-card{display:grid;gap:10px;padding:12px}.image-gallery-unavailable .image-gallery-open{min-height:80px;background:#f3f4f6;color:#555;border-radius:10px;cursor:default}.image-gallery-card[hidden]{display:none!important}.image-gallery-open{appearance:none;border:0;padding:0;background:transparent;display:block;width:100%;cursor:pointer}.image-gallery-thumb{display:block;width:100%;height:190px;object-fit:cover;border-radius:10px;background:#f3f4f6}.image-gallery-body{min-width:0}.image-gallery-body h3{margin:4px 0 0;font-size:.95rem;line-height:1.3}
 @media(max-width:850px){body.public-app{height:auto;min-height:100dvh;overflow-x:hidden;overflow-y:auto}body.public-app .container{overflow:visible;min-height:auto}body.public-app #library:not(.hidden){display:block;overflow:visible!important}.library-scroll{min-height:auto;overflow:visible;overscroll-behavior:auto;padding-right:0}.library-main-tabs{display:flex;overflow-x:auto;gap:5px;padding-bottom:2px}.library-main-tabs .btn{flex:0 0 auto;font-size:.7rem;padding:7px 10px;min-height:36px}.library-audio-tabs{gap:5px}.library-audio-tabs .chip{font-size:.7rem;padding:6px 9px}.library-scroll .grid3{gap:8px}.simple-library-card{padding:9px}.simple-library-card h3{font-size:.92rem;margin:3px 0}.simple-library-card .muted{font-size:.75rem;margin:3px 0;line-height:1.35}.simple-library-card.has-library-visual{display:grid;grid-template-columns:82px minmax(0,1fr);gap:9px;align-items:start}.simple-library-visual{width:82px;aspect-ratio:1/1}.library-thumb{width:82px;height:82px;max-height:82px;aspect-ratio:1/1;object-fit:cover;margin:0}.content-fallback-thumb.library-thumb{width:82px!important;height:82px!important;max-height:82px!important;aspect-ratio:1/1!important;border-radius:9px}.content-fallback-thumb.library-thumb span{font-size:.7rem}.content-event-meta{font-size:.68rem;margin:4px 0 6px;line-height:1.3}.simple-library-card .resource-type{font-size:.68rem}.simple-library-card .resources{margin-top:4px}.simple-library-card audio{height:38px}.image-gallery-card{grid-template-columns:96px minmax(0,1fr);gap:9px;padding:9px;align-items:start}.image-gallery-thumb{width:96px;height:82px}.image-gallery-body h3{font-size:.88rem;margin:3px 0}.image-gallery-card .content-event-meta{margin-bottom:0}}
 `;
 document.head.appendChild(libraryStyle);

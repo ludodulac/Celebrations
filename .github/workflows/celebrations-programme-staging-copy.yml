@@ -1,0 +1,33 @@
+name: Celebrations isolated programme media copy
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type COPY_PROGRAMME_TO_STAGING to copy only to isolated staging
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  staging-copy:
+    if: github.ref == 'refs/heads/fix/celebrations-programme-library-006' && inputs.confirm == 'COPY_PROGRAMME_TO_STAGING'
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    timeout-minutes: 30
+    env:
+      CONFIRM_STAGING_COPY: ${{ inputs.confirm }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      SOURCE_R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      SOURCE_R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      STAGING_R2_ACCESS_KEY_ID: ${{ secrets.CELEBRATIONS_STAGING_R2_ACCESS_KEY_ID }}
+      STAGING_R2_SECRET_ACCESS_KEY: ${{ secrets.CELEBRATIONS_STAGING_R2_SECRET_ACCESS_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install boto3 requests
+      - run: python scripts/copy-programme-media-to-staging.py

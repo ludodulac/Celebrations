@@ -14,7 +14,7 @@ export async function handlePublicData(request,env){
  let sql='SELECT * FROM "'+name+'"';
  if(name==="celebrations_contents"||name==="celebrations_events")sql+=" WHERE audience IN " + filter + "";
  if(name==="celebrations_event_contents")sql+=" WHERE content_id IN (SELECT id FROM celebrations_contents WHERE audience IN " + filter + ") AND event_id IN (SELECT id FROM celebrations_events WHERE audience IN " + filter + ")";
- if(name==="celebrations_links")sql+=" WHERE event_id IS NULL OR event_id IN (SELECT id FROM celebrations_events WHERE audience IN " + filter + ")";
+ if(name==="celebrations_links")sql+=" WHERE (event_id IS NULL OR event_id IN (SELECT id FROM celebrations_events WHERE audience IN " + filter + ")) AND (event_id IS NOT NULL OR celebration_id IN (SELECT id FROM celebrations_celebrations))";
  if(name==="celebrations_step_contents")sql+=" WHERE content_id IN (SELECT id FROM celebrations_contents WHERE audience IN " + filter + ")";
  try{
   const data=await env.DB.prepare(sql).all();

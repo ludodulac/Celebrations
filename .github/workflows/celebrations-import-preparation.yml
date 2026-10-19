@@ -1,0 +1,28 @@
+name: Celebrations public staging import preparation
+on:
+  push:
+    branches: [fix/celebrations-programme-library-006]
+    paths:
+      - scripts/prepare-public-staging-import.py
+      - .github/workflows/celebrations-import-preparation.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  prepare-no-remote-write:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install 'requests>=2.32,<3'
+      - name: Prepare verified D1 programme SQL in disposable runner only
+        run: python -m scripts.prepare-public-staging-import
+      - name: Remove private local import SQL
+        if: always()
+        run: rm -f /tmp/celebrations-public-staging-import.sql
