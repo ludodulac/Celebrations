@@ -2,6 +2,7 @@
   function escStats(v){return String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[ch]))}
   async function loadStats(){
     const box=document.getElementById('clickStatsBox');if(!box)return;box.innerHTML='<div class="muted">Chargement des statistiques…</div>';
+    if(window.CELEBRATIONS_STAGING_BACKEND){box.innerHTML='<div class="notice">Statistiques indisponibles dans le serveur de test : les visites ne sont pas enregistrées sur Cloudflare pour le moment.</div>';return}
     const sb=window.celebrationsSupabase,token=window.getCelebrationsAdminToken?.()||'';if(!sb)return;
     const [clicks,visits]=await Promise.all([sb.rpc('celebrations_click_stats',{admin_token:token}),sb.rpc('celebrations_visit_stats',{admin_token:token})]);
     if(clicks.error||visits.error){box.innerHTML='<div class="notice">Impossible de charger les statistiques.</div>';return}
