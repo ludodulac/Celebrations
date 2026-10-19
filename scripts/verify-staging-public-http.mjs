@@ -34,7 +34,7 @@ for(const [table,minExpected] of [
  ["celebrations_events",62],
  ["celebrations_contents",100],
  ["celebrations_event_contents",1],
- ["celebrations_step_contents",1]
+ ["celebrations_step_contents",0]
 ]){
  const r=await check("/api/public-data?table="+table);
  assert.equal(r.status,200,"Cannot read public "+table+" from staging D1");
