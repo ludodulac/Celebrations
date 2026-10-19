@@ -11,6 +11,7 @@ import json
 import os
 import re
 import secrets
+import uuid
 import subprocess
 import requests
 
@@ -36,6 +37,7 @@ def query(sql, params=()):
 token = secrets.token_hex(32)
 digest = hashlib.sha256(token.encode()).hexdigest()
 expiry = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=5)).isoformat()
+synthetic_email = "migration-check-" + str(uuid.uuid4()) + "@invalid.example"
 inserted = False
 verify_url = "https://celebrations-exit-staging.rondes.workers.dev/api/auth"
 def valid_session():
@@ -55,9 +57,20 @@ try:
     print("STAGING_SYNTHETIC_ADMIN_SESSION_CREATED expires_in_minutes=5")
     subprocess.run(["node", "scripts/verify-staging-authenticated-admin.mjs"],
                    env=safe_env, timeout=105, check=True)
+    if os.getenv("STAGING_SYNTHETIC_PARTICIPANT_WRITE") == "1":
+        safe_env["STAGING_SYNTHETIC_PARTICIPANT_EMAIL"] = synthetic_email
+        subprocess.run(["node", "scripts/verify-staging-participant-roundtrip.mjs"],
+                       env=safe_env, timeout=85, check=True)
 finally:
     if inserted:
         try:
+            if os.getenv("STAGING_SYNTHETIC_PARTICIPANT_WRITE") == "1":
+                # Failsafe cleanup of the exact synthetic staging identity,
+                # including if Node crashed between the INSERT and its cleanup.
+                query("DELETE FROM celebrations_participant_sessions WHERE participant_email=?",
+                      (synthetic_email,))
+                query("DELETE FROM celebrations_participants WHERE email=?", (synthetic_email,))
+                print("STAGING_SYNTHETIC_PARTICIPANT_FALLBACK_CLEANUP success=true")
             query("DELETE FROM celebrations_admin_sessions WHERE token_hash=?", (digest,))
             assert not valid_session(), "Revoked synthetic staging session still active"
             print("STAGING_SYNTHETIC_ADMIN_SESSION_REVOKED success=true")
