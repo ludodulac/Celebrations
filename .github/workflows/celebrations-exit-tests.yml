@@ -42,6 +42,9 @@ on:
       - public-library-simple.js
       - index.html
       - scripts/build_staging_assets.py
+      - scripts/build_production_assets.py
+      - scripts/prepare_production_wrangler.py
+      - migration/cloudflare/production-worker.mjs
   pull_request:
     paths:
       - migration/**
@@ -68,6 +71,8 @@ jobs:
         run: |
           grep -Fq 'window.CELEBRATIONS_STAGING_BACKEND=location.origin' production-public/index.html
           grep -Fq 'window.CELEBRATIONS_STAGING_BACKEND=location.origin' production-public/admin.html
+          grep -Fq "location.replace('/letter/'+encodeURIComponent(slug))" production-public/index.html
+          if grep -Fq 'celebrations-committee-public?slug' production-public/index.html; then exit 1; fi
           if grep -q 'cdn.jsdelivr.net/npm/@supabase/supabase-js' production-public/index.html production-public/admin.html; then exit 1; fi
           echo 'Local production-candidate assets verified; no deploy.'
       - name: Verify isolated assets have no Supabase image or CDN SDK
