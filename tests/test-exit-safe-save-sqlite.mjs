@@ -208,3 +208,53 @@ test("failed deletion, missing id and DB transaction rollback do not remove data
   assert.equal(count(f.db,"celebrations_events"),1);
  }finally{f.close()}
 });
+
+test("removing a content association persists after saving and reopening; library item and event stay intact",async()=>{
+ const f=fixture();try{
+  const snapshotOne=snapshot();
+  assert.equal((await f.save(snapshotOne)).status,200);
+  assert.equal(count(f.db,"celebrations_step_contents"),1);
+  assert.equal(count(f.db,"celebrations_event_contents"),2);
+  snapshotOne.celebrations[0].days[0].contentIds=[];
+  snapshotOne.events[0].contentIds=["doc2"];
+  const saved=await f.save(snapshotOne);
+  assert.equal(saved.status,200,JSON.stringify(saved));
+  assert.equal(count(f.db,"celebrations_step_contents"),0,"Removed day association must not return");
+  assert.equal(count(f.db,"celebrations_event_contents"),1,"Removed event association must not return");
+  assert.equal(count(f.db,"celebrations_contents"),2,"Both library objects must remain");
+  assert.equal(count(f.db,"celebrations_events"),1,"Event must remain after unlink");
+  // Reopen simulation: a new state load must not rediscover removed links.
+  assert.deepEqual(f.db.prepare("SELECT content_id FROM celebrations_event_contents").all().map(x=>x.content_id),["doc2"]);
+  assert.equal((await f.save(snapshotOne)).status,200,"Repeat save is idempotent");
+  assert.equal(count(f.db,"celebrations_event_contents"),1);
+ }finally{f.close()}
+});
+test("association reconciliation is scoped: do not modify unrelated celebration/event relations",async()=>{
+ const f=fixture();try{
+  const a=snapshot();
+  assert.equal((await f.save(a)).status,200);
+  const unrelated={
+   ...a,
+   celebrations:[{id:101,archangel:"Gabriel",year:"2027",days:[{key:"day-a",label:"Autre",links:[],contentIds:["doc2"]}]}],
+   events:[{id:"unrelated-event",celebrationId:101,dayKey:"day-a",title:"Do not change",contentIds:["doc2"],links:[]}]
+  };
+  assert.equal((await f.save(unrelated)).status,200);
+  a.events[0].contentIds=[];
+  a.celebrations[0].days[0].contentIds=[];
+  assert.equal((await f.save(a)).status,200);
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM celebrations_step_contents WHERE celebration_id=101").get().n,1);
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM celebrations_event_contents WHERE event_id='unrelated-event'").get().n,1);
+ }finally{f.close()}
+});
+test("association removals and additions roll back together if a FK violation happens",async()=>{
+ const f=fixture();try{
+  const one=snapshot();
+  assert.equal((await f.save(one)).status,200);
+  one.events[0].contentIds=["not-present"];
+  one.celebrations[0].days[0].contentIds=[];
+  const attempted=await f.save(one);
+  assert.equal(attempted.status,409);
+  assert.equal(count(f.db,"celebrations_step_contents"),1,"Unlink must roll back");
+  assert.equal(count(f.db,"celebrations_event_contents"),2,"Original associations must survive");
+ }finally{f.close()}
+});
