@@ -128,8 +128,22 @@ for table in PROGRAMME_TABLES:
   assert int(src[0]["id"])==1 and isinstance(src[0]["show_other_celebrations"],bool), "Invalid source public setting"
   missing_setting=src[0]
  elif len(src)!=len(dst) or canonical_table(src)!=canonical_table(dst):
+  # Diagnose only field NAMES, never content titles or private URLs.
+  def identity(row):
+   return json.dumps([row.get(x) for x in (
+    ("event_id","content_id") if table=="celebrations_event_contents" else
+    ("celebration_id","step_key","content_id") if table=="celebrations_step_contents" else
+    ("id",))],ensure_ascii=False,sort_keys=True)
+  sr={identity(x):x for x in src};dr={identity(x):x for x in dst}
+  discrepancies=collections.Counter()
+  for key in sr.keys()&dr.keys():
+   discrepancies.update(k for k in sr[key] if k not in ("created_at","updated_at") and canon_value(k,sr[key].get(k))!=canon_value(k,dr[key].get(k)))
   print("STAGING_DELTA_PROGRAMME_CONFLICT "+json.dumps({
    "table":table,"source_rows":len(src),"staging_rows":len(dst),
+   "source_rows_missing_in_D1":len(sr.keys()-dr.keys()),
+   "D1_only_rows":len(dr.keys()-sr.keys()),
+   "changed_field_counts":dict(discrepancies),
+   "source_editorial_values_exposed":False,
    "possible_concurrent_edit":True,"write_performed":False
   }),flush=True)
   raise RuntimeError("SOURCE_STAGING_PROGRAMME_DIFFERENCE_STOP")
