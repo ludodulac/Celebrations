@@ -7,6 +7,7 @@ from migration.encrypted_backup import encrypt_export, verify_encrypted_file
 from migration.verify_real_backup_restore import restore_ciphertext_into_ram
 from scripts.audit_celebrations_media_dual_copy_readonly import source_inventory, compare_manifests
 from scripts.audit_historic_participant_verifier_parity import compare_user
+from scripts.audit_preproduction_resources_and_dns import encrypt_snapshot, verify_snapshot, paged_cloudflare
 def mocked_rows(rows,range_header=None):
  r=Mock()
  r.json.return_value=rows
@@ -338,5 +339,40 @@ class TestExport(unittest.TestCase):
       "celebrations-exit-production",
       "00000000-0000-4000-8000-000000000001",
       "celebrations-exit-staging",path)
+
+
+ def test_dns_rollback_snapshot_is_encrypted_and_authenticated(self):
+  data=json.dumps({"domain":"ronde-des-archanges-universelle.eu",
+   "dns_records":[{"name":"example.invalid","type":"CNAME","content":"secret"}],
+   "worker_routes":[]}).encode()
+  key="synthetic-only-testing-passphrase-at-least-32-chars-001"
+  encoded=encrypt_snapshot(data,key)
+  self.assertNotIn(b"secret",encoded)
+  self.assertEqual(verify_snapshot(encoded,key),1)
+  self.assertRaises(Exception,verify_snapshot,encoded,
+       "different-synthetic-passphrase-min-32-characters")
+  corrupted=bytearray(encoded);corrupted[-1]^=1
+  self.assertRaises(Exception,verify_snapshot,bytes(corrupted),key)
+
+ def test_dns_records_pagination_never_calls_mutating_http(self):
+  from unittest.mock import Mock
+  session=Mock()
+  def get(url,params=None,timeout=None):
+   page=int(params["page"])
+   n=100 if page==1 else 2
+   ans=Mock()
+   ans.status_code=200
+   ans.json.return_value={"success":True,
+    "result":[{"type":"TXT","content":"synthetic","index":i} for i in range(n)],
+    "result_info":{"total_pages":2}}
+   return ans
+  session.get.side_effect=get
+  rows=paged_cloudflare(session,"https://api.cloudflare.com/client/v4/zones/example/dns_records")
+  self.assertEqual(len(rows),102)
+  self.assertEqual(session.get.call_count,2)
+  session.post.assert_not_called()
+  session.get.return_value.status_code=403
+  session.get.side_effect=None
+  self.assertIsNone(paged_cloudflare(session,"https://api.cloudflare.com/client/v4/zones/example/dns_records"))
 
 if __name__=="__main__":unittest.main()
