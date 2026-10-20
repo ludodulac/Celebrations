@@ -16,6 +16,8 @@ function fixture(){
  for(let i=0;i<211;i++)addContent.run("content-"+i,"Fixture "+i,"PDF",i%9===0?"angel":"all","media/fixture-"+i,"media/cover-"+i);
  const addRelation=db.prepare("INSERT INTO celebrations_event_contents(event_id,content_id,sort_order) VALUES (?,?,?)");
  for(let i=0;i<256;i++)addRelation.run("ev-"+(i%62),"content-"+(i%211),i);
+ const addClick=db.prepare("INSERT INTO celebrations_clicks(target_kind,target_label,page_path,visitor_id) VALUES (?,?,?,?)");
+ for(let i=0;i<11632;i++)addClick.run(i%5===0?"pdf":"page-view",i%5===0?"PDF-"+(i%20):"Page","/page-"+(i%8),"visitor-"+(i%800));
  db.exec("COMMIT");db.exec("ANALYZE");
  return db;
 }
