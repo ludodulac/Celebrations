@@ -72,7 +72,7 @@ def d1(sql,params=(),max_reads=6000,allow_write=False):
   assert sql.lstrip().upper().startswith("SELECT "),"READ_ONLY_D1_PREFLIGHT"
  else:
   assert MODE=="SAFE_STAGING_COPY"
-  assert sql.lstrip().upper().startswith("INSERT INTO celebrations_clicks "),"ONLY_CLICK_INSERTS_ALLOWED"
+  assert sql.lstrip().upper().startswith(("INSERT INTO celebrations_clicks ","INSERT INTO celebrations_public_settings ")),"ONLY_WHITELISTED_INSERTS_ALLOWED"
  response=requests.post(CF+"/query",headers=cfh,json={"sql":sql,"params":list(params)},timeout=45)
  response.raise_for_status()
  result=response.json()
@@ -116,14 +116,18 @@ def canonical_table(rows):
  )
 
 programme_counts={}
+missing_setting=None
 for table in PROGRAMME_TABLES:
  src=source_table(table)
  assert len(src)<=500, "SOURCE_PROGRAMME_GREW_TOO_LARGE"
  source_columns=sorted(src[0].keys()) if src else []
- sql="SELECT "+(",".join('"'+c+'"' for c in source_columns) if source_columns else "1")+" FROM \""+table+"\" LIMIT 501"
+ sql="SELECT "+(",".join('"'+c+'"' for c in source_columns) if source_columns else "1")+" FROM \\""+table+"\\" LIMIT 501"
  dst=d1(sql)
- assert len(dst)<=500, "STAGING_PROGRAMME_GREW_TOO_LARGE"
- if len(src)!=len(dst) or canonical_table(src)!=canonical_table(dst):
+ assert len(dst)<=500,"STAGING_PROGRAMME_GREW_TOO_LARGE"
+ if table=="celebrations_public_settings" and len(src)==1 and len(dst)==0:
+  assert int(src[0]["id"])==1 and isinstance(src[0]["show_other_celebrations"],bool), "Invalid source public setting"
+  missing_setting=src[0]
+ elif len(src)!=len(dst) or canonical_table(src)!=canonical_table(dst):
   print("STAGING_DELTA_PROGRAMME_CONFLICT "+json.dumps({
    "table":table,"source_rows":len(src),"staging_rows":len(dst),
    "possible_concurrent_edit":True,"write_performed":False
@@ -131,8 +135,10 @@ for table in PROGRAMME_TABLES:
   raise RuntimeError("SOURCE_STAGING_PROGRAMME_DIFFERENCE_STOP")
  programme_counts[table]=len(src)
 print("STAGING_DELTA_PROGRAMME_PARITY "+json.dumps({
- "tables":len(PROGRAMME_TABLES),"total_source_and_D1_rows":sum(programme_counts.values()),
- "counts":programme_counts,"all_fields_other_than_server_timestamps_identical":True,
+ "tables":len(PROGRAMME_TABLES),"total_original_rows":sum(programme_counts.values()),
+ "counts":programme_counts,
+ "programmes_identical_except_one_missing_staging_visibility_setting":True,
+ "missing_original_visibility_settings":int(missing_setting is not None),
  "source_rows_mutated":0,"staging_programme_rows_mutated":0
 },sort_keys=True),flush=True)
 
@@ -232,9 +238,16 @@ print("STAGING_DELTA_STATISTICS_PREFLIGHT "+json.dumps({
 }),flush=True)
 if MODE=="DRY_RUN":
  print("STAGING_DELTA_DRY_RUN_PASSED "+json.dumps({"staging_writes":0,
- "source_programme_rows":sum(programme_counts.values()),"source_new_click_rows":len(src_clicks)}))
+ "source_programme_rows":sum(programme_counts.values()),"missing_visibility_setting":int(missing_setting is not None),"source_new_click_rows":len(src_clicks)}))
  sys.exit(0)
 
+if missing_setting is not None:
+ # The sole previously unimported source row affects public programme
+ # visibility. Copy only id=1, never change an existing administrator setting.
+ saved=d1("INSERT INTO celebrations_public_settings(id,show_other_celebrations,updated_at) VALUES(?,?,?) ON CONFLICT(id) DO NOTHING",
+  (1,int(missing_setting["show_other_celebrations"]),missing_setting["updated_at"]),allow_write=True)
+ check=d1("SELECT id,show_other_celebrations FROM celebrations_public_settings WHERE id=1")
+ assert len(check)==1 and int(check[0]["show_other_celebrations"])==int(missing_setting["show_other_celebrations"]), "VISIBILITY_SETTING_SYNC_FAILED"
 if missing:
  sql="INSERT INTO celebrations_clicks ("+",".join('"'+c+'"' for c in CLICK_COLUMNS)+   ") SELECT "+",".join("json_extract(value,'$."+c+"')" for c in CLICK_COLUMNS)+   " FROM json_each(?) WHERE true ON CONFLICT(id) DO NOTHING"
  for i in range(0,len(missing),60):
@@ -251,7 +264,8 @@ assert len(verified)==len(mapped),"STAGING_DELTA_VERIFICATION_COUNT_FAILED"
 assert all(equal_click(row,verified[row["id"]]) for row in mapped),"STAGING_DELTA_FULL_RECORD_VERIFICATION_FAILED"
 print("STAGING_DELTA_SAFE_SYNC_SUCCESS "+json.dumps({
  "programme_tables_checked":len(PROGRAMME_TABLES),
- "programme_rows_unchanged":sum(programme_counts.values()),
+ "programme_rows_checked":sum(programme_counts.values()),
+ "missing_original_visibility_setting_restored":int(missing_setting is not None),
  "private_source_files_in_staging":len(source_media),
  "new_original_clicks":len(src_clicks),"new_click_records_inserted":len(missing),
  "all_incremental_click_records_verified":len(verified),
