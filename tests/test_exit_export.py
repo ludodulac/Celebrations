@@ -1,20 +1,49 @@
 import unittest,tempfile,pathlib,json,sqlite3
 from unittest.mock import Mock
-from migration.export_celebrations_readonly import fetch_table,export,TABLES
+from migration.export_celebrations_readonly import fetch_table,export,TABLES,PRIMARY_KEYS
 from migration.stage_export_sqlite import stage
 from migration.import_relational_sqlite import import_relational
+def mocked_rows(rows,range_header=None):
+ r=Mock()
+ r.json.return_value=rows
+ r.headers={"Content-Range": range_header or ("0-"+str(len(rows)-1)+"/"+str(len(rows)) if rows else "*/0")}
+ return r
+
 class TestExport(unittest.TestCase):
  def test_pagination(self):
-  s=Mock();a=Mock();a.json.return_value=[{"id":1},{"id":2}];b=Mock();b.json.return_value=[{"id":3}]
+  s=Mock();a=mocked_rows([{"id":1},{"id":2}],"0-1/3");b=mocked_rows([{"id":3}],"2-2/3")
   s.get.side_effect=[a,b]
   self.assertEqual(list(fetch_table(s,"https://example","celebrations_contents",2)),[{"id":1},{"id":2},{"id":3}])
   self.assertEqual(s.get.call_count,2)
+  self.assertEqual(s.get.call_args_list[0].kwargs["params"]["order"],"id.asc")
+ def test_pagination_rejects_changed_source_count(self):
+  s=Mock()
+  s.get.side_effect=[mocked_rows([{"id":1},{"id":2}],"0-1/3"),mocked_rows([{"id":3}],"2-2/4")]
+  with self.assertRaisesRegex(RuntimeError,"Source row count changed"):
+   list(fetch_table(s,"https://example","celebrations_contents",2))
+ def test_pagination_rejects_duplicate_primary_key(self):
+  s=Mock()
+  s.get.side_effect=[mocked_rows([{"id":1},{"id":2}],"0-1/3"),mocked_rows([{"id":2}],"2-2/3")]
+  with self.assertRaisesRegex(RuntimeError,"Duplicate source row"):
+   list(fetch_table(s,"https://example","celebrations_contents",2))
+ def test_pagination_rejects_missing_count_or_primary_key(self):
+  s=Mock();r=mocked_rows([{"id":1}]);r.headers={}
+  s.get.return_value=r
+  with self.assertRaisesRegex(RuntimeError,"Exact source row count missing"):
+   list(fetch_table(s,"https://example","celebrations_contents"))
+  s.get.return_value=mocked_rows([{"content_type":"pdf"}])
+  with self.assertRaisesRegex(RuntimeError,"Backup primary key missing"):
+   list(fetch_table(s,"https://example","celebrations_contents"))
+ def test_composite_key_ordering(self):
+  s=Mock();s.get.return_value=mocked_rows([{"event_id":"event-1","content_id":"content-1"}])
+  self.assertEqual(len(list(fetch_table(s,"https://example","celebrations_event_contents"))),1)
+  self.assertEqual(s.get.call_args.kwargs["params"]["order"],"event_id.asc,content_id.asc")
  def test_all_tables_included(self):
   self.assertEqual(len(TABLES),16)
   self.assertIn("celebrations_committee_letters",TABLES)
   self.assertIn("celebrations_participants",TABLES)
  def test_private_output_and_no_overwrite(self):
-  s=Mock();r=Mock();r.json.return_value=[];s.get.return_value=r
+  s=Mock();s.get.return_value=mocked_rows([])
   with tempfile.TemporaryDirectory() as d:
    p=pathlib.Path(d)/"private"
    m=export(s,"https://example",p)
@@ -23,7 +52,13 @@ class TestExport(unittest.TestCase):
    self.assertEqual((p/"manifest.json").stat().st_mode & 0o777,0o600)
    with self.assertRaises(RuntimeError):export(s,"https://example",p)
  def test_offline_staging_import(self):
-  s=Mock();r=Mock();r.json.return_value=[{"id":1,"value":"été"}];s.get.return_value=r
+  s=Mock()
+  def get(url,**kwargs):
+   table=url.rsplit("/",1)[-1]
+   row={k: ("synthetic" if k in ("email","token_hash","user_id","event_id","content_id","step_key") else 1) for k in PRIMARY_KEYS[table]}
+   row["value"]="été"
+   return mocked_rows([row])
+  s.get.side_effect=get
   with tempfile.TemporaryDirectory() as d:
    p=pathlib.Path(d)/"private"
    export(s,"https://example",p)
@@ -33,14 +68,14 @@ class TestExport(unittest.TestCase):
    db=sqlite3.connect(pathlib.Path(d)/"staging.sqlite")
    self.assertEqual(db.execute("SELECT COUNT(*) FROM staging_rows").fetchone()[0],16)
  def test_staging_detects_tampering(self):
-  s=Mock();r=Mock();r.json.return_value=[];s.get.return_value=r
+  s=Mock();s.get.return_value=mocked_rows([])
   with tempfile.TemporaryDirectory() as d:
    p=pathlib.Path(d)/"private"
    export(s,"https://example",p)
    (p/"celebrations_contents.json").write_text("[1]")
    with self.assertRaises(RuntimeError):stage(p,pathlib.Path(d)/"bad.sqlite")
  def test_real_relational_schema_import_and_integrity(self):
-  s=Mock();r=Mock();r.json.return_value=[];s.get.return_value=r
+  s=Mock();s.get.return_value=mocked_rows([])
   with tempfile.TemporaryDirectory() as d:
    p=pathlib.Path(d)/"private";export(s,"https://example",p)
    target=pathlib.Path(d)/"relational.sqlite"
@@ -84,9 +119,7 @@ class TestExport(unittest.TestCase):
   self.assertEqual(set(rows),set(TABLES))
   session=Mock()
   def response(url,**kwargs):
-   item=Mock()
-   item.json.return_value=rows[url.rsplit("/",1)[-1]]
-   return item
+   return mocked_rows(rows[url.rsplit("/",1)[-1]])
   session.get.side_effect=response
   with tempfile.TemporaryDirectory() as tmp:
    root=pathlib.Path(tmp)
