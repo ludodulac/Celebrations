@@ -106,3 +106,18 @@ test("real legal template placeholders remain unpublished even when an admin sel
   assert.equal(sqlite.prepare("SELECT is_public FROM celebrations_footer_drafts WHERE slug='confidentialite'").get().is_public,0);
  }finally{sqlite.close()}
 });
+
+test("unfinished editor facts within an ordinary paragraph cannot be published",async()=>{
+ const {sqlite,DB}=db();
+ try{
+  const p=await invoke({DB},"admin_publish_footer",{
+    slug:"mentions-legales",draft_number:1,title:"Mentions légales",
+    content:"# Mentions légales\\nResponsable : [À compléter : identité réelle]."
+  });
+  assert.equal(p.status,200);
+  const vis=await invoke({DB},"admin_set_footer_public",{slug:"mentions-legales",is_public:true});
+  assert.equal(vis.status,409,"Mid-line placeholder must prevent legal publication");
+  const state=sqlite.prepare("SELECT is_public FROM celebrations_footer_drafts WHERE slug='mentions-legales'").get();
+  assert.equal(state.is_public,0);
+ }finally{sqlite.close()}
+});
