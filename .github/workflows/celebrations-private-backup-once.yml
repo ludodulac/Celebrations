@@ -191,6 +191,47 @@ jobs:
       - name: Compare Supabase Storage originals with R2 staging key/size/times
         run: python scripts/audit_celebrations_media_dual_copy_readonly.py
 
+  participant-verifier-parity:
+    # Audit the historic account's mathematical password/recovery parity.
+    # Never attempt a real login or modify existing sessions/lockout state.
+    if: ${{ github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && contains(github.event.head_commit.message, '[PARTICIPANT_PARITY_ONLY_ONCE]') }}
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    timeout-minutes: 10
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+    steps:
+      - name: Refuse production scope or missing read credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/feat/celebrations-supabase-exit-001'
+          test "${SUPABASE_URL%/}" = "https://jwyayfkssyagvnablttg.supabase.co"
+          test "$STAGING_R2_BUCKET" = 'celebrations-exit-staging'
+          for v in SUPABASE_SERVICE_ROLE_KEY CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_API_TOKEN STAGING_D1_ID; do
+            test -n "${!v:-}" || { echo "Missing private participant-audit prerequisites"; exit 1; }
+          done
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check account-wide Cloudflare D1 daily quota WITHOUT a D1 SQL call
+        run: node scripts/check-staging-d1-free-budget.mjs pre
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned read-only source and D1 HTTP dependency
+        run: python -m pip install 'requests==2.32.5'
+      - name: Compare exactly one source account to one staging hash verifier
+        run: python scripts/audit_historic_participant_verifier_parity.py
+
 # This archive is only one component of backup. It does NOT contain Storage
 # binaries, other apps' tables, roles, settings, or a transaction-wide snapshot.
 # Staging R2 is a private first copy, NOT an independent off-site backup.
