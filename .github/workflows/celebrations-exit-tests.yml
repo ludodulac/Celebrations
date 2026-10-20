@@ -59,10 +59,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: node --check migration/cloudflare/preview-client.js
+      - run: node --check migration/cloudflare/preview-client.js && node --check migration/cloudflare/production-worker.mjs
       - run: node --check public-v3.js && node --check public-date-rules.js && node --check public-content-nav.js && node --check public-library-simple.js && node --check admin-date-rules.js
-      - run: node --test tests/test-exit-media-gateway.mjs tests/test-exit-public-data.mjs tests/test-exit-auth.mjs tests/test-exit-staging-integration.mjs tests/test-exit-preview-client.mjs tests/test-exit-client-isolation.mjs tests/test-exit-footer-admin.mjs tests/test-exit-legal-drafts.mjs tests/test-exit-participants-admin.mjs tests/test-exit-safe-save-sqlite.mjs tests/test-exit-stats.mjs tests/test-exit-participant-full.mjs tests/test-exit-media-admin.mjs tests/test-exit-d1-query-budget.mjs tests/test-exit-admin-lifecycle.mjs tests/test-exit-admin-ui-ids.mjs
+      - run: node --test tests/test-exit-production-candidate.mjs tests/test-exit-media-gateway.mjs tests/test-exit-public-data.mjs tests/test-exit-auth.mjs tests/test-exit-staging-integration.mjs tests/test-exit-preview-client.mjs tests/test-exit-client-isolation.mjs tests/test-exit-footer-admin.mjs tests/test-exit-legal-drafts.mjs tests/test-exit-participants-admin.mjs tests/test-exit-safe-save-sqlite.mjs tests/test-exit-stats.mjs tests/test-exit-participant-full.mjs tests/test-exit-media-admin.mjs tests/test-exit-d1-query-budget.mjs tests/test-exit-admin-lifecycle.mjs tests/test-exit-admin-ui-ids.mjs
       - run: python scripts/build_staging_assets.py
+      - run: python scripts/build_production_assets.py
+      - name: Prove production HTML boots Cloudflare on ordinary public URL
+        run: |
+          grep -Fq 'window.CELEBRATIONS_STAGING_BACKEND=location.origin' production-public/index.html
+          grep -Fq 'window.CELEBRATIONS_STAGING_BACKEND=location.origin' production-public/admin.html
+          if grep -q 'cdn.jsdelivr.net/npm/@supabase/supabase-js' production-public/index.html production-public/admin.html; then exit 1; fi
+          echo 'Local production-candidate assets verified; no deploy.'
       - name: Verify isolated assets have no Supabase image or CDN SDK
         run: |
           python - <<'PY'
