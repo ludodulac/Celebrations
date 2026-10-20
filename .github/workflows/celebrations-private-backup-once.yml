@@ -277,6 +277,66 @@ jobs:
           test ! -f migration/cloudflare/wrangler.production.toml
           echo "PRODUCTION_PREPARATION_OFFLINE_PASS deployment=NO dns_changes=0 separate_prod_resource_creation=NO"
 
+  precutover-789-guarded-audit:
+    # 7-8-9 preparation: inspect production resources, escrow DNS encrypted
+    # when the domain's complete zone/routes can be read, and sync only
+    # validated click deltas to isolated D1 staging. NOT a production cutover.
+    if: ${{ github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && contains(github.event.head_commit.message, '[CUTOVER_789_PREFLIGHT_ONCE]') }}
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    timeout-minutes: 27
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+      STAGING_R2_ACCESS_KEY_ID: ${{ secrets.CELEBRATIONS_STAGING_R2_ACCESS_KEY_ID }}
+      STAGING_R2_SECRET_ACCESS_KEY: ${{ secrets.CELEBRATIONS_STAGING_R2_SECRET_ACCESS_KEY }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      CELEBRATIONS_BACKUP_PASSPHRASE: ${{ secrets.CELEBRATIONS_BACKUP_PASSPHRASE }}
+    steps:
+      - name: Validate exact staging scope and protected required variables
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/feat/celebrations-supabase-exit-001"
+          test "$STAGING_R2_BUCKET" = "celebrations-exit-staging"
+          test "${SUPABASE_URL%/}" = "https://jwyayfkssyagvnablttg.supabase.co"
+          for v in SUPABASE_SERVICE_ROLE_KEY CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_API_TOKEN STAGING_D1_ID STAGING_R2_ACCESS_KEY_ID STAGING_R2_SECRET_ACCESS_KEY R2_ENDPOINT CELEBRATIONS_BACKUP_PASSPHRASE; do
+            test -n "${!v:-}" || { echo "Missing staging pre-cutover audit prerequisite"; exit 1; }
+          done
+          test "${#CELEBRATIONS_BACKUP_PASSPHRASE}" -ge 32
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile staged pre-cutover audit scripts without mutations
+        run: python -m py_compile scripts/audit_preproduction_resources_and_dns.py scripts/sync_celebrations_latest_staging.py
+      - name: Stage 7-9 daily account-wide quota check (no D1 SQL)
+        run: node scripts/check-staging-d1-free-budget.mjs pre
+      - name: Install pinned private audit dependencies
+        run: python -m pip install 'requests==2.32.5' 'boto3==1.40.57' 'cryptography==46.0.4'
+      - name: Step 7 and 8 - Inspect real production resources and preserve complete DNS config if accessible
+        run: python scripts/audit_preproduction_resources_and_dns.py
+      - name: Step 9 - PRE-CUTOVER source/editorial/media/analytics DRY RUN
+        env:
+          CELEBRATIONS_DELTA_APPLY: DRY_RUN
+        run: python scripts/sync_celebrations_latest_staging.py
+      - name: Step 9 - Catch up safe staging-only click changes, never call final production sync
+        env:
+          CELEBRATIONS_DELTA_APPLY: SAFE_STAGING_COPY
+        run: python scripts/sync_celebrations_latest_staging.py
+      - name: Verify free account-wide D1 budget remains healthy
+        if: always()
+        run: node scripts/check-staging-d1-free-budget.mjs post
+
 # This archive is only one component of backup. It does NOT contain Storage
 # binaries, other apps' tables, roles, settings, or a transaction-wide snapshot.
 # Staging R2 is a private first copy, NOT an independent off-site backup.
