@@ -1,0 +1,33 @@
+name: Verify exact D1 rows-read for optimized staging with 3 bounded SELECTs
+on:
+  push:
+    branches: [feat/celebrations-supabase-exit-001]
+    paths:
+      - .github/workflows/celebrations-staging-query-cost-proof-once.yml
+permissions:
+  contents: read
+jobs:
+  proof:
+    if: github.ref == 'refs/heads/feat/celebrations-supabase-exit-001'
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    timeout-minutes: 5
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify real account-wide free D1 quota BEFORE reads via GraphQL only
+        run: node scripts/check-staging-d1-free-budget.mjs pre
+      - name: Exactly 3 low-cost staging D1 SELECTs, zero writes, reads cap 3000
+        run: node scripts/verify-staging-d1-query-meta.mjs
+      - name: Check account-wide free quota after proof via GraphQL only
+        if: always()
+        run: node scripts/check-staging-d1-free-budget.mjs post
