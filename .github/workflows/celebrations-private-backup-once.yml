@@ -1,0 +1,83 @@
+name: CÉLÉBRATIONS — sauvegarde source chiffrée unique (protégée)
+
+# This workflow is deliberately opt-in. It only runs when a maintainer pushes
+# a commit whose message contains [BACKUP_ENCRYPTED_ONCE] to the migration
+# branch. This avoids workflow_dispatch's default-branch registration rule.
+# Never run on PRs or on main. Only an encrypted .cbackup is uploaded.
+on:
+  push:
+    branches:
+      - feat/celebrations-supabase-exit-001
+
+permissions:
+  contents: read
+
+concurrency:
+  group: celebrations-private-source-backup
+  cancel-in-progress: false
+
+jobs:
+  encrypted-backup:
+    if: ${{ github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && contains(github.event.head_commit.message, '[BACKUP_ENCRYPTED_ONCE]') }}
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    timeout-minutes: 25
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      CELEBRATIONS_BACKUP_PASSPHRASE: ${{ secrets.CELEBRATIONS_BACKUP_PASSPHRASE }}
+      BACKUP_FILE: ${{ runner.temp }}/celebrations-source-only.cbackup
+    steps:
+      - name: Assert private, read-only, source-specific setup
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          test "$GITHUB_REF" = "refs/heads/feat/celebrations-supabase-exit-001"
+          test "${SUPABASE_URL%/}" = "https://jwyayfkssyagvnablttg.supabase.co"
+          for key in SUPABASE_SERVICE_ROLE_KEY CELEBRATIONS_BACKUP_PASSPHRASE; do
+            test -n "${!key:-}" || { echo "Missing required GitHub environment secret"; exit 1; }
+          done
+          test "${#CELEBRATIONS_BACKUP_PASSPHRASE}" -ge 32 || { echo "Backup secret too short"; exit 1; }
+          test ! -e "$BACKUP_FILE"
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned encryption and Supabase HTTP dependencies
+        run: python -m pip install 'cryptography==46.0.4' 'requests==2.32.5'
+      - name: Export 16 approved source tables, encrypt and verify locally
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          python -m migration.encrypted_backup --output "$BACKUP_FILE"
+          python -m migration.encrypted_backup --verify "$BACKUP_FILE"
+          test -s "$BACKUP_FILE"
+          test "$(stat -c %a "$BACKUP_FILE")" = 600
+          python - <<'PY'
+          import os, pathlib
+          path=pathlib.Path(os.environ["BACKUP_FILE"])
+          data=path.read_bytes()
+          assert data.startswith(b"CELEBRATIONS-DB-AESGCM-V1\x00")
+          assert b"manifest.json" not in data
+          print("Encrypted file present and verified; NO plaintext will be uploaded")
+          PY
+      - name: Upload encrypted ciphertext only (expires after one day)
+        uses: actions/upload-artifact@v4
+        with:
+          name: celebrations-source-encrypted-copy-once
+          path: ${{ runner.temp }}/celebrations-source-only.cbackup
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+      - name: Remove encrypted temporary file from runner
+        if: always()
+        shell: bash
+        run: rm -f "$BACKUP_FILE"
+
+# This archive is only one component of backup. It does NOT contain Storage
+# binaries, other apps' tables, roles, settings, or a transaction-wide snapshot.
+# No workflow result alone authorizes production cutover or Supabase removal.
