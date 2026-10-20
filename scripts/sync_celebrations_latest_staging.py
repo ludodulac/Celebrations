@@ -72,7 +72,7 @@ def d1(sql,params=(),max_reads=6000,allow_write=False):
   assert sql.lstrip().upper().startswith("SELECT "),"READ_ONLY_D1_PREFLIGHT"
  else:
   assert MODE=="SAFE_STAGING_COPY"
-  assert sql.lstrip().upper().startswith(("INSERT INTO celebrations_clicks ","INSERT INTO CELEBRATIONS_PUBLIC_SETTINGS(","WITH CHANGES AS (SELECT JSON_EXTRACT(")),"ONLY_WHITELISTED_D1_WRITES_ALLOWED"
+  assert sql.lstrip().upper().startswith(("INSERT INTO CELEBRATIONS_CLICKS (","INSERT INTO CELEBRATIONS_PUBLIC_SETTINGS(","WITH CHANGES AS (SELECT JSON_EXTRACT(")),"ONLY_WHITELISTED_D1_WRITES_ALLOWED"
  response=requests.post(CF+"/query",headers=cfh,json={"sql":sql,"params":list(params)},timeout=45)
  response.raise_for_status()
  result=response.json()
