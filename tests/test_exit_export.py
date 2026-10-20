@@ -4,6 +4,7 @@ from migration.export_celebrations_readonly import fetch_table,export,TABLES,PRI
 from migration.stage_export_sqlite import stage
 from migration.import_relational_sqlite import import_relational
 from migration.encrypted_backup import encrypt_export, verify_encrypted_file
+from migration.verify_real_backup_restore import restore_ciphertext_into_ram
 def mocked_rows(rows,range_header=None):
  r=Mock()
  r.json.return_value=rows
@@ -172,6 +173,29 @@ class TestExport(unittest.TestCase):
    with self.assertRaises(Exception):
     verify_encrypted_file(root/"corrupted.cbackup",password)
 
+
+ def test_restoring_encrypted_real_schema_in_private_ram_synthetic(self):
+  # Uses only fake 2-row data but exercises the exact encrypted archive +
+  # real relational schema route used for the private real-data rehearsal.
+  rows={
+   "celebrations_celebrations":[{"id":5,"archangel":"Synthetic","year":"2026"}],
+   "celebrations_contents":[{"id":"synthetic-attachment","name":"Fictional file","content_type":"pdf"}],
+  }
+  session=Mock()
+  session.get.side_effect=lambda url,**kw: mocked_rows(rows.get(url.rsplit("/",1)[-1],[]))
+  with tempfile.TemporaryDirectory() as tmp:
+   root=pathlib.Path(tmp)
+   source=root/"source"
+   export(session,"https://synthetic.invalid",source)
+   pw=b"random-synthetic-passphrase-for-testing-0123456"
+   archive=root/"private.cbackup"
+   encrypt_export(source,archive,pw)
+   scratch=root/"scratch"
+   scratch.mkdir()
+   result=restore_ciphertext_into_ram(archive.read_bytes(),pw,scratch)
+   self.assertEqual(result,{"tables":16,"rows":2,"fk_violations":0})
+   with self.assertRaises(Exception):
+    restore_ciphertext_into_ram(archive.read_bytes(),b"bad-key-of-32-characters-for-testing",root/"other")
 
  def test_private_backup_workflow_is_strictly_opt_in(self):
   workflow=pathlib.Path(".github/workflows/celebrations-private-backup-once.yml").read_text()

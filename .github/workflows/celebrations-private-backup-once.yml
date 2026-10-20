@@ -111,6 +111,49 @@ jobs:
         shell: bash
         run: rm -f "$BACKUP_FILE"
 
+
+  isolated-restore-audit:
+    # A separate single-shot trigger. Never create another source backup,
+    # never write to R2, and never touch the production or staging D1.
+    if: ${{ github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && contains(github.event.head_commit.message, '[VERIFY_BACKUP_RESTORE_ONCE]') }}
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    timeout-minutes: 15
+    env:
+      CELEBRATIONS_BACKUP_PASSPHRASE: ${{ secrets.CELEBRATIONS_BACKUP_PASSPHRASE }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+      STAGING_R2_ACCESS_KEY_ID: ${{ secrets.CELEBRATIONS_STAGING_R2_ACCESS_KEY_ID }}
+      STAGING_R2_SECRET_ACCESS_KEY: ${{ secrets.CELEBRATIONS_STAGING_R2_SECRET_ACCESS_KEY }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+    steps:
+      - name: Confirm restore audit is isolated from production and D1
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/feat/celebrations-supabase-exit-001"
+          test "$STAGING_R2_BUCKET" = "celebrations-exit-staging"
+          for secret_name in CELEBRATIONS_BACKUP_PASSPHRASE CLOUDFLARE_ACCOUNT_ID STAGING_R2_ACCESS_KEY_ID STAGING_R2_SECRET_ACCESS_KEY R2_ENDPOINT; do
+            test -n "${!secret_name:-}" || { echo "Missing private restore prerequisite"; exit 1; }
+          done
+          test "${#CELEBRATIONS_BACKUP_PASSPHRASE}" -ge 32
+          test -d /dev/shm
+          mountpoint -q /dev/shm
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned minimal crypto and private-R2 read dependencies
+        run: python -m pip install 'cryptography==46.0.4' 'boto3==1.40.57' 'requests==2.32.5'
+      - name: Decrypt the previously saved ciphertext into RAM and restore SQLite locally
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          python -m migration.verify_real_backup_restore
+
 # This archive is only one component of backup. It does NOT contain Storage
 # binaries, other apps' tables, roles, settings, or a transaction-wide snapshot.
 # Staging R2 is a private first copy, NOT an independent off-site backup.
