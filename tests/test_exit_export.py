@@ -212,8 +212,11 @@ class TestExport(unittest.TestCase):
   self.assertIn('assert os.environ["STAGING_R2_BUCKET"] == "celebrations-exit-staging"',workflow)
   self.assertIn('name="private-backups/source-"',workflow)
   self.assertIn("PRIVATE_R2_CIPHERTEXT_VERIFIED",workflow)
+  self.assertIn("[PARTICIPANT_PARITY_ONLY_ONCE]",workflow)
+  self.assertIn("node scripts/check-staging-d1-free-budget.mjs pre",workflow)
+  self.assertIn("python scripts/audit_historic_participant_verifier_parity.py",workflow)
   self.assertNotIn("actions/upload-artifact@",workflow)
-  self.assertNotIn("CLOUDFLARE_API_TOKEN",workflow)
+  self.assertNotIn("CLOUDFLARE_API_TOKEN",workflow.split("  isolated-restore-audit:",1)[0])
   self.assertNotIn("wrangler",workflow)
   self.assertNotIn("workflow_dispatch",workflow.split("on:",1)[1].split("permissions:",1)[0])
 
