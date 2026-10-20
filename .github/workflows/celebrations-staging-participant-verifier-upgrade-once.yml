@@ -1,9 +1,13 @@
 name: Upgrade one existing participant verifier in isolated Cloudflare staging
+# Pause repeated staging D1 account migration checks to protect free quota.
 on:
-  push:
-    branches: [feat/celebrations-supabase-exit-001]
-    paths:
-      - .github/workflows/celebrations-staging-participant-verifier-upgrade-once.yml
+  workflow_dispatch:
+    inputs:
+      confirm_quota:
+        description: Type RUN_STAGING only after reviewing daily D1 quota
+        required: true
+        type: string
+
 permissions:
   contents: read
 concurrency:
@@ -11,7 +15,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   verify-and-upgrade:
-    if: github.ref == 'refs/heads/feat/celebrations-supabase-exit-001'
+    if: github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && inputs.confirm_quota == 'RUN_STAGING'
     runs-on: ubuntu-latest
     environment: celebrations-staging
     timeout-minutes: 8
