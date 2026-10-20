@@ -26,7 +26,16 @@ export async function handlePublicData(request,env){
   ? 'SELECT slug FROM celebrations_footer_drafts WHERE is_active=1 AND is_public=1'
   : 'SELECT * FROM "'+name+'"';
  if(name==="celebrations_contents"||name==="celebrations_events")sql+=" WHERE audience IN " + filter + "";
- if(name==="celebrations_event_contents")sql+=" WHERE content_id IN (SELECT id FROM celebrations_contents WHERE audience IN " + filter + ") AND event_id IN (SELECT id FROM celebrations_events WHERE audience IN " + filter + ")";
+ // Crucial D1 quota guard: the former double IN-subquery caused roughly
+ // 13,475 rows scanned per call (2.8 million on 19 Oct alone). Scan the
+ // small relation table ONCE, then look up only its two primary-key parents.
+ // CROSS JOIN pins the join order; both parents are PK indexed. This preserves
+ // identical public/participant audience visibility without a quadratic plan.
+ if(name==="celebrations_event_contents")
+  sql="SELECT ec.event_id,ec.content_id,ec.sort_order FROM celebrations_event_contents ec"
+    +" CROSS JOIN celebrations_contents c CROSS JOIN celebrations_events e"
+    +" WHERE ec.content_id=c.id AND ec.event_id=e.id"
+    +" AND c.audience IN "+filter+" AND e.audience IN "+filter;
  if(name==="celebrations_links")sql+=" WHERE event_id IS NULL OR event_id IN (SELECT id FROM celebrations_events WHERE audience IN " + filter + ")";
  if(name==="celebrations_step_contents")sql+=" WHERE content_id IN (SELECT id FROM celebrations_contents WHERE audience IN " + filter + ")";
  try{
