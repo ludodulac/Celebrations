@@ -1,10 +1,12 @@
 name: Staging real authenticated admin browser audit (one-time)
-# One-time quota-guarded acceptance for staging admin only, no synthetic business writes.
+# D1 free quota protection: automatic authenticated browser scans stay PAUSED.
 on:
-  push:
-    branches: [feat/celebrations-supabase-exit-001]
-    paths:
-      - .github/workflows/celebrations-staging-auth-admin-once.yml
+  workflow_dispatch:
+    inputs:
+      confirm_quota:
+        description: Type RUN_STAGING after verifying D1 free headroom
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -13,7 +15,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   verify:
-    if: github.ref == 'refs/heads/feat/celebrations-supabase-exit-001'
+    if: github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && inputs.confirm_quota == 'RUN_STAGING'
     runs-on: ubuntu-latest
     environment: celebrations-staging
     timeout-minutes: 12
