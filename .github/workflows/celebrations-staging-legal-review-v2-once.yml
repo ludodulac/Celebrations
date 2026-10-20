@@ -1,9 +1,14 @@
 name: Populate private legal drafts with verified site facts (staging only, one-time)
+# Safeguard after successful one-time staging legal draft enrichment.
+# Never re-run D1 review migration automatically on unrelated edits.
 on:
-  push:
-    branches: [feat/celebrations-supabase-exit-001]
-    paths:
-      - .github/workflows/celebrations-staging-legal-review-v2-once.yml
+  workflow_dispatch:
+    inputs:
+      confirm_quota:
+        description: Type RUN_STAGING only after checking remaining free D1 quota
+        required: true
+        type: string
+
 permissions:
   contents: read
 concurrency:
@@ -11,7 +16,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   prepare-private-drafts:
-    if: github.ref == 'refs/heads/feat/celebrations-supabase-exit-001'
+    if: github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && inputs.confirm_quota == 'RUN_STAGING'
     runs-on: ubuntu-latest
     environment: celebrations-staging
     timeout-minutes: 12
