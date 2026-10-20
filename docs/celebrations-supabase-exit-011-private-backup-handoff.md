@@ -10,7 +10,7 @@ La nouvelle procédure utilise donc :
 - les identifiants Supabase **déjà enregistrés** dans l'environnement GitHub `celebrations-staging` (jamais publiés) ;
 - un **nouveau secret GitHub**, `CELEBRATIONS_BACKUP_PASSPHRASE`, que **seul le propriétaire** saisira dans l'interface sécurisée ;
 - l'outil de sauvegarde `migration/encrypted_backup.py`, en lecture seule sur le **projet Supabase fixé** et les **16 tables Célébrations** ;
-- une archive **chiffrée AES-256-GCM**, transférée pendant **un jour maximum** comme artifact GitHub Actions. **Aucun JSON en clair n'est uploadé**.
+- une archive **chiffrée AES-256-GCM**, envoyée **uniquement dans le bucket Cloudflare R2 privé de test** `celebrations-exit-staging`, sous un chemin `private-backups/`. Aucune archive n'est publiée comme artifact GitHub ; **aucun JSON en clair n'est uploadé**. Une écriture R2 privée et une lecture de vérification sont nécessaires, mais **aucune opération D1**.
 
 ### Action unique du propriétaire, sur téléphone ou ordinateur
 
@@ -25,10 +25,10 @@ GitHub ne garantit pas de montrer `workflow_dispatch` dans son interface lorsque
 ### Après l'exécution
 
 1. Vérifier le run GitHub Actions : `BACKUP_ENCRYPTED_AND_VERIFIED` et `BACKUP_OFFLINE_CHECK_OK`, **sans voir de données personnelles**.
-2. Aller dans la page de ce run → `Artifacts` → récupérer `celebrations-source-encrypted-copy-once` **avant expiration à 1 jour**.
-3. Conserver `celebrations-source-only.cbackup` dans un espace **privé** indépendant de GitHub, avec une copie de secours. Le secret doit être conservé séparément.
-4. **Vérifier après téléchargement** en local avec `python -m migration.encrypted_backup --verify ...`. Une future restauration d'essai isolée permettra de certifier la récupération.
-5. Ne publier ni le fichier chiffré ni le secret. Un artifact GitHub même chiffré doit être traité comme **temporaire** et potentiellement accessible selon les permissions du dépôt ; il n'est **pas** la sauvegarde durable finale.
+2. Vérifier la preuve `PRIVATE_R2_CIPHERTEXT_VERIFIED` dans le run : la copie **chiffrée** a été écrite dans le bucket R2 privé `celebrations-exit-staging`, avec un chemin unique `private-backups/source-...cbackup`.
+3. Depuis le **tableau de bord Cloudflare privé**, ouvrir `R2` → `celebrations-exit-staging` → `private-backups/` puis télécharger le fichier `.cbackup` dans un emplacement **privé et indépendant de Cloudflare**. Ne pas activer de domaine public pour ce dossier. Garder le secret séparément.
+4. **Vérifier après téléchargement** en local avec `python -m migration.encrypted_backup --verify ...`. La restauration d'essai isolée certifiera ensuite la récupération.
+5. Conserver deux exemplaires chiffrés dans des emplacements indépendants. Une copie dans le R2 de staging seul ne suffit **pas** à une sauvegarde durable hors du fournisseur de migration ; ne jamais la considérer comme la validation complète de l'étape 2.
 
 ## Important : ce que nous n'affirmons pas
 
@@ -39,4 +39,4 @@ GitHub ne garantit pas de montrer `workflow_dispatch` dans son interface lorsque
 
 ## Sécurité du flux
 
-`PENDING_OWNER_SECRET=YES` · `REAL_BACKUP_RUN=NO` · `D1_WRITES=0` · `PRODUCTION_CHANGES=0`.
+`PENDING_OWNER_SECRET=YES` · `REAL_BACKUP_RUN=NO` · `D1_WRITES=0` · `R2_PRIVATE_UPLOAD_PENDING=YES` · `PRODUCTION_CHANGES=0`.
