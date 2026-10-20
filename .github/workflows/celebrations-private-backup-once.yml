@@ -91,7 +91,7 @@ jobs:
           assert not parsed.path, "Unexpected R2 endpoint path"
           p=pathlib.Path(os.environ["BACKUP_FILE"])
           data=p.read_bytes() # This holds only AES-GCM encrypted ciphertext.
-          assert data.startswith(b"CELEBRATIONS-DB-AESGCM-V1\\x00")
+          assert data.startswith(b"CELEBRATIONS-DB-AESGCM-V1\x00")
           name="private-backups/source-"+datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")+"-"+secrets.token_hex(12)+".cbackup"
           client=boto3.client("s3",endpoint_url=endpoint,region_name="auto",
             aws_access_key_id=os.environ["STAGING_R2_ACCESS_KEY_ID"],
