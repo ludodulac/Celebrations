@@ -98,6 +98,27 @@ export async function handleSafeSave(request,env){
  // Steps use an explicit unique (celebration_id,step_key) staging migration.
  add("celebrations_steps",["celebration_id","step_key","label","start_date","end_date","body_text","sort_order"],steps);
  add("celebrations_events",["id","celebration_id","step_key","title","event_time","description","audience","sort_order","updated_at"],evs.map((e,i)=>({id:text(e.id),celebration_id:Number(e.celebrationId),step_key:text(e.dayKey),title:text(e.title),event_time:e.time||null,description:text(e.description),audience:text(e.audience||"all"),sort_order:i,updated_at:now})));
+ // Reconcile REMOVED associations as well as additions, preserving all
+ // other celebrations/events and all library contents. Previously an admin
+ // could press "Retirer" then "Enregistrer" but the stale D1 association
+ // survived the upsert. Delete ONLY missing pairs belonging to the complete
+ // submitted snapshot. All statements run in the SAME atomic batch.
+ // Missing collections have already been rejected above; this never deletes
+ // unrelated celebrations' associations or media in R2.
+ const desiredDayLinks=cels.flatMap(c=>(c.days||[]).flatMap(d=>
+  ids(d.contentIds).map(contentId=>({
+   celebration_id:Number(c.id),step_key:text(d.key),content_id:contentId
+  }))));
+ const desiredEventLinks=evs.flatMap(e=>
+  ids(e.contentIds).map(contentId=>({event_id:text(e.id),content_id:contentId})));
+ if(cels.length){
+  jobs.push({sql:"DELETE FROM celebrations_step_contents WHERE celebration_id IN (SELECT value FROM json_each(?)) AND NOT EXISTS (SELECT 1 FROM json_each(?) AS wanted WHERE CAST(json_extract(wanted.value,'$.celebration_id') AS INTEGER)=celebrations_step_contents.celebration_id AND json_extract(wanted.value,'$.step_key')=celebrations_step_contents.step_key AND json_extract(wanted.value,'$.content_id')=celebrations_step_contents.content_id)",
+   args:[JSON.stringify(cels.map(c=>Number(c.id))),JSON.stringify(desiredDayLinks)]});
+ }
+ if(evs.length){
+  jobs.push({sql:"DELETE FROM celebrations_event_contents WHERE event_id IN (SELECT value FROM json_each(?)) AND NOT EXISTS (SELECT 1 FROM json_each(?) AS wanted WHERE json_extract(wanted.value,'$.event_id')=celebrations_event_contents.event_id AND json_extract(wanted.value,'$.content_id')=celebrations_event_contents.content_id)",
+   args:[JSON.stringify(evs.map(e=>text(e.id))),JSON.stringify(desiredEventLinks)]});
+ }
  add("celebrations_step_contents",["celebration_id","step_key","content_id","sort_order"],cels.flatMap(c=>(c.days||[]).flatMap(d=>ids(d.contentIds).map((id,i)=>({celebration_id:Number(c.id),step_key:text(d.key),content_id:id,sort_order:i})))));
  add("celebrations_event_contents",["event_id","content_id","sort_order"],evs.flatMap(e=>ids(e.contentIds).map((id,i)=>({event_id:text(e.id),content_id:id,sort_order:i}))));
  // Replace only links belonging to celebrations included in this snapshot.
