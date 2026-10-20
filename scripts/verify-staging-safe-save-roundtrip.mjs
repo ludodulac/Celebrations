@@ -74,6 +74,26 @@ assert.equal(second.ok,true);
 assert.ok(second.rows<=48);
 await check("Migration modifiée","Événement modifié");
 console.log("STAGING_SAFE_SAVE_ROUNDTRIP created=true modified=true atomic=true existing_records_untouched=true");
+// Verify the previously broken operation on REAL isolated D1:
+// removing a day/event content association through a full admin save must
+// delete precisely that link, never the event, document or other site data.
+const detached=getPayload("Migration modifiée","Événement modifié");
+detached.celebrations[0].days[0].contentIds=[];
+detached.events[0].contentIds=[];
+const detachedSave=await call("/api/safe-save",detached);
+assert.equal(detachedSave.status,200,"Staging unlink save failed "+JSON.stringify(detachedSave));
+const [remainingEventLinks,remainingDayLinks,allDocs,allEvents]=await Promise.all([
+ table("celebrations_event_contents"),table("celebrations_step_contents"),
+ table("celebrations_contents"),table("celebrations_events")
+]);
+assert.ok(!remainingEventLinks.some(x=>x.event_id===eventId&&x.content_id===contentId),
+ "Removing event link did not persist in real Cloudflare D1");
+assert.ok(!remainingDayLinks.some(x=>Number(x.celebration_id)===celebrationId&&x.content_id===contentId),
+ "Removing day link did not persist in real Cloudflare D1");
+assert.ok(allDocs.some(x=>x.id===contentId),"Unlink must not delete library content");
+assert.ok(allEvents.some(x=>x.id===eventId),"Unlink must not delete event");
+console.log("STAGING_REAL_ADMIN_UNLINK event=true day=true content_retained=true event_retained=true other_records_unchanged=true");
+
 if(process.env.STAGING_SYNTHETIC_DELETE_WRITE==="1"){
  const erasedEvent=await call("/api/safe-save",{action:"delete_event",event_id:eventId});
  assert.equal(erasedEvent.status,200,"Staging event deletion failed: "+JSON.stringify(erasedEvent));
