@@ -59,4 +59,59 @@ class TestExport(unittest.TestCase):
   db.execute("INSERT INTO committee_media(slug,storage_path) VALUES (?,?)",("slug","committee/example"))
   self.assertEqual(db.execute("SELECT approved FROM public_media").fetchone()[0],0)
   self.assertEqual(db.execute("SELECT published FROM committee_media").fetchone()[0],0)
+
+ def test_relational_restore_with_synthetic_linked_data(self):
+  # Fictitious records only. Exercises dependencies across the real 16-table schema;
+  # never contacts Supabase, D1, R2, or an external service.
+  rows={
+   "celebrations_celebrations":[{"id":1,"archangel":"Michaël","year":"2026"}],
+   "celebrations_steps":[{"id":1,"celebration_id":1,"step_key":"day-1","label":"Synthetic day"}],
+   "celebrations_events":[{"id":"event-test","celebration_id":1,"step_key":"day-1","title":"Synthetic event"}],
+   "celebrations_contents":[{"id":"content-test","name":"Synthetic PDF","content_type":"pdf","storage_path":"media/test.pdf","has_cover":False}],
+   "celebrations_event_contents":[{"event_id":"event-test","content_id":"content-test","sort_order":0}],
+   "celebrations_step_contents":[{"celebration_id":1,"step_key":"day-1","content_id":"content-test","sort_order":0}],
+   "celebrations_links":[{"id":1,"celebration_id":1,"event_id":"event-test","url":"https://example.invalid/test"}],
+   "celebrations_groups":[{"id":"group-test","name":"Fictional group"}],
+   "celebrations_public_settings":[{"id":1,"show_other_celebrations":True}],
+   "celebrations_footer_drafts":[{"id":1,"slug":"mentions-legales","draft_number":1,"title":"Synthetic legal draft","content":"Not for publication"}],
+   "celebrations_user_profiles":[{"user_id":"synthetic-user","audience":"all"}],
+   "celebrations_participants":[{"email":"synthetic@example.invalid","password_hash":"synthetic-not-a-real-hash","password_salt":"synthetic-salt"}],
+   "celebrations_participant_sessions":[{"token_hash":"synthetic-participant-token","participant_email":"synthetic@example.invalid","expires_at":"2030-01-01T00:00:00Z"}],
+   "celebrations_admin_sessions":[{"token_hash":"synthetic-admin-token","expires_at":"2030-01-01T00:00:00Z"}],
+   "celebrations_committee_letters":[{"id":"letter-test","title":"Synthetic letter","file_name":"test.pdf","storage_path":"committee/test.pdf","slug":"test-link"}],
+   "celebrations_clicks":[{"id":200,"celebration_id":1,"content_id":"content-test","target_kind":"page-view","page_path":"/"}]
+  }
+  self.assertEqual(set(rows),set(TABLES))
+  session=Mock()
+  def response(url,**kwargs):
+   item=Mock()
+   item.json.return_value=rows[url.rsplit("/",1)[-1]]
+   return item
+  session.get.side_effect=response
+  with tempfile.TemporaryDirectory() as tmp:
+   root=pathlib.Path(tmp)
+   private=root/"private-export"
+   report=export(session,"https://synthetic.invalid",private)
+   self.assertTrue(report["complete"])
+   self.assertEqual(sum(meta["rows"] for meta in report["tables"].values()),16)
+   self.assertEqual((private/"manifest.json").stat().st_mode & 0o777,0o600)
+   self.assertEqual((private/"celebrations_participants.json").stat().st_mode & 0o777,0o600)
+   archive=stage(private,root/"lossless.sqlite")
+   self.assertEqual(archive["tables"],16)
+   self.assertEqual(archive["rows"],16)
+   restored=root/"relational.sqlite"
+   outcome=import_relational(private,restored,"migration/cloudflare/celebrations-schema.sql")
+   self.assertEqual(outcome,{"tables":16,"rows":16,"foreign_key_violations":0})
+   with sqlite3.connect(restored) as db:
+    db.execute("PRAGMA foreign_keys=ON")
+    self.assertEqual(db.execute("PRAGMA foreign_key_check").fetchall(),[])
+    self.assertEqual(db.execute("SELECT COUNT(*) FROM celebrations_event_contents").fetchone()[0],1)
+    self.assertEqual(db.execute("SELECT COUNT(*) FROM celebrations_step_contents").fetchone()[0],1)
+    self.assertEqual(db.execute("SELECT COUNT(*) FROM celebrations_committee_letters").fetchone()[0],1)
+    self.assertEqual(db.execute("SELECT show_other_celebrations FROM celebrations_public_settings").fetchone()[0],1)
+    self.assertEqual(db.execute("SELECT email FROM celebrations_participants").fetchone()[0],"synthetic@example.invalid")
+    self.assertEqual(db.execute("SELECT COUNT(*) FROM celebrations_clicks").fetchone()[0],1)
+   with self.assertRaises(ValueError):
+    import_relational(private,restored,"migration/cloudflare/celebrations-schema.sql")
+
 if __name__=="__main__":unittest.main()
