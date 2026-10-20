@@ -128,6 +128,29 @@ for table in PROGRAMME_TABLES:
  if table=="celebrations_public_settings" and len(src)==1 and len(dst)==0:
   assert int(src[0]["id"])==1 and isinstance(src[0]["show_other_celebrations"],bool), "Invalid source public setting"
   missing_setting=src[0]
+ elif table=="celebrations_links" and len(src)==len(dst):
+  # Links may be recreated with new AUTOINCREMENT keys by the original
+  # migration, but stable content/placement must still match exactly.
+  def canonical_links(rows,excluded):
+   return collections.Counter(json.dumps({
+    k:canon_value(k,v) for k,v in sorted(row.items()) if k not in excluded
+   },sort_keys=True,ensure_ascii=False) for row in rows)
+  canonical_exclude={"id","created_at","updated_at"}
+  if canonical_links(src,canonical_exclude)==canonical_links(dst,canonical_exclude):
+   print("STAGING_DELTA_LEGACY_LINK_IDS_DIFFER_BUT_CONTENT_EQUALS "+json.dumps({"links":len(src),"safe_without_reindexing":True}),flush=True)
+  else:
+   # Only numeric summaries, NEVER titles/URLs.
+   semantic_src=canonical_links(src,canonical_exclude|{"sort_order"})
+   semantic_dst=canonical_links(dst,canonical_exclude|{"sort_order"})
+   print("STAGING_DELTA_LINK_DIAGNOSTIC "+json.dumps({
+    "source_links":len(src),"staging_links":len(dst),
+    "content_equal_excluding_source_autonumber":False,
+    "content_equal_excluding_order_and_autonumber":semantic_src==semantic_dst,
+    "source_unique_semantic_links":len(semantic_src),
+    "staging_unique_semantic_links":len(semantic_dst),
+    "source_urls_exposed":False
+   }),flush=True)
+   raise RuntimeError("SOURCE_STAGING_LINK_DIFFERENCE_STOP")
  elif len(src)==len(dst) and canonical_table(src)!=canonical_table(dst) and source_columns and "sort_order" in source_columns:
   # Only reorder existing programme rows, never overwrite editable content.
   # Row IDs, all other fields and row counts must match exactly.
