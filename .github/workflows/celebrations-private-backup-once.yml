@@ -26,7 +26,7 @@ jobs:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       CELEBRATIONS_BACKUP_PASSPHRASE: ${{ secrets.CELEBRATIONS_BACKUP_PASSPHRASE }}
-      BACKUP_FILE: ${{ runner.temp }}/celebrations-source-only.cbackup
+      BACKUP_FILE: /tmp/celebrations-source-only.cbackup
     steps:
       - name: Assert private, read-only, source-specific setup
         shell: bash
@@ -69,7 +69,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: celebrations-source-encrypted-copy-once
-          path: ${{ runner.temp }}/celebrations-source-only.cbackup
+          path: /tmp/celebrations-source-only.cbackup
           if-no-files-found: error
           retention-days: 1
           compression-level: 0
