@@ -35,7 +35,37 @@ Aujourd'hui, les médias existent chez deux fournisseurs **différents** : les o
 
 **Il est interdit de supprimer le projet Supabase, la source des 158 fichiers ou le bucket R2 staging.**
 
-## Statut avant exécution
+## Résultat réel après exécution (20 octobre 2026)
+
+GitHub Actions [run 39490792561](https://github.com/ludodulac/Celebrations/actions/runs/39490792561), job `media-manifest-audit` : **SUCCESS**.
+
+```text
+CELEBRATIONS_MEDIA_DUAL_COPY_READONLY_PASS
+source_files=158
+source_bytes=830312417
+r2_original_keys_and_sizes_verified=158
+missing_originals=0
+mismatched_sizes=0
+r2_originals_modified_since_sha_proof=0
+staging_only_objects_preserved=3
+new_bytes_downloaded=0
+d1_queries=0
+source_mutations=0
+r2_mutations=0
+sha256_content_rechecked_this_run=false
+```
+
+Les **158 copies originales** du R2 staging correspondent toujours exactement à la source Supabase selon leurs **clés et tailles** ; aucune date de modification postérieure aux vérifications SHA-256 précédentes n'a été relevée. Les **3 objets propres au staging** (dont l'archive chiffrée de base) ont été **préservés**. Les deux autres jobs (`encrypted-backup` et `isolated-restore-audit`) ont été ignorés (`skipped`).
+
+**Décision : étape 4 de parité des médias = PASS pour la vérification effectuée**. Ceci est une vérification de métadonnées à jour s'ajoutant aux preuves SHA-256 du 19 octobre, **pas un nouveau hachage intégral du contenu**.
+
+### Condition qui reste ouverte
+
+L'ordinateur de l'utilisateur possède une copie indépendante **de la base chiffrée** (~381 Ko), mais **pas une archive téléchargée et certifiée des 158 médias** (~830 Mo). Il existe donc toujours **deux copies de fournisseurs différents** (Supabase d'origine et Cloudflare R2), mais **aucune troisième sauvegarde durable hors fournisseur ne peut être revendiquée**. Tant que ce point n'est pas traité, **ne jamais supprimer ni suspendre le stockage source Supabase**.
+
+**Pas de bascule en production autorisée par le seul résultat de cette mission.**
+
+## Statut historique avant exécution
 
 `MEDIA_SOURCE_METADATA_READONLY_CHECK=PASS`
 `HISTORICAL_SHA256_PARITY=PASS_ON_2026-10-19`
@@ -45,3 +75,7 @@ Aujourd'hui, les médias existent chez deux fournisseurs **différents** : les o
 `PRODUCTION_MUTATIONS=0`
 
 Étape 4 ne peut être déclarée entièrement certifiée pour arrêt de Supabase qu'après preuve de conservation indépendante à long terme des fichiers, notamment les PDF confidentiels.
+
+## État consolidé après l'audit
+
+`SOURCE_ORIGINAL_MEDIA=158` · `STAGING_R2_ORIGINAL_MEDIA=158` · `KEYS_AND_SIZES_IDENTICAL=YES` · `SHA256_PRIOR_PROOF=PASS_ON_19_OCT` · `NEW_CONTENT_HASH_AUDIT=NO` · `THIRD_MEDIA_COPY_OUTSIDE_TWO_PROVIDERS=NO` · `D1_QUERIES=0` · `LIVE_WEBSITE_CHANGED=NO`.
