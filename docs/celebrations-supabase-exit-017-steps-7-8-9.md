@@ -62,6 +62,18 @@ Reprendre le script de migration précédemment vérifié `scripts/sync_celebrat
 
 `STAGE_7_PROD_D1_EXISTS=NO` · `STAGE_7_PROD_R2=UNKNOWN` · `STAGE_8_DNS_ACCESS=UNAVAILABLE_IN_EXISTING_CLOUDFLARE_ACCOUNT` · `STAGE_9_STAGING_DELTA_SYNC=PASS_40_CLICKS` · `STAGE_9_FINAL_PROD_SYNC=NO` · `PUBLIC_CUTOVER=NO`.
 
+## Identification réelle du fournisseur DNS
+
+Contrôle DNS public en lecture seule : [GitHub Actions #39503909438](https://github.com/ludodulac/Celebrations/actions/runs/39503909438) — **SUCCESS**.
+
+- Serveurs de noms faisant autorité : **`launch1.spaceship.net`** et **`launch2.spaceship.net`**.
+- Le site `www.ronde-des-archanges-universelle.eu` est actuellement un CNAME vers **`ludodulac.github.io`**, notre mécanisme de secours GitHub Pages.
+- **Le DNS est donc exploité par l'infrastructure Spaceship, pas par le compte Cloudflare de staging.** Sans accès au compte Spaceship du propriétaire (ou délégation de droits DNS), il est impossible d'exporter la zone complète pour rollback et d'en modifier les réglages de manière sûre.
+- Aucun DNS ni CNAME n'a été modifié par cette découverte ; aucun MX n'a été trouvé dans la réponse publique au moment du contrôle. Cela **n'implique pas** qu'aucun autre enregistrement sensible/secondaire n'existe.
+- Avant toute bascule, obtenir un export intégral des enregistrements existants auprès de Spaceship (ou d'un outil/app autorisé connecté au compte) et conserver le CNAME GitHub Pages existant comme référence de secours.
+
+`DNS_PROVIDER_NAMESERVERS=SPACESHIP` · `WWW_CNAME=ludodulac.github.io` · `FULL_PRIVATE_DNS_ZONE_BACKUP=NO` · `DNS_CHANGED=NO`.
+
 ## Statuts à ne pas confondre
 
 - `STAGE_7_CANDIDATE_READY=YES`, `STAGE_7_ACTUAL_PROD_RESOURCES=TO_DISCOVER`.
