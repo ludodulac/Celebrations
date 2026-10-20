@@ -22,6 +22,12 @@ export async function handleAdmin(request,env){
  let b;try{b=await request.json()}catch{return json({ok:false,error:"Invalid JSON"},400)}
  const table=String(b.table||""),action=String(b.action||"");
  if(!Object.hasOwn(allowed,table))return json({ok:false,error:"Table not allowed"},403);
+ // Dedicated endpoints own these protected lifecycle operations: a plain
+ // generic DELETE would bypass participant session revocation, while a
+ // committee CREATE/UPDATE could bypass R2 ACL registration and revocation.
+ // Keep read-only lists for the existing administrative browser.
+ if(action!=="list"&&(table==="celebrations_participants"||table==="celebrations_committee_letters"))
+  return json({ok:false,error:"Utilisez la gestion dédiée des participants ou des documents du comité."},403);
  const fields=allowed[table],pk={celebrations_event_contents:["event_id","content_id"],celebrations_step_contents:["celebration_id","step_key","content_id"],celebrations_participants:["email"],celebrations_public_settings:["id"]}[table]||["id"];
  const data=b.data&&typeof b.data==="object"&&!Array.isArray(b.data)?b.data:{};
  const keys=Object.keys(data);
@@ -30,7 +36,7 @@ export async function handleAdmin(request,env){
  const quoted=x=>'"'+x+'"';
  try{
   if(action==="list"){
-   const rows=await env.DB.prepare(table==="celebrations_committee_letters"?"SELECT c.* FROM celebrations_committee_letters c JOIN committee_media m ON m.slug=c.slug WHERE m.published=1 AND m.revoked_at IS NULL LIMIT 1000":`SELECT * FROM "${table}" LIMIT 1000`).all();
+   const rows=await env.DB.prepare(table==="celebrations_committee_letters"?"SELECT c.* FROM celebrations_committee_letters c JOIN committee_media m ON m.slug=c.slug WHERE m.published=1 AND m.revoked_at IS NULL LIMIT 1000":table==="celebrations_participants"?"SELECT email,audience FROM celebrations_participants LIMIT 1000":`SELECT * FROM "${table}" LIMIT 1000`).all();
    if(table==="celebrations_participants")return json({ok:true,items:(rows.results||[]).map(({email,audience})=>({email,audience}))});
    return json({ok:true,items:rows.results||[]});
   }
