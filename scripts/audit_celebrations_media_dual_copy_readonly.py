@@ -24,6 +24,11 @@ EXPECTED_BYTES = 830312417
 # modification timestamps after its beginning, even if sizes stay the same.
 SHA_REHEARSAL_START = datetime.datetime(2026, 10, 19, 0, 0,
                                        tzinfo=datetime.timezone.utc)
+# 61 original objects were first PUT into R2 during the SHA256 comparison on
+# 19 Oct. A new write *on that day* was the verified transfer, not drift.
+# Reject an original R2 object touched after the end of that day.
+R2_VERIFIED_BY = datetime.datetime(2026, 10, 20, 0, 0,
+                                  tzinfo=datetime.timezone.utc)
 
 
 def instant(value):
@@ -123,7 +128,7 @@ def compare_manifests(source, target):
     ]
     changed_after_sha = [
         key for key in source
-        if key in target and target[key][1] >= SHA_REHEARSAL_START
+        if key in target and target[key][1] >= R2_VERIFIED_BY
     ]
     if missing or wrong_size or changed_after_sha:
         raise RuntimeError(
