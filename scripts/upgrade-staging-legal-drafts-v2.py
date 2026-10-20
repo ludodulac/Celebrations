@@ -26,7 +26,7 @@ legal=json.loads(Path("migration/cloudflare/legal-drafts-v2.json").read_text())
 assert set(legal["drafts"])=={"mentions-legales","confidentialite","cookies"}
 source=Path("footer-pages-data.js").read_text()
 def old_template(slug):
- match=re.search(r"(?<![\\w-])(?:'"+re.escape(slug)+r"'|"+re.escape(slug)+r"):\\{title:'[^']+',template:`(.*?)`\\}",source,re.S)
+ match=re.search(r"(?<![\w-])(?:'"+re.escape(slug)+r"'|"+re.escape(slug)+r"):\{title:'[^']+',template:`(.*?)`\}",source,re.S)
  assert match, "Original legal template could not be audited"
  return match.group(1)
 def query(sql,params=()):
