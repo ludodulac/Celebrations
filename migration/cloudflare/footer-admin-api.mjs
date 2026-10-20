@@ -5,6 +5,10 @@ const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:
 const slugs=new Set(["mentions-legales","confidentialite","cookies"]);
 const allowed=s=>typeof s==="string"&&slugs.has(s);
 const now=()=>new Date().toISOString();
+// Reject inline and whole-line unfinished editor instructions. The earlier
+// line-only guard missed e.g. "Éditeur : [À compléter]" inside a paragraph.
+const hasLegalPlaceholders=content=>/\[[^\]\r\n]{3,300}\]/.test(String(content||""));
+
 export async function handleFooterAdmin(request,env){
  if(request.method!=="POST")return json({ok:false,error:"Method not allowed"},405);
  if(!env.DB||!await authorize(request,env,true))return json({ok:false,error:"Unauthorized"},401);
@@ -52,7 +56,7 @@ export async function handleFooterAdmin(request,env){
     ).bind(slug).first();
     // The existing site contains editorial templates, not completed legal
     // notices. Never publish placeholders as though they were binding legal text.
-    if(!active?.content?.trim()||active.content.split(String.fromCharCode(10)).some(line=>line.trim().startsWith("[")&&line.trim().endsWith("]")))
+    if(!active?.content?.trim()||hasLegalPlaceholders(active.content))
      return json({ok:false,error:"Complétez les informations entre crochets avant de publier cette page."},409);
    }
    const updated=await env.DB.prepare(
