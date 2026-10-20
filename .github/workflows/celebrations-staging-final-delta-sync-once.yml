@@ -1,0 +1,62 @@
+name: Sync latest Supabase source deltas to isolated Cloudflare staging (quota safe)
+on:
+  push:
+    branches: [feat/celebrations-supabase-exit-001]
+    paths:
+      - .github/workflows/celebrations-staging-final-delta-sync-once.yml
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-staging-final-delta-sync-once
+  cancel-in-progress: false
+jobs:
+  sync-staging-only:
+    if: github.ref == 'refs/heads/feat/celebrations-supabase-exit-001'
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    timeout-minutes: 24
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+      STAGING_R2_ACCESS_KEY_ID: ${{ secrets.CELEBRATIONS_STAGING_R2_ACCESS_KEY_ID }}
+      STAGING_R2_SECRET_ACCESS_KEY: ${{ secrets.CELEBRATIONS_STAGING_R2_SECRET_ACCESS_KEY }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify isolated staging-only scope and source read-only credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/feat/celebrations-supabase-exit-001"
+          test "$STAGING_R2_BUCKET" = "celebrations-exit-staging"
+          for name in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_API_TOKEN STAGING_D1_ID STAGING_R2_ACCESS_KEY_ID STAGING_R2_SECRET_ACCESS_KEY R2_ENDPOINT; do
+            test -n "${!name:-}" || { echo "Missing isolated staging secret: $name"; exit 1; }
+          done
+          python -m py_compile scripts/sync_celebrations_latest_staging.py
+      - name: Check account-wide daily Cloudflare D1 free quota BEFORE any D1 calls
+        run: node scripts/check-staging-d1-free-budget.mjs pre
+      - name: Install isolated source/R2 dependencies
+        run: python -m pip install 'boto3>=1.35,<2' 'requests>=2.32,<3'
+      - name: Audit source programme, bucket and delta clicks; refuse all writes on drift
+        env:
+          CELEBRATIONS_DELTA_APPLY: DRY_RUN
+        run: python scripts/sync_celebrations_latest_staging.py
+      - name: Copy ONLY unmigrated source clicks to staging after exhaustive dry-run
+        env:
+          CELEBRATIONS_DELTA_APPLY: SAFE_STAGING_COPY
+        run: python scripts/sync_celebrations_latest_staging.py
+      - name: Confirm quota headroom after sync without D1 SQL
+        if: always()
+        run: node scripts/check-staging-d1-free-budget.mjs post
