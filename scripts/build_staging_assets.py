@@ -5,7 +5,7 @@ import shutil
 ROOT=Path(__file__).resolve().parents[1]
 OUT=ROOT/"staging-public"
 ALLOWED={".html",".css",".js",".png",".jpg",".jpeg",".webp",".svg",".ico",".gif",".woff",".woff2",".mp3",".ogg",".wav"}
-SKIP={".git",".github","migration","tests","scripts","docs","node_modules","staging-public",".venv"}
+SKIP={".git",".github","migration","tests","scripts","docs","node_modules","staging-public","production-public",".venv"}
 def main():
  if OUT.exists():shutil.rmtree(OUT)
  OUT.mkdir()
