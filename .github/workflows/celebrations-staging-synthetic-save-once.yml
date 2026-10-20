@@ -1,10 +1,12 @@
 name: Verify real D1 save on synthetic isolated staging records
-# One-time narrowly scoped synthetic save and unlink with quota checks.
+# Free-tier quota protection: repeated synthetic D1 writes are DISABLED by default.
 on:
-  push:
-    branches: [feat/celebrations-supabase-exit-001]
-    paths:
-      - .github/workflows/celebrations-staging-synthetic-save-once.yml
+  workflow_dispatch:
+    inputs:
+      confirm_quota:
+        description: Type RUN_STAGING after verifying daily D1 headroom
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -13,7 +15,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   verify:
-    if: github.ref == 'refs/heads/feat/celebrations-supabase-exit-001'
+    if: github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && inputs.confirm_quota == 'RUN_STAGING'
     runs-on: ubuntu-latest
     environment: celebrations-staging
     timeout-minutes: 12
