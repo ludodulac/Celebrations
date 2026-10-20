@@ -6,6 +6,7 @@ from migration.import_relational_sqlite import import_relational
 from migration.encrypted_backup import encrypt_export, verify_encrypted_file
 from migration.verify_real_backup_restore import restore_ciphertext_into_ram
 from scripts.audit_celebrations_media_dual_copy_readonly import source_inventory, compare_manifests
+from scripts.audit_historic_participant_verifier_parity import compare_user
 def mocked_rows(rows,range_header=None):
  r=Mock()
  r.json.return_value=rows
@@ -211,8 +212,11 @@ class TestExport(unittest.TestCase):
   self.assertIn('assert os.environ["STAGING_R2_BUCKET"] == "celebrations-exit-staging"',workflow)
   self.assertIn('name="private-backups/source-"',workflow)
   self.assertIn("PRIVATE_R2_CIPHERTEXT_VERIFIED",workflow)
+  self.assertIn("[PARTICIPANT_PARITY_ONLY_ONCE]",workflow)
+  self.assertIn("node scripts/check-staging-d1-free-budget.mjs pre",workflow)
+  self.assertIn("python scripts/audit_historic_participant_verifier_parity.py",workflow)
   self.assertNotIn("actions/upload-artifact@",workflow)
-  self.assertNotIn("CLOUDFLARE_API_TOKEN",workflow)
+  self.assertNotIn("CLOUDFLARE_API_TOKEN",workflow.split("  isolated-restore-audit:",1)[0])
   self.assertNotIn("wrangler",workflow)
   self.assertNotIn("workflow_dispatch",workflow.split("on:",1)[1].split("permissions:",1)[0])
 
@@ -267,6 +271,42 @@ class TestExport(unittest.TestCase):
   s.post.side_effect=changed
   with self.assertRaisesRegex(RuntimeError,"changed after SHA256"):
    source_inventory(s,"https://synthetic.invalid")
+
+
+
+ def test_historic_participant_verifier_compatibility_without_password(self):
+  # Fictitious original credentials: verify the exact source -> D1 mapping
+  # without knowing any real participant email, password, salt, or answers.
+  import hashlib
+  legacy={
+   "email":"fictitious@example.invalid",
+   "password_salt":"0123456789abcdef0123456789abcdef",
+   "password_hash":"a"*64,
+   "question_1":"first_school","answer_1_salt":"deadbeef"*8,
+   "answer_1_hash":"b"*64,
+   "question_2":"childhood_book","answer_2_salt":"01234567"*8,
+   "answer_2_hash":"c"*64,
+   "recovery_failed_count":0,"recovery_locked_until":None,
+   "audience":"all","updated_at":"2026-09-07T01:36:12.952+00:00"
+  }
+  wrapped={
+   **{k:v for k,v in legacy.items() if k!="updated_at"},
+   "password_salt":"client180:"+legacy["password_salt"]
+  }
+  for key in ("password_hash","answer_1_hash","answer_2_hash"):
+   wrapped[key]=hashlib.sha256(legacy[key].encode("ascii")).hexdigest()
+  result=compare_user(legacy,wrapped)
+  self.assertEqual(result["staging_historical_accounts_matched"],1)
+  self.assertEqual(result["real_password_login_by_original_participant"],"PENDING")
+  self.assertEqual(result["cloudflare_d1_rows_written"],0)
+  with self.assertRaisesRegex(ValueError,"differs"):
+   compare_user(legacy,{**wrapped,"password_hash":"0"*64})
+  with self.assertRaisesRegex(ValueError,"differs"):
+   compare_user(legacy,{**wrapped,"answer_2_hash":"0"*64})
+  with self.assertRaisesRegex(ValueError,"changed"):
+   compare_user({**legacy,"updated_at":"2026-10-20T12:00:00Z"},wrapped)
+  with self.assertRaisesRegex(ValueError,"Invalid source email"):
+   compare_user({**legacy,"email":"bad-email"},wrapped)
 
 
 if __name__=="__main__":unittest.main()
