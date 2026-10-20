@@ -217,7 +217,7 @@ class TestExport(unittest.TestCase):
   self.assertIn("python scripts/audit_historic_participant_verifier_parity.py",workflow)
   self.assertNotIn("actions/upload-artifact@",workflow)
   self.assertNotIn("CLOUDFLARE_API_TOKEN",workflow.split("  isolated-restore-audit:",1)[0])
-  self.assertNotIn("wrangler",workflow)
+  self.assertNotIn("wrangler",workflow.split("  isolated-restore-audit:",1)[0])
   self.assertNotIn("workflow_dispatch",workflow.split("on:",1)[1].split("permissions:",1)[0])
 
 
@@ -308,5 +308,35 @@ class TestExport(unittest.TestCase):
   with self.assertRaisesRegex(ValueError,"Invalid source email"):
    compare_user({**legacy,"email":"bad-email"},wrapped)
 
+
+ def test_production_candidate_uses_separate_resources(self):
+  # No Cloudflare requests, no credentials; configuration is created only
+  # on a local test filesystem with synthetic identifiers.
+  from scripts.prepare_production_wrangler import generate
+  with tempfile.TemporaryDirectory() as tmp:
+   path=pathlib.Path(tmp)/"wrangler.production.toml"
+   conf=generate("00000000-0000-4000-8000-000000000002",
+     "celebrations-exit-production",
+     "00000000-0000-4000-8000-000000000001",
+     "celebrations-exit-staging",path)
+   self.assertIn('main = "production-worker.mjs"',conf)
+   self.assertIn('bucket_name = "celebrations-exit-production"',conf)
+   self.assertNotIn('bucket_name = "celebrations-exit-staging"',conf)
+   self.assertIn('directory = "../../production-public"',conf)
+   with self.assertRaisesRegex(ValueError,"cannot be identical"):
+    generate("00000000-0000-4000-8000-000000000001",
+      "celebrations-exit-production",
+      "00000000-0000-4000-8000-000000000001",
+      "celebrations-exit-staging",pathlib.Path(tmp)/"invalid.toml")
+   with self.assertRaisesRegex(ValueError,"bucket identity mismatch"):
+    generate("00000000-0000-4000-8000-000000000002",
+      "celebrations-exit-staging",
+      "00000000-0000-4000-8000-000000000001",
+      "celebrations-exit-staging",pathlib.Path(tmp)/"invalid.toml")
+   with self.assertRaisesRegex(ValueError,"overwrite"):
+    generate("00000000-0000-4000-8000-000000000002",
+      "celebrations-exit-production",
+      "00000000-0000-4000-8000-000000000001",
+      "celebrations-exit-staging",path)
 
 if __name__=="__main__":unittest.main()
