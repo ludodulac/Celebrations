@@ -1,0 +1,76 @@
+name: Populate private legal drafts with verified site facts (staging only, one-time)
+on:
+  push:
+    branches: [feat/celebrations-supabase-exit-001]
+    paths:
+      - .github/workflows/celebrations-staging-legal-review-v2-once.yml
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-staging-legal-v2-once
+  cancel-in-progress: false
+jobs:
+  prepare-private-drafts:
+    if: github.ref == 'refs/heads/feat/celebrations-supabase-exit-001'
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    timeout-minutes: 12
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Refuse production scope and check Cloudflare account free D1 budget BEFORE use
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/feat/celebrations-supabase-exit-001'
+          test "$STAGING_R2_BUCKET" = celebrations-exit-staging
+          node scripts/check-staging-d1-free-budget.mjs pre
+      - name: Validate legal document contents and publication barriers without Cloudflare
+        run: |
+          node --check admin-footer-pages.js
+          node --check migration/cloudflare/footer-admin-api.mjs
+          python -m py_compile scripts/upgrade-staging-legal-drafts-v2.py
+          node --test tests/test-exit-legal-drafts.mjs tests/test-exit-footer-admin.mjs
+      - name: Prepare staging-only assets and verify exact D1 and R2 IDs
+        run: |
+          python scripts/build_staging_assets.py
+          python scripts/configure_staging_wrangler.py
+          grep -Fq 'name = "celebrations-exit-staging"' migration/cloudflare/wrangler.toml
+          grep -Fq 'bucket_name = "celebrations-exit-staging"' migration/cloudflare/wrangler.toml
+          grep -Fq "$STAGING_D1_ID" migration/cloudflare/wrangler.toml
+      - name: Install required tools
+        run: |
+          python -m pip install 'requests>=2.32,<3'
+          npm install --no-save --no-package-lock wrangler@4
+      - name: Deploy safe legal editor/strict placeholder checks ONLY to staging
+        working-directory: migration/cloudflare
+        run: npx wrangler deploy --config wrangler.toml
+      - name: Replace ONLY unedited hidden legal templates in staging D1
+        run: python scripts/upgrade-staging-legal-drafts-v2.py
+      - name: Assert all three unfinished pages remain HIDDEN to public visitors
+        run: |
+          node <<'NODE'
+          for(const slug of ["mentions-legales","confidentialite","cookies"]){
+            const url="https://celebrations-exit-staging.rondes.workers.dev/api/public-data?table=celebrations_footer_page&slug="+slug;
+            const res=await fetch(url,{signal:AbortSignal.timeout(15000)});
+            if(!res.ok)throw Error("Legal page check returned "+res.status);
+            const rows=await res.json();
+            if(!Array.isArray(rows)||rows.length!==0)
+              throw Error("Legal draft unexpectedly public: "+slug);
+          }
+          console.log("STAGING_LEGAL_V2_NOT_PUBLIC three_pages=3 accessible_to_anonymous=0");
+          NODE
+      - name: Verify account-wide D1 quota without DB access
+        if: always()
+        run: node scripts/check-staging-d1-free-budget.mjs post
