@@ -7,7 +7,7 @@ forcing the public URL to include '?staging=1'. No production resources used.
 """
 from pathlib import Path
 import shutil
-from scripts.build_staging_assets import main as build_staging
+from build_staging_assets import main as build_staging
 
 ROOT=Path(__file__).resolve().parents[1]
 STAGING=ROOT/"staging-public"
