@@ -1,0 +1,23 @@
+name: R2-022 safety tests
+on:
+  push:
+    branches: [feat/r2-019-safe-preparation]
+    paths:
+      - scripts/r2_022_classify.py
+      - scripts/r2_022_safe_sync_plan.py
+      - tests/test_r2_022_safety.py
+      - .github/workflows/r2-022-safety-tests.yml
+  pull_request:
+    paths:
+      - scripts/r2_022_classify.py
+      - scripts/r2_022_safe_sync_plan.py
+      - tests/test_r2_022_safety.py
+      - .github/workflows/r2-022-safety-tests.yml
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python -m unittest discover -s tests -p test_r2_022_safety.py -v
