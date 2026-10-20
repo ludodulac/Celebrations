@@ -74,13 +74,7 @@ jobs:
         run: grep -Fq 'run_worker_first = ["/", "/index.html", "/admin.html", "/admin"]' migration/cloudflare/wrangler.toml
       - run: python -m pip install 'requests>=2.32,<3'
       - run: python -m unittest discover -s tests -p test_exit_export.py -v
-      - name: Verify real public media HTTP access on isolated staging only
-        run: node scripts/verify-staging-media-http.mjs
-      - name: Verify live staging pages, D1 APIs and access control (read-only)
-        run: node scripts/verify-staging-public-http.mjs
-      - name: Install Chromium for isolated staging browser smoke
-        run: |
-          npm install --no-save --no-package-lock playwright@1.58.2
-          npx playwright install --with-deps chromium
-      - name: Verify real mobile browser programme and admin gate
-        run: node scripts/verify-staging-browser.mjs
+      # Quota safety: no live D1 or HTTP staging tests on automatic commits.
+      # Run full browser/D1 acceptance only by explicit, quota-aware approval.
+      - name: Confirm automatic test job does not access Cloudflare D1
+        run: echo "Local tests only; live D1 audit paused to protect 5M rows-read/day."
