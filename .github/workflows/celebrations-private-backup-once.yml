@@ -232,6 +232,51 @@ jobs:
       - name: Compare exactly one source account to one staging hash verifier
         run: python scripts/audit_historic_participant_verifier_parity.py
 
+  readiness-678-audit:
+    # One real-time final staging read-only check + original Pages fallback.
+    # Never deploy Cloudflare production, change DNS, sync source, or write D1.
+    if: ${{ github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && contains(github.event.head_commit.message, '[READINESS_678_ONLY_ONCE]') }}
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    timeout-minutes: 12
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+    steps:
+      - name: Require exact isolated branch and staging bucket
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/feat/celebrations-supabase-exit-001"
+          test "$STAGING_R2_BUCKET" = "celebrations-exit-staging"
+          for v in CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_API_TOKEN STAGING_D1_ID; do
+            test -n "${!v:-}" || { echo "Missing staging read-only auditing prerequisite"; exit 1; }
+          done
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify total account D1 quota before any staging read
+        run: node scripts/check-staging-d1-free-budget.mjs pre
+      - name: STEP 6 — Verify live Cloudflare staging visitor content and privacy
+        run: node scripts/verify-staging-final-readonly.mjs
+      - name: STEP 8 — Check existing GitHub Pages fallback is still reachable
+        run: node scripts/verify-legacy-rollback-baseline.mjs
+      - name: STEP 7 — Check production candidate worker and local asset generation
+        shell: bash
+        run: |
+          node --check migration/cloudflare/production-worker.mjs
+          node --test tests/test-exit-production-candidate.mjs
+          python scripts/build_production_assets.py
+          grep -Fq "CELEBRATIONS_STAGING_BACKEND=location.origin" production-public/index.html
+          grep -Fq "CELEBRATIONS_STAGING_BACKEND=location.origin" production-public/admin.html
+          test ! -f migration/cloudflare/wrangler.production.toml
+          echo "PRODUCTION_PREPARATION_OFFLINE_PASS deployment=NO dns_changes=0 separate_prod_resource_creation=NO"
+
 # This archive is only one component of backup. It does NOT contain Storage
 # binaries, other apps' tables, roles, settings, or a transaction-wide snapshot.
 # Staging R2 is a private first copy, NOT an independent off-site backup.
