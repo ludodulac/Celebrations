@@ -55,7 +55,7 @@ def fetch_table(session,base,table,page_size=500):
    total=0
   else:
    import re
-   match=re.fullmatch(r"(\\d+)-(\\d+)/(\\d+)",content_range.strip())
+   match=re.fullmatch(r"(\d+)-(\d+)/(\d+)",content_range.strip())
    if not match:raise RuntimeError("Invalid backup Content-Range header")
    begin,end,total=map(int,match.groups())
    if begin!=offset or end!=offset+len(rows)-1 or total<offset+len(rows):
