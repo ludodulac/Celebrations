@@ -72,7 +72,7 @@ def d1(sql,params=(),max_reads=6000,allow_write=False):
   assert sql.lstrip().upper().startswith("SELECT "),"READ_ONLY_D1_PREFLIGHT"
  else:
   assert MODE=="SAFE_STAGING_COPY"
-  assert sql.lstrip().upper().startswith(("INSERT INTO celebrations_clicks ","INSERT INTO celebrations_public_settings ")),"ONLY_WHITELISTED_INSERTS_ALLOWED"
+  assert sql.lstrip().upper().startswith(("INSERT INTO celebrations_clicks ","INSERT INTO celebrations_public_settings ","WITH CHANGES AS (SELECT JSON_EXTRACT(")),"ONLY_WHITELISTED_D1_WRITES_ALLOWED"
  response=requests.post(CF+"/query",headers=cfh,json={"sql":sql,"params":list(params)},timeout=45)
  response.raise_for_status()
  result=response.json()
@@ -117,6 +117,7 @@ def canonical_table(rows):
 
 programme_counts={}
 missing_setting=None
+pending_orders={}
 for table in PROGRAMME_TABLES:
  src=source_table(table)
  assert len(src)<=500, "SOURCE_PROGRAMME_GREW_TOO_LARGE"
@@ -127,6 +128,34 @@ for table in PROGRAMME_TABLES:
  if table=="celebrations_public_settings" and len(src)==1 and len(dst)==0:
   assert int(src[0]["id"])==1 and isinstance(src[0]["show_other_celebrations"],bool), "Invalid source public setting"
   missing_setting=src[0]
+ elif len(src)==len(dst) and canonical_table(src)!=canonical_table(dst) and source_columns and "sort_order" in source_columns:
+  # Only reorder existing programme rows, never overwrite editable content.
+  # Row IDs, all other fields and row counts must match exactly.
+  def identity(row):
+   cols=(("event_id","content_id") if table=="celebrations_event_contents" else
+    ("celebration_id","step_key","content_id") if table=="celebrations_step_contents" else ("id",))
+   return tuple(row[k] for k in cols)
+  sr={identity(x):x for x in src};dr={identity(x):x for x in dst}
+  candidate=[]
+  if len(sr)==len(src) and sr.keys()==dr.keys():
+   for key in sr:
+    before=dr[key];after=sr[key]
+    fields=set(before)|set(after)
+    changed=[column for column in fields if column not in ("created_at","updated_at") and canon_value(column,before.get(column))!=canon_value(column,after.get(column))]
+    if changed==["sort_order"] and isinstance(before["sort_order"],int) and isinstance(after["sort_order"],int):
+     candidate.append({"key":list(key),"old":before["sort_order"],"new":after["sort_order"]})
+    elif changed:
+     candidate=[]
+     break
+  if candidate and len(candidate)<=500:
+   # Validate that replacing ONLY the ordering field achieves 100% parity.
+   normalized_dst=[dict(row) for row in dst]
+   for row in normalized_dst:row["sort_order"]=sr[identity(row)]["sort_order"]
+   assert canonical_table(src)==canonical_table(normalized_dst),"ORDER_ONLY_RECONCILIATION_INCOMPLETE"
+   pending_orders[table]=candidate
+  else:
+   print("STAGING_DELTA_NON_ORDER_CONFLICT "+json.dumps({"table":table,"source_rows":len(src),"staging_rows":len(dst),"no_writes":True}),flush=True)
+   raise RuntimeError("SOURCE_STAGING_PROGRAMME_DIFFERENCE_STOP")
  elif len(src)!=len(dst) or canonical_table(src)!=canonical_table(dst):
   # Diagnose only field NAMES, never content titles or private URLs.
   def identity(row):
@@ -153,6 +182,7 @@ print("STAGING_DELTA_PROGRAMME_PARITY "+json.dumps({
  "counts":programme_counts,
  "programmes_identical_except_one_missing_staging_visibility_setting":True,
  "missing_original_visibility_settings":int(missing_setting is not None),
+ "staging_order_only_differences":{k:len(v) for k,v in pending_orders.items()},
  "source_rows_mutated":0,"staging_programme_rows_mutated":0
 },sort_keys=True),flush=True)
 
@@ -252,8 +282,31 @@ print("STAGING_DELTA_STATISTICS_PREFLIGHT "+json.dumps({
 }),flush=True)
 if MODE=="DRY_RUN":
  print("STAGING_DELTA_DRY_RUN_PASSED "+json.dumps({"staging_writes":0,
- "source_programme_rows":sum(programme_counts.values()),"missing_visibility_setting":int(missing_setting is not None),"source_new_click_rows":len(src_clicks)}))
+ "source_programme_rows":sum(programme_counts.values()),"missing_visibility_setting":int(missing_setting is not None),"pending_sort_order_repairs":{k:len(v) for k,v in pending_orders.items()},"source_new_click_rows":len(src_clicks)}))
  sys.exit(0)
+
+# One JSON1-statement per relation table, atomic and conditionally scoped.
+# No editorial field may be updated. A changed ORDER since audit is a
+# concurrency conflict: the exact key+old_order must match in UPDATE WHERE.
+for table,changes in pending_orders.items():
+ assert table in PROGRAMME_TABLES and all(re.fullmatch(r"celebrations_[a-z_]+",table) for _ in changes)
+ ids=(("event_id","content_id") if table=="celebrations_event_contents" else
+  ("celebration_id","step_key","content_id") if table=="celebrations_step_contents" else ("id",))
+ assert all(len(change["key"])==len(ids) for change in changes)
+ match=" AND ".join("json_extract(c.value,'$.key["+str(i)+"]')="+table+"."+chr(34)+col+chr(34) for i,col in enumerate(ids))
+ sql=("WITH changes AS (SELECT json_extract(value,'$.old') AS prior, json_extract(value,'$.new') AS next_order, "
+      +",".join("json_extract(value,'$.key["+str(i)+"]') AS "+col for i,col in enumerate(ids))
+      +" FROM json_each(?)) UPDATE "+table+
+      " SET sort_order=(SELECT next_order FROM changes WHERE "+
+      " AND ".join("changes."+col+"="+table+"."+col for col in ids)+
+      " AND changes.prior="+table+".sort_order) WHERE EXISTS"
+      " (SELECT 1 FROM changes WHERE "+
+      " AND ".join("changes."+col+"="+table+"."+col for col in ids)+
+      " AND changes.prior="+table+".sort_order) RETURNING sort_order")
+ assert sql.startswith("WITH changes AS (SELECT json_extract(")
+ changed=d1(sql,(json.dumps(changes,separators=(",",":")),),allow_write=True,max_reads=10000)
+ assert len(changed)==len(changes),"ORDER_CONCURRENT_EDIT_OR_D1_MISMATCH_STOP"
+ print("STAGING_DELTA_SORT_ORDER_RESTORED "+json.dumps({"table":table,"rows":len(changed)}),flush=True)
 
 if missing_setting is not None:
  # The sole previously unimported source row affects public programme
@@ -280,6 +333,7 @@ print("STAGING_DELTA_SAFE_SYNC_SUCCESS "+json.dumps({
  "programme_tables_checked":len(PROGRAMME_TABLES),
  "programme_rows_checked":sum(programme_counts.values()),
  "missing_original_visibility_setting_restored":int(missing_setting is not None),
+ "sort_order_values_reconciled":{k:len(v) for k,v in pending_orders.items()},
  "private_source_files_in_staging":len(source_media),
  "new_original_clicks":len(src_clicks),"new_click_records_inserted":len(missing),
  "all_incremental_click_records_verified":len(verified),
