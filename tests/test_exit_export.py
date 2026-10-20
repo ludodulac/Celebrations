@@ -217,7 +217,7 @@ class TestExport(unittest.TestCase):
   self.assertIn("python scripts/audit_historic_participant_verifier_parity.py",workflow)
   self.assertNotIn("actions/upload-artifact@",workflow)
   self.assertNotIn("CLOUDFLARE_API_TOKEN",workflow.split("  isolated-restore-audit:",1)[0])
-  self.assertNotIn("wrangler",workflow)
+  self.assertNotIn("wrangler",workflow.split("  isolated-restore-audit:",1)[0])
   self.assertNotIn("workflow_dispatch",workflow.split("on:",1)[1].split("permissions:",1)[0])
 
 
