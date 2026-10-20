@@ -8,6 +8,47 @@ const json=(x,status=200)=>new Response(JSON.stringify(x),{status,headers:{
 }});
 const str=(v,max)=>typeof v==="string"?v.trim().slice(0,max):"";
 const nonempty=(v,max)=>str(v,max)||null;
+// D1 Free budget: three aggregation queries scanned ~2.3 million rows on
+// 19 Oct 2026 because automated admin audits repeatedly reloaded statistics.
+// Aggregate responses contain no email/IP/password, but are ADMIN-ONLY.
+// We authenticate BEFORE cache lookup. Both caches are private to this Worker,
+// and must never be exposed as a public /api endpoint or via a CDN path.
+const STATS_TTL_MS=15*60*1000;
+const snapshots=new WeakMap();
+const summaryKey=request=>new Request(new URL("/__private_d1_stats_summary_v3",request.url),{method:"GET"});
+async function summarized(request,env){
+ const time=Date.now();
+ const prior=snapshots.get(env.DB);
+ if(prior&&prior.expires>time)return prior.promise;
+ const obtain=async()=>{
+  const edgeCache=typeof caches!=="undefined"&&caches?.default?caches.default:null;
+  const cacheKey=summaryKey(request);
+  if(edgeCache){
+   try{
+    const hit=await edgeCache.match(cacheKey);
+    if(hit?.ok)return await hit.json();
+   }catch{/* Cache unavailable: still work without stored credentials. */}
+  }
+  const [totals,pages,clicks]=await Promise.all([
+   env.DB.prepare("SELECT COUNT(DISTINCT visitor_id) AS visitors, SUM(CASE WHEN target_kind='page-view' THEN 1 ELSE 0 END) AS visits FROM celebrations_clicks").first(),
+   env.DB.prepare("SELECT COALESCE(page_path,'/') AS page, COUNT(*) AS cnt,COUNT(DISTINCT visitor_id) AS visitors FROM celebrations_clicks WHERE target_kind='page-view' GROUP BY COALESCE(page_path,'/') ORDER BY cnt DESC LIMIT 100").all(),
+   env.DB.prepare("SELECT target_kind,target_label,COUNT(*) AS click_count,MAX(clicked_at) AS last_clicked_at FROM celebrations_clicks WHERE target_kind<>'page-view' GROUP BY target_kind,target_label ORDER BY click_count DESC LIMIT 100").all()
+  ]);
+  const data={ok:true,visits:{visitors:Number(totals?.visitors||0),visits:Number(totals?.visits||0),pages:pages.results||[]},clicks:clicks.results||[],max_age_seconds:900};
+  if(edgeCache){
+   try{
+    await edgeCache.put(cacheKey,new Response(JSON.stringify(data),{
+     headers:{"content-type":"application/json","cache-control":"public, max-age=900"}
+    }));
+   }catch{/* Local isolate memo still limits repeated D1 scans. */}
+  }
+  return data;
+ };
+ const promise=obtain();
+ snapshots.set(env.DB,{expires:time+STATS_TTL_MS,promise});
+ try{return await promise}catch(error){snapshots.delete(env.DB);throw error}
+}
+
 function originSafe(request){
  const url=new URL(request.url);
  const origin=request.headers.get("origin");
@@ -25,13 +66,7 @@ export async function handleStats(request,env){
  if(!body||typeof body!=="object"||Array.isArray(body))return json({ok:false,error:"Invalid payload"},400);
  if(body.action==="summary"){
   if(!await authorize(request,env,true))return json({ok:false,error:"Unauthorized"},401);
-  try{
-   const [totals, pages, clicks] = await Promise.all([
-    env.DB.prepare("SELECT COUNT(DISTINCT visitor_id) AS visitors, SUM(CASE WHEN target_kind='page-view' THEN 1 ELSE 0 END) AS visits FROM celebrations_clicks").first(),
-    env.DB.prepare("SELECT COALESCE(page_path,'/') AS page, COUNT(*) AS cnt,COUNT(DISTINCT visitor_id) AS visitors FROM celebrations_clicks WHERE target_kind='page-view' GROUP BY COALESCE(page_path,'/') ORDER BY cnt DESC LIMIT 100").all(),
-    env.DB.prepare("SELECT target_kind,target_label,COUNT(*) AS click_count,MAX(clicked_at) AS last_clicked_at FROM celebrations_clicks WHERE target_kind<>'page-view' GROUP BY target_kind,target_label ORDER BY click_count DESC LIMIT 100").all()
-   ]);
-   return json({ok:true,visits:{visitors:Number(totals?.visitors||0),visits:Number(totals?.visits||0),pages:pages.results||[]},clicks:clicks.results||[]});
+  try{return json(await summarized(request,env))}
   }catch{return json({ok:false,error:"Stats unavailable"},503)}
  }
  if(body.action!=="track")return json({ok:false,error:"Unknown action"},400);
