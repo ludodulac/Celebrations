@@ -66,7 +66,7 @@ export async function handleStats(request,env){
  if(!body||typeof body!=="object"||Array.isArray(body))return json({ok:false,error:"Invalid payload"},400);
  if(body.action==="summary"){
   if(!await authorize(request,env,true))return json({ok:false,error:"Unauthorized"},401);
-  try{return json(await summarized(request,env))}
+  try{return json(await summarized(request,env))
   }catch{return json({ok:false,error:"Stats unavailable"},503)}
  }
  if(body.action!=="track")return json({ok:false,error:"Unknown action"},400);
