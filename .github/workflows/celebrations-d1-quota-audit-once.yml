@@ -1,0 +1,63 @@
+name: Diagnose D1 daily free quota without making any D1 database queries
+on:
+  push:
+    branches: [feat/celebrations-supabase-exit-001]
+    paths:
+      - .github/workflows/celebrations-d1-quota-audit-once.yml
+permissions:
+  contents: read
+jobs:
+  analytics-only:
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    timeout-minutes: 4
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Retrieve 19/20 October rows-read by D1 database via billing analytics ONLY
+        shell: bash
+        run: |
+          node <<'NODE'
+          const account=process.env.CLOUDFLARE_ACCOUNT_ID;
+          const staging=process.env.STAGING_D1_ID;
+          if(!/^[a-f0-9]{32}$/i.test(account)||!/^[a-f0-9-]{36}$/i.test(staging))
+            throw Error("Unexpected account or staging ID");
+          const query=`query D1Quota($accountTag: string!, $start: Date, $end: Date) {
+            viewer { accounts(filter: {accountTag: $accountTag}) {
+              d1AnalyticsAdaptiveGroups(limit: 1000,
+                filter: {date_geq: $start,date_leq: $end}) {
+                dimensions {date databaseId}
+                sum {rowsRead rowsWritten readQueries writeQueries}
+              }
+            }}
+          }`;
+          const request=await fetch("https://api.cloudflare.com/client/v4/graphql",{
+            method:"POST",
+            headers:{"authorization":"Bearer "+process.env.CLOUDFLARE_API_TOKEN,
+              "content-type":"application/json"},
+            body:JSON.stringify({query,variables:{accountTag:account,start:"2026-10-19",end:"2026-10-20"}})
+          });
+          const response=await request.json();
+          if(!request.ok||response.errors?.length){
+            const err=(response.errors||[]).map(e=>String(e.message).slice(0,120));
+            console.log("D1_ANALYTICS_PERMISSION_OR_SCHEMA_BLOCKED",request.status,JSON.stringify(err));
+            process.exit(0);
+          }
+          const accounts=response.data?.viewer?.accounts||[];
+          let rows=[];
+          for(const a of accounts)for(const item of a.d1AnalyticsAdaptiveGroups||[]){
+            rows.push({
+              day:item.dimensions?.date,
+              database:item.dimensions?.databaseId===staging?"celebrations-exit-staging":"other-cloudflare-d1",
+              read:Number(item.sum?.rowsRead||0),
+              written:Number(item.sum?.rowsWritten||0),
+              queries:Number(item.sum?.readQueries||0)
+            });
+          }
+          console.log("D1_BILLING_ANALYTICS_READ_ONLY "+JSON.stringify(rows));
+          NODE
