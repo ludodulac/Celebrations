@@ -1,0 +1,49 @@
+name: Locate D1 expensive SQL using analytics only (no SQL queries)
+on:
+  push:
+    branches: [feat/celebrations-supabase-exit-001]
+    paths:
+      - .github/workflows/celebrations-d1-insights-readonly-once.yml
+permissions:
+  contents: read
+jobs:
+  analytics:
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    timeout-minutes: 7
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify strictly isolated account and database
+        run: |
+          test "$STAGING_R2_BUCKET" = celebrations-exit-staging
+          python scripts/configure_staging_wrangler.py
+      - name: Install Wrangler without deploying anything
+        run: npm install --no-save --no-package-lock wrangler@4
+      - name: Report 7-day heaviest SQL fingerprints from Cloudflare Insights only
+        working-directory: migration/cloudflare
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler d1 insights celebrations-exit-staging --timePeriod=7d --sort-type=sum --sort-by=reads --limit=20 --json > /tmp/d1-insights-readonly.json
+          node - <<'NODE'
+          const fs=require("node:fs");
+          const data=JSON.parse(fs.readFileSync("/tmp/d1-insights-readonly.json","utf8"));
+          if(!Array.isArray(data))throw Error("Unexpected Cloudflare D1 analytics response");
+          const report=data.slice(0,15).map(x=>({
+            sql:String(x.query||"").replace(/\s+/g," ").slice(0,400),
+            rows_read:Number(x.totalRowsRead||0),
+            avg_rows_read:Number(x.avgRowsRead||0),
+            calls:Number(x.numberOfTimesRun||0)
+          }));
+          console.log("STAGING_D1_COST_INSIGHTS "+JSON.stringify(report));
+          NODE
