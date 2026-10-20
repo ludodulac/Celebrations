@@ -183,7 +183,7 @@ class TestExport(unittest.TestCase):
   self.assertIn("secrets.SUPABASE_SERVICE_ROLE_KEY",workflow)
   self.assertIn("python -m migration.encrypted_backup --verify",workflow)
   self.assertIn("retention-days: 1",workflow)
-  self.assertIn("path: ${{ runner.temp }}/celebrations-source-only.cbackup",workflow)
+  self.assertIn("path: /tmp/celebrations-source-only.cbackup",workflow)
   self.assertNotIn("CLOUDFLARE_API_TOKEN",workflow)
   self.assertNotIn("wrangler",workflow)
   self.assertNotIn("workflow_dispatch",workflow.split("permissions:",1)[0])
