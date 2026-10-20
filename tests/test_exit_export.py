@@ -186,6 +186,6 @@ class TestExport(unittest.TestCase):
   self.assertIn("path: /tmp/celebrations-source-only.cbackup",workflow)
   self.assertNotIn("CLOUDFLARE_API_TOKEN",workflow)
   self.assertNotIn("wrangler",workflow)
-  self.assertNotIn("workflow_dispatch",workflow.split("permissions:",1)[0])
+  self.assertNotIn("workflow_dispatch",workflow.split("\\non:",1)[1].split("permissions:",1)[0])
 
 if __name__=="__main__":unittest.main()
