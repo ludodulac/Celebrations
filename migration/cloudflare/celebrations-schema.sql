@@ -184,6 +184,17 @@ CREATE TABLE IF NOT EXISTS "celebrations_clicks" (
   "event_id" TEXT,
   "visitor_id" TEXT
 );
+-- D1 Free quota: exact-key lookups for 8k+ R2 media authorization calls.
+-- Previously each key lookup read about 109 rows on average. Both sides of
+-- the storage_path OR predicate need an index for MULTI-INDEX OR.
+CREATE INDEX IF NOT EXISTS "idx_celebrations_contents_storage_path" ON "celebrations_contents" ("storage_path");
+CREATE INDEX IF NOT EXISTS "idx_celebrations_contents_cover_storage_path" ON "celebrations_contents" ("cover_storage_path");
+
+-- Statistics queries: partial covering indexes avoid scanning every unrelated
+-- click row for resources and facilitate per-page unique-visitor aggregation.
+CREATE INDEX IF NOT EXISTS "idx_celebrations_clicks_resource_summary" ON "celebrations_clicks" ("target_kind","target_label","clicked_at") WHERE "target_kind"<>'page-view';
+CREATE INDEX IF NOT EXISTS "idx_celebrations_clicks_page_summary" ON "celebrations_clicks" (COALESCE("page_path",'/'),"visitor_id") WHERE "target_kind"='page-view';
+
 -- Auth identity mapping must be implemented independently before use of celebrations_user_profiles.
 
 -- Staging-only persistent login throttling; do not store raw passwords or IP addresses.
