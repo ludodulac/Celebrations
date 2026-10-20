@@ -154,6 +154,43 @@ jobs:
           umask 077
           python -m migration.verify_real_backup_restore
 
+  media-manifest-audit:
+    # Only an explicit migration-branch commit with the exact audit marker
+    # can trigger this read-only inventory audit. No 830 MB recopy and no D1.
+    if: ${{ github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && contains(github.event.head_commit.message, '[MEDIA_AUDIT_ONLY_ONCE]') }}
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    timeout-minutes: 12
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+      STAGING_R2_ACCESS_KEY_ID: ${{ secrets.CELEBRATIONS_STAGING_R2_ACCESS_KEY_ID }}
+      STAGING_R2_SECRET_ACCESS_KEY: ${{ secrets.CELEBRATIONS_STAGING_R2_SECRET_ACCESS_KEY }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+    steps:
+      - name: Check staging-only read access and fixed source identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/feat/celebrations-supabase-exit-001"
+          test "${SUPABASE_URL%/}" = "https://jwyayfkssyagvnablttg.supabase.co"
+          test "$STAGING_R2_BUCKET" = "celebrations-exit-staging"
+          for v in SUPABASE_SERVICE_ROLE_KEY CLOUDFLARE_ACCOUNT_ID STAGING_R2_ACCESS_KEY_ID STAGING_R2_SECRET_ACCESS_KEY R2_ENDPOINT; do
+            test -n "${!v:-}" || { echo "Missing audit read credentials"; exit 1; }
+          done
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned read-only listing client dependencies
+        run: python -m pip install 'requests==2.32.5' 'boto3==1.40.57'
+      - name: Compare Supabase Storage originals with R2 staging key/size/times
+        run: python scripts/audit_celebrations_media_dual_copy_readonly.py
+
 # This archive is only one component of backup. It does NOT contain Storage
 # binaries, other apps' tables, roles, settings, or a transaction-wide snapshot.
 # Staging R2 is a private first copy, NOT an independent off-site backup.
