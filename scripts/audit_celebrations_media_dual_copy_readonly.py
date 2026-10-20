@@ -11,9 +11,7 @@ import json
 import os
 from urllib.parse import urlsplit
 
-import boto3
 import requests
-from botocore.config import Config
 
 SOURCE_HOST = "jwyayfkssyagvnablttg.supabase.co"
 SOURCE_BUCKET = "celebrations-media"
@@ -153,6 +151,8 @@ def compare_manifests(source, target):
 
 
 def main():
+    import boto3
+    from botocore.config import Config
     assert os.environ.get("GITHUB_REF") == (
         "refs/heads/feat/celebrations-supabase-exit-001"
     ), "Production branch refused"
