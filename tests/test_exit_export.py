@@ -3,6 +3,7 @@ from unittest.mock import Mock
 from migration.export_celebrations_readonly import fetch_table,export,TABLES,PRIMARY_KEYS
 from migration.stage_export_sqlite import stage
 from migration.import_relational_sqlite import import_relational
+from migration.encrypted_backup import encrypt_export, verify_encrypted_file
 def mocked_rows(rows,range_header=None):
  r=Mock()
  r.json.return_value=rows
@@ -146,5 +147,29 @@ class TestExport(unittest.TestCase):
     self.assertEqual(db.execute("SELECT COUNT(*) FROM celebrations_clicks").fetchone()[0],1)
    with self.assertRaises(ValueError):
     import_relational(private,restored,"migration/cloudflare/celebrations-schema.sql")
+
+ def test_encrypted_backup_roundtrip_is_private(self):
+  # No real Supabase rows or credentials. Only locally generated dummy data.
+  session=Mock();session.get.return_value=mocked_rows([])
+  with tempfile.TemporaryDirectory() as root:
+   root=pathlib.Path(root)
+   plaintext=root/"private"
+   export(session,"https://synthetic.invalid",plaintext)
+   output=root/"source.cbackup"
+   password=b"synthetic-only-random-entropy-test-phrase-0001"
+   encrypt_export(plaintext,output,password)
+   self.assertTrue(output.exists())
+   self.assertEqual(output.stat().st_mode & 0o777,0o600)
+   self.assertEqual(verify_encrypted_file(output,password),16)
+   self.assertNotIn(b"manifest.json",output.read_bytes())
+   with self.assertRaises(FileExistsError):
+    encrypt_export(plaintext,output,password)
+   with self.assertRaises(Exception):
+    verify_encrypted_file(output,b"wrong-password-32-characters-or-longer")
+   corrupted=bytearray(output.read_bytes())
+   corrupted[-1]^=1
+   (root/"corrupted.cbackup").write_bytes(corrupted)
+   with self.assertRaises(Exception):
+    verify_encrypted_file(root/"corrupted.cbackup",password)
 
 if __name__=="__main__":unittest.main()
