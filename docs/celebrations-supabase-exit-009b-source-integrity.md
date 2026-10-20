@@ -12,6 +12,7 @@ Projet source : Supabase `jwyayfkssyagvnablttg` (nom affiché « La forêt encha
 - **0** lien éditorial vers une célébration disparue.
 - **0** session participant rattachée à un participant disparu.
 - **146** chemins de fichier dans les contenus, **34** chemins de couverture et **9** chemins PDF de comité. Ce sont des **références**, pas 189 objets distincts ; plusieurs chemins peuvent être partagés. Les 158 originaux du bucket avaient été comparés par SHA-256 dans le run [39333819255](https://github.com/ludodulac/Celebrations/actions/runs/39333819255).
+- **158 objets** et **830 312 417 octets** retrouvés au même jour dans les métadonnées réelles `storage.objects` du bucket Supabase `celebrations-media`, soit les mêmes effectifs et tailles totales que l'inventaire historiquement copié. **Cette nouvelle lecture de métadonnées ne compare pas les empreintes SHA-256** ; les empreintes étaient vérifiées lors de l'ancienne copie.
 - **11 683** clics présents lors du relevé source. Dernier checkpoint source repris en staging : **11 648**, soit **35 clics à resynchroniser** à cet instant. Ce total évolue au fil des visites.
 
 **Décision :** les associations éditoriales testées ne présentent aucune rupture d'intégrité. Cela ne vérifie pas l'existence HTTP de chaque média ni une sauvegarde restaurable. Ne pas basculer à partir de ce seul relevé.
