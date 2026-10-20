@@ -4,6 +4,7 @@ on:
     branches: [feat/celebrations-supabase-exit-001]
     paths:
       - .github/workflows/celebrations-staging-final-delta-sync-once.yml
+      - scripts/sync_celebrations_latest_staging.py
 permissions:
   contents: read
 concurrency:
