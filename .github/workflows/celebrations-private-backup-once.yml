@@ -3,7 +3,7 @@ name: CÉLÉBRATIONS — sauvegarde source chiffrée unique (protégée)
 # This workflow is deliberately opt-in. It only runs when a maintainer pushes
 # a commit whose message contains [BACKUP_ENCRYPTED_ONCE] to the migration
 # branch. This avoids workflow_dispatch's default-branch registration rule.
-# Never run on PRs or on main. Only an encrypted .cbackup is uploaded.
+# Never run on PRs or on main. Only encrypted ciphertext goes to private R2.
 on:
   push:
     branches:
@@ -27,6 +27,11 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       CELEBRATIONS_BACKUP_PASSPHRASE: ${{ secrets.CELEBRATIONS_BACKUP_PASSPHRASE }}
       BACKUP_FILE: /tmp/celebrations-source-only.cbackup
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+      STAGING_R2_ACCESS_KEY_ID: ${{ secrets.CELEBRATIONS_STAGING_R2_ACCESS_KEY_ID }}
+      STAGING_R2_SECRET_ACCESS_KEY: ${{ secrets.CELEBRATIONS_STAGING_R2_SECRET_ACCESS_KEY }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
     steps:
       - name: Assert private, read-only, source-specific setup
         shell: bash
@@ -39,6 +44,10 @@ jobs:
             test -n "${!key:-}" || { echo "Missing required GitHub environment secret"; exit 1; }
           done
           test "${#CELEBRATIONS_BACKUP_PASSPHRASE}" -ge 32 || { echo "Backup secret too short"; exit 1; }
+          test "$STAGING_R2_BUCKET" = "celebrations-exit-staging"
+          for key in CLOUDFLARE_ACCOUNT_ID STAGING_R2_ACCESS_KEY_ID STAGING_R2_SECRET_ACCESS_KEY R2_ENDPOINT; do
+            test -n "${!key:-}" || { echo "Missing private staging R2 credential"; exit 1; }
+          done
           test ! -e "$BACKUP_FILE"
       - uses: actions/checkout@v4
         with:
@@ -47,7 +56,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install pinned encryption and Supabase HTTP dependencies
-        run: python -m pip install 'cryptography==46.0.4' 'requests==2.32.5'
+        run: python -m pip install 'cryptography==46.0.4' 'requests==2.32.5' 'boto3==1.40.57'
       - name: Export 16 approved source tables, encrypt and verify locally
         shell: bash
         run: |
@@ -65,14 +74,38 @@ jobs:
           assert b"manifest.json" not in data
           print("Encrypted file present and verified; NO plaintext will be uploaded")
           PY
-      - name: Upload encrypted ciphertext only (expires after one day)
-        uses: actions/upload-artifact@v4
-        with:
-          name: celebrations-source-encrypted-copy-once
-          path: /tmp/celebrations-source-only.cbackup
-          if-no-files-found: error
-          retention-days: 1
-          compression-level: 0
+      - name: Save ONLY the ciphertext to private, isolated Cloudflare staging R2
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import datetime, hashlib, os, pathlib, secrets
+          from urllib.parse import urlsplit
+          import boto3
+          from botocore.config import Config
+
+          assert os.environ["STAGING_R2_BUCKET"] == "celebrations-exit-staging"
+          endpoint=os.environ["R2_ENDPOINT"].rstrip("/")
+          parsed=urlsplit(endpoint)
+          assert parsed.scheme=="https" and parsed.hostname==os.environ["CLOUDFLARE_ACCOUNT_ID"]+".r2.cloudflarestorage.com"
+          assert not parsed.path, "Unexpected R2 endpoint path"
+          p=pathlib.Path(os.environ["BACKUP_FILE"])
+          data=p.read_bytes() # This holds only AES-GCM encrypted ciphertext.
+          assert data.startswith(b"CELEBRATIONS-DB-AESGCM-V1\\x00")
+          name="private-backups/source-"+datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")+"-"+secrets.token_hex(12)+".cbackup"
+          client=boto3.client("s3",endpoint_url=endpoint,region_name="auto",
+            aws_access_key_id=os.environ["STAGING_R2_ACCESS_KEY_ID"],
+            aws_secret_access_key=os.environ["STAGING_R2_SECRET_ACCESS_KEY"],
+            config=Config(retries={"max_attempts":2,"mode":"standard"}))
+          client.put_object(Bucket="celebrations-exit-staging",Key=name,
+            Body=data,ContentType="application/octet-stream",
+            CacheControl="private, no-store", Metadata={"encrypted":"aes256gcm","kind":"source-only"})
+          remote=client.get_object(Bucket="celebrations-exit-staging",Key=name)["Body"].read()
+          if hashlib.sha256(data).digest()!=hashlib.sha256(remote).digest():
+            raise RuntimeError("Encrypted R2 backup verification failed")
+          print("PRIVATE_R2_CIPHERTEXT_VERIFIED bucket=celebrations-exit-staging key="+name+
+            " bytes="+str(len(data))+" plaintext_uploaded=0 D1_writes=0")
+          PY
       - name: Remove encrypted temporary file from runner
         if: always()
         shell: bash
@@ -80,4 +113,5 @@ jobs:
 
 # This archive is only one component of backup. It does NOT contain Storage
 # binaries, other apps' tables, roles, settings, or a transaction-wide snapshot.
+# Staging R2 is a private first copy, NOT an independent off-site backup.
 # No workflow result alone authorizes production cutover or Supabase removal.
