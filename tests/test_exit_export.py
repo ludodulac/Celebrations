@@ -172,4 +172,23 @@ class TestExport(unittest.TestCase):
    with self.assertRaises(Exception):
     verify_encrypted_file(root/"corrupted.cbackup",password)
 
+
+ def test_private_backup_workflow_is_strictly_opt_in(self):
+  workflow=pathlib.Path(".github/workflows/celebrations-private-backup-once.yml").read_text()
+  self.assertIn("branches:\n      - feat/celebrations-supabase-exit-001",workflow)
+  self.assertIn("contains(github.event.head_commit.message, '[BACKUP_ENCRYPTED_ONCE]')",workflow)
+  self.assertIn("github.ref == 'refs/heads/feat/celebrations-supabase-exit-001'",workflow)
+  self.assertIn("environment: celebrations-staging",workflow)
+  self.assertIn("secrets.CELEBRATIONS_BACKUP_PASSPHRASE",workflow)
+  self.assertIn("secrets.SUPABASE_SERVICE_ROLE_KEY",workflow)
+  self.assertIn("python -m migration.encrypted_backup --verify",workflow)
+  self.assertIn("path: /tmp/celebrations-source-only.cbackup".replace("path: ","BACKUP_FILE: "),workflow)
+  self.assertIn('assert os.environ["STAGING_R2_BUCKET"] == "celebrations-exit-staging"',workflow)
+  self.assertIn('name="private-backups/source-"',workflow)
+  self.assertIn("PRIVATE_R2_CIPHERTEXT_VERIFIED",workflow)
+  self.assertNotIn("actions/upload-artifact@",workflow)
+  self.assertNotIn("CLOUDFLARE_API_TOKEN",workflow)
+  self.assertNotIn("wrangler",workflow)
+  self.assertNotIn("workflow_dispatch",workflow.split("on:",1)[1].split("permissions:",1)[0])
+
 if __name__=="__main__":unittest.main()
