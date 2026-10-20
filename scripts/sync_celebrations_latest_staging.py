@@ -121,7 +121,7 @@ for table in PROGRAMME_TABLES:
  src=source_table(table)
  assert len(src)<=500, "SOURCE_PROGRAMME_GREW_TOO_LARGE"
  source_columns=sorted(src[0].keys()) if src else []
- sql="SELECT "+(",".join('"'+c+'"' for c in source_columns) if source_columns else "1")+" FROM \\""+table+"\\" LIMIT 501"
+ sql="SELECT "+(",".join(chr(34)+c+chr(34) for c in source_columns) if source_columns else "1")+" FROM "+chr(34)+table+chr(34)+" LIMIT 501"
  dst=d1(sql)
  assert len(dst)<=500,"STAGING_PROGRAMME_GREW_TOO_LARGE"
  if table=="celebrations_public_settings" and len(src)==1 and len(dst)==0:
