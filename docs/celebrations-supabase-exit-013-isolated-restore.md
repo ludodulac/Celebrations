@@ -15,6 +15,28 @@ Le contrôle automatique dédié `migration/verify_real_backup_restore.py`, déc
 
 Ce test utilise le chiffrement existant, des secrets stockés par GitHub, et **ne lit plus la base source Supabase**. Le seul appel réseau requis est une lecture de l'objet chiffré dans **R2 privé** ; D1 et le site public ne sont pas sollicités.
 
+## Résultat réellement observé après exécution
+
+GitHub Actions [run 39488627588](https://github.com/ludodulac/Celebrations/actions/runs/39488627588), commit `7bd197d3455762ee83e1c8e81b6233fbf0a2f7c0` : **SUCCESS**.
+
+Le journal donne exactement les compteurs techniques, sans données individuelles :
+
+```
+RESTORE_REAL_BACKUP_RAM_ONLY_PASS tables=16 rows=12170 foreign_key_violations=0 sqlite_integrity=ok source_writes=0 cloudflare_d1_reads=0 cloudflare_d1_writes=0 plaintext_uploaded=0
+```
+
+- L'archive chiffrée **existante** a été récupérée de R2 privé, déchiffrée à l'aide du secret GitHub et **restaurée réellement dans une SQLite temporaire** en RAM.
+- **16 tables et 12 170 enregistrements** restaurés, sans violation de clés étrangères ni erreur d'intégrité SQLite.
+- Le job précédent de création de sauvegarde a été **SKIPPED** : pas de duplication inutile ni de second export Supabase.
+- Le schéma testé est bien celui du projet de migration, mais le contrôle **ne constitue pas** une simulation complète de la production D1 ou du site sur le domaine public.
+- La copie téléchargée sur l'ordinateur de l'utilisateur n'a pas encore été comparée octet pour octet avec celle de R2 ; seul le test de l'exemplaire R2 est certifié.
+- Les 158 médias, les tables des autres applications, une capture transactionnelle, la conservation durable sur un second support privé et le vrai compte participant restent hors de ce test.
+
+`ISOLATED_REAL_RESTORE_VERIFIED=YES_FOR_R2_CIPHERTEXT_TO_LOCAL_SQLITE`
+`RESTORED_SOURCE_ROWS=12170`
+`ISOLATED_REAL_RESTORE_FOREIGN_KEY_VIOLATIONS=0`
+`PUBLIC_PRODUCTION_CUTOVER_AUTHORIZED=NO`
+
 ## Ce qui ne pourra PAS être certifié par ce test
 
 - Le téléchargement local de l'utilisateur est le même fichier binaire que celui de R2 (la vérification devra être effectuée sur sa copie locale).
