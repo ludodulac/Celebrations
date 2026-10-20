@@ -1,4 +1,4 @@
-name: Apply D1 read optimizations to staging with strict FREE quota guards
+name: Validate isolated staging administration with strict FREE D1 quota guards
 on:
   push:
     branches: [feat/celebrations-supabase-exit-001]
@@ -42,7 +42,11 @@ jobs:
         run: |
           node --check migration/cloudflare/stats-api.mjs
           node --check migration/cloudflare/public-data-api.mjs
-          node --test tests/test-exit-public-data.mjs tests/test-exit-stats.mjs tests/test-exit-d1-query-budget.mjs
+          node --check migration/cloudflare/admin-api.mjs
+          node --check migration/cloudflare/safe-save-api.mjs
+          node --check admin-content-details.js
+          node --check admin-committee-links.js
+          node --test tests/test-exit-public-data.mjs tests/test-exit-stats.mjs tests/test-exit-d1-query-budget.mjs tests/test-exit-admin-lifecycle.mjs tests/test-exit-admin-ui-ids.mjs tests/test-exit-safe-save-sqlite.mjs tests/test-exit-participants-admin.mjs tests/test-exit-footer-admin.mjs
       - name: Build staging static assets only
         run: python scripts/build_staging_assets.py
       - name: Install Wrangler (no SQL or deployment yet)
@@ -50,7 +54,7 @@ jobs:
       - name: Add four quota-saving indexes to STAGING D1 once
         working-directory: migration/cloudflare
         run: npx wrangler d1 execute celebrations-exit-staging --remote --file d1-quota-indexes.sql
-      - name: Deploy ONLY isolated staging worker with indexed relations and cache
+      - name: Deploy ONLY isolated staging worker and admin UI with tested link reconciliation
         working-directory: migration/cloudflare
         run: npx wrangler deploy --config wrangler.toml
       - name: Verify ONE small public response without replaying all browser/media audits
@@ -64,7 +68,15 @@ jobs:
           if(!Array.isArray(rows)||rows.length<1||rows.length>1000)throw Error("Unexpected staging relation count");
           if(rows.some(x=>!("event_id" in x)||!("content_id" in x)||!("sort_order" in x)))
             throw Error("Incompatible relation shape");
-          console.log("STAGING_QUOTA_SAFE_SMOKE rows="+rows.length+" calls_to_D1=1");
+          // Require that the admin route exists and refuses anonymous writes
+          // WITHOUT a database query or creating any test session.
+          const unauthorized=await fetch("https://celebrations-exit-staging.rondes.workers.dev/api/admin",{
+            method:"POST",headers:{"content-type":"application/json"},
+            body:JSON.stringify({action:"create",table:"celebrations_contents",data:{id:"forbidden"}})
+          });
+          if(unauthorized.status!==401)throw Error("Staging admin refused unauthorized request incorrectly");
+          console.log("STAGING_ADMIN_QUOTA_SAFE_SMOKE relations="+rows.length+
+            " public_D1_calls=1 admin_anonymous_status="+unauthorized.status);
           NODE
       - name: Check final account-wide D1 quota without any new database reads
         if: always()
