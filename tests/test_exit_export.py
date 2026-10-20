@@ -5,6 +5,7 @@ from migration.stage_export_sqlite import stage
 from migration.import_relational_sqlite import import_relational
 from migration.encrypted_backup import encrypt_export, verify_encrypted_file
 from migration.verify_real_backup_restore import restore_ciphertext_into_ram
+from scripts.audit_celebrations_media_dual_copy_readonly import source_inventory, compare_manifests
 def mocked_rows(rows,range_header=None):
  r=Mock()
  r.json.return_value=rows
@@ -214,5 +215,58 @@ class TestExport(unittest.TestCase):
   self.assertNotIn("CLOUDFLARE_API_TOKEN",workflow)
   self.assertNotIn("wrangler",workflow)
   self.assertNotIn("workflow_dispatch",workflow.split("on:",1)[1].split("permissions:",1)[0])
+
+
+ def test_158_media_dual_copy_manifest(self):
+  # No network calls and no real filenames or media bytes. The R2 "extra"
+  # backup is intentionally excluded rather than deleted or reclassified.
+  import datetime
+  source={"media/test%03d.jpg"%i:5_000_000 for i in range(157)}
+  source["committee/test.pdf"]=45_312_417
+  stable=datetime.datetime(2026,10,19,18,tzinfo=datetime.timezone.utc)
+  target={k:(v,stable) for k,v in source.items()}
+  target["private-backups/dummy.cbackup"]=(380825,stable)
+  result=compare_manifests(source,target)
+  self.assertEqual(result["r2_original_keys_and_sizes_verified"],158)
+  self.assertEqual(result["source_bytes"],830312417)
+  self.assertEqual(result["staging_only_objects_preserved"],1)
+  self.assertEqual(result["d1_queries"],0)
+  self.assertFalse(result["sha256_content_rechecked_this_run"])
+  with self.assertRaisesRegex(RuntimeError,"parity conflict"):
+   compare_manifests(source,{**target,"committee/test.pdf":(45_312_416,stable)})
+  with self.assertRaisesRegex(RuntimeError,"parity conflict"):
+   compare_manifests(source,{k:v for k,v in target.items() if k!="committee/test.pdf"})
+  latest=datetime.datetime(2026,10,20,12,tzinfo=datetime.timezone.utc)
+  with self.assertRaisesRegex(RuntimeError,"parity conflict"):
+   compare_manifests(source,{**target,"committee/test.pdf":(45_312_417,latest)})
+
+ def test_158_media_source_listing_date_guard(self):
+  # A source media update after the known SHA proof must stop migration.
+  s=Mock()
+  def response(url,**kwargs):
+   out=Mock()
+   out.json.return_value=[{
+    "name":"source.pdf","id":"synthetic-id",
+    "metadata":{"size":400},
+    "updated_at":"2026-10-11T12:51:50Z"
+   }]
+   return out
+  s.post.side_effect=response
+  results=source_inventory(s,"https://synthetic.invalid")
+  self.assertEqual(results,{"source.pdf":400})
+  self.assertEqual(s.post.call_count,1)
+  self.assertIn("/storage/v1/object/list/",s.post.call_args.args[0])
+  def changed(url,**kwargs):
+   out=Mock()
+   out.json.return_value=[{
+    "name":"source.pdf","id":"synthetic-id",
+    "metadata":{"size":400},
+    "updated_at":"2026-10-20T12:00:00Z"
+   }]
+   return out
+  s.post.side_effect=changed
+  with self.assertRaisesRegex(RuntimeError,"changed after SHA256"):
+   source_inventory(s,"https://synthetic.invalid")
+
 
 if __name__=="__main__":unittest.main()
