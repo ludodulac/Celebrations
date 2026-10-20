@@ -16,7 +16,9 @@ function fixture(){
   async all(){return {results:db.prepare(sql).all(...args)}},
   async run(){return {meta:{changes:db.prepare(sql).run(...args).changes}}}
  }}
- const env={DB:{prepare}};
+ let scans=0;
+ const trackedPrepare=sql=>{if(sql.includes("FROM celebrations_clicks")&&sql.trim().startsWith("SELECT"))scans++;return prepare(sql)};
+ const env={DB:{prepare:trackedPrepare}};
  const post=async(body,{origin="https://staging.invalid",authorization="",ctype="application/json"}={})=>{
   const headers={"content-type":ctype};
   if(origin)headers.origin=origin;
@@ -26,7 +28,7 @@ function fixture(){
   }),env);
   return {status:response.status,...await response.json()};
  };
- return {db,post,token,close:()=>db.close()};
+ return {db,post,token,scans:()=>scans,close:()=>db.close()};
 }
 test("same origin page views and clicks land in D1 and admin sums real events",async()=>{
  const f=fixture();try{
@@ -52,5 +54,24 @@ test("cross-origin writes denied, unauthorized summaries denied, malformed event
   assert.equal((await f.post({...event,visitor_id:"short"})).status,400);
   assert.equal((await f.post({...event,target_kind:"admin"})).status,400);
   assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM celebrations_clicks").get().n,0);
+ }finally{f.close()}
+});
+
+test("authenticated summary uses one D1 scan batch for repeated requests and never leaks to guests",async()=>{
+ const f=fixture();
+ try{
+  f.db.prepare("INSERT INTO celebrations_clicks(target_kind,visitor_id,page_path) VALUES(?,?,?)")
+    .run("page-view","visitor-one","/initial");
+  const first=await f.post({action:"summary"},{authorization:"Bearer "+f.token});
+  assert.equal(first.status,200);
+  assert.equal(first.visits.visits,1);
+  assert.equal(f.scans(),3,"Initial aggregation must issue three SQL scans");
+  const guest=await f.post({action:"summary"});
+  assert.equal(guest.status,401,"Anonymous user cannot access cached statistics");
+  const second=await f.post({action:"summary"},{authorization:"Bearer "+f.token});
+  assert.equal(second.status,200);
+  assert.equal(second.visits.visits,1);
+  assert.equal(f.scans(),3,"Cached repeat must issue ZERO extra analytics scans");
+  assert.equal(second.max_age_seconds,900);
  }finally{f.close()}
 });
