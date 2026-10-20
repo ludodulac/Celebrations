@@ -35,6 +35,33 @@ Reprendre le script de migration précédemment vérifié `scripts/sync_celebrat
 
 **À la véritable bascule (mission 10)**, bloquer/geler les écritures pertinentes le temps nécessaire, produire un point transactionnel ou un snapshot cohérent sous gel, refaire les dernières différences contre la **vraie base de production Cloudflare**, certifier l'absence de delta résiduel puis seulement modifier le domaine. L'ancienne source Supabase reste accessible tant que la bascule n'est pas décidée et contrôlée.
 
+## Vérifications réellement exécutées le 20 octobre — premier passage
+
+[GitHub Actions #39503309643](https://github.com/ludodulac/Celebrations/actions/runs/39503309643) : **SUCCESS**.
+
+**Étape 7 — ressources Cloudflare réelles :**
+- Accès à la liste D1 du compte : **oui** ; base staging retrouvée.
+- D1 de production distincte `celebrations-exit-production` : **absente**.
+- Inventaire des buckets R2 via le jeton existant : **non lisible / non interprétable** ; aucune affirmation sur l'existence éventuelle du bucket production.
+- Aucune base/bucket de production créé ou modifié.
+
+**Étape 8 — sauvegarde DNS :**
+- L'API Cloudflare autorisée répond pour l'inventaire des zones, mais **ne présente pas** la zone `ronde-des-archanges-universelle.eu` dans ce compte.
+- Impossible d'extraire de cette API des enregistrements DNS et routes complets ou de les archiver chiffrés. **Aucune archive DNS n'a été créée, car les données ne sont pas accessibles.**
+- Les paramètres exacts doivent être obtenus depuis le véritable fournisseur DNS ou un autre compte ayant les droits correspondants **avant une bascule de domaine**.
+
+**Étape 9 — staging : précontrôle et synchronisation partielle exécutés :**
+- Précontrôle `DRY_RUN` : **PASS** ; 9 tables éditoriales, **456 lignes**, correspondance complète sans changement.
+- Médias : **158 objets**, **830 312 417 octets**, noms et tailles égaux aux originaux, sans recopie.
+- Dernier relevé source : **11 688 clics** ; parmi les 56 clics depuis le checkpoint original 11 632, **16 étaient déjà recopiés, 40 restaient à synchroniser**.
+- Synchronisation staging **PASS** : **40 nouveaux clics copiés**, **56/56 enregistrements incrémentaux vérifiés**.
+- Compteurs D1 rapportés par le script de synchronisation : **761 lignes lues et 80 lignes écrites** pour le passage `SAFE_STAGING_COPY`. Les analytics de facturation sont décalées : leur compteur après exécution n'avait pas encore intégré ces consommations ; il ne faut **pas** interpréter ce retard comme 0 requête.
+- Aucune mutation Supabase, du site public, des brouillons légaux, des comptes participants ni des médias.
+
+**Verdict :** étapes 7 et 8 en préparation avancée, mais **leurs ressources/configurations réelles ne sont pas encore certifiées** ; étape 9 **pré-synchronisation staging vérifiée**, mais **pas encore la synchronisation finale de production**, qui impose un gel des écritures à la bascule.
+
+`STAGE_7_PROD_D1_EXISTS=NO` · `STAGE_7_PROD_R2=UNKNOWN` · `STAGE_8_DNS_ACCESS=UNAVAILABLE_IN_EXISTING_CLOUDFLARE_ACCOUNT` · `STAGE_9_STAGING_DELTA_SYNC=PASS_40_CLICKS` · `STAGE_9_FINAL_PROD_SYNC=NO` · `PUBLIC_CUTOVER=NO`.
+
 ## Statuts à ne pas confondre
 
 - `STAGE_7_CANDIDATE_READY=YES`, `STAGE_7_ACTUAL_PROD_RESOURCES=TO_DISCOVER`.
