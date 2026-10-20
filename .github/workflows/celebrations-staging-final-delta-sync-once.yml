@@ -1,10 +1,14 @@
 name: Sync latest Supabase source deltas to isolated Cloudflare staging (quota safe)
+# FREE PLAN QUOTA GUARD. Initial isolated staging delta sync SUCCEEDED.
+# Subsequent syncs are opt-in with pre/post daily quota validation only.
 on:
-  push:
-    branches: [feat/celebrations-supabase-exit-001]
-    paths:
-      - .github/workflows/celebrations-staging-final-delta-sync-once.yml
-      - scripts/sync_celebrations_latest_staging.py
+  workflow_dispatch:
+    inputs:
+      confirm_quota:
+        description: Type RUN_STAGING after verifying Cloudflare free quota
+        required: true
+        type: string
+
 permissions:
   contents: read
 concurrency:
@@ -12,7 +16,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   sync-staging-only:
-    if: github.ref == 'refs/heads/feat/celebrations-supabase-exit-001'
+    if: github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && inputs.confirm_quota == 'RUN_STAGING'
     runs-on: ubuntu-latest
     environment: celebrations-staging
     timeout-minutes: 24
