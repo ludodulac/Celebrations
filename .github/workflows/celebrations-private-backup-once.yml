@@ -337,6 +337,21 @@ jobs:
         if: always()
         run: node scripts/check-staging-d1-free-budget.mjs post
 
+  dns-authoritative-provider-discovery:
+    # Query only PUBLIC authoritative DNS, no private zone/account credentials.
+    if: ${{ github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && contains(github.event.head_commit.message, '[DNS_NS_ONLY_ONCE]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Read public nameservers and WWW canonical record without mutations
+        run: node scripts/discover_domain_dns_readonly.mjs
+
 # This archive is only one component of backup. It does NOT contain Storage
 # binaries, other apps' tables, roles, settings, or a transaction-wide snapshot.
 # Staging R2 is a private first copy, NOT an independent off-site backup.
