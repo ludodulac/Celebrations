@@ -1,13 +1,10 @@
 name: Verify real D1 save on synthetic isolated staging records
-# DAILY D1 FREE QUOTA GUARD: do not automatically run expensive staging HTTP
-# audits or data writes on every code commit. Manual confirmation only.
+# One-time narrowly scoped synthetic save and unlink with quota checks.
 on:
-  workflow_dispatch:
-    inputs:
-      confirm_quota:
-        description: Type RUN_STAGING after verifying daily D1 rows-read headroom
-        required: true
-        type: string
+  push:
+    branches: [feat/celebrations-supabase-exit-001]
+    paths:
+      - .github/workflows/celebrations-staging-synthetic-save-once.yml
 
 permissions:
   contents: read
@@ -16,7 +13,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   verify:
-    if: github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && inputs.confirm_quota == 'RUN_STAGING'
+    if: github.ref == 'refs/heads/feat/celebrations-supabase-exit-001'
     runs-on: ubuntu-latest
     environment: celebrations-staging
     timeout-minutes: 12
@@ -42,6 +39,8 @@ jobs:
           node --check scripts/verify-staging-safe-save-roundtrip.mjs
           python -m py_compile scripts/verify-staging-authenticated-admin.py
           test "$STAGING_R2_BUCKET" = 'celebrations-exit-staging'
+      - name: Check account-wide free D1 quota before any test SQL
+        run: node scripts/check-staging-d1-free-budget.mjs pre
       - name: Install isolated browser dependencies
         run: |
           python -m pip install 'requests>=2.32,<3'
@@ -49,3 +48,6 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Create, edit and fully revert only random synthetic staging D1 programme rows
         run: python scripts/verify-staging-authenticated-admin.py
+      - name: Verify account-wide D1 free quota after test using analytics only
+        if: always()
+        run: node scripts/check-staging-d1-free-budget.mjs post
