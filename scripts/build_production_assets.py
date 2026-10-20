@@ -26,6 +26,18 @@ def main():
         if html.count(OLD)!=1:
             raise RuntimeError("Cloudflare bridge production bootstrap count changed")
         html=html.replace(OLD,NEW)
+        if name=="index.html":
+            # Canonical committee shortlinks must also remain Cloudflare-only.
+            # Without this, '?lettre=slug' still redirects users to Supabase.
+            original=("location.replace(new URLSearchParams(location.search)"
+                      ".get('staging')==='1'?'/letter/'+encodeURIComponent(slug)"
+                      ":'https://jwyayfkssyagvnablttg.supabase.co/functions/v1/"
+                      "celebrations-committee-public?slug='+encodeURIComponent(slug))")
+            replacement="location.replace('/letter/'+encodeURIComponent(slug))"
+            if html.count(original)!=1:
+                raise RuntimeError("Unexpected legacy committee shortlink boot")
+            html=html.replace(original,replacement)
+
         if "cdn.jsdelivr.net/npm/@supabase/supabase-js" in html:
             raise RuntimeError("Legacy Supabase SDK must not load in production candidate")
         p.write_text(html,encoding="utf-8")
