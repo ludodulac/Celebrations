@@ -101,3 +101,8 @@ L'interface montrait un groupe « Default record group » de **5 enregistrements
 L'onglet **DNSSEC** affichait **Enabled** et précisait que Spaceship assure la mise en place automatique de DNSSEC et du DNSKEY. **Ne pas toucher au bouton Disable**. Si l'architecture finale oblige à changer de nameservers, préparer explicitement la coordination DNSSEC/DS avec le propriétaire du compte (sinon risque d'échec de résolution du domaine). Il est interdit de considérer l'ancien réglage DNSSEC réutilisable automatiquement après changement de fournisseur DNS.
 
 Ce relevé n'inclut pas la valeur DNSKEY/DS complète, les éventuelles configurations hors de ce groupe, le contenu de « URL Redirect », ni un export natif complet du compte. **Statut du rollback : RELEVÉ_VISUEL_PARTIEL, PAS ENCORE CERTIFIÉ**. Aucun enregistrement n'a été modifié.
+
+
+## Capture Spaceship — contrôle URL Redirect (21 octobre 2026)
+
+La capture de l'onglet **Advanced DNS > URL Redirect** présente le champ principal « Redirect to » vide (seul le texte indicatif `www.example.com` est visible), le type `302 (Temporary)` pré-sélectionné, et **« Subdomain redirects : 0 records »**. Aucun transfert de domaine configuré n'est visible sur cette page. Le type `302` affiché n'est **pas**, à lui seul, la preuve d'une redirection active. Il n'y a donc pas de redirection Spaceship existante à recopier depuis cet écran. Relevé visuel uniquement ; aucune modification ni sauvegarde dans Spaceship. Les DNS existants et DNSSEC activé doivent être conservés jusqu'à la bascule autorisée.
