@@ -129,16 +129,34 @@ for(const row of committee){
  assert.ok(typeof row.slug==="string"&&row.slug.length>8);
  const res=await call("/letter/"+encodeURIComponent(row.slug),"HEAD");
  assert.equal(res.status,200,"Committee invitation unavailable");
+ // Exactly the same permalink syntax historically generated for recipients:
+ // /?lettre=<original-slug> ; do not reveal slugs in CI logs.
+ const sentLink=await call("/?lettre="+encodeURIComponent(row.slug),"HEAD");
+ assert.equal(sentLink.status,200,"Existing mailed ?lettre= link must still open");
+ assert.equal(sentLink.headers.get("location"),null,
+   "Do not replace recipient's original emailed URL with a redirect");
+ assert.match(sentLink.headers.get("content-type")||"",/application\/pdf/i);
 }
 for(const deny of ["/media/committee/nonexistent.pdf","/media/not-in-approved-manifest.pdf",
                    "/letter/not-a-real-invitation"]){
  const response=await call(deny,"HEAD");
  assert.equal(response.status,404,"Non approved document must stay denied");
 }
+for(const path of ["/communique","/rituel-court","/rituel-long","/preparation"]){
+ const res=await call(path,"HEAD");
+ assert.equal(res.status,302,"Old mailed PDF redirect route must remain active");
+ assert.ok((res.headers.get("location")||"").startsWith("https://drive.google.com/file/d/"),
+   "Preserve original Drive PDF redirect");
+}
+const forbidden=await call("/?lettre=not-a-real-invitation","HEAD");
+assert.equal(forbidden.status,404,"Unknown invitation link must stay private");
+
 console.log("CÉLÉBRATIONS_READONLY_PRODUCTION_DATA_PREVIEW_PASS "+
  JSON.stringify({
   url:site,preview_only:true,
   public_media_http_200:progress,private_committee_slugs_http_200:committee.length,
+  unchanged_mail_permalink_query_http_200:committee.length,
+  unchanged_legacy_document_redirects:4,
   standalone_public_routes_verified:standaloneRoutes.length,
   original_homepage_jpg_http_200:homeJpg.status,programme_contents:cards.length,events:events.length,
   event_content_relations:links.length,public_settings:settings.length,

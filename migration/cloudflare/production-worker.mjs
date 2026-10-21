@@ -2,6 +2,7 @@
 // Never attach a real custom domain before DNS/backup/rollback authorization.
 import {handleMediaAdmin} from "./media-admin-api.mjs";
 import {handleMedia} from "./media-gateway.mjs";
+import {handleLegacyLink} from "./legacy-link-router.mjs";
 import {handleAuth} from "./auth-api.mjs";
 import {handleAudience} from "./audience-api.mjs";
 import {handleSafeSave} from "./safe-save-api.mjs";
@@ -13,6 +14,8 @@ import {handleStats} from "./stats-api.mjs";
 export default {
  async fetch(request,env){
   const url=new URL(request.url),path=url.pathname;
+  const legacy=await handleLegacyLink(request,env);
+  if(legacy)return legacy;
   if(path.startsWith("/media/")||path.startsWith("/letter/"))return handleMedia(request,env);
   if(path==="/api/auth")return handleAuth(request,env);
   if(path==="/api/audience")return handleAudience(request,env);
