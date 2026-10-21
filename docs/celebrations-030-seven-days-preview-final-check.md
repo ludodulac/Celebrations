@@ -1,0 +1,3 @@
+# CÉLÉBRATIONS — certification des sept URL autonomes sur Cloudflare
+
+Une anomalie hors production a été réparée : les sept pages directes de la préparation et des jours de célébration chargeaient encore l'ancien SDK Supabase. La génération du site final utilise maintenant exclusivement le pont Cloudflare pour ces sept entrées en plus de l'accueil et de l'administration. Le test unitaire GitHub de la PR #59 est réussi. Redéployer uniquement le Worker de prévisualisation **en lecture seule**, ne pas toucher au vrai domaine ni à la branche main, et contrôler les sept pages, 113 médias publics (dont le PDF du jeudi restauré), neuf PDF comité par slug et les parcours mobiles sans aucun appel vers Supabase ni aucune écriture D1.
