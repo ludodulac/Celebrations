@@ -82,3 +82,22 @@ Contrôle DNS public en lecture seule : [GitHub Actions #39503909438](https://gi
 - `REAL_PUBLIC_DOMAIN_CUTOVER=NO`, `SUPABASE_ACTIVE=YES`, `USER_APPROVAL_FOR_DOMAIN_SWITCH=NOT_YET_REQUESTED`.
 
 La commande de contrôle unique se déclenche uniquement par commit marqué `[CUTOVER_789_PREFLIGHT_ONCE]` sur la branche de migration. **Zéro déploiement, zéro changement DNS et aucune écriture dans la D1 de production.**
+
+
+## Relevé visuel Spaceship — propriétaire connecté, 21 octobre 2026
+
+L'utilisateur a fourni des **captures d'écran** (preuve visuelle, **non** export natif de zone). Sur le domaine `ronde-des-archanges-universelle.eu`, menu **Advanced DNS** :
+
+| Hôte | Type | Valeur | TTL |
+| --- | --- | --- | --- |
+| @ | A | 185.199.108.153 | 30 min |
+| @ | A | 185.199.109.153 | 30 min |
+| @ | A | 185.199.110.153 | 30 min |
+| @ | A | 185.199.111.153 | 30 min |
+| www | CNAME | ludodulac.github.io | 30 min |
+
+L'interface montrait un groupe « Default record group » de **5 enregistrements** et les nameservers `launch1.spaceship.net` et `launch2.spaceship.net`. État de propagation indiqué `ONLINE`.
+
+L'onglet **DNSSEC** affichait **Enabled** et précisait que Spaceship assure la mise en place automatique de DNSSEC et du DNSKEY. **Ne pas toucher au bouton Disable**. Si l'architecture finale oblige à changer de nameservers, préparer explicitement la coordination DNSSEC/DS avec le propriétaire du compte (sinon risque d'échec de résolution du domaine). Il est interdit de considérer l'ancien réglage DNSSEC réutilisable automatiquement après changement de fournisseur DNS.
+
+Ce relevé n'inclut pas la valeur DNSKEY/DS complète, les éventuelles configurations hors de ce groupe, le contenu de « URL Redirect », ni un export natif complet du compte. **Statut du rollback : RELEVÉ_VISUEL_PARTIEL, PAS ENCORE CERTIFIÉ**. Aucun enregistrement n'a été modifié.
