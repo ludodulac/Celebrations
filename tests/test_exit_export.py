@@ -15,6 +15,7 @@ from scripts.copy_selected_public_media_to_production import select_visible_path
 from scripts.copy_selected_media_via_cloudflare_rest import rest_objects, object_url
 from scripts.copy_selected_with_scoped_production_key import credentials_for
 from scripts.import_public_programme_production_d1 import (PUBLIC_TABLES, COUNTS, canonical, signatures, insert_rows, column_names)
+from scripts.import_private_r2_public_media_acl_d1 import canonical as canonical_acl, insert_selected as insert_acl
 def mocked_rows(rows,range_header=None):
  r=Mock()
  r.json.return_value=rows
@@ -565,6 +566,37 @@ class TestExport(unittest.TestCase):
   self.assertEqual((count,writes),(2,2))
   self.assertEqual(conn.execute('SELECT id,name,sort_order,is_system FROM celebrations_groups ORDER BY sort_order').fetchall(),
    [("a","L'été d'aujourd'hui",1,1),("b","Préparation — 守護",2,0)])
+  conn.close()
+
+
+ def test_private_media_allowlist_keeps_slugged_committee_pdfs_separate(self):
+  # Missing composite key fields fail closed with a scrubbed ValueError.
+  a={"storage_path":"media/sample.jpg","approved":1,"approved_at":None,"revoked_at":None}
+  b={"slug":"sample-invitation-uuid","storage_path":"committee/private.pdf",
+     "published":1,"created_at":"2026-10-21T00:00:00Z","revoked_at":None}
+  self.assertEqual(len(canonical_acl("public_media",[a])),1)
+  self.assertEqual(len(canonical_acl("committee_media",[b])),1)
+  with self.assertRaisesRegex(ValueError,"Duplicate"):
+   canonical_acl("committee_media",[b,b])
+  with self.assertRaisesRegex(ValueError,"Duplicate"):
+   canonical_acl("public_media",[{"approved":1}])
+  with self.assertRaisesRegex(ValueError,"Unapproved"):
+   insert_acl(Mock(),"https://cloudflare.invalid","celebrations_clicks",[a])
+  conn=sqlite3.connect(":memory:")
+  conn.execute('CREATE TABLE public_media(storage_path TEXT PRIMARY KEY, approved INTEGER, approved_at TEXT, revoked_at TEXT)')
+  class SafeFakeCF:
+   def post(self,endpoint,json=None,timeout=None):
+    response=Mock()
+    response.raise_for_status.return_value=None
+    before=conn.total_changes
+    conn.execute(json["sql"],json["params"])
+    response.json.return_value={"success":True,"result":[
+      {"success":True,"results":[],"meta":{"rows_read":0,"rows_written":conn.total_changes-before}}
+    ]}
+    return response
+  self.assertEqual(insert_acl(SafeFakeCF(),"https://cloudflare.invalid","public_media",[a]),1)
+  self.assertEqual(conn.execute('SELECT storage_path,approved FROM public_media').fetchall(),
+    [("media/sample.jpg",1)])
   conn.close()
 
 if __name__=="__main__":unittest.main()
