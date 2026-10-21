@@ -27,3 +27,30 @@ Le script `scripts/import_private_r2_public_media_acl_d1.py`, démarré seulemen
 **Limites :** les ACL D1 sont prêtes mais aucune URL publique Cloudflare n'existe encore. Il faudra déployer une **prévisualisation séparée**, valider l'accès à tous les médias et refuser les 37 exclus / les PDF comité sans slug valide, puis continuer l'import du reste des données (participants/admin, statiques et statistiques) et résoudre les 31 chemins historiques.
 
 **Statut initial :** `PRODUCTION_R2_MEDIA_ACL=PREPARED_NOT_RUN`. Résultat réel uniquement après vérification du job GitHub.
+
+## Résultat vérifié — 21 octobre 2026
+
+[GitHub Actions #39610431175](https://github.com/ludodulac/Celebrations/actions/runs/39610431175) : **SUCCESS** (job `production-private-r2-media-acl-once`).
+
+Précontrôles :
+- 121 objets R2 privés présents dans le bucket `celebrations-exit-production`, pour **766 989 338 octets**, identiques aux 121 protégés sélectionnés depuis le bucket d'origine ;
+- Neuf slugs de comité existants et uniques, tous pointant sur les neuf fichiers conservés ;
+- D1 européenne du programme déjà prête (211 fiches contenus) ;
+- Quotas Cloudflare D1 Free suffisamment disponibles, sans changement de plan.
+
+**130 enregistrements supplémentaires réellement écrits et vérifiés dans la D1 privée** :
+- `celebrations_committee_letters` : **9 lignes**, contrôle complet PASS ;
+- `public_media` : **112 lignes `approved=1`**, aucun chemin comité autorisé publiquement, contrôle complet PASS ;
+- `committee_media` : **9 lignes `published=1`**, accessibles seulement par leur slug existant, contrôle complet PASS.
+
+Au total, le programme éditorial contient **456 lignes** et l'accès aux médias **130 lignes** vérifiées. Les autres tables (statistiques, participants, sessions, brouillons légaux, etc.) restent à traiter. **La destination n'est pas encore publique** : aucune URL de consultation ni Worker déployé.
+
+Aucune suppression des 158 fichiers originaux Supabase, des 158 copies staging ou des 121 copies production ; aucun DNS touché, aucune modification de GitHub `main`, aucune modification des données Supabase. Les 37 objets hors sélection sont restés exclusivement dans l'original et staging. Les 31 références de chemins historiquement absents dans la source devront être examinées séparément.
+
+`PRODUCTION_R2_PRIVATE_MEDIA_ACL=VERIFIED_112_PUBLIC_PLUS_9_COMMITTEE`
+`PRODUCTION_COMMITTEE_LETTER_METADATA=VERIFIED_9`
+`PRODUCTION_MEDIA_R2=VERIFIED_121`
+`PUBLIC_WORKER_DEPLOYED=NO`
+`PUBLIC_DNS_SWITCH=NO`
+
+**Prochaine mission :** import et contrôle des données de compte / brouillons / statistiques, initialisation sécurisée des secrets de production, puis tests sur URL Cloudflare distincte avant toute éventuelle bascule publique.
