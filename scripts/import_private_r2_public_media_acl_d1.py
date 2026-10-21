@@ -37,6 +37,8 @@ IDS={
 
 
 def keys(table,row):
+    if table not in IDS or not isinstance(row,dict) or any(k not in row for k in IDS[table]):
+        raise ValueError("Duplicate/invalid media ACL identity")
     return tuple(row[k] for k in IDS[table])
 
 
