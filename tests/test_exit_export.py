@@ -537,7 +537,7 @@ class TestExport(unittest.TestCase):
   with self.assertRaisesRegex(ValueError,"nested"):
    canonical({"name":{"x":1}})
   with self.assertRaisesRegex(ValueError,"NUL"):
-   canonical({"name":"unsafe\\x00value"})
+   canonical({"name":"unsafe"+chr(0)+"value"})
   with self.assertRaisesRegex(ValueError,"Inconsistent"):
    column_names([{"id":"a"},{"id":"b","bad":"c"}])
 
