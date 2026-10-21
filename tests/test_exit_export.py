@@ -8,6 +8,7 @@ from migration.verify_real_backup_restore import restore_ciphertext_into_ram
 from scripts.audit_celebrations_media_dual_copy_readonly import source_inventory, compare_manifests
 from scripts.audit_historic_participant_verifier_parity import compare_user
 from scripts.audit_preproduction_resources_and_dns import encrypt_snapshot, verify_snapshot, paged_cloudflare
+from scripts.provision_separate_production_free_resources import parse_d1_inventory, parse_r2_inventory, enforce_safe_inventory
 def mocked_rows(rows,range_header=None):
  r=Mock()
  r.json.return_value=rows
@@ -374,5 +375,35 @@ class TestExport(unittest.TestCase):
   session.get.return_value.status_code=403
   session.get.side_effect=None
   self.assertIsNone(paged_cloudflare(session,"https://api.cloudflare.com/client/v4/zones/example/dns_records"))
+
+
+ def test_free_production_resource_provision_does_not_reuse_staging(self):
+  import copy
+  db={"uuid":"00000000-0000-4000-8000-000000000001","name":"celebrations-exit-staging"}
+  r2={"name":"celebrations-exit-staging","storage_class":"Standard"}
+  original_d1=parse_d1_inventory({"success":True,"result":[db],
+                                "result_info":{"total_count":1}})
+  original_r2=parse_r2_inventory({"success":True,"result":{"buckets":[r2]}})
+  prod1,prod2=enforce_safe_inventory(original_d1,original_r2)
+  self.assertIsNone(prod1)
+  self.assertIsNone(prod2)
+  with self.assertRaisesRegex(ValueError,"Partial"):
+   parse_d1_inventory({"success":True,"result":[db],
+                       "result_info":{"total_count":2}})
+  with self.assertRaisesRegex(ValueError,"cursor"):
+   parse_r2_inventory({"success":True,"result":{"buckets":[r2],"cursor":"next"}})
+  with self.assertRaisesRegex(ValueError,"D1 maximum"):
+   enforce_safe_inventory([db]+[
+    {"name":"other-"+str(i),"uuid":"00000000-0000-4000-8000-000000000001"}
+     for i in range(9)],original_r2)
+  with self.assertRaisesRegex(ValueError,"nonstandard"):
+   enforce_safe_inventory(original_d1,[r2,
+    {"name":"celebrations-exit-production","storage_class":"InfrequentAccess"}])
+  with self.assertRaisesRegex(ValueError,"protected staging"):
+   enforce_safe_inventory([],original_r2)
+  prod_db={"name":"celebrations-exit-production",
+           "uuid":"00000000-0000-4000-8000-000000000002"}
+  prod_r2={"name":"celebrations-exit-production","storage_class":"Standard"}
+  self.assertEqual(enforce_safe_inventory([db,prod_db],[r2,prod_r2]),(prod_db,prod_r2))
 
 if __name__=="__main__":unittest.main()
