@@ -37,3 +37,26 @@
 3. Déploiement d'un **Worker privé de prévisualisation uniquement** et tests d'Accueil + 7 jours + Médiathèque + administration, avec quota Free et aucune bascule DNS automatique.
 
 **Statut initial** : `PRODUCTION_PUBLIC_PROGRAMME_D1=PREPARED_NOT_RUN`. Ne le changer en SUCCESS qu'après preuve d'exécution GitHub du job `import-public-programme-production-d1-once`.
+
+## Résultat exécuté le 21 octobre 2026
+
+GitHub Actions [#39608984113](https://github.com/ludodulac/Celebrations/actions/runs/39608984113), job `import-public-programme-production-d1-once` : **SUCCESS**.
+
+- **456 lignes effectivement ajoutées dans la D1 EU de production**, neuf tables métier :
+  - célébrations : 4, groupes : 3, réglage public : 1, fiches de contenu : 211 ;
+  - étapes : 28, événements : 62, liens : 23, liens événement-contenu : 124, liens étape-contenu : 0.
+- **Comparaison intégrale champ par champ avec la source : PASS**.
+- **Intégrité relationnelle / clés étrangères : PASS**.
+- **D1 interne déclaré : 1 690 écritures comptabilisées, 466 lectures pour l'import**, sous les marges de la formule Free. Attention : les statistiques agrégées D1 Cloudflare affichées immédiatement après le run peuvent être retardées ; elles ne doivent pas être interprétées comme une absence d'écriture.
+- **Dix autres tables encore vides** : statistiques, participants, sessions, lettres comité, brouillons, ACL et protection des connexions ; ce lot ne les a pas importées.
+- Aucun secret, contenu de fiches ni donnée personnelle affichés dans les logs ; aucun export en artifact.
+- **0 écriture Supabase, 0 modification R2, 0 modification DNS, 0 Worker de production déployé, 0 changement de `main`.**
+- Les **121 fichiers R2 privés** antérieurement copiés restent intacts, ainsi que les 37 fichiers mis de côté.
+- Le site original continue de fonctionner et de collecter des clics : la migration de ces derniers et une synchronisation finale seront nécessaires.
+
+`PRODUCTION_PUBLIC_PROGRAMME_D1=VERIFIED_456_OF_456`
+`PRODUCTION_R2_USER_FACING_MEDIA=VERIFIED_121_OF_121`
+`PRODUCTION_PUBLIC_WORKER_DEPLOYED=NO`
+`PRODUCTION_DNS_SWITCH=NO`
+
+Prochaine préparation : préserver les historiques et pièces réservées (statistiques, lettres comité, administration et utilisateurs) avec leurs règles d'accès, initialiser les ACL pour servir les médias R2 privés, puis tester le Worker sans toucher au domaine.
