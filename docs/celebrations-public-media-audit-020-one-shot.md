@@ -1,0 +1,3 @@
+# CÉLÉBRATIONS — Audit unique des médias visibles
+
+Parcours strictement en lecture seule des 211 fiches et 158 objets source, des événements des jours Préparation, Mercredi, Jeudi, Vendredi, Samedi, Dimanche, Après célébration, des deux contenus d'accueil, des images affichées même sans affectation, des illustrations spéciales, neuf invitations comité et des images statiques en page d'accueil. Signaler les références manquantes et les objets candidates à revue. Ne supprimer, déplacer, copier, télécharger ni exposer aucun contenu privé. Ne pas toucher à la production Cloudflare, à Supabase, à Spaceship ni à `main`.
