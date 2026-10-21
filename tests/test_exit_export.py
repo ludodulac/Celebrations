@@ -10,6 +10,7 @@ from scripts.audit_historic_participant_verifier_parity import compare_user
 from scripts.audit_preproduction_resources_and_dns import encrypt_snapshot, verify_snapshot, paged_cloudflare
 from scripts.provision_separate_production_free_resources import parse_d1_inventory, parse_r2_inventory, enforce_safe_inventory
 from scripts.verify_production_database_schema import expected_tables, verify_account_list
+from scripts.audit_public_only_media import asset_audit
 def mocked_rows(rows,range_header=None):
  r=Mock()
  r.json.return_value=rows
@@ -425,5 +426,36 @@ class TestExport(unittest.TestCase):
   with self.assertRaisesRegex(RuntimeError,"exactly one"):
    verify_account_list({"success":True,"result":[]},
                        "celebrations-exit-production","00000000-0000-4000-8000-000000000001")
+
+
+ def test_public_only_media_classification_preserves_image_gallery_and_invitation_links(self):
+  # All identifiers/files are fabricated, no user data or actual Storage reads.
+  contents=[
+    {"id":"event","content_type":"PDF","storage_path":"media/visible.pdf"},
+    {"id":"home","content_type":"Texte","category":"Accueil","storage_path":"media/home.pdf"},
+    {"id":"gallery","content_type":"Image","source_type":"file","storage_path":"media/picture.png"},
+    {"id":"cover","content_type":"PDF","has_cover":True,"cover_storage_path":"media/cover.png"},
+    {"id":"illustration","content_type":"Image","source_type":"link","storage_path":"media/manual.png"},
+    {"id":"unplaced","content_type":"PDF","storage_path":"media/admin-only.pdf"}
+  ]
+  events=[{"id":"event-1"}]
+  event_links=[{"event_id":"event-1","content_id":"event"}]
+  links=[{"link_type":"event-illustration","url":"content:illustration"}]
+  letters=[{"storage_path":"committee/letter.pdf"}]
+  files={name:5 for name in ["media/visible.pdf","media/home.pdf","media/picture.png",
+     "media/cover.png","media/manual.png","media/admin-only.pdf",
+     "committee/letter.pdf","media/hero.jpg"]}
+  result=asset_audit(contents,event_links,[],events,links,letters,files,{"media/hero.jpg"})
+  self.assertEqual(result["definitely_public_cards"],5)
+  self.assertEqual(result["program_linked_cards"],1)
+  self.assertEqual(result["accueil_cards"],1)
+  self.assertEqual(result["gallery_candidate_cards"],2)
+  self.assertEqual(result["physically_present_protected_objects"],7)
+  self.assertEqual(result["storage_objects_needing_manual_review"],1)
+  self.assertEqual(result["destructive_deletions"],0)
+  self.assertFalse(result["review_candidates_are_safe_to_delete_automatically"])
+  with self.assertRaisesRegex(ValueError,"missing content card"):
+   asset_audit(contents,[{"event_id":"event-1","content_id":"unknown"}],[],
+               events,links,letters,files)
 
 if __name__=="__main__":unittest.main()
