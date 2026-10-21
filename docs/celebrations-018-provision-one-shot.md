@@ -1,0 +1,3 @@
+# CÉLÉBRATIONS — commande unique de préparation de production
+
+**Jamais sur `main`.** Vérifier l'utilisation journalière D1 du compte Cloudflare, puis les inventaires complets des bases D1 et buckets R2. Si les droits et la marge du plan gratuit sont confirmés, créer au plus une nouvelle base **vide** D1 `celebrations-exit-production` juridiction EU et un bucket **vide privé** R2 `celebrations-exit-production` en stockage Standard. Relire et vérifier. Aucun déploiement, aucune synchronisation de données, aucune modification DNS Spaceship ni suppression/modification Supabase. En cas d'autorisation insuffisante, s'arrêter sans changer les permissions.
