@@ -1,0 +1,3 @@
+# CÉLÉBRATIONS — reprise de l'installation du schéma de production
+
+Les deux précontrôles précédents ont arrêté l'installation **avant toute création de table applicative**, car Cloudflare installe automatiquement une table interne réservée `_cf_KV` même dans une nouvelle D1. Conformément à la documentation officielle Cloudflare, cette table n'est pas une table de CÉLÉBRATIONS et ne doit ni être interrogée ni être supprimée. Le contrôle ignore désormais uniquement les tables internes Cloudflare `_cf_*` et SQLite `sqlite_*`, et refuse toujours toute autre table. Réessayer exactement une fois la préparation du schéma de production (aucun déploiement Worker et aucun changement de domaine).
