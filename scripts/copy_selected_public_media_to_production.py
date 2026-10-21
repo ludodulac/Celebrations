@@ -22,10 +22,16 @@ import boto3
 import requests
 from botocore.config import Config
 from botocore.exceptions import ClientError
-from scripts.audit_public_only_media import (
-    SOURCE_HOST, asset_audit, fetch_all, list_objects, static_homepage_refs,
-    SOURCE_TABLES,
-)
+try:
+    from scripts.audit_public_only_media import (
+        SOURCE_HOST, asset_audit, fetch_all, list_objects, static_homepage_refs,
+        SOURCE_TABLES,
+    )
+except ModuleNotFoundError:
+    from audit_public_only_media import (
+        SOURCE_HOST, asset_audit, fetch_all, list_objects, static_homepage_refs,
+        SOURCE_TABLES,
+    )
 
 BUCKET_SOURCE="celebrations-exit-staging"
 BUCKET_DEST="celebrations-exit-production"
