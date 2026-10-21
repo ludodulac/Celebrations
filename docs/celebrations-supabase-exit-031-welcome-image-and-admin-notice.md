@@ -19,3 +19,9 @@ Le Worker de prévisualisation `celebrations-exit-preview-ro` est **par concepti
 ## Sécurité et limites
 
 Le site officiel n'a subi aucune modification, tout comme le domaine, le code GitHub main, les R2 et Supabase source. Le mot de passe existant n'est jamais demandé, enregistré, lu ni modifié dans ce correctif. Le Worker read-only reste inchangé. Ne pas déclarer la correction visuelle complète sans réussite de l'audit HTTP et mobile sur la nouvelle version déployée.
+
+## Résultat exécuté et vérifié (21 octobre 2026)
+
+GitHub Actions [#39678278163](https://github.com/ludodulac/Celebrations/actions/runs/39678278163) : **SUCCESS**. Le nouveau Worker de prévisualisation est déployé. La vraie image d'accueil a renvoyé HEAD **200**, type `image/jpeg`, et sa taille source de **167220 octets** a été vérifiée. Chromium sur écran mobile confirme `homepage_image_loaded=true` (image décodée et visible, dimensions non nulles), zéro erreur JS, zéro requête à Supabase, 113 fichiers publics et neuf PDF comité accessibles. Le site officiel et les DNS restent inchangés.
+
+**Administration** : état volontairement toujours **READ_ONLY** : aucune connexion ni mot de passe ne peut y fonctionner (`POST /api/auth` bloqué). Ne jamais interpréter ce 405 comme un mot de passe erroné. La prochaine étape distincte consiste à configurer un Worker d'administration avec secrets propres et tests en environnement réversible, **sans utiliser la production publique tant que non validée**.
