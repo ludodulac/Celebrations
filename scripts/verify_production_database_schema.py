@@ -122,5 +122,22 @@ def main(mode):
 if __name__=="__main__":
     try:main(sys.argv[1])
     except BaseException as error:
-        print("PRODUCTION_SCHEMA_AUDIT_STOP category="+type(error).__name__,file=sys.stderr)
+        # Only report our OWN fixed control-plane guard messages, never
+        # arbitrary HTTP responses, database rows, URLs or credentials.
+        safe={
+            "Expected exactly one production D1",
+            "Unexpected production D1 UUID",
+            "Production D1 identity mismatch",
+            "Production D1 must be EU jurisdiction",
+            "Expected production R2 bucket",
+            "Production R2 must use Standard class",
+            "Production D1 schema inspection failed",
+            "Inspection must not write",
+            "Refusing to change nonempty production schema",
+            "Production D1 does not have precisely 19 expected tables",
+            "New production tables must remain empty",
+        }
+        msg=str(error) if str(error) in safe else "Unclassified HTTP or schema error"
+        print("PRODUCTION_SCHEMA_AUDIT_STOP category="+type(error).__name__+
+              " check="+msg.replace(" ","_"),file=sys.stderr)
         raise SystemExit(1)
