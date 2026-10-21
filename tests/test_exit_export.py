@@ -9,6 +9,7 @@ from scripts.audit_celebrations_media_dual_copy_readonly import source_inventory
 from scripts.audit_historic_participant_verifier_parity import compare_user
 from scripts.audit_preproduction_resources_and_dns import encrypt_snapshot, verify_snapshot, paged_cloudflare
 from scripts.provision_separate_production_free_resources import parse_d1_inventory, parse_r2_inventory, enforce_safe_inventory
+from scripts.verify_production_database_schema import expected_tables, verify_account_list
 def mocked_rows(rows,range_header=None):
  r=Mock()
  r.json.return_value=rows
@@ -405,5 +406,24 @@ class TestExport(unittest.TestCase):
            "uuid":"00000000-0000-4000-8000-000000000002"}
   prod_r2={"name":"celebrations-exit-production","storage_class":"Standard"}
   self.assertEqual(enforce_safe_inventory([db,prod_db],[r2,prod_r2]),(prod_db,prod_r2))
+
+
+ def test_production_schema_requires_exact_isolated_eu_database(self):
+  names=expected_tables()
+  self.assertEqual(len(names),19)
+  self.assertIn("celebrations_participants",names)
+  self.assertIn("public_media",names)
+  self.assertEqual(
+   verify_account_list({"success":True,
+    "result":[{"name":"celebrations-exit-production","uuid":"00000000-0000-4000-8000-000000000002"}]},
+    "celebrations-exit-production","00000000-0000-4000-8000-000000000001"),
+   "00000000-0000-4000-8000-000000000002")
+  with self.assertRaisesRegex(RuntimeError,"Unexpected production D1 UUID"):
+   verify_account_list({"success":True,
+    "result":[{"name":"celebrations-exit-production","uuid":"00000000-0000-4000-8000-000000000001"}]},
+    "celebrations-exit-production","00000000-0000-4000-8000-000000000001")
+  with self.assertRaisesRegex(RuntimeError,"exactly one"):
+   verify_account_list({"success":True,"result":[]},
+                       "celebrations-exit-production","00000000-0000-4000-8000-000000000001")
 
 if __name__=="__main__":unittest.main()
