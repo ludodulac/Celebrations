@@ -11,6 +11,7 @@ from scripts.audit_preproduction_resources_and_dns import encrypt_snapshot, veri
 from scripts.provision_separate_production_free_resources import parse_d1_inventory, parse_r2_inventory, enforce_safe_inventory
 from scripts.verify_production_database_schema import expected_tables, verify_account_list
 from scripts.audit_public_only_media import asset_audit
+from scripts.copy_selected_public_media_to_production import select_visible_paths
 def mocked_rows(rows,range_header=None):
  r=Mock()
  r.json.return_value=rows
@@ -457,5 +458,24 @@ class TestExport(unittest.TestCase):
   with self.assertRaisesRegex(ValueError,"missing content card"):
    asset_audit(contents,[{"event_id":"event-1","content_id":"unknown"}],[],
                events,links,letters,files)
+
+
+ def test_selected_private_r2_paths_are_disjoint_from_review_only(self):
+  cards=[
+   {"id":"one","content_type":"PDF","storage_path":"media/event.pdf"},
+   {"id":"two","content_type":"Image","source_type":"file","storage_path":"media/gallery.jpg"},
+   {"id":"home","category":"Accueil","storage_path":"media/welcome.jpg"},
+   {"id":"admin","content_type":"PDF","storage_path":"media/admin-only.pdf"}
+  ]
+  inv={k:5 for k in ("media/event.pdf","media/gallery.jpg","media/welcome.jpg",
+                     "media/admin-only.pdf","committee/private.pdf")}
+  summary, partition=asset_audit(cards,[{"event_id":"e","content_id":"one"}],
+       [],[{"id":"e"}],[],[{"storage_path":"committee/private.pdf"}],
+       inv,return_sets=True)
+  self.assertEqual(partition["selected"],
+                   {"media/event.pdf","media/gallery.jpg","media/welcome.jpg","committee/private.pdf"})
+  self.assertEqual(partition["review"],{"media/admin-only.pdf"})
+  self.assertEqual(len(partition["missing"]),0)
+  self.assertEqual(summary["destructive_deletions"],0)
 
 if __name__=="__main__":unittest.main()

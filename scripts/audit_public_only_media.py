@@ -36,7 +36,7 @@ FALLBACK_IDS={"guide-file-30","guide-file-291","guide-file-399",
 
 
 def asset_audit(contents,event_links,step_links,events,links,letters,
-                inventory,static_refs=()):
+                inventory,static_refs=(),return_sets=False):
     by_id={str(c["id"]):c for c in contents}
     if len(by_id)!=len(contents):
         raise ValueError("Duplicate content identifiers")
@@ -92,7 +92,7 @@ def asset_audit(contents,event_links,step_links,events,links,letters,
     missing_references=protected_keys-actual
     found=protected_keys&actual
     candidates=actual-protected_keys
-    return {
+    summary = {
         "source_content_cards":len(contents),
         "program_linked_cards":len(placed),
         "accueil_cards":len(home),
@@ -109,6 +109,17 @@ def asset_audit(contents,event_links,step_links,events,links,letters,
         "destructive_deletions":0,
         "review_candidates_are_safe_to_delete_automatically":False,
     }
+    if return_sets:
+        # Path sets are sensitive and MUST NOT be emitted into GitHub logs,
+        # PR comments or artifacts; only the caller's secure process may use.
+        return summary, {
+            "selected": found,
+            "review": candidates,
+            "missing": missing_references,
+            "public": public_keys & actual,
+            "committee": committee_keys & actual,
+        }
+    return summary
 
 
 def fetch_all(session,base,table):
