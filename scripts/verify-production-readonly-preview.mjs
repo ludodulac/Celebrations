@@ -62,6 +62,18 @@ assert.ok(homeHtml.includes("CELEBRATIONS_STAGING_BACKEND=location.origin"),
  "Public candidate must boot ONLY Cloudflare backend");
 assert.ok(!homeHtml.includes("cdn.jsdelivr.net/npm/@supabase/supabase-js"));
 assert.ok(!adminHtml.includes("cdn.jsdelivr.net/npm/@supabase/supabase-js"));
+
+const originalHomeImage="/media/media/1791723108110/file-1791723109615-1000040461.jpg";
+assert.ok(homeHtml.includes('src="'+originalHomeImage+'"'),
+ "The original welcome picture must use its original private-R2 path");
+assert.ok(!homeHtml.includes("/media/media/celebrations-staging-welcome-autumn-2026.jpg"),
+ "The isolated production preview must not use the staging-only welcome asset");
+const homeJpg=await call(originalHomeImage,"HEAD");
+assert.equal(homeJpg.status,200,"Original homepage image must be accessible");
+assert.match(homeJpg.headers.get("content-type")||"",/image\/jpeg/i);
+assert.equal(Number(homeJpg.headers.get("content-length")),167220,
+ "Original homepage JPG byte size should match Supabase inventory");
+
 assert.match(await robots.text(),/Disallow: \/?/);
 const standaloneRoutes=["programme","mercredi","jeudi","vendredi","samedi",
                         "dimanche","apres-celebration"];
@@ -128,7 +140,7 @@ console.log("CÉLÉBRATIONS_READONLY_PRODUCTION_DATA_PREVIEW_PASS "+
   url:site,preview_only:true,
   public_media_http_200:progress,private_committee_slugs_http_200:committee.length,
   standalone_public_routes_verified:standaloneRoutes.length,
-  programme_contents:cards.length,events:events.length,
+  original_homepage_jpg_http_200:homeJpg.status,programme_contents:cards.length,events:events.length,
   event_content_relations:links.length,public_settings:settings.length,
   sensitive_table_http:invisible.status,
   unauthorized_media_http:404,
