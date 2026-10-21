@@ -32,6 +32,16 @@ for(let attempt=1;attempt<=12;attempt++){
  [home,admin,bridge,robots]=await Promise.all([
   call("/"),call("/admin.html"),call("/migration/cloudflare/preview-client.js"),call("/robots.txt")
  ]);
+ // Cloudflare Asset HTML canonicalization may redirect /admin.html to /admin
+ // with HTTP 307. Follow only a SAME-ORIGIN redirect, never to the live site.
+ if([301,302,307,308].includes(admin.status)){
+  const loc=admin.headers.get("location");
+  if(!loc)throw Error("Admin canonical redirect missing Location");
+  const destination=new URL(loc,site);
+  if(destination.origin!==site||destination.pathname==="/admin.html")
+   throw Error("Admin redirected outside the private read-only preview");
+  admin=await call(destination.pathname+destination.search);
+ }
  if([home,admin,bridge,robots].every(r=>r.status===200)){
   edgeReady=true;break;
  }
