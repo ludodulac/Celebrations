@@ -90,6 +90,8 @@ jobs:
           PY
       - name: Prove production HTML boots Cloudflare on ordinary public URL
         run: |
+          grep -Fq 'src="/media/media/1791723108110/file-1791723109615-1000040461.jpg"' production-public/index.html
+          if grep -Fq '/media/media/celebrations-staging-welcome-autumn-2026.jpg' production-public/index.html; then exit 1; fi
           grep -Fq 'window.CELEBRATIONS_STAGING_BACKEND=location.origin' production-public/index.html
           grep -Fq 'window.CELEBRATIONS_STAGING_BACKEND=location.origin' production-public/admin.html
           grep -Fq "location.replace('/letter/'+encodeURIComponent(slug))" production-public/index.html
