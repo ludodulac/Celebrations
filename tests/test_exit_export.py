@@ -17,6 +17,7 @@ from scripts.copy_selected_with_scoped_production_key import credentials_for
 from scripts.import_public_programme_production_d1 import (PUBLIC_TABLES, COUNTS, canonical, signatures, insert_rows, column_names)
 from scripts.import_private_r2_public_media_acl_d1 import canonical as canonical_acl, insert_selected as insert_acl
 from scripts.import_private_admin_accounts_production_d1 import converted_participant, EXPECTED as EXPECTED_PRIVATE
+from scripts.recover_one_missing_public_pdf_to_private_production import (get_file_from_public_drive, EXPECTED_BYTES as DRIVE_PDF_EXPECTED_BYTES)
 from scripts.import_historic_stats_production_d1 import equal_row,source_snapshot,insert_clicks
 def mocked_rows(rows,range_header=None):
  r=Mock()
@@ -659,5 +660,29 @@ class TestExport(unittest.TestCase):
   self.assertEqual(insert_clicks(CF(),"https://cloudflare.invalid/query",[click]),1)
   self.assertEqual(conn.execute('SELECT id,visitor_id FROM celebrations_clicks').fetchall(),[(-7,"synthetic-visitor")])
   conn.close()
+
+
+ def test_public_drive_pdf_recovery_refuses_html_or_size_mismatch(self):
+  from unittest.mock import patch,Mock
+  good=(b"%PDF-1.7\\n"+b"0"*(DRIVE_PDF_EXPECTED_BYTES-len(b"%PDF-1.7\\n")-len(b"\\n%%EOF"))+b"\\n%%EOF")
+  self.assertEqual(len(good),DRIVE_PDF_EXPECTED_BYTES)
+  response=Mock()
+  response.url="https://drive.usercontent.google.com/download?id=synthetic"
+  response.content=good
+  response.raise_for_status.return_value=None
+  session=Mock()
+  session.get.return_value=response
+  with patch("scripts.recover_one_missing_public_pdf_to_private_production.requests.Session",return_value=session):
+   self.assertEqual(get_file_from_public_drive(),good)
+   response.content=b"<html>"+b"X"*(DRIVE_PDF_EXPECTED_BYTES-6)
+   with self.assertRaisesRegex(ValueError,"not a complete PDF"):
+    get_file_from_public_drive()
+   response.content=good[:-1]
+   with self.assertRaisesRegex(ValueError,"length"):
+    get_file_from_public_drive()
+   response.content=good
+   response.url="https://unapproved.invalid"
+   with self.assertRaisesRegex(ValueError,"Unrecognized"):
+    get_file_from_public_drive()
 
 if __name__=="__main__":unittest.main()
