@@ -63,6 +63,22 @@ assert.ok(homeHtml.includes("CELEBRATIONS_STAGING_BACKEND=location.origin"),
 assert.ok(!homeHtml.includes("cdn.jsdelivr.net/npm/@supabase/supabase-js"));
 assert.ok(!adminHtml.includes("cdn.jsdelivr.net/npm/@supabase/supabase-js"));
 assert.match(await robots.text(),/Disallow: \/?/);
+const standaloneRoutes=["programme","mercredi","jeudi","vendredi","samedi",
+                        "dimanche","apres-celebration"];
+for(const slug of standaloneRoutes){
+ const res=await call("/"+slug+"/");
+ assert.equal(res.status,200,"Public standalone route "+slug+" must load");
+ assert.match(res.headers.get("x-robots-tag")||"",/noindex/,
+   "Standalone route must not be indexed");
+ const html=await res.text();
+ assert.ok(html.length>1500,"Standalone page empty");
+ assert.ok(html.includes("CELEBRATIONS_STAGING_BACKEND=location.origin"),
+   "Standalone route must activate Cloudflare bridge");
+ assert.ok(html.includes("migration/cloudflare/preview-client.js"),
+   "Standalone route must load Cloudflare client");
+ assert.ok(!html.includes("cdn.jsdelivr.net/npm/@supabase/supabase-js"),
+   "Standalone route must not boot Supabase SDK");
+}
 for(const route of ["/api/auth","/api/admin","/api/stats","/api/media-admin",
                       "/api/safe-save","/api/footer-admin","/api/participants-admin"]){
  const r=await call(route,"POST",{"Content-Type":"application/json"});
@@ -82,7 +98,7 @@ assert.equal(events.length,62);
 assert.equal(links.length,124);
 assert.equal(settings.length,1);
 const publicRows=await select("SELECT storage_path FROM public_media WHERE approved=1 AND revoked_at IS NULL");
-assert.equal(publicRows.length,112,"Published allowlist drift");
+assert.equal(publicRows.length,113,"112 original approved assets plus one recovered public PDF");
 const committee=await select("SELECT slug FROM committee_media WHERE published=1 AND revoked_at IS NULL");
 assert.equal(committee.length,9,"Committee invite count drift");
 let progress=0;
@@ -111,6 +127,7 @@ console.log("CÉLÉBRATIONS_READONLY_PRODUCTION_DATA_PREVIEW_PASS "+
  JSON.stringify({
   url:site,preview_only:true,
   public_media_http_200:progress,private_committee_slugs_http_200:committee.length,
+  standalone_public_routes_verified:standaloneRoutes.length,
   programme_contents:cards.length,events:events.length,
   event_content_relations:links.length,public_settings:settings.length,
   sensitive_table_http:invisible.status,
