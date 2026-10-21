@@ -1,0 +1,3 @@
+# CÉLÉBRATIONS — clarification d'autorisation S3
+
+La sélection de **121 médias, 766 989 338 octets** a réussi sans ambiguïté. La première copie a été interrompue automatiquement par une réponse R2 **ClientError immédiatement après le plan**, avant tout compteur de transfert. Reprise **une seule fois** après ajout de jalons d'accès R2 qui n'affichent ni clés privées, ni identifiants ni valeurs confidentielles. L'exécution reste strictement bornée au bucket R2 privé de production et aux 121 objets visibles ; aucun effacement ni changement DNS, Supabase ou D1. Si le contrôle confirme une limitation de permissions, s'arrêter et demander une autorisation distincte au propriétaire, sans contourner la restriction.
