@@ -1,0 +1,3 @@
+# CÉLÉBRATIONS — second contrôle de propagation du Worker de prévisualisation
+
+Le Worker indépendant celebrations-exit-preview-ro a été déployé avec des liaisons D1/R2 de production correctes, mais le test a rencontré un HTTP 404 immédiatement après la publication. Aucun accès Supabase ni mutation D1 n'a été effectué. Le test attend désormais de manière bornée la propagation Workers.dev, puis vérifie l'ensemble des 112 fichiers approuvés, les neuf liens comité, les tables publiques et le navigateur sans écriture. Aucune opération DNS, site public, production Worker final ou données originales.
