@@ -3,6 +3,7 @@
 // even if a visitor knows a valid Bearer token. Never attach a custom domain.
 import {handlePublicData} from "./public-data-api.mjs";
 import {handleMedia} from "./media-gateway.mjs";
+import {handleLegacyLink} from "./legacy-link-router.mjs";
 
 const noIndex=response=>{
  const headers=new Headers(response.headers);
@@ -18,6 +19,8 @@ export default {
   const {pathname}=new URL(request.url);
   if(request.method!=="GET"&&request.method!=="HEAD")
    return deny(405,"Lecture seule : aucune modification autorisée");
+  const legacy=await handleLegacyLink(request,env);
+  if(legacy)return noIndex(legacy);
   if(pathname==="/robots.txt")
    return noIndex(new Response("User-agent: *\nDisallow: /\n",{
     headers:{"content-type":"text/plain; charset=utf-8"}}));
