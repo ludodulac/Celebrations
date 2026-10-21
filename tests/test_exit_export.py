@@ -14,6 +14,7 @@ from scripts.audit_public_only_media import asset_audit
 from scripts.copy_selected_public_media_to_production import select_visible_paths
 from scripts.copy_selected_media_via_cloudflare_rest import rest_objects, object_url
 from scripts.copy_selected_with_scoped_production_key import credentials_for
+from scripts.import_public_programme_production_d1 import (PUBLIC_TABLES, COUNTS, canonical, signatures, insert_rows, column_names)
 def mocked_rows(rows,range_header=None):
  r=Mock()
  r.json.return_value=rows
@@ -523,5 +524,47 @@ class TestExport(unittest.TestCase):
       "CELEBRATIONS_PROD_R2_SECRET_ACCESS_KEY":"staging-secret"}):
    with self.assertRaisesRegex(ValueError,"improperly reused"):
     credentials_for("PROD")
+
+
+ def test_production_public_core_whitelist_and_order_are_safe(self):
+  self.assertEqual(len(PUBLIC_TABLES),9)
+  self.assertEqual(sum(COUNTS.values()),456)
+  self.assertEqual(PUBLIC_TABLES[0],"celebrations_celebrations")
+  self.assertEqual(PUBLIC_TABLES[-1],"celebrations_step_contents")
+  self.assertEqual(canonical({"has_cover":True,"text":"C'est l'été"}),{"has_cover":1,"text":"C'est l'été"})
+  with self.assertRaisesRegex(ValueError,"Duplicate"):
+   signatures("celebrations_contents",[{"id":"a"},{"id":"a"}])
+  with self.assertRaisesRegex(ValueError,"nested"):
+   canonical({"name":{"x":1}})
+  with self.assertRaisesRegex(ValueError,"NUL"):
+   canonical({"name":"unsafe\\x00value"})
+  with self.assertRaisesRegex(ValueError,"Inconsistent"):
+   column_names([{"id":"a"},{"id":"b","bad":"c"}])
+
+ def test_production_public_core_json_batch_can_roundtrip_unicode_quotes_and_booleans(self):
+  from unittest.mock import Mock
+  conn=sqlite3.connect(":memory:")
+  conn.execute('CREATE TABLE celebrations_groups("id" TEXT PRIMARY KEY, "name" TEXT, "sort_order" INTEGER, "is_system" INTEGER)')
+  class FakeCF:
+   def post(self,endpoint,json=None,timeout=None):
+    self_obj=Mock()
+    self_obj.raise_for_status.return_value=None
+    sql=json["sql"]
+    before=conn.total_changes
+    conn.execute(sql,json.get("params",[]))
+    written=conn.total_changes-before
+    self_obj.json.return_value={"success":True,"result":[{
+     "success":True,"results":[],"meta":{"rows_read":0,"rows_written":written}
+    }]}
+    return self_obj
+  values=[
+   {"id":"a","name":"L'été d'aujourd'hui","sort_order":1,"is_system":True},
+   {"id":"b","name":"Préparation — 守護","sort_order":2,"is_system":False}
+  ]
+  count,writes=insert_rows(FakeCF(),"https://cloudflare.invalid/query","celebrations_groups",values)
+  self.assertEqual((count,writes),(2,2))
+  self.assertEqual(conn.execute('SELECT id,name,sort_order,is_system FROM celebrations_groups ORDER BY sort_order').fetchall(),
+   [("a","L'été d'aujourd'hui",1,1),("b","Préparation — 守護",2,0)])
+  conn.close()
 
 if __name__=="__main__":unittest.main()
