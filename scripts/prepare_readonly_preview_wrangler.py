@@ -32,7 +32,7 @@ preview_urls = false
 [assets]
 directory = "../../production-public"
 binding = "ASSETS"
-run_worker_first = ["/", "/index.html", "/admin.html", "/admin", "/api/*", "/media/*", "/letter/*", "/robots.txt"]
+run_worker_first = true
 
 [[d1_databases]]
 binding = "DB"
