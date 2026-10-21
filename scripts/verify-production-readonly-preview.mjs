@@ -23,9 +23,24 @@ async function select(sql){
  assert.equal(Number(data.result[0].meta.rows_written),0);
  return data.result[0].results;
 }
-const [home,admin,bridge,robots]=await Promise.all([
- call("/"),call("/admin.html"),call("/migration/cloudflare/preview-client.js"),call("/robots.txt")
-]);
+// Brand-new workers.dev Worker deployments can take a short period to
+// propagate to edge DNS/routes; never infer application failure from the
+// first few 404 responses immediately after Wrangler exits.
+let home,admin,bridge,robots;
+let edgeReady=false;
+for(let attempt=1;attempt<=12;attempt++){
+ [home,admin,bridge,robots]=await Promise.all([
+  call("/"),call("/admin.html"),call("/migration/cloudflare/preview-client.js"),call("/robots.txt")
+ ]);
+ if([home,admin,bridge,robots].every(r=>r.status===200)){
+  edgeReady=true;break;
+ }
+ console.log("PRODUCTION_READONLY_PREVIEW_EDGE_RETRY "+JSON.stringify({
+  attempt,statuses:[home.status,admin.status,bridge.status,robots.status]
+ }));
+ await sleep(2500);
+}
+if(!edgeReady)throw Error("Worker edge static routes still unavailable after bounded retry");
 for(const [label,r] of [["home",home],["admin",admin],["bridge",bridge],["robots",robots]]){
  assert.equal(r.status,200,label+" unavailable");
  assert.match(r.headers.get("x-robots-tag")||"",/noindex/,label+" must not be indexed");
