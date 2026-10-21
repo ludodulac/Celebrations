@@ -13,6 +13,7 @@ from scripts.verify_production_database_schema import expected_tables, verify_ac
 from scripts.audit_public_only_media import asset_audit
 from scripts.copy_selected_public_media_to_production import select_visible_paths
 from scripts.copy_selected_media_via_cloudflare_rest import rest_objects, object_url
+from scripts.copy_selected_with_scoped_production_key import credentials_for
 def mocked_rows(rows,range_header=None):
  r=Mock()
  r.json.return_value=rows
@@ -503,5 +504,24 @@ class TestExport(unittest.TestCase):
   fake.get.side_effect=lambda *args,**kwargs:Mock(status_code=403)
   with self.assertRaisesRegex(RuntimeError,"LIST_DENIED"):
     rest_objects(fake,"00000000000000000000000000000001")
+
+
+ def test_scoped_prod_r2_credential_guard_prevents_reusing_staging_access(self):
+  import os
+  from unittest.mock import patch
+  with patch.dict(os.environ,{"STAGING_R2_ACCESS_KEY_ID":"staging-key",
+      "STAGING_R2_SECRET_ACCESS_KEY":"staging-secret",
+      "CELEBRATIONS_PROD_R2_ACCESS_KEY_ID":"production-only-key",
+      "CELEBRATIONS_PROD_R2_SECRET_ACCESS_KEY":"production-only-secret"}):
+   self.assertEqual(credentials_for("STAGING"),("staging-key","staging-secret"))
+   self.assertEqual(credentials_for("PROD"),("production-only-key","production-only-secret"))
+   with self.assertRaisesRegex(ValueError,"Unexpected"):
+    credentials_for("OTHER")
+  with patch.dict(os.environ,{"STAGING_R2_ACCESS_KEY_ID":"staging-key",
+      "STAGING_R2_SECRET_ACCESS_KEY":"staging-secret",
+      "CELEBRATIONS_PROD_R2_ACCESS_KEY_ID":"staging-key",
+      "CELEBRATIONS_PROD_R2_SECRET_ACCESS_KEY":"staging-secret"}):
+   with self.assertRaisesRegex(ValueError,"improperly reused"):
+    credentials_for("PROD")
 
 if __name__=="__main__":unittest.main()
