@@ -12,6 +12,7 @@ from scripts.provision_separate_production_free_resources import parse_d1_invent
 from scripts.verify_production_database_schema import expected_tables, verify_account_list
 from scripts.audit_public_only_media import asset_audit
 from scripts.copy_selected_public_media_to_production import select_visible_paths
+from scripts.copy_selected_media_via_cloudflare_rest import rest_objects, object_url
 def mocked_rows(rows,range_header=None):
  r=Mock()
  r.json.return_value=rows
@@ -477,5 +478,30 @@ class TestExport(unittest.TestCase):
   self.assertEqual(partition["review"],{"media/admin-only.pdf"})
   self.assertEqual(len(partition["missing"]),0)
   self.assertEqual(summary["destructive_deletions"],0)
+
+
+ def test_r2_rest_list_reads_all_pages_and_preserves_slashes_in_object_paths(self):
+  from unittest.mock import Mock
+  fake=Mock()
+  def answer(url,params=None,timeout=None):
+   obj=Mock()
+   obj.status_code=200
+   if params:
+    obj.json.return_value={"success":True,"result":[{"key":"media/photo.jpg","size":42}],
+      "result_info":{"is_truncated":False}}
+   else:
+    obj.json.return_value={"success":True,"result":[{"key":"committee/one.pdf","size":24}],
+      "result_info":{"is_truncated":True,"cursor":"synthetic-next"}}
+   return obj
+  fake.get.side_effect=answer
+  result=rest_objects(fake,"00000000000000000000000000000001")
+  self.assertEqual(result,{"committee/one.pdf":24,"media/photo.jpg":42})
+  self.assertEqual(fake.get.call_count,2)
+  fake.put.assert_not_called()
+  self.assertTrue(object_url("00000000000000000000000000000001","media/path with spaces.pdf").endswith(
+    "/media/path%20with%20spaces.pdf"))
+  fake.get.side_effect=lambda *args,**kwargs:Mock(status_code=403)
+  with self.assertRaisesRegex(RuntimeError,"LIST_DENIED"):
+    rest_objects(fake,"00000000000000000000000000000001")
 
 if __name__=="__main__":unittest.main()

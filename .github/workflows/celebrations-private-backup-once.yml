@@ -513,6 +513,46 @@ jobs:
       - name: Check public display set then copy protected assets only to PRIVATE production R2 and SHA256-verify
         run: python scripts/copy_selected_public_media_to_production.py
 
+  production-selected-media-rest-copy:
+    # Cloudflare official account REST object API for the NEW PRIVATE R2 bucket.
+    # Our original S3 key is scoped to staging and is never broadened.
+    if: ${{ github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && contains(github.event.head_commit.message, '[PUBLIC_MEDIA_REST_TO_PROD_ONCE]') }}
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    timeout-minutes: 55
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      PROD_D1_ID: 28736d2a-479b-472b-bf82-703ad0affe10
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+      STAGING_R2_ACCESS_KEY_ID: ${{ secrets.CELEBRATIONS_STAGING_R2_ACCESS_KEY_ID }}
+      STAGING_R2_SECRET_ACCESS_KEY: ${{ secrets.CELEBRATIONS_STAGING_R2_SECRET_ACCESS_KEY }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+    steps:
+      - name: Exact branch and environment only
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/feat/celebrations-supabase-exit-001"
+          test "$STAGING_R2_BUCKET" = "celebrations-exit-staging"
+          test "${SUPABASE_URL%/}" = "https://jwyayfkssyagvnablttg.supabase.co"
+          for name in SUPABASE_SERVICE_ROLE_KEY CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_API_TOKEN STAGING_D1_ID STAGING_R2_ACCESS_KEY_ID STAGING_R2_SECRET_ACCESS_KEY R2_ENDPOINT; do
+            test -n "${!name:-}" || { echo "Required protected access missing"; exit 1; }
+          done
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned source-read and REST transfer dependencies
+        run: python -m pip install 'requests==2.32.5' 'boto3==1.40.57'
+      - name: Validate private production REST rights, copy 121 selected objects, independently SHA256-verify
+        run: python scripts/copy_selected_media_via_cloudflare_rest.py
+
 # This archive is only one component of backup. It does NOT contain Storage
 # binaries, other apps' tables, roles, settings, or a transaction-wide snapshot.
 # Staging R2 is a private first copy, NOT an independent off-site backup.
