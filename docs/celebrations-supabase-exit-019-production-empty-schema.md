@@ -20,3 +20,27 @@ Le job n'est disponible qu'avec le commit `[PROD_SCHEMA_EMPTY_ONCE]` sur `feat/c
 **Non inclus :** copie des 158 médias, import des 12 170 lignes du backup, synchronisation des nouveaux clics, clés administrateur de production, Worker déployé, DNS Spaceship ou mise en ligne. Ces tâches requièrent des vérifications séparées. Aucune suppression de Supabase ou des services partagés.
 
 Statut initial : `PRODUCTION_D1_SCHEMA=PREPARED`. Toute revendication de réussite doit s'appuyer sur la véritable sortie du job GitHub Actions, pas sur la présence de ces fichiers.
+
+## Résultat réel — 21 octobre 2026
+
+[GitHub Actions #39583120235](https://github.com/ludodulac/Celebrations/actions/runs/39583120235) : **SUCCESS**.
+
+L'installation du schéma a été entièrement vérifiée :
+
+- Précontrôle : **0 table applicative** ; la seule table interne `_cf_KV` réservée à Cloudflare a été correctement ignorée sans suppression ni interrogation.
+- Installation du schéma métier : **32 instructions SQL**, 60 lignes D1 comptabilisées comme écrites pour ce lot.
+- Installation des ACL médias : **3 instructions SQL**, 8 lignes D1 écrites.
+- Postcontrôle : **19 tables applicatives** exactement. Les tables `celebrations_contents`, `celebrations_clicks` et `celebrations_participants` sont **vides**.
+- Base `celebrations-exit-production` en juridiction **EU** et bucket R2 distinct `celebrations-exit-production` en stockage **Standard** confirmés.
+- **Aucun Worker de production déployé, aucune modification DNS, aucune modification du site public, du staging ou de Supabase.**
+- Les deux essais préalables avaient été bloqués correctement par un contrôle trop strict qui comptait la table interne Cloudflare `_cf_KV`. Correction fondée sur la documentation officielle, puis installation réussie ; pas de données d'utilisateur touchées durant les essais.
+
+`PRODUCTION_INFRA_D1_R2_CREATED=YES`
+`PRODUCTION_D1_SCHEMA_19_TABLES=YES`
+`PRODUCTION_D1_INITIAL_APPLICATION_DATA_EMPTY=YES`
+`PRODUCTION_MEDIA_IMPORTED=NO`
+`PRODUCTION_WORKER_DEPLOYED=NO`
+`SPACESHIP_DNS_CHANGED=NO`
+`SUPABASE_PRESERVED=YES`
+
+**Prochaine opération avant mise en ligne :** transférer de manière privée les 158 objets et les données validées dans les nouveaux supports de production, vérifier les hash et volumes, déployer et tester le Worker sous une URL de test distincte, puis seulement envisager une bascule DNS avec l'accord du propriétaire. Aucune bascule automatique.
