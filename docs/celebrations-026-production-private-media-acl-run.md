@@ -1,0 +1,3 @@
+# CÉLÉBRATIONS — déclenchement contrôlé des ACL des 121 médias R2
+
+Le transfert des 121 fichiers R2 production est terminé, ainsi que les 456 lignes publiques en D1 EU. Sur la seule branche migration, contrôler les permissions et le quota Free avant toute nouvelle écriture D1. Relire l'inventaire Supabase et le R2 de production, puis créer uniquement 112 autorisations de lecture d'objets publics, 9 métadonnées d'invitations comité et leurs 9 correspondances par slug. Ne jamais autoriser un fichier sous `committee/` par un chemin public. Ne supprimer aucun média de Supabase ni de R2 staging, ne modifier aucun fichier dans R2 production, ne déployer aucun Worker et ne changer ni DNS, ni site actuel, ni branche `main`. Une défaillance arrête le job sans contournement.
