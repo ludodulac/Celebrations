@@ -49,6 +49,24 @@ try{
  assert.ok(await page.locator("#program").evaluate(e=>!e.classList.contains("hidden")));
  await page.locator('.celebration-inner-nav button[data-tab="library"]').first().click();
  assert.ok(await page.locator("#library").evaluate(e=>!e.classList.contains("hidden")));
+ const dayRoutes=["programme","mercredi","jeudi","vendredi","samedi",
+                  "dimanche","apres-celebration"];
+ for(const slug of dayRoutes){
+  const day=await page.goto(origin+"/"+slug+"/",{waitUntil:"domcontentloaded",timeout:45000});
+  assert.equal(day.status(),200,"Standalone day route unavailable");
+  await page.evaluate(()=>window.publicDataReady);
+  const state=await page.evaluate(()=>({
+    backend:window.CELEBRATIONS_STAGING_BACKEND,
+    celebrations:window.state?.celebrations?.length,
+    events:window.state?.events?.length,
+    contents:window.state?.contents?.length
+  }));
+  assert.equal(state.backend,origin,"Standalone day still uses source backend");
+  assert.equal(state.celebrations,4);
+  assert.equal(state.events,62);
+  assert.equal(state.contents,211);
+ }
+ result.standalone_day_browser_pages=dayRoutes.length;
  const adminResp=await page.goto(origin+"/admin.html",{waitUntil:"domcontentloaded",timeout:45000});
  assert.equal(adminResp.status(),200);
  await page.locator("#adminPasswordGate").waitFor({state:"visible",timeout:15000});
