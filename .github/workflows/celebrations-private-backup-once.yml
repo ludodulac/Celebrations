@@ -864,6 +864,25 @@ jobs:
         if: always()
         run: node scripts/check-staging-d1-free-budget.mjs post
 
+  historic-mailed-pdf-url-readonly-audit-once:
+    if: ${{ github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && contains(github.event.head_commit.message, '[LEGACY_LINKS_AUDIT_ONCE]') }}
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    timeout-minutes: 12
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      PROD_D1_ID: 28736d2a-479b-472b-bf82-703ad0affe10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check original emailed URLs and PDF responses (READ ONLY)
+        run: node scripts/audit-historic-mailed-pdf-host.mjs
+
 # This archive is only one component of backup. It does NOT contain Storage
 # binaries, other apps' tables, roles, settings, or a transaction-wide snapshot.
 # Staging R2 is a private first copy, NOT an independent off-site backup.
