@@ -45,3 +45,33 @@ Script `scripts/import_historic_stats_production_d1.py` :
 **Statut initial** `PROD_PRIVATE_ADMIN_STATS=PREPARED_NOT_EXECUTED`. Ne mettre `SUCCESS` qu'après le contrôle du vrai journal GitHub Actions `import-private-admin-account-and-stats-to-production-once`.
 
 **Non achevé par cette mission** : tests d'authentification réelle, transfert des nouveaux clics à la bascule, 31 références média source déjà manquantes, configuration des secrets admin production, lancement d'un Worker candidat et certification complète des pages.
+
+## Résultat réel — 21 octobre 2026, **SUCCESS**
+
+[GitHub Actions #39623399354](https://github.com/ludodulac/Celebrations/actions/runs/39623399354) : job `import-private-admin-account-and-stats-to-production-once` **SUCCESS**.
+
+### Données admin et compte, vérifiées dans la D1 privée de production
+- **1 compte participant original copié** ; parité complète des métadonnées, sels, questions et vérificateurs originaux sous enveloppe cryptographique **SHA256(PBKDF2)**. Aucun mot de passe réel n'a été lu/testé, aucun hash historique rejouable en clair copié.
+- **0 profil Supabase Auth**, **0 brouillon administratif** : source et cible sont toutes les deux vides.
+- **16 sessions admin et 1 session participant anciennes non importées** : elles restent uniquement sur le site original. **0 session nouvelle sur Cloudflare**.
+- **0 modification** du `auth.users` du projet Supabase partagé, du site public et des secrets administrateur. La nouvelle configuration de connexion administrateur **reste à valider séparément**, sans réutiliser un mot de passe en dur.
+
+### Statistiques, vérifiées dans la D1 privée de production
+- Un instantané de **11 738 clics/visites Supabase** a été transféré vers `celebrations_clicks` avec identifiants historiques négatifs `-1` à `-11738` (selon identifiants présents).
+- **11 738 sur 11 738 lignes relues et vérifiées champ par champ**, notamment horodatage UTC, type de consultation, éventuel identifiant pseudonyme de visiteur. Aucun détail individuel publié dans les logs.
+- **0 clic préexistant dans la destination** au précontrôle ; **23 476 écritures et 11 739 lectures** D1 internes déclarées par le job. L'Analytics de quota global (pré/post) affichait encore **1 689 lectures / 2 045 écritures** en raison de la latence du reporting ; cela ne doit pas masquer les opérations réellement comptabilisées par le moteur D1. Le total reste sous les plafonds quotidiens Free.
+- **Instantané non final** : le site Supabase demeure accessible et peut continuer à recevoir de nouveaux clics ; un delta de statistiques sera indispensable lors de la bascule réelle.
+
+### Confinement confirmé
+
+`PROD_HISTORIC_PARTICIPANT=VERIFIED_1`
+`PROD_HISTORIC_STATS=VERIFIED_11738_FULL_ROWS`
+`PROD_SESSIONS_MIGRATED=0`
+`SOURCE_SUPABASE_WRITES=0`
+`SOURCE_AUTH_USERS_MODIFIED=0`
+`GITHUB_MAIN_MODIFIED=0`
+`DNS_SPACESHIP_MODIFIED=0`
+`PUBLIC_WORKER_DEPLOYED=NO`
+`SOURCE_AND_R2_MEDIA_DELETIONS=0`
+
+Les 121 fichiers utiles en R2, 456 lignes éditoriales et 130 enregistrements de permissions restent intacts. Prochaine phase distincte : préparer les secrets/admin du Worker candidat puis le tester en prévisualisation, résoudre les références historiques aux médias absents et effectuer la synchronisation finale des nouveaux clics à la bascule ; ne pas annoncer le site finalisé pour le moment.
