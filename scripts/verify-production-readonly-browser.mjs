@@ -31,6 +31,17 @@ try{
  });
  const response=await page.goto(origin+"/",{waitUntil:"domcontentloaded",timeout:45000});
  assert.equal(response.status(),200);
+ await page.locator("img.welcome-autumn").waitFor({state:"visible",timeout:18000});
+ const welcome=await page.locator("img.welcome-autumn").evaluate(img=>({
+  src:new URL(img.currentSrc).pathname,
+  complete:img.complete,
+  width:img.naturalWidth,
+  height:img.naturalHeight
+ }));
+ assert.equal(welcome.src,"/media/media/1791723108110/file-1791723109615-1000040461.jpg");
+ assert.ok(welcome.complete&&welcome.width>0&&welcome.height>0,
+   "The original homepage image must actually render in Chromium");
+ result.homepage_image_loaded=true;
  await page.locator("#welcome-open-program").waitFor({state:"visible",timeout:20000});
  await page.evaluate(()=>window.publicDataReady);
  result.data=await page.evaluate(()=>({
