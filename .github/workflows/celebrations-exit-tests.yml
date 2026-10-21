@@ -48,6 +48,10 @@ on:
       - migration/cloudflare/production-worker.mjs
   pull_request:
     paths:
+      - scripts/build_production_assets.py
+      - scripts/verify-production-readonly-preview.mjs
+      - scripts/verify-production-readonly-browser.mjs
+      - .github/workflows/celebrations-exit-tests.yml
       - migration/**
       - tests/test-exit-media-gateway.mjs
       - tests/test-exit-footer-admin.mjs
@@ -68,6 +72,22 @@ jobs:
       - run: node --test tests/test-exit-readonly-preview.mjs tests/test-exit-production-candidate.mjs tests/test-exit-media-gateway.mjs tests/test-exit-public-data.mjs tests/test-exit-auth.mjs tests/test-exit-staging-integration.mjs tests/test-exit-preview-client.mjs tests/test-exit-client-isolation.mjs tests/test-exit-footer-admin.mjs tests/test-exit-legal-drafts.mjs tests/test-exit-participants-admin.mjs tests/test-exit-safe-save-sqlite.mjs tests/test-exit-stats.mjs tests/test-exit-participant-full.mjs tests/test-exit-media-admin.mjs tests/test-exit-d1-query-budget.mjs tests/test-exit-admin-lifecycle.mjs tests/test-exit-admin-ui-ids.mjs
       - run: python scripts/build_staging_assets.py
       - run: python scripts/build_production_assets.py
+      - name: Confirm all seven direct programme/day pages exclusively boot Cloudflare
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          d=Path("production-public")
+          days=("programme","mercredi","jeudi","vendredi","samedi","dimanche","apres-celebration")
+          for slug in days:
+              html=(d/slug/"index.html").read_text(encoding="utf-8")
+              assert html.count("window.CELEBRATIONS_STAGING_BACKEND=location.origin;")==1,slug
+              assert html.count('src="migration/cloudflare/preview-client.js"')==1,slug
+              assert "cdn.jsdelivr.net/npm/@supabase/supabase-js" not in html,slug
+              assert html.index("CELEBRATIONS_STAGING_BACKEND")<html.index('src="supabase-data.js'),slug
+              assert html.index('src="supabase-client.js')<html.index('src="migration/cloudflare/preview-client.js"')<html.index('src="public-universal-mode.js'),slug
+          print("CÉLÉBRATIONS_SEVEN_DIRECT_DAY_CLOUDFLARE_ONLY_BUILD_PASS")
+          PY
       - name: Prove production HTML boots Cloudflare on ordinary public URL
         run: |
           grep -Fq 'window.CELEBRATIONS_STAGING_BACKEND=location.origin' production-public/index.html
