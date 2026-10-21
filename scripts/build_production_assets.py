@@ -20,6 +20,20 @@ def main():
     if PRODUCTION.exists():
         shutil.rmtree(PRODUCTION)
     shutil.copytree(STAGING,PRODUCTION)
+    # The staging build substitutes the original homepage illustration with
+    # a staging-only R2 key. That file is NOT in the isolated production R2,
+    # so using this staging placeholder silently breaks the first image.
+    # The original JPG is already included in the 121 published production
+    # assets and protected by public_media; serve its exact original key.
+    homepage=PRODUCTION/"index.html"
+    html=homepage.read_text(encoding="utf-8")
+    legacy="/media/media/celebrations-staging-welcome-autumn-2026.jpg"
+    original="/media/media/1791723108110/file-1791723109615-1000040461.jpg"
+    if html.count(legacy)!=1:
+        raise RuntimeError("Unexpected staging-only homepage image reference")
+    if original in html:
+        raise RuntimeError("Original homepage image already present in generated candidate")
+    homepage.write_text(html.replace(legacy,original),encoding="utf-8")
     for name in ("index.html","admin.html"):
         p=PRODUCTION/name
         html=p.read_text(encoding="utf-8")
@@ -67,7 +81,7 @@ def main():
     bridge=PRODUCTION/"migration/cloudflare/preview-client.js"
     if not bridge.is_file():
         raise RuntimeError("Cloudflare bridge missing")
-    print("PRODUCTION_STATIC_ASSETS_OFFLINE_READY pages=9 backend=Cloudflare only deployment=NO dns_changes=0 d1_queries=0")
+    print("PRODUCTION_STATIC_ASSETS_OFFLINE_READY pages=9 original_homepage_image=RESTORED_FROM_ORIGINAL_PRIVATE_R2 backend=Cloudflare_only deployment=NO dns_changes=0 d1_queries=0")
 
 if __name__=="__main__":
     main()
