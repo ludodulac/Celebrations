@@ -1,0 +1,3 @@
+# CÉLÉBRATIONS — preuve non destructive pour les anciens PDF envoyés par email
+
+Exécuter une lecture seule sur les neuf slugs de PDF comité déjà stockés en D1 production. Vérifier pour chaque slug l'ancien hostname exact `celebrations.rondes.workers.dev/?lettre=...` et la réponse PDF Supabase originelle utilisée par cette ancienne page. Ne publier aucune valeur de slug, adresse personnelle ni URL d'invitation ; émettre seulement des comptes de succès/échec. Ce contrôle détermine si l'ancien hostname doit être redirigé/raccordé directement à Cloudflare R2 avant retrait de Supabase. Aucun DNS, aucun Worker, aucun fichier ni aucune base n'est modifié.
