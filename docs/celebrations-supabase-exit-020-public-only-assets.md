@@ -37,3 +37,27 @@ Contrôle SQL en lecture seule des relations réelles avec la base d'origine :
 Un lancement spécifique `[PUBLIC_ONLY_MEDIA_AUDIT_ONCE]` exécute ce script uniquement depuis la branche migration, avec la clé Supabase **en lecture seule dans la pratique** (GET REST + POST de liste Storage) et aucune connexion Cloudflare. Il ne copie ni n'efface aucun objet.
 
 **Ne pas créer encore de liste d'effacement automatique.** Publier le nombre exact de fichiers retenus et de candidats après audit, puis préparer une copie sélective avec contrôles exhaustifs et tests de navigation avant la bascule.
+
+## Résultat réel de l'audit de sélection — 21 octobre 2026
+
+GitHub Actions [run #39588866066](https://github.com/ludodulac/Celebrations/actions/runs/39588866066), job `public-only-media-audit` : **SUCCESS**.
+
+Agrégats confirmés directement sur les tables et la liste Storage originales via les API Supabase (lecture seule) :
+
+- 211 fiches source ; 108 liées au programme, 2 en Accueil, 75 candidates pour la galerie (certaines appartenant à plusieurs de ces groupes).
+- **153 fiches** classées comme publiques à protéger via ces mécanismes.
+- **121 des 158 objets physiques** sont protégés par au moins une référence du programme, de l'accueil, de la galerie, des images statiques, des illustrations spéciales ou des neuf invitations comité.
+- **37 des 158 objets physiques** n'ont pas de référence identifiée par cet audit et sont classés **À EXAMINER**, pas « supprimables sans vérification ».
+- **31 références de fichiers/couvertures protégées** ne correspondent pas à un objet présent sous leur chemin déclaré dans le bucket. Cela inclut les deux chemins rattachés à des rendez-vous déjà relevés (fichier d'un PDF et couverture d'un PDF) ; beaucoup d'autres sont des entrées historiques de la galerie. Ces problèmes préexistants doivent être distingués d'une perte de migration et vérifiés manuellement.
+- **0 effacement, 0 écriture Supabase, 0 copie/écriture Cloudflare, 0 appel D1**. Aucun chemin de fichier, adresse ou contenu confidentiel n'est présent dans les journaux publics.
+
+`SOURCE_STORAGE_OBJECTS=158`
+`PROTECTED_PHYSICAL_OBJECTS=121`
+`REVIEW_ONLY_PHYSICAL_OBJECTS=37`
+`PUBLIC_CARDS_PROTECTED=153`
+`MISSING_HISTORICAL_DECLARED_MEDIA_PATHS=31`
+`SAFE_TO_AUTO_DELETE_REVIEW_OBJECTS=NO`
+`PRODUCTION_SELECTIVE_COPY_ALREADY_EXECUTED=NO`
+`LIVE_SITE_UNMODIFIED=YES`
+
+**Décision de migration :** ne plus copier aveuglément les 158 fichiers dans la nouvelle R2 de production. Prévoir un manifest de conservation complet et révisé, valider les liens et affichages dans les 7 sections, l'Accueil et la Médiathèque, et copier sélectivement **après** revue des 37 candidats. Conserver les originaux Supabase et toutes les copies R2 staging tant que le nouvel environnement n'est pas certifié.
