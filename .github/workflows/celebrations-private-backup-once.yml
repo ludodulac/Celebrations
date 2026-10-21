@@ -390,6 +390,59 @@ jobs:
       - name: Create only empty, isolated EU D1 and private Standard R2 if permissions allow
         run: python scripts/provision_separate_production_free_resources.py
 
+  production-empty-schema-once:
+    # 19 EMPTY tables + indexes only. Never import source data, deploy Workers
+    # or modify the public domain. Must be explicitly triggered once.
+    if: ${{ github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && contains(github.event.head_commit.message, '[PROD_SCHEMA_EMPTY_ONCE]') }}
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    timeout-minutes: 12
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+      CELEBRATIONS_PROD_R2_BUCKET: celebrations-exit-production
+      CELEBRATIONS_STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      CELEBRATIONS_STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+    steps:
+      - name: Restrict to approved migration branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/feat/celebrations-supabase-exit-001"
+          test "$STAGING_R2_BUCKET" = "celebrations-exit-staging"
+          for k in CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_API_TOKEN STAGING_D1_ID; do
+            test -n "${!k:-}" || exit 1
+          done
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Guard account-wide Cloudflare Free D1 quota
+        run: node scripts/check-staging-d1-free-budget.mjs pre
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install private read-only identity validation dependency
+        run: python -m pip install 'requests==2.32.5'
+      - name: Prove production D1 EU identity, R2 Standard identity and zero existing tables
+        run: python scripts/verify_production_database_schema.py pre
+      - name: Install exact Wrangler v4
+        run: npm install --no-save --no-package-lock wrangler@4
+      - name: Generate ephemeral production bindings, never check in IDs
+        run: python scripts/prepare_production_wrangler.py
+      - name: Create 17 empty CÉLÉBRATIONS tables and indexes only in new production D1
+        working-directory: migration/cloudflare
+        run: npx wrangler d1 execute celebrations-exit-production --remote --config wrangler.production.toml --file celebrations-schema.sql
+      - name: Create 2 empty media ACL tables only in new production D1
+        working-directory: migration/cloudflare
+        run: npx wrangler d1 execute celebrations-exit-production --remote --config wrangler.production.toml --file media-acl.sql
+      - name: Independently verify 19 production D1 tables and no participant/programme data
+        run: python scripts/verify_production_database_schema.py post
+
 # This archive is only one component of backup. It does NOT contain Storage
 # binaries, other apps' tables, roles, settings, or a transaction-wide snapshot.
 # Staging R2 is a private first copy, NOT an independent off-site backup.
