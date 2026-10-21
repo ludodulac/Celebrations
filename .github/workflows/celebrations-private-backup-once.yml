@@ -596,6 +596,52 @@ jobs:
       - name: Copy only 121 confirmed public objects with private source and destination keys
         run: python scripts/copy_selected_with_scoped_production_key.py
 
+  import-public-programme-production-d1-once:
+    # Copy only the nine 456-row public editorial tables into the separate,
+    # PREVIOUSLY EMPTY production D1. No Worker, DNS or source writes.
+    if: ${{ github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && contains(github.event.head_commit.message, '[PROD_PUBLIC_PROGRAMME_D1_ONCE]') }}
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    timeout-minutes: 20
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+      PROD_D1_ID: 28736d2a-479b-472b-bf82-703ad0affe10
+    steps:
+      - name: Assert exact original source and private production-only database
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/feat/celebrations-supabase-exit-001"
+          test "${SUPABASE_URL%/}" = "https://jwyayfkssyagvnablttg.supabase.co"
+          test "$STAGING_R2_BUCKET" = "celebrations-exit-staging"
+          test "$PROD_D1_ID" != "$STAGING_D1_ID"
+          for key in SUPABASE_SERVICE_ROLE_KEY CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_API_TOKEN STAGING_D1_ID PROD_D1_ID; do
+            test -n "${!key:-}" || { echo "Required protected credential missing"; exit 1; }
+          done
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Guard account-wide D1 Free quotas BEFORE any D1 reads or writes
+        run: node scripts/check-staging-d1-free-budget.mjs pre
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned HTTPS library
+        run: python -m pip install 'requests==2.32.5'
+      - name: Copy source public programme to private EU production D1, verify all fields
+        run: python -m scripts.import_public_programme_production_d1
+      - name: Verify Cloudflare Free D1 budget AFTER public programme import
+        if: always()
+        run: node scripts/check-staging-d1-free-budget.mjs post
+
 # This archive is only one component of backup. It does NOT contain Storage
 # binaries, other apps' tables, roles, settings, or a transaction-wide snapshot.
 # Staging R2 is a private first copy, NOT an independent off-site backup.
