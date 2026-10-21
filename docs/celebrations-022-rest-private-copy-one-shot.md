@@ -1,0 +1,3 @@
+# CÉLÉBRATIONS — transfert sélectif autorisé une seule fois
+
+Le jeton S3 initial n'a pas les droits pour accéder au nouveau bucket production : conserver sa portée limitée au staging. **Utiliser uniquement l'API REST Cloudflare officielle**, avec le jeton existant et **si les droits de lecture, liste et écriture sont effectivement accordés**, pour copier les 121 objets nécessaires depuis le R2 staging privé vers le R2 production privé. SHA256 de chaque fichier avant/après, fichiers en RAM seulement, jamais en artifacts/logs. Les 37 candidats d'administration non visibles ne seront pas copiés. Refuser toute modification DNS, Worker public, D1, Supabase ou destruction de médias. En cas de permissions refusées, arrêter sans contourner ces permissions.
