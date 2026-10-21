@@ -33,3 +33,17 @@ Job volontaire readonly-production-data-preview-once sur la branche migration pa
 - Supabase étant partagé avec d'autres projets, ne jamais le supprimer.
 
 Ne déclarer SUCCESS qu'après lecture de l'exécution GitHub réelle.
+## Résultat réel confirmé le 21 octobre 2026
+
+GitHub Actions https://github.com/ludodulac/Celebrations/actions/runs/39644456141 : **SUCCESS**.
+
+- Worker autonome **https://celebrations-exit-preview-ro.rondes.workers.dev** déployé, sans route vers le vrai domaine et sans créer le Worker de production final.
+- **112/112 médias publics HTTP HEAD 200** avec ACL source prod ; **9/9 PDF comité sous slug HEAD 200** ; chemin comité brut et chemins inconnus renvoient 404.
+- **4 célébrations, 62 événements, 211 fiches, 124 relations et 1 réglage public** confirmés depuis la nouvelle D1.
+- Tous les endpoints mutateurs POST (dont admin, login et stats) refusent les écritures ; API participants non accessible par GET (404).
+- Site mobile Chromium : l'Accueil, le Programme et la Médiathèque ont été affichés sans erreur JavaScript et **sans aucune requête Supabase**. L'écran admin est verrouillé ; aucun accès admin authentifié testé à cette étape.
+- Tous les actifs servis portent **noindex** et **no-store** ; robots.txt interdit l'indexation.
+- Cloudflare Free : quotas globaux consultés avant/après, sans dépassement. Zéro écriture D1 ou R2, zéro statistique enregistrée pendant les essais.
+- Le premier essai renvoyait 404 juste après la première publication ; le deuxième relevait la redirection canonique 307 de /admin.html vers /admin. La vérification a été corrigée pour suivre cette redirection sur **la même origine** ; l'exécution finale est SUCCESS. Ces erreurs n'étaient pas une corruption du site.
+
+**Étapes restantes :** restauration ciblée/qualification des références média source déjà cassées, administration réelle et flux mutateurs en environnement réversible, nouvelle sauvegarde et sync finale au moment du gel des écritures, puis accord pour DNS Spaceship/DNSSEC. **AUCUNE AUTORISATION DE BASCULE DNS.**
