@@ -75,7 +75,7 @@ def main(mode):
     if b.get("result",{}).get("storage_class")!="Standard":
         raise RuntimeError("Production R2 must use Standard class")
     response=session.post(root+"/d1/database/"+prod_id+"/query",
-      json={"sql":"SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"},
+      json={"sql":"SELECT name FROM sqlite_master WHERE type='table' AND name NOT GLOB 'sqlite_*' AND name NOT GLOB '_cf_*' ORDER BY name"},
       timeout=25)
     response.raise_for_status()
     body=response.json()
