@@ -16,6 +16,8 @@ from scripts.copy_selected_media_via_cloudflare_rest import rest_objects, object
 from scripts.copy_selected_with_scoped_production_key import credentials_for
 from scripts.import_public_programme_production_d1 import (PUBLIC_TABLES, COUNTS, canonical, signatures, insert_rows, column_names)
 from scripts.import_private_r2_public_media_acl_d1 import canonical as canonical_acl, insert_selected as insert_acl
+from scripts.import_private_admin_accounts_production_d1 import converted_participant, EXPECTED as EXPECTED_PRIVATE
+from scripts.import_historic_stats_production_d1 import equal_row,source_snapshot,insert_clicks
 def mocked_rows(rows,range_header=None):
  r=Mock()
  r.json.return_value=rows
@@ -597,6 +599,65 @@ class TestExport(unittest.TestCase):
   self.assertEqual(insert_acl(SafeFakeCF(),"https://cloudflare.invalid","public_media",[a]),1)
   self.assertEqual(conn.execute('SELECT storage_path,approved FROM public_media').fetchall(),
     [("media/sample.jpg",1)])
+  conn.close()
+
+
+ def test_account_hashes_are_not_replayable_and_sessions_excluded(self):
+  import hashlib
+  src={
+   "email":"example@invalid.test","password_salt":"0123456789abcdef0123456789abcdef",
+   "password_hash":"a"*64,"answer_1_hash":"b"*64,"answer_2_hash":"c"*64,
+   "question_1":"first_school","question_2":"fictional_character",
+   "answer_1_salt":"z"*32,"answer_2_salt":"x"*32,
+   "recovery_failed_count":0,"recovery_locked_until":None,
+   "created_at":"2026-09-01T00:00:00Z","registered_at":"2026-09-01T00:00:00Z",
+   "updated_at":"2026-09-01T00:00:00Z","audience":"all"
+  }
+  dst=converted_participant(src)
+  self.assertEqual(dst["password_salt"],"client180:"+src["password_salt"])
+  for name in ("password_hash","answer_1_hash","answer_2_hash"):
+   self.assertEqual(dst[name],hashlib.sha256(src[name].encode("ascii")).hexdigest())
+   self.assertNotEqual(dst[name],src[name])
+  self.assertEqual(src["password_hash"],"a"*64)
+  self.assertEqual(EXPECTED_PRIVATE,{"celebrations_participants":1,
+                                    "celebrations_footer_drafts":0,
+                                    "celebrations_user_profiles":0})
+  with self.assertRaisesRegex(ValueError,"Unexpected"):
+   converted_participant({**src,"password_salt":"client180:another-salt"})
+  with self.assertRaisesRegex(ValueError,"Unexpected"):
+   converted_participant({**src,"answer_2_hash":"not-a-hash"})
+
+ def test_stats_preserve_all_fields_and_timestamp_instant(self):
+  from scripts.import_historic_stats_production_d1 import COLUMNS
+  row={c:None for c in COLUMNS}
+  row.update({"id":-3,"clicked_at":"2026-10-21T16:00:00+00:00","target_kind":"page-view"})
+  same={**row,"clicked_at":"2026-10-21T18:00:00+02:00"}
+  self.assertTrue(equal_row(row,same))
+  self.assertFalse(equal_row(row,{**same,"visitor_id":"changed"}))
+  self.assertFalse(equal_row(row,{**same,"clicked_at":"not a date"}))
+  self.assertFalse(equal_row(row,{**same,"id":-4}))
+
+ def test_private_stats_sql_write_only_whitelisted_table_and_json_params(self):
+  from scripts.import_historic_stats_production_d1 import COLUMNS
+  from unittest.mock import Mock
+  conn=sqlite3.connect(":memory:")
+  conn.execute('CREATE TABLE celebrations_clicks ("id" INTEGER PRIMARY KEY,'+
+      ','.join('"'+c+'" TEXT' for c in COLUMNS if c!="id")+')')
+  class CF:
+   def post(self,endpoint,json=None,timeout=None):
+    x=Mock()
+    x.raise_for_status.return_value=None
+    before=conn.total_changes
+    conn.execute(json["sql"],json["params"])
+    x.json.return_value={"success":True,"result":[
+        {"success":True,"results":[],"meta":{"rows_read":0,"rows_written":conn.total_changes-before}}
+    ]}
+    return x
+  click={c:None for c in COLUMNS}
+  click.update({"id":-7,"clicked_at":"2026-10-21T00:00:00Z",
+                "target_kind":"page-view","visitor_id":"synthetic-visitor"})
+  self.assertEqual(insert_clicks(CF(),"https://cloudflare.invalid/query",[click]),1)
+  self.assertEqual(conn.execute('SELECT id,visitor_id FROM celebrations_clicks').fetchall(),[(-7,"synthetic-visitor")])
   conn.close()
 
 if __name__=="__main__":unittest.main()
