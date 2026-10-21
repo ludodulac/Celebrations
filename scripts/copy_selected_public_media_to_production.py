@@ -167,9 +167,21 @@ def main():
     # Requires a credential authorized to READ the existing staging bucket and
     # WRITE new isolated private production bucket. If scoped to staging alone,
     # HEAD/GET/List fail closed without changing permissions.
-    r2.head_bucket(Bucket=BUCKET_SOURCE)
-    r2.head_bucket(Bucket=BUCKET_DEST)
-    require_empty_target(r2)
+    try:
+        r2.head_bucket(Bucket=BUCKET_SOURCE)
+    except ClientError:
+        raise RuntimeError("R2_STAGING_SOURCE_BUCKET_ACCESS_DENIED") from None
+    print("SELECTIVE_R2_ACCESS staging_read=OK",flush=True)
+    try:
+        r2.head_bucket(Bucket=BUCKET_DEST)
+    except ClientError:
+        raise RuntimeError("R2_PRODUCTION_BUCKET_ACCESS_DENIED") from None
+    print("SELECTIVE_R2_ACCESS production_bucket=OK",flush=True)
+    try:
+        require_empty_target(r2)
+    except ClientError:
+        raise RuntimeError("R2_PRODUCTION_LIST_PERMISSION_DENIED") from None
+    print("SELECTIVE_R2_ACCESS production_bucket_initially_empty=YES",flush=True)
     counts=collections.Counter()
     verified_bytes=0
     for number,k in enumerate(included,1):
@@ -220,6 +232,12 @@ def main():
 if __name__=="__main__":
     try:main()
     except BaseException as error:
+        whitelist={"R2_STAGING_SOURCE_BUCKET_ACCESS_DENIED",
+                   "R2_PRODUCTION_BUCKET_ACCESS_DENIED",
+                   "R2_PRODUCTION_LIST_PERMISSION_DENIED",
+                   "Production bucket is not empty; refusing to overwrite"}
+        check=str(error) if str(error) in whitelist else "OTHER_NONDISCLOSED"
         print("SELECTIVE_R2_PRODUCTION_COPY_STOP category="+
-              type(error).__name__,file=sys.stderr)
+              type(error).__name__+" checkpoint="+
+              check.replace(" ","_"),file=sys.stderr)
         raise SystemExit(1)
