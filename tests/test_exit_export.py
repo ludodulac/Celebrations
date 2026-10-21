@@ -570,6 +570,7 @@ class TestExport(unittest.TestCase):
 
 
  def test_private_media_allowlist_keeps_slugged_committee_pdfs_separate(self):
+  # Missing composite key fields fail closed with a scrubbed ValueError.
   a={"storage_path":"media/sample.jpg","approved":1,"approved_at":None,"revoked_at":None}
   b={"slug":"sample-invitation-uuid","storage_path":"committee/private.pdf",
      "published":1,"created_at":"2026-10-21T00:00:00Z","revoked_at":None}
