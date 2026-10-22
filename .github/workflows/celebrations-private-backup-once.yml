@@ -1173,6 +1173,8 @@ jobs:
         run: node scripts/mission06_audit_legacy_worker.mjs
       - name: Check global D1 Free quota
         run: node scripts/check-staging-d1-free-budget.mjs pre
+      - name: Create allowlisted public snapshot (exclude Git metadata and internal CI files)
+        run: python scripts/mission06_prepare_public_assets.py
       - name: Build isolated bridge configuration from pinned original assets
         run: |
           python scripts/mission06_generate_wrangler.py preview
