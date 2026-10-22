@@ -42,14 +42,26 @@ for(let attempt=0;attempt<15;attempt++){
  await new Promise(done=>setTimeout(done,1500));
 }
 assert.ok(ready,"Legacy bridge Worker did not become ready with original homepage");
+const fresh=async(path,{method="GET",redirect="manual",timeout=25000}={})=>{
+ for(let retry=0;retry<20;retry++){
+  const response=await fetch(origin+path,{method,redirect,signal:AbortSignal.timeout(timeout)});
+  if(response.headers.get("x-celebrations-legacy-pdf-bridge")==="mission06-safe-v2")
+   return response;
+  // The historic hostname may temporarily serve its previous assets-only version
+  // from another edge point even after the new homepage has propagated.
+  try{await response.arrayBuffer()}catch{}
+  await new Promise(done=>setTimeout(done,1200));
+ }
+ throw Error("Cloudflare edge did not serve the updated historic bridge for this route");
+};
 for(const [route,file] of staticRoutes){
- const r=await fetch(origin+route,{redirect:"follow",signal:AbortSignal.timeout(20000)});
+ const r=await fresh(route,{redirect:"follow",timeout:20000});
  assert.equal(r.status,200,"Historic static route unavailable");
  assert.equal(hex(Buffer.from(await r.arrayBuffer())),hex(readFileSync("legacy-main/"+file)),
   "Historic public static bytes changed");
 }
 for(const restricted of ["/.git/HEAD","/.github/workflows/pages.yml","/scripts/copy_supabase_media_to_r2.py","/tests/test_copy_supabase_media_to_r2.py"]){
- const r=await fetch(origin+restricted,{redirect:"manual",signal:AbortSignal.timeout(15000)});
+ const r=await fresh(restricted,{timeout:15000});
  assert.equal(r.headers.get("x-celebrations-legacy-pdf-bridge"),"mission06-safe-v2","Wrong Worker version on sensitive route");
  // An SPA fallback may legitimately return the PUBLIC index with HTTP 200.
  // It must never return the corresponding private Git/CI file.
@@ -62,11 +74,11 @@ let checked=0;
 for(const slug of slugs){
  assert.match(slug,/^[\p{L}\p{N}_-]{8,159}$/u);
  const path="/?lettre="+encodeURIComponent(slug);
- const head=await fetch(origin+path,{method:"HEAD",redirect:"manual",signal:AbortSignal.timeout(25000)});
+ const head=await fresh(path,{method:"HEAD",timeout:25000});
  assert.equal(head.status,200,"Old emailed URL not serving PDF");
  assert.match(head.headers.get("content-type")||"",/application\/pdf/i);
  assert.equal(head.headers.get("location"),null,"Old emailed URL redirected");
- const r=await fetch(origin+path,{redirect:"manual",signal:AbortSignal.timeout(25000)});
+ const r=await fresh(path,{timeout:25000});
  assert.equal(r.status,200);
  assert.equal(r.headers.get("location"),null);
  const bytes=Buffer.from(await r.arrayBuffer());
@@ -80,15 +92,13 @@ for(const slug of slugs){
  assert.equal(hex(bytes),hex(original),"R2 PDF differs bytewise from historic Supabase letter");
  checked++;
 }
-const missing=await fetch(origin+"/?lettre=not-a-valid-historical-slug",{
- method:"HEAD",redirect:"manual",signal:AbortSignal.timeout(15000)});
+const missing=await fresh("/?lettre=not-a-valid-historical-slug",{method:"HEAD",timeout:15000});
 assert.equal(missing.status,404,"Unknown private invitation must remain inaccessible");
-const post=await fetch(origin+"/?lettre=not-a-valid-historical-slug",{
- method:"POST",redirect:"manual",signal:AbortSignal.timeout(15000)});
+const post=await fresh("/?lettre=not-a-valid-historical-slug",{method:"POST",timeout:15000});
 assert.equal(post.status,405,"Legacy PDF URLs must reject POST");
 let redirects=0;
 for(const path of ["/communique","/rituel-court","/rituel-long","/preparation"]){
- const x=await fetch(origin+path,{redirect:"manual",signal:AbortSignal.timeout(15000)});
+ const x=await fresh(path,{timeout:15000});
  assert.equal(x.status,302,"Historical Drive link redirect unavailable");
  assert.ok((x.headers.get("location")||"").startsWith("https://drive.google.com/file/d/"));
  redirects++;
