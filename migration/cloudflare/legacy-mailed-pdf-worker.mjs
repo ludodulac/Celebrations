@@ -7,6 +7,10 @@ export default {
  async fetch(request,env){
   const legacy=await handleLegacyLink(request,env);
   if(legacy)return legacy;
+  // Never expose Git repository files, CI configuration or maintenance scripts.
+  const pathname=new URL(request.url).pathname;
+  if(/^\/(?:\.git|\.github|scripts|tests|migration|node_modules)(?:\/|$)/.test(pathname))
+   return new Response("Not found",{status:404,headers:{"cache-control":"no-store"}});
   if(!env.ASSETS)return new Response("Site temporairement indisponible",{status:503});
   return env.ASSETS.fetch(request);
  }
