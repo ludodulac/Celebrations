@@ -78,6 +78,22 @@ def main():
             "cdn.jsdelivr.net/npm/@supabase/supabase-js" in html):
             raise RuntimeError("Standalone public day still contains legacy Supabase bootstrap")
         p.write_text(html,encoding="utf-8")
+    # The public programme creates /preparation via history.pushState.
+    # The old checkout has no preparation/index.html and an obsolete _redirects
+    # alias previously sent direct browser visits to Google Drive. Build an
+    # actual standalone Préparation page, using the same verified Cloudflare
+    # bootstrap as the other programme pages; NEVER change GitHub main.
+    preparation=PRODUCTION/"preparation"/"index.html"
+    preparation.parent.mkdir(parents=True,exist_ok=True)
+    if preparation.exists():
+        raise RuntimeError("Unexpected pre-existing Préparation source page")
+    page=(PRODUCTION/"programme"/"index.html").read_text(encoding="utf-8")
+    old_title="<title>Célébrations des Archanges — Programme</title>"
+    if page.count(old_title)!=1:
+        raise RuntimeError("Unexpected programme HTML title")
+    preparation.write_text(page.replace(old_title,
+        "<title>Célébrations des Archanges — Préparation</title>"),
+        encoding="utf-8")
     bridge=PRODUCTION/"migration/cloudflare/preview-client.js"
     if not bridge.is_file():
         raise RuntimeError("Cloudflare bridge missing")
