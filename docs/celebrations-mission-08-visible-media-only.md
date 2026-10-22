@@ -24,3 +24,19 @@ Script `scripts/mission08_visible_only_media_audit.py`, exclusivement en lecture
 ## État
 
 Lancement du contrôle réel avec déclencheur opt-in. Résultat à documenter d'après GitHub Actions, avant de déclarer la mission terminée.
+
+## Résultat réel vérifié — 22 octobre 2026
+
+**PASS — [GitHub Actions #39800612532](https://github.com/ludodulac/Celebrations/actions/runs/39800612532)**, job `mission08-visible-only-media-audit` SUCCESS, contrôles D1 Free pré/post SUCCESS, aucune modification du site en production.
+
+Résultat `MISSION08_VISIBLE_ONLY_SOURCE_REFERENCE_AUDIT` obtenu à partir de la vraie source Supabase, de la vraie D1 migrée et de l'URL Cloudflare de prévisualisation :
+- **211 fiches source** et **158 objets d'origine** contrôlés ; les **31 chemins manquants** existaient **déjà avant la migration**.
+- **30 chemins** concernent d'anciennes images de la galerie. Le composant réel `hydrateGalleryImages` **supprime la fiche au lieu de l'afficher** lorsque `getMedia` ne renvoie pas une image : il ne s'agit pas de 30 images visibles, donc **aucune récupération/retouche à effectuer** sur demande du propriétaire.
+- **1 chemin** correspond au PDF du programme du jeudi « Pardon des Offenses — version raccourcie », véritable référence **cliquable**, déjà restaurée depuis la source Drive du propriétaire lors de la mission 029. **HTTP HEAD 200, `application/pdf` confirmé** dans la prévisualisation.
+- **Aucun chemin manquant** dans les contenus d'accueil ni les couvertures ; **aucune référence manquante non classifiée**. L'unique contenu relié au programme dont le fichier source n'existait pas est ce PDF, désormais servi sur Cloudflare.
+- **113/113 médias publiés/autorisé D1 répondent HTTP HEAD 200** sur `celebrations-exit-preview-ro.rondes.workers.dev`. Les **9 PDF historiques de comité** sont inchangés et ont été vérifiés séparément lors de la mission 06.
+- D1 quota Free : snapshots avant/après = 110 021 lectures, 1 059 écritures, largement sous les limites. Cette mission ne réalise aucune écriture SQL, Supabase, R2, Worker, DNS ni GitHub `main`.
+
+**Décision : mission 08 VALIDÉE pour le périmètre réellement visible dans les écrans actuels.** Ne pas tenter de « réparer » les 30 anciennes images sans binaire, puisqu'elles ne sont pas affichées ; ne pas supprimer non plus leurs fiches/source, car l'administration peut encore en conserver les métadonnées. Les **37 objets non publiés en R2 production** restent préservés dans les stockages Supabase et R2 staging (aucune purge). Ne pas refaire les gros transferts.
+
+Les vérifications de navigation réelle complètes avant bascule appartiennent à la mission 09 (site public) et aux tests finaux 13–14. **Aucune bascule du domaine officiel** autorisée par la mission 08.
