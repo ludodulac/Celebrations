@@ -956,6 +956,50 @@ jobs:
         if: always()
         run: node scripts/check-staging-d1-free-budget.mjs post
 
+  isolated-staging-admin-crud-roundtrip-once:
+    # Mission 03: real Cloudflare staging admin create -> edit -> unlink ->
+    # delete using random synthetic IDs, with guaranteed narrow final cleanup.
+    # No PRODUCTION D1/R2, no user records, Supabase, legacy PDF host or DNS.
+    if: ${{ github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && contains(github.event.head_commit.message, '[MISSION03_ADMIN_CRUD_STAGING_ONCE]') }}
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    timeout-minutes: 18
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+      STAGING_SYNTHETIC_SAVE_WRITE: '1'
+      STAGING_SYNTHETIC_DELETE_WRITE: '1'
+    steps:
+      - name: Require exact migration branch and isolated staging bucket
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/feat/celebrations-supabase-exit-001'
+          test "$STAGING_R2_BUCKET" = 'celebrations-exit-staging'
+          test -n "$STAGING_D1_ID"
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Reserve D1 Free budget across whole Cloudflare account
+        run: node scripts/check-staging-d1-free-budget.mjs pre
+      - name: Install pinned HTTP client
+        run: python -m pip install 'requests==2.32.5'
+      - name: Create, modify, unlink and delete ephemeral admin records, then revoke session
+        run: python scripts/verify-staging-authenticated-admin.py
+      - name: Recheck account-wide D1 Free quota
+        if: always()
+        run: node scripts/check-staging-d1-free-budget.mjs post
+
 # This archive is only one component of backup. It does NOT contain Storage
 # binaries, other apps' tables, roles, settings, or a transaction-wide snapshot.
 # Staging R2 is a private first copy, NOT an independent off-site backup.
