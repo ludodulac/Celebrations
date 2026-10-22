@@ -42,3 +42,7 @@ Tous ces contrôles sont **des preuves historiques à la date de chaque run**, e
 - Étape 9 : **PREPARED / PARTIAL** ; ne pas certifier `PASS` jusqu'à fermeture de G1–G8.
 - **Aucune bascule vers Cloudflare**, aucun changement sur `main`, aucun arrêt de Supabase, aucune publication de brouillon, aucun changement DNS.
 - Prochaine mission sûre : vérifier la solution de sauvegarde privée chiffrée et la possibilité d'une restauration réelle isolée, puis préparer la fenêtre de gel et le delta final. La preuve d'un test synthétique n'est pas une sauvegarde réelle.
+
+## Mise à jour du périmètre — décision du propriétaire du 22 octobre 2026
+
+Seules les pages, actions et ressources réellement présentes ou accessibles par liens dans le site public sont dans le périmètre de migration, avec les neuf liens PDF déjà partagés expressément préservés en mission 06. Les quatre anciens raccourcis non référencés `/communique`, `/rituel-court`, `/rituel-long`, `/preparation` **ne sont PAS des prérequis** et leur 404 sur le domaine officiel **ne peut PAS bloquer la migration**. Ne consacrer aucun temps, quota ou correctif à ces routes non utilisées. Cela ne lève aucun des blocages de sécurité G1–G8 ; ne pas confondre l'exclusion de ces liens avec l'autorisation de basculer.
