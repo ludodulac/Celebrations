@@ -1140,6 +1140,56 @@ jobs:
       - name: Compare historical Worker actual public file bytes and inspect script metadata
         run: node scripts/mission06_audit_legacy_worker.mjs
 
+
+  mission06-bridge-preview-verification:
+    # A new independent Workers.dev hostname; historic "celebrations" UNCHANGED.
+    if: ${{ github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && contains(github.event.head_commit.message, '[MISSION06_BRIDGE_QA_ONCE]') }}
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    timeout-minutes: 18
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+      PROD_D1_ID: 28736d2a-479b-472b-bf82-703ad0affe10
+      MISSION06_MODE: preview
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: 4b5edd9c19ce989af2eae33445017dd30fcbbe92
+          path: legacy-main
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify original assets-only Worker really is recoverable
+        run: node scripts/mission06_audit_legacy_worker.mjs
+      - name: Check global D1 Free quota
+        run: node scripts/check-staging-d1-free-budget.mjs pre
+      - name: Build isolated bridge configuration from pinned original assets
+        run: |
+          python scripts/mission06_generate_wrangler.py preview
+          grep -Fx 'name = "celebrations-legacy-links-qa"' migration/cloudflare/wrangler.mission06.preview.toml
+          grep -Fx 'run_worker_first = true' migration/cloudflare/wrangler.mission06.preview.toml
+          if grep -Eq '(^|[[:space:]])(route|routes|zone_id|custom_domain)[[:space:]]*=' migration/cloudflare/wrangler.mission06.preview.toml; then exit 1; fi
+      - name: Install Wrangler 4
+        run: npm install --no-save --no-package-lock wrangler@4
+      - name: Deploy ONLY preview Worker, never the historic hostname
+        working-directory: migration/cloudflare
+        run: npx wrangler deploy --config wrangler.mission06.preview.toml
+      - name: Verify 9 PDFs byte-for-byte and unchanged original public assets over HTTP
+        run: node scripts/mission06_verify_bridge.mjs
+      - name: Recheck global Cloudflare D1 Free quota
+        if: always()
+        run: node scripts/check-staging-d1-free-budget.mjs post
+
 # This archive is only one component of backup. It does NOT contain Storage
 # binaries, other apps' tables, roles, settings, or a transaction-wide snapshot.
 # Staging R2 is a private first copy, NOT an independent off-site backup.
