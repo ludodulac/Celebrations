@@ -1418,6 +1418,91 @@ jobs:
         if: always()
         run: node scripts/check-staging-d1-free-budget.mjs post
 
+
+  mission10-historic-admin-settings-legal-qa:
+    # Site-visible-only: real admin statistics/committee/settings/legal pages.
+    # Only separately named Cloudflare preview/QA Workers, no public domain,
+    # no customer-data writes, no Supabase writes, and no GitHub main changes.
+    if: ${{ github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && contains(github.event.head_commit.message, '[MISSION10_ADMIN_STATS_LEGAL_ONCE]') }}
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    timeout-minutes: 27
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+      PROD_D1_ID: 28736d2a-479b-472b-bf82-703ad0affe10
+      CELEBRATIONS_ADMIN_PASSWORD: ${{ secrets.CELEBRATIONS_ADMIN_PASSWORD }}
+      MISSION10_ADMIN_BROWSER_AUDIT: '1'
+    steps:
+      - name: Fail closed without independent Cloudflare scope and owner's protected admin secret
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/feat/celebrations-supabase-exit-001"
+          test "$STAGING_R2_BUCKET" = "celebrations-exit-staging"
+          test "$PROD_D1_ID" = "28736d2a-479b-472b-bf82-703ad0affe10"
+          test "$PROD_D1_ID" != "$STAGING_D1_ID"
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          test "${#CELEBRATIONS_ADMIN_PASSWORD}" -ge 14
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify global Free D1 remaining quota
+        run: node scripts/check-staging-d1-free-budget.mjs pre
+      - name: Unit-test actual admin statistics and protected legal behavior
+        run: |
+          node --test tests/test-exit-stats.mjs tests/test-exit-footer-admin.mjs tests/test-exit-legal-drafts.mjs tests/test-exit-readonly-preview.mjs tests/test-exit-production-candidate.mjs
+          python scripts/build_production_assets.py
+          for f in mentions-legales confidentialite cookies; do
+            grep -Fq 'CELEBRATIONS_STAGING_BACKEND=location.origin' "production-public/$f.html"
+          done
+      - name: Install pinned Worker deploy, real Chromium and HTTPS client
+        run: |
+          npm install --no-save --no-package-lock wrangler@4 playwright@1.58.2
+          npx playwright install --with-deps chromium
+          python -m pip install 'requests==2.32.5'
+      - name: Regenerate two isolated Workers config without custom domain routes
+        run: |
+          set -euo pipefail
+          python scripts/prepare_readonly_preview_wrangler.py
+          python scripts/prepare_editable_candidate_wrangler.py
+          grep -Fx 'name = "celebrations-exit-preview-ro"' migration/cloudflare/wrangler.readonly-preview.toml
+          grep -Fx 'name = "celebrations-exit-editable-qa"' migration/cloudflare/wrangler.editable-qa.toml
+          if grep -Eq '(^|[[:space:]])(route|routes|zone_id|custom_domain)[[:space:]]*=' migration/cloudflare/wrangler.readonly-preview.toml migration/cloudflare/wrangler.editable-qa.toml; then
+            echo "Custom domain deployment forbidden"; exit 1
+          fi
+      - name: Deploy ONLY the existing separate read-only public preview Worker
+        working-directory: migration/cloudflare
+        run: npx wrangler deploy --config wrangler.readonly-preview.toml
+      - name: Audit historic stats, private account counts, 9 committee and legal visibility in D1
+        run: node scripts/mission10_readonly_admin_data.mjs
+      - name: Verify no old Supabase calls on real legal/public browser pages
+        run: node scripts/mission10_public_legal_browser.mjs
+      - name: Deploy ONLY separate QA admin Worker with temporary protected hash
+        shell: bash
+        working-directory: migration/cloudflare
+        run: |
+          set -euo pipefail
+          secret_file="$(mktemp)"
+          chmod 600 "$secret_file"
+          trap 'rm -f "$secret_file"' EXIT
+          python ../../scripts/make_admin_worker_secrets.py "$secret_file"
+          npx wrangler deploy --config wrangler.editable-qa.toml --secrets-file "$secret_file"
+      - name: Verify real admin login, historic stats, committee links, three legal editors
+        run: python -m scripts.verify_editable_admin_candidate
+      - name: Check D1 Free account budget after all guarded tests
+        if: always()
+        run: node scripts/check-staging-d1-free-budget.mjs post
+
 # This archive is only one component of backup. It does NOT contain Storage
 # binaries, other apps' tables, roles, settings, or a transaction-wide snapshot.
 # Staging R2 is a private first copy, NOT an independent off-site backup.
