@@ -1004,6 +1004,62 @@ jobs:
         if: always()
         run: node scripts/check-staging-d1-free-budget.mjs post
 
+
+  isolated-staging-admin-media-roundtrip-once:
+    # Mission 04: test uploads+view+edit+delete on strictly staging D1/R2.
+    # Uses disposable UUID-scoped assets; never uses production D1/R2 or links.
+    if: ${{ github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && contains(github.event.head_commit.message, '[MISSION04_MEDIA_R2_STAGING_ONCE]') }}
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+      STAGING_SYNTHETIC_BROWSER_MEDIA_WRITE: '1'
+      STAGING_SYNTHETIC_MEDIA_WRITE: '1'
+    steps:
+      - name: Fail closed unless exactly staging Worker and isolated resources
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/feat/celebrations-supabase-exit-001"
+          test "$STAGING_R2_BUCKET" = "celebrations-exit-staging"
+          test -n "$STAGING_D1_ID"
+          test "$STAGING_D1_ID" != "28736d2a-479b-472b-bf82-703ad0affe10"
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Refuse any test targeting the production hostname
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'https://celebrations-exit-staging.rondes.workers.dev' scripts/verify-staging-media-roundtrip.mjs
+          grep -Fq 'https://celebrations-exit-staging.rondes.workers.dev' scripts/verify-staging-browser-file-upload.mjs
+          grep -Fq 'https://celebrations-exit-staging.rondes.workers.dev' scripts/verify-staging-authenticated-admin.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Require Cloudflare D1 Free capacity across the account
+        run: node scripts/check-staging-d1-free-budget.mjs pre
+      - name: Install pinned Python HTTP client
+        run: python -m pip install 'requests==2.32.5'
+      - name: Install Chromium for actual mobile admin PDF upload
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Upload PDF via admin form, image/PDF/audio/text via API, verify R2 and delete
+        run: python scripts/verify-staging-authenticated-admin.py
+      - name: Verify remaining account-wide Cloudflare Free quota
+        if: always()
+        run: node scripts/check-staging-d1-free-budget.mjs post
+
 # This archive is only one component of backup. It does NOT contain Storage
 # binaries, other apps' tables, roles, settings, or a transaction-wide snapshot.
 # Staging R2 is a private first copy, NOT an independent off-site backup.
