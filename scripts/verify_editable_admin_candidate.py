@@ -107,8 +107,13 @@ def main():
             result=(payload.get("result") or [{}])[0]
             if (payload.get("success") is not True or
                 result.get("success") is not True or
-                int((result.get("meta") or {}).get("rows_written",-1))!=1):
+                not 1<=int((result.get("meta") or {}).get("rows_written",-1))<=5):
                 raise RuntimeError("Temporary admin session cleanup could not be proved")
+            lingering,_,_=query(cf,endpoint,
+                "SELECT count(*) AS n FROM celebrations_admin_sessions WHERE token_hash=?",
+                [token_hash])
+            if lingering!=[{"n":0}]:
+                raise RuntimeError("Temporary QA admin session not revoked")
             print("CELEBRATIONS_QA_ADMIN_SESSION_REVOKED verified=YES")
 
 
