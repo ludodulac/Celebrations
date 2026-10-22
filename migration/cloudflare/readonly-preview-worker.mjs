@@ -19,7 +19,10 @@ export default {
   const {pathname}=new URL(request.url);
   if(request.method!=="GET"&&request.method!=="HEAD")
    return deny(405,"Lecture seule : aucune modification autorisée");
-  const legacy=await handleLegacyLink(request,env);
+  // /preparation is a REAL programme-day route, unlike old unused redirects.
+  // The historic mailed-PDF Worker keeps its old aliases untouched.
+  const isPreparationPage=pathname==="/preparation"||pathname==="/preparation/";
+  const legacy=isPreparationPage?null:await handleLegacyLink(request,env);
   if(legacy)return noIndex(legacy);
   if(pathname==="/robots.txt")
    return noIndex(new Response("User-agent: *\nDisallow: /\n",{
