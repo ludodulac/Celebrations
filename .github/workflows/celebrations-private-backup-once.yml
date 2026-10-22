@@ -1434,6 +1434,7 @@ jobs:
       STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
       PROD_D1_ID: 28736d2a-479b-472b-bf82-703ad0affe10
       CELEBRATIONS_ADMIN_PASSWORD: ${{ secrets.CELEBRATIONS_ADMIN_PASSWORD }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       MISSION10_ADMIN_BROWSER_AUDIT: '1'
     steps:
       - name: Fail closed without independent Cloudflare scope and owner's protected admin secret
