@@ -29,3 +29,7 @@ Test opt-in lancé sur la branche migration ; résultat réel à consigner d'apr
 Le builder précédent ne remplaçait l'ancien bootstrap Supabase que pour les sept pages `programme`, `mercredi` à `dimanche`, et `apres-celebration`. Les entrées réelles `bibliotheque/index.html` et `apres-la-ronde/index.html` étaient encore copiées avec l'ancien SDK ; le chargement isolé de ces URLs aurait pu reparler à Supabase. Leur bootstrap est maintenant traité comme celui des autres pages (Cloudflare-only), avec rejet si l'ancien SDK subsiste. Le programme Préparation est généré après la transformation pour réutiliser cette base sûre. Aucun changement du site officiel.
 
 Le test est déclenché depuis le nouvel état du code (les correctifs sont compris dans le commit qui porte le marqueur ci-dessous).
+
+## Premier contrôle CI : endpoints PASS, ajustement de synchronisation du test image
+
+[run #39806822747](https://github.com/ludodulac/Celebrations/actions/runs/39806822747) : les tests unitaires ont réussi, le Worker Cloudflare indépendant a été déployé, et la **vérification HTTP de toutes les 10 pages et des 113 médias** a réussi. Le navigateur a rencontré une erreur **dans le script de test** : sa lecture de `img.currentSrc` pouvait précéder le chargement effectif de l'image (`Invalid URL`). Le test attend maintenant `complete && naturalWidth>0 && currentSrc` avant de construire l'URL, sans réduire aucun contrôle visuel. Nouveau job de navigation déclenché ci-dessous, toujours sans toucher au domaine officiel.
