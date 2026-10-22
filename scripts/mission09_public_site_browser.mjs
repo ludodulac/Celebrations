@@ -61,14 +61,16 @@ try{
    const home=await page.goto(origin+"/",{waitUntil:"domcontentloaded",timeout:45000});
    assert.equal(home.status(),200,"Home not HTTP 200");
    await page.locator("#welcome-open-program").waitFor({state:"visible",timeout:20000});
+   await page.waitForFunction(()=>{
+    const img=document.querySelector("img.welcome-autumn");
+    return !!img&&img.complete&&img.naturalWidth>0&&!!img.currentSrc;
+   },null,{timeout:25000});
    const image=await page.locator("img.welcome-autumn").evaluate(img=>({
     naturalWidth:img.naturalWidth,complete:img.complete,
-    src:new URL(img.currentSrc).pathname
+    src:new URL(img.currentSrc,location.href).pathname
    }));
-   if(!image.complete||!image.naturalWidth){
-    await page.waitForFunction(()=>document.querySelector("img.welcome-autumn")?.naturalWidth>0,{timeout:18000});
-   }
-   assert.ok(image.src.startsWith("/media/media/"),"Homepage image not R2");
+   assert.ok(image.src.startsWith("/media/media/")&&image.naturalWidth>0,
+     "Homepage image not loaded from original R2");
    await page.evaluate(()=>window.publicDataReady);
    await page.waitForFunction(()=>window.publicShellReady===true,null,{timeout:20000});
    const info=await page.evaluate(()=>({
@@ -79,13 +81,13 @@ try{
    }));
    assert.deepEqual(info,{backend:origin,celebrations:4,events:62,contents:211},
      "Public D1 content did not fully load");
+   console.log("MISSION09_BROWSER_STAGE "+JSON.stringify({viewport:viewport.label,stage:"home_pass"}));
    await page.locator("#welcome-open-program").click();
    await page.locator(".celebration-inner-nav").waitFor({state:"visible",timeout:15000});
    assert.ok(await page.locator(".celebration-title-copy h1").first().isVisible(),
      "Celebration title missing");
    const nav=page.locator(".celebration-inner-nav button[data-tab]");
    assert.equal(await nav.count(),3,"Accueil / Programme / Médiathèque missing");
-   await nav.filter({has:page.locator('[data-tab="program"]')}).count().catch(()=>{});
    await page.locator('.celebration-inner-nav button[data-tab="program"]').click();
    assert.ok(await page.locator("#program").isVisible(),"Programme button not functional");
    const days=page.locator("#program .days [data-day]");
@@ -105,6 +107,7 @@ try{
     assert.equal(path,"/"+slug,"Clicking a site day generated a broken URL");
     clickedDays++;dayUrlChecks++;
    }
+   console.log("MISSION09_BROWSER_STAGE "+JSON.stringify({viewport:viewport.label,stage:"all_seven_days_pass"}));
    await page.locator('.celebration-inner-nav button[data-tab="info"]').click();
    assert.ok(await page.locator("#info").isVisible(),"Celebration Accueil not functional");
    await page.locator('.celebration-inner-nav button[data-tab="library"]').click();
@@ -135,6 +138,7 @@ try{
    assert.ok(gallerySummary.visibly_rendered>0,"Gallery has no working real images");
    assert.equal(gallerySummary.images_with_invalid_sources,0,"Broken images displayed in gallery");
 
+   console.log("MISSION09_BROWSER_STAGE "+JSON.stringify({viewport:viewport.label,stage:"gallery_pass"}));
    const pdf=await page.request.head(origin+restored);
    assert.equal(pdf.status(),200,"Thursday published PDF does not open");
    assert.match(pdf.headers()["content-type"]||"",/application\/pdf/);
@@ -159,6 +163,7 @@ try{
     directOk++;
    }
 
+   console.log("MISSION09_BROWSER_STAGE "+JSON.stringify({viewport:viewport.label,stage:"ten_direct_routes_pass"}));
    const adminResponse=await page.goto(origin+"/admin.html",{
     waitUntil:"domcontentloaded",timeout:45000
    });
