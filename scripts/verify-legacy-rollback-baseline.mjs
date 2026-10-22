@@ -18,12 +18,12 @@ assert.ok(html.includes("welcome-open-program")&&html.includes("Ronde des Archan
  "Legacy public homepage mismatch");
 const addr=await lookup(DOMAIN,{all:true});
 assert.ok(addr.length>=1,"No public DNS resolution");
-const pagesFlow=await request("https://api.github.com/repos/ludodulac/Celebrations/actions/runs?branch=main&per_page=12");
+const pagesFlow=await request("https://api.github.com/repos/ludodulac/Celebrations/actions/workflows/pages.yml/runs?branch=main&per_page=100");
 assert.equal(pagesFlow.status,200,"Cannot verify GitHub Pages deployment history");
 const runs=(await pagesFlow.json()).workflow_runs||[];
 assert.ok(runs.some(x=>x.path===".github/workflows/pages.yml"&&
  x.head_sha===EXPECTED_MAIN&&x.conclusion==="success"),
- "No successful Pages deployment recorded for the fallback main SHA");
+ "No successful GitHub Pages workflow for the pinned fallback main SHA");
 console.log("CELEBRATIONS_LEGACY_ROLLBACK_BASELINE_READONLY_PASS "+
  JSON.stringify({public_domain_200:true,legacy_pages_commit:EXPECTED_MAIN,
   public_dns_resolves:true,pages_deployed_main_verified:true,
