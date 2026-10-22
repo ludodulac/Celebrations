@@ -59,5 +59,17 @@ console.log("MISSION06_ORIGINAL_WORKER_PREFLIGHT "+JSON.stringify({
 }));
 if(matches.some(x=>!x.same_main_bytes))
  throw Error("Historic Cloudflare Worker content differs from current GitHub main; do not overwrite");
-if(!source.present||!settings.success)
- throw Error("Cannot read and back up the currently deployed Worker script/settings; stop before cutover");
+// The original "celebrations" is an ASSETS-ONLY Worker: Cloudflare GET
+// /workers/scripts/celebrations returns HTTP 204 by design, because there is
+// no uploaded JS source. The original recoverable asset build is GitHub main.
+const originalAssetsOnly=(source.http_status===204&&!source.present&&
+ settings.success&&Array.isArray(settings.bindings)&&settings.bindings.length===0&&
+ settings.compatibility_date==="2026-09-22"&&matches.every(x=>x.same_main_bytes));
+if(!source.present&&!originalAssetsOnly)
+ throw Error("Cannot recover original Worker from pinned main and settings; do not overwrite");
+console.log("MISSION06_ROLLBACK_BASELINE_PASS "+JSON.stringify({
+ historic_assets_only:originalAssetsOnly,old_script_http:source.http_status,
+ recoverable_git_main:"4b5edd9c19ce989af2eae33445017dd30fcbbe92",
+ original_static_equality:matches.length,dns_changed:false,
+ old_worker_modified:false
+}));
