@@ -59,7 +59,7 @@ def main():
     # staging builds only replaced the SDK on index/admin; leaving these seven
     # pages intact would silently reconnect visitors to Supabase after cutover.
     day_pages=("programme","mercredi","jeudi","vendredi","samedi",
-               "dimanche","apres-celebration")
+               "dimanche","apres-celebration","bibliotheque","apres-la-ronde")
     sdk='<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>'
     source='<script src="supabase-data.js?v=8"></script>'
     client='<script src="supabase-client.js?v=1"></script>'
