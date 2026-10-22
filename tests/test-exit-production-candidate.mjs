@@ -31,7 +31,7 @@ test("fully editable isolated QA wrapper prevents public indexing and retains le
  assert.equal(help.status,302);
  assert.match(help.headers.get("location")||"",/^https:\/\/drive.google.com\//);
  const badInvite=await qa.fetch(new Request(root+"/?lettre=definitely-not-an-invite"),{
-   ...env,MEDIA_ACL:{prepare(){return {bind(){return {first:async()=>null}}}}}
+   ...env,MEDIA_BUCKET:{},MEDIA_ACL:{prepare(){return {bind(){return {first:async()=>null}}}}}
  });
  assert.equal(badInvite.status,404);
 });
