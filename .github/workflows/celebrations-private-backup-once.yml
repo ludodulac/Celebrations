@@ -1060,6 +1060,60 @@ jobs:
         if: always()
         run: node scripts/check-staging-d1-free-budget.mjs post
 
+
+  isolated-staging-participant-auth-roundtrip-once:
+    # Mission 05: exactly ONE synthetic participant. Never modify existing accounts.
+    # Protect production D1/R2, legacy PDF hostname, Supabase source and official DNS.
+    if: ${{ github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && contains(github.event.head_commit.message, '[MISSION05_PARTICIPANT_STAGING_ONCE]') }}
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    timeout-minutes: 18
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+      STAGING_SYNTHETIC_PARTICIPANT_WRITE: '1'
+    steps:
+      - name: Require strictly isolated staging database and Worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/feat/celebrations-supabase-exit-001"
+          test "$STAGING_R2_BUCKET" = "celebrations-exit-staging"
+          test -n "$STAGING_D1_ID"
+          test "$STAGING_D1_ID" != "28736d2a-479b-472b-bf82-703ad0affe10"
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Confirm participant test endpoints only target isolated staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'https://celebrations-exit-staging.rondes.workers.dev' scripts/verify-staging-participant-roundtrip.mjs
+          grep -Fq 'https://celebrations-exit-staging.rondes.workers.dev' scripts/verify-staging-authenticated-admin.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Reserve D1 Free daily quota across Cloudflare account
+        run: node scripts/check-staging-d1-free-budget.mjs pre
+      - name: Install pinned Python HTTPS client
+        run: python -m pip install 'requests==2.32.5'
+      - name: Install Chromium for real login in public staging browser
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Test account registration, login, category, recovery, logout and exact cleanup
+        run: python scripts/verify-staging-authenticated-admin.py
+      - name: Check account-wide D1 Free quota after test
+        if: always()
+        run: node scripts/check-staging-d1-free-budget.mjs post
+
 # This archive is only one component of backup. It does NOT contain Storage
 # binaries, other apps' tables, roles, settings, or a transaction-wide snapshot.
 # Staging R2 is a private first copy, NOT an independent off-site backup.
