@@ -1611,6 +1611,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Take baseline of shared Free D1 quota (NO D1 SQL)
+        run: node scripts/check-staging-d1-free-budget.mjs pre
       - name: Inventory current real public DNS, email SPF/MX/DMARC, DNSSEC DS
         run: node scripts/mission12_dns_email_readonly.mjs
       - name: Prove old official site and successful immutable GitHub Pages rollback baseline
