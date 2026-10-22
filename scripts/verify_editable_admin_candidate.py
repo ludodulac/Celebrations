@@ -13,6 +13,7 @@ import re
 import sys
 import time
 import requests
+import subprocess
 
 from scripts.import_public_programme_production_d1 import check_env, query
 
@@ -96,6 +97,11 @@ def main():
             "programme_and_r2_edits":0,
             "original_password_never_stored_on_github":True,
         },sort_keys=True))
+        if os.getenv("MISSION10_ADMIN_BROWSER_AUDIT") == "1":
+            safe_env = dict(os.environ)
+            safe_env["MISSION10_ADMIN_BEARER"] = bearer
+            subprocess.run(["node", "scripts/mission10_admin_qa_browser.mjs"],
+                           check=True, timeout=130, env=safe_env)
     finally:
         if bearer:
             token_hash=hashlib.sha256(bearer.encode("ascii")).hexdigest()
