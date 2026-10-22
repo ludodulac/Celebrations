@@ -1,0 +1,3 @@
+# CÉLÉBRATIONS — Mission 03, test réel staging CRUD sans modification du site officiel
+
+Tester **exclusivement** sur D1 staging `celebrations-exit-staging`, sous session admin synthétique courte, les opérations créer → modifier → dissocier → supprimer, vérifier le résultat de chaque étape, puis détruire tous les enregistrements synthétiques et révoquer la session. Les noms/id de test sont aléatoires et distincts des données utilisateur. Vérifier les quotas D1 Free avant et après. Ne pas toucher D1/R2 production, ancien Worker PDF, Supabase, DNS, GitHub main ou les comptes existants. Les missions 1–2 de QA admin modifiable restent conditionnées par le mot de passe dans le secret GitHub `CELEBRATIONS_ADMIN_PASSWORD`, jamais dans la conversation.
