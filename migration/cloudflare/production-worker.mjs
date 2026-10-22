@@ -14,7 +14,10 @@ import {handleStats} from "./stats-api.mjs";
 export default {
  async fetch(request,env){
   const url=new URL(request.url),path=url.pathname;
-  const legacy=await handleLegacyLink(request,env);
+  // The displayed Préparation day links to /preparation via client routing.
+  // Never hijack this actual site page as an orphan Google Drive alias.
+  const isPreparationPage=path==="/preparation"||path==="/preparation/";
+  const legacy=isPreparationPage?null:await handleLegacyLink(request,env);
   if(legacy)return legacy;
   if(path.startsWith("/media/")||path.startsWith("/letter/"))return handleMedia(request,env);
   if(path==="/api/auth")return handleAuth(request,env);
