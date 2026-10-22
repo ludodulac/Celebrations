@@ -40,3 +40,6 @@ console.log("MISSION07_OFFICIAL_SHORTLINK_CHAIN_SUMMARY "+JSON.stringify({
  correct_redirects:ok,expected:4,public_domain_modified:false,
  dns_modified:false,supabase_modified:false,cloudflare_d1_rows_read:0
 }));
+if(process.env.MISSION07_REQUIRE_OFFICIAL_SHORTLINKS==="1")
+ assert.equal(ok,4,"CUTOVER BLOCKED: four historic official-domain Drive links must reach their exact destinations");
+
