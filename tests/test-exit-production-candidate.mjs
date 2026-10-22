@@ -35,3 +35,20 @@ test("fully editable isolated QA wrapper prevents public indexing and retains le
  });
  assert.equal(badInvite.status,404);
 });
+
+test("published Préparation programme route remains navigable inside site",async()=>{
+ const touched=[];
+ const env={ASSETS:{async fetch(req){
+  touched.push(new URL(req.url).pathname);
+  return new Response("<html>Programme Préparation</html>",{
+   status:200,headers:{"content-type":"text/html"}
+  });
+ }}};
+ for(const route of ["/preparation","/preparation/"]){
+  const r=await worker.fetch(new Request("https://candidate.invalid"+route),env);
+  assert.equal(r.status,200);
+  assert.equal(r.headers.get("location"),null);
+  assert.match(await r.text(),/Préparation/);
+ }
+ assert.deepEqual(touched,["/preparation","/preparation/"]);
+});
