@@ -51,3 +51,22 @@ La vérification a été renforcée : elle exige maintenant le marqueur `mission
 ## QA après correction — PASS
 
 Nouveau [GitHub Actions #39788800505](https://github.com/ludodulac/Celebrations/actions/runs/39788800505) : **SUCCESS**, neuf PDF délivrés directement, identiques octet pour octet à Supabase, cinq ressources originales identiques, quatre redirections Drive conservées, rejets de chemins internes, quotas D1 contrôlés. Vérification renforcée par URL avec contrôle systématique de la version Worker réellement déployée. L'ancien site reste restauré en assets-only depuis le précédent essai ; seconde tentative autorisée uniquement sur le hostname historique, avec même rollback immédiat en cas d'échec.
+
+## MISSION 06 — RÉSULTAT FINAL : PASS sur le hostname historique
+
+**Date : 22 octobre 2026. Preuve réelle : [GitHub Actions #39788990671](https://github.com/ludodulac/Celebrations/actions/runs/39788990671), job `mission06-switch-historic-worker-with-rollback` = SUCCESS.**
+
+Le déploiement ciblé du Worker **`celebrations`** sur **`https://celebrations.rondes.workers.dev`** est réussi. La vérification finale a donné `MISSION06_NINE_LEGACY_PDFS_REAL_HTTP_PASS` avec `mode=historic`, distinct des succès antérieurs sur le simple hostname QA.
+
+- **9/9 URL exactes déjà envoyées :** `https://celebrations.rondes.workers.dev/?lettre=<slug-original>`, réponse directe `HTTP 200 application/pdf`, **sans redirection**, sans changer le slug ou le hostname.
+- **9/9 contenus PDF identiques octet pour octet** à la version Supabase originale, après relecture réelle de R2 privée via contrôle D1 `committee_media`.
+- **5/5 fichiers originaux du site ancien identiques octet pour octet** au code historique GitHub `main` épinglé, y compris la page d'accueil et la page d'administration.
+- **4/4 anciens raccourcis Google Drive** renvoient leur redirection prévue.
+- Une URL de lettre inconnue renvoie **404** ; POST interdit **405** ; actifs techniques hors site non exposés, package public autorisé.
+- Contrôle de quota D1 Free pré/post **PASS** ; **aucune mutation D1/R2** pour cette mise en relation.
+- Le *rollback automatique* était prêt mais **n'a pas été déclenché** lors de cette dernière exécution, tous les tests post-déploiement ayant réussi.
+- Aucun changement du domaine officiel, du DNS de Spaceship, de GitHub `main`, de l'ancienne fonction Supabase ou des autres Workers. La bascule définitive du site n'est PAS réalisée.
+
+**Compatibilité importante :** les **neuf liens historiques présents dans D1** sont désormais servis depuis R2 même sans appeler l'ancienne Edge Function Supabase. **Les URL pointant directement vers le hostname `supabase.co` dépendent encore de la fonction Supabase** (mission 07). Si des *nouvelles* invitations de comité sont créées dans l'administration Supabase avant la dernière synchronisation, leur slug ne sera pas encore en D1 Cloudflare : **ne pas diffuser de nouveaux liens de ce type avant de les synchroniser/vérifier**, pour éviter des liens 404. Ce scénario relève de la politique de synchronisation/compatibilité à traiter séparément, pas des neuf anciennes URL vérifiées ici.
+
+**Décision : MISSION 06 = PASS.** Mission 07 non commencée sans autorisation du propriétaire.
