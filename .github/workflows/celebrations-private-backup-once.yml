@@ -1572,6 +1572,56 @@ jobs:
         if: always()
         run: node scripts/check-staging-d1-free-budget.mjs post
 
+
+  mission12-dns-email-rollback-readonly:
+    # No DNS writes, no account switch, no deploy, no Pages/source mutation.
+    # A full DNS zone encrypted backup is attempted only if an existing
+    # authorized Cloudflare zone can be read. Never fabricate registrar access.
+    if: ${{ github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && contains(github.event.head_commit.message, '[MISSION12_DNS_ROLLBACK_READONLY_ONCE]') }}
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    timeout-minutes: 13
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+      STAGING_R2_ACCESS_KEY_ID: ${{ secrets.CELEBRATIONS_STAGING_R2_ACCESS_KEY_ID }}
+      STAGING_R2_SECRET_ACCESS_KEY: ${{ secrets.CELEBRATIONS_STAGING_R2_SECRET_ACCESS_KEY }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      CELEBRATIONS_BACKUP_PASSPHRASE: ${{ secrets.CELEBRATIONS_BACKUP_PASSPHRASE }}
+    steps:
+      - name: Refuse unknown account and any public-zone write scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/feat/celebrations-supabase-exit-001"
+          test "$STAGING_R2_BUCKET" = "celebrations-exit-staging"
+          test "$STAGING_D1_ID" = "0f761662-241f-42cc-ac94-5c68b4aa7797"
+          for v in CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_API_TOKEN CELEBRATIONS_BACKUP_PASSPHRASE STAGING_R2_ACCESS_KEY_ID STAGING_R2_SECRET_ACCESS_KEY R2_ENDPOINT; do
+            test -n "${!v:-}" || exit 1
+          done
+          test "${#CELEBRATIONS_BACKUP_PASSPHRASE}" -ge 32
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Inventory current real public DNS, email SPF/MX/DMARC, DNSSEC DS
+        run: node scripts/mission12_dns_email_readonly.mjs
+      - name: Prove old official site and successful immutable GitHub Pages rollback baseline
+        run: node scripts/verify-legacy-rollback-baseline.mjs
+      - name: Inventory Cloudflare account resources and attempt complete encrypted DNS backup if zone authorized
+        run: |
+          python -m pip install 'requests==2.32.5' 'cryptography==46.0.4' 'boto3==1.40.57'
+          python scripts/audit_preproduction_resources_and_dns.py
+      - name: Confirm quota reserve even though no D1 queries are performed
+        run: node scripts/check-staging-d1-free-budget.mjs post
+
 # This archive is only one component of backup. It does NOT contain Storage
 # binaries, other apps' tables, roles, settings, or a transaction-wide snapshot.
 # Staging R2 is a private first copy, NOT an independent off-site backup.
