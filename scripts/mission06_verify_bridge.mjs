@@ -29,11 +29,28 @@ assert.equal(slugs.length,9);
 const hex=x=>createHash("sha256").update(x).digest("hex");
 const staticRoutes=[["/","index.html"],["/index.html","index.html"],["/admin.html","admin.html"],
 ["/styles.css","styles.css"],["/admin-committee-links.js","admin-committee-links.js"]];
+// A brand-new workers.dev route can be briefly unavailable while it propagates.
+let ready=false;
+for(let attempt=0;attempt<15;attempt++){
+ try{
+  const home=await fetch(origin+"/",{redirect:"follow",signal:AbortSignal.timeout(12000)});
+  if(home.status===200){
+   const bytes=Buffer.from(await home.arrayBuffer());
+   if(hex(bytes)===hex(readFileSync("legacy-main/index.html"))){ready=true;break}
+  }
+ }catch{}
+ await new Promise(done=>setTimeout(done,1500));
+}
+assert.ok(ready,"Legacy bridge Worker did not become ready with original homepage");
 for(const [route,file] of staticRoutes){
  const r=await fetch(origin+route,{redirect:"follow",signal:AbortSignal.timeout(20000)});
  assert.equal(r.status,200,"Historic static route unavailable");
  assert.equal(hex(Buffer.from(await r.arrayBuffer())),hex(readFileSync("legacy-main/"+file)),
   "Historic public static bytes changed");
+}
+for(const restricted of ["/.git/HEAD","/.github/workflows/pages.yml","/scripts/copy_supabase_media_to_r2.py","/tests/test_copy_supabase_media_to_r2.py"]){
+ const r=await fetch(origin+restricted,{redirect:"manual",signal:AbortSignal.timeout(15000)});
+ assert.equal(r.status,404,"Sensitive repository internals must not be served");
 }
 let checked=0;
 for(const slug of slugs){
