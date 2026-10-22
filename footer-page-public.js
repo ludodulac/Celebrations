@@ -8,8 +8,9 @@ function footerPageHtml(text){return String(text||'').split(/\n/).map(line=>{con
  try{
   let rows;
   // Legal links may omit ?staging=1; the isolated staging hostname is authoritative.
-  if(location.hostname==='celebrations-exit-staging.rondes.workers.dev'){
-    const res=await fetch(location.origin+'/api/public-data?table=celebrations_footer_page&slug='+encodeURIComponent(slug),{credentials:'omit'});
+  if(window.CELEBRATIONS_STAGING_BACKEND){
+    const base=String(window.CELEBRATIONS_STAGING_BACKEND).replace(/\/$/,'');
+    const res=await fetch(base+'/api/public-data?table=celebrations_footer_page&slug='+encodeURIComponent(slug),{credentials:'omit'});
     if(!res.ok)throw new Error('Cloudflare D1 '+res.status);
     rows=await res.json();
   }else{
