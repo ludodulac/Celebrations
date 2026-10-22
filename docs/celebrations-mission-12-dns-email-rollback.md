@@ -82,3 +82,20 @@ La relance [#39821589658](https://github.com/ludodulac/Celebrations/actions/runs
 ### Contrôle secondaire de l'historique GitHub Pages
 
 Le run [#39821830360](https://github.com/ludodulac/Celebrations/actions/runs/39821830360) a bien prouvé l'état DNSSEC et obtenu l'empreinte DNS canonique `7fc2dcef132fc4dec99ca92c67d00578c31fcd240cf980b16a1245239afaadab`, mais le garde GitHub Pages cherchait un ancien succès parmi les **12 derniers jobs de toute nature** ; ceux-ci ne comprennent plus forcément un déploiement Pages puisque `main` est resté figé pendant les nombreuses missions. Cette limite de pagination arbitraire a été corrigée : le garde consulte désormais uniquement l'historique du workflow `pages.yml` sur `main`, sans modifier son déploiement. Une répétition finale limitée aux métadonnées/DNS et au même garde de quota est lancée.
+
+## CERTIFICATION DU CONTRÔLE MISSION 12 — GitHub Actions SUCCESS
+
+**Run final [#39822028360](https://github.com/ludodulac/Celebrations/actions/runs/39822028360) — SUCCESS, toutes les étapes vertes** : inventaire DNS réel, ancien GitHub Pages et `main` vérifiés, tentative de recherche d'archive DNS autoritative sans écriture, quotas D1 Free contrôlés pré/post (**0 delta**). Les deux premiers essais comportaient des défauts de garde CI maintenant corrigés : compteur D1 sans pré-relevé, puis sélection trop étroite des anciens déploiements Pages. Le contrôle final emploie l'historique réel `pages.yml` et une empreinte DNS canonique stable.
+
+**Empreinte confirmée (valeurs DNS triées, sans TTL de cache) :** `7fc2dcef132fc4dec99ca92c67d00578c31fcd240cf980b16a1245239afaadab`, identique dans deux mesures consécutives. NS Spaceship, `www -> ludodulac.github.io`, DNSSEC DS présent TTL 86 400 s. Ancienne page HTTP 200 sur domaine officiel, `main=4b5edd9c19ce989af2eae33445017dd30fcbbe92`, dernier succès Pages de ce SHA retrouvé.
+
+**Vérité du statut :**
+- `MISSION12_AUDIT_AND_ROLLBACK_PLAN=PASS` — préparation, source publique et plan documentés ;
+- `DNS_ZONE_COMPLETE_PRIVATE_BACKUP=NO` — nécessaire depuis **Spaceship**, aucune API liée ;
+- `CLOUDFLARE_DOMAIN_ZONE_READY=NO` — zone non visible dans le compte Cloudflare connecté ;
+- `DNSSEC_SAFE_NS_CHANGE_PREPARED=PLAN_ONLY` — DS actif, respect de son TTL au moment de l'opération ;
+- `EMAIL_DOMAIN_OPERATIONAL=NOT_CERTIFIED` — aucun MX trouvé par ce contrôle public, autres dépendances non énumérées ;
+- `REAL_ROLLBACK_SWITCH_TEST=NOT_DONE` — exclu pendant la mission 12 ;
+- `OFFICIAL_SITE_AND_DNS_UNCHANGED=YES` ; `NEXT_CUTOVER_AUTHORIZATION=NOT_GRANTED`.
+
+**Mission 12 terminée pour ce qui peut être fait en lecture seule ; la mission 13 (bascule effective) est BLOQUÉE jusqu'à obtention/validation du DNS de Spaceship, de la zone Cloudflare et du plan de bascule DNSSEC.** Conserver cette barrière tant que le propriétaire n'a pas donné son accord explicite pour la transition et que tous les points d'arrêt sont levés.
