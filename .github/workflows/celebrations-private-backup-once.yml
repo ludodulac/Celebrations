@@ -1292,6 +1292,22 @@ jobs:
         if: always()
         run: node scripts/check-staging-d1-free-budget.mjs post
 
+
+  mission07-official-shortlinks-readonly:
+    # Only four GET chains on currently live official site. Never edit DNS/site.
+    if: ${{ github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && contains(github.event.head_commit.message, '[MISSION07_OFFICIAL_SHORTLINK_CHAIN_ONCE]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Inspect four official-domain redirects without modifying source
+        run: node scripts/mission07_official_redirect_chain.mjs
+
 # This archive is only one component of backup. It does NOT contain Storage
 # binaries, other apps' tables, roles, settings, or a transaction-wide snapshot.
 # Staging R2 is a private first copy, NOT an independent off-site backup.
