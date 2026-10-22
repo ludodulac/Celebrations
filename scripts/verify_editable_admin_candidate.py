@@ -99,10 +99,15 @@ def main():
     finally:
         if bearer:
             token_hash=hashlib.sha256(bearer.encode("ascii")).hexdigest()
-            _,_,writes=query(cf,endpoint,
-                "DELETE FROM celebrations_admin_sessions WHERE token_hash=?",
-                [token_hash],allow_write=True)
-            if writes!=1:
+            delete=cf.post(endpoint,json={
+                "sql":"DELETE FROM celebrations_admin_sessions WHERE token_hash=?",
+                "params":[token_hash]},timeout=30)
+            delete.raise_for_status()
+            payload=delete.json()
+            result=(payload.get("result") or [{}])[0]
+            if (payload.get("success") is not True or
+                result.get("success") is not True or
+                int((result.get("meta") or {}).get("rows_written",-1))!=1):
                 raise RuntimeError("Temporary admin session cleanup could not be proved")
             print("CELEBRATIONS_QA_ADMIN_SESSION_REVOKED verified=YES")
 
