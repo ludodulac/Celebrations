@@ -75,8 +75,8 @@ assert.equal(Number(homeJpg.headers.get("content-length")),167220,
  "Original homepage JPG byte size should match Supabase inventory");
 
 assert.match(await robots.text(),/Disallow: \/?/);
-const standaloneRoutes=["programme","mercredi","jeudi","vendredi","samedi",
-                        "dimanche","apres-celebration"];
+const standaloneRoutes=["programme","preparation","mercredi","jeudi","vendredi","samedi",
+                        "dimanche","apres-celebration","bibliotheque","apres-la-ronde"];
 for(const slug of standaloneRoutes){
  const res=await call("/"+slug+"/");
  assert.equal(res.status,200,"Public standalone route "+slug+" must load");
@@ -90,6 +90,15 @@ for(const slug of standaloneRoutes){
    "Standalone route must load Cloudflare client");
  assert.ok(!html.includes("cdn.jsdelivr.net/npm/@supabase/supabase-js"),
    "Standalone route must not boot Supabase SDK");
+}
+// Direct page navigation must never forward the REAL preparation day to Drive.
+const preparationPage=await call("/preparation");
+assert.ok([200,301,302,307,308].includes(preparationPage.status));
+if(preparationPage.status!==200){
+ const location=preparationPage.headers.get("location")||"";
+ const destination=new URL(location,site);
+ assert.equal(destination.origin,site,"Public preparation page must stay on the site");
+ assert.ok(/^\/preparation\/?$/.test(destination.pathname),"Preparation route destination changed");
 }
 for(const route of ["/api/auth","/api/admin","/api/stats","/api/media-admin",
                       "/api/safe-save","/api/footer-admin","/api/participants-admin"]){
@@ -152,7 +161,7 @@ console.log("CÉLÉBRATIONS_READONLY_PRODUCTION_DATA_PREVIEW_PASS "+
   url:site,preview_only:true,
   public_media_http_200:progress,private_committee_slugs_http_200:committee.length,
   unchanged_mail_permalink_query_http_200:committee.length,
-  unchanged_legacy_document_redirects:4,
+  unused_historic_document_shortlinks_not_a_release_gate:true,
   standalone_public_routes_verified:standaloneRoutes.length,
   original_homepage_jpg_http_200:homeJpg.status,programme_contents:cards.length,events:events.length,
   event_content_relations:links.length,public_settings:settings.length,
