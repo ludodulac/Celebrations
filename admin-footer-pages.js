@@ -25,7 +25,7 @@
     Object.keys(PAGE_DEFS).forEach(slug=>{
       const rows=(result.drafts||[]).filter(r=>r.slug===slug);
       const active=rows.find(r=>r.is_active)||rows.sort((a,b)=>Number(b.draft_number)-Number(a.draft_number))[0]||null;
-      pages[slug]={draftNumber:Number(active?.draft_number)||1,title:PAGE_DEFS[slug].title,text:active?.content||'',isPublic:!!active?.is_public};
+      pages[slug]={draftNumber:Number(active?.draft_number)||1,title:PAGE_DEFS[slug].title,text:active?.content||FOOTER_PAGE_DEFS?.[slug]?.template||'',isPublic:!!active?.is_public};
     });
   }
 
