@@ -883,6 +883,79 @@ jobs:
       - name: Check original emailed URLs and PDF responses (READ ONLY)
         run: node scripts/audit-historic-mailed-pdf-host.mjs
 
+  editable-admin-production-qa-once:
+    # Only after the owner has saved their new or existing strong admin
+    # password in the protected GitHub Environment secret. Never log it.
+    # This temporary hostname is NOT the emailed historic hostname.
+    if: ${{ github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && contains(github.event.head_commit.message, '[EDITABLE_PROD_ADMIN_QA_ONCE]') }}
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    timeout-minutes: 23
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+      PROD_D1_ID: 28736d2a-479b-472b-bf82-703ad0affe10
+      CELEBRATIONS_ADMIN_PASSWORD: ${{ secrets.CELEBRATIONS_ADMIN_PASSWORD }}
+    steps:
+      - name: Block missing admin credential without creating a Worker or touching DNS
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/feat/celebrations-supabase-exit-001"
+          test "$PROD_D1_ID" != "$STAGING_D1_ID"
+          test "$STAGING_R2_BUCKET" = "celebrations-exit-staging"
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          if [ "${#CELEBRATIONS_ADMIN_PASSWORD}" -lt 14 ]; then
+            echo "Protected GitHub Environment secret CELEBRATIONS_ADMIN_PASSWORD must be configured first (14+ characters)."
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check global D1 Free headroom
+        run: node scripts/check-staging-d1-free-budget.mjs pre
+      - name: Test production auth and original mailed URL routing offline
+        run: node --test tests/test-exit-production-candidate.mjs tests/test-exit-readonly-preview.mjs
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build all nine Cloudflare-only public and admin pages
+        run: python scripts/build_production_assets.py
+      - name: Generate bindings for a separate QA-only Worker
+        run: |
+          python scripts/prepare_editable_candidate_wrangler.py
+          grep -Fx 'name = "celebrations-exit-editable-qa"' migration/cloudflare/wrangler.editable-qa.toml
+          grep -Fx 'main = "editable-qa-worker.mjs"' migration/cloudflare/wrangler.editable-qa.toml
+          grep -Fx 'run_worker_first = true' migration/cloudflare/wrangler.editable-qa.toml
+          grep -Fx 'workers_dev = true' migration/cloudflare/wrangler.editable-qa.toml
+          if grep -Eq '(^|[[:space:]])(route|routes|zone_id|custom_domain)[[:space:]]*=' migration/cloudflare/wrangler.editable-qa.toml; then exit 1; fi
+      - name: Install pinned Wrangler and HTTPS client
+        run: |
+          npm install --no-save --no-package-lock wrangler@4
+          python -m pip install 'requests==2.32.5'
+      - name: Deploy QA Worker once with transient hashed secrets (no plaintext)
+        shell: bash
+        working-directory: migration/cloudflare
+        run: |
+          set -euo pipefail
+          secret_file="$(mktemp)"
+          chmod 600 "$secret_file"
+          trap 'rm -f "$secret_file"' EXIT
+          python ../../scripts/make_admin_worker_secrets.py "$secret_file"
+          npx wrangler deploy --config wrangler.editable-qa.toml --secrets-file "$secret_file"
+      - name: Verify real admin password, historical stats, and all nine old PDF links
+        run: python -m scripts.verify_editable_admin_candidate
+      - name: Verify global Cloudflare D1 Free quota again
+        if: always()
+        run: node scripts/check-staging-d1-free-budget.mjs post
+
 # This archive is only one component of backup. It does NOT contain Storage
 # binaries, other apps' tables, roles, settings, or a transaction-wide snapshot.
 # Staging R2 is a private first copy, NOT an independent off-site backup.
