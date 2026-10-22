@@ -1192,6 +1192,77 @@ jobs:
         if: always()
         run: node scripts/check-staging-d1-free-budget.mjs post
 
+
+  mission06-switch-historic-worker-with-rollback:
+    # User-authorized MISSION 06 only: same nine emailed URLs on exact hostname.
+    # Do not touch official website, DNS, Supabase, GitHub main or any other Worker.
+    if: ${{ github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && contains(github.event.head_commit.message, '[MISSION06_SWITCH_HISTORIC_WORKER_ONCE]') }}
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    concurrency:
+      group: celebrations-original-worker-pdf-compatibility
+      cancel-in-progress: false
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+      PROD_D1_ID: 28736d2a-479b-472b-bf82-703ad0affe10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: 4b5edd9c19ce989af2eae33445017dd30fcbbe92
+          path: legacy-main
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Refuse historic replacement unless original is still exact assets-only snapshot
+        run: node scripts/mission06_audit_legacy_worker.mjs
+      - name: Reserve global Cloudflare D1 Free budget
+        run: node scripts/check-staging-d1-free-budget.mjs pre
+      - name: Prepare ONLY vetted original public assets and two isolated configurations
+        run: |
+          set -euo pipefail
+          python scripts/mission06_prepare_public_assets.py
+          python scripts/mission06_generate_wrangler.py historic
+          python scripts/mission06_generate_wrangler.py rollback
+          grep -Fx 'name = "celebrations"' migration/cloudflare/wrangler.mission06.historic.toml
+          grep -Fx 'name = "celebrations"' migration/cloudflare/wrangler.mission06.rollback.toml
+          if grep -Eq '(route|routes|zone_id|custom_domain)[[:space:]]*=' migration/cloudflare/wrangler.mission06.historic.toml; then exit 1; fi
+      - name: Install Wrangler 4 for guarded publish and rollback
+        run: npm install --no-save --no-package-lock wrangler@4
+      - name: Prove nine PDFs on separate QA Worker one more time before switching
+        env:
+          MISSION06_MODE: preview
+        run: node scripts/mission06_verify_bridge.mjs
+      - name: Replace ONLY original celebrations Workers.dev with PDF bridge and original static site
+        id: deploy
+        working-directory: migration/cloudflare
+        run: npx wrangler deploy --config wrangler.mission06.historic.toml
+      - name: Confirm all nine ACTUAL emailed URLs, R2 parity, static pages, protection
+        id: verify
+        env:
+          MISSION06_MODE: historic
+        run: node scripts/mission06_verify_bridge.mjs
+      - name: Emergency rollback to the original pinned assets-only site if deployment or proof fails
+        if: ${{ always() && steps.deploy.outcome != 'skipped' && steps.verify.outcome != 'success' }}
+        working-directory: migration/cloudflare
+        run: |
+          set -euo pipefail
+          npx wrangler deploy --config wrangler.mission06.rollback.toml
+          echo 'MISSION06_ORIGINAL_WORKER_RESTORED_FROM_PINNED_MAIN assets_only=true'
+      - name: Check remaining global D1 Free quota
+        if: always()
+        run: node scripts/check-staging-d1-free-budget.mjs post
+
 # This archive is only one component of backup. It does NOT contain Storage
 # binaries, other apps' tables, roles, settings, or a transaction-wide snapshot.
 # Staging R2 is a private first copy, NOT an independent off-site backup.
