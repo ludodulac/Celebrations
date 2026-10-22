@@ -14,7 +14,7 @@ const directRoutes=[
  ["vendredi","program"],
  ["samedi","program"],
  ["dimanche","program"],
- ["apres-celebration","info"],
+ ["apres-celebration","program"],
  ["bibliotheque","library"],
  ["apres-la-ronde","info"]
 ];
