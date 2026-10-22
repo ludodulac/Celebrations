@@ -1504,6 +1504,74 @@ jobs:
         if: always()
         run: node scripts/check-staging-d1-free-budget.mjs post
 
+
+  mission11-backup-audit-and-append-only-delta:
+    # Mission 11: last pre-cutover snapshot while original website is LIVE.
+    # Never call this a final frozen snapshot until cutover has stopped writes.
+    # Safest possible: AESGCM fresh private R2 backup before any D1 mutation,
+    # read-only editorial/account + media parity, append-only source click delta.
+    if: ${{ github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && contains(github.event.head_commit.message, '[MISSION11_BACKUP_AND_DELTA_ONCE]') }}
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    concurrency:
+      group: celebrations-exit-precutover-backup-and-sync
+      cancel-in-progress: false
+    timeout-minutes: 38
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      CELEBRATIONS_BACKUP_PASSPHRASE: ${{ secrets.CELEBRATIONS_BACKUP_PASSPHRASE }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+      STAGING_R2_ACCESS_KEY_ID: ${{ secrets.CELEBRATIONS_STAGING_R2_ACCESS_KEY_ID }}
+      STAGING_R2_SECRET_ACCESS_KEY: ${{ secrets.CELEBRATIONS_STAGING_R2_SECRET_ACCESS_KEY }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      PROD_D1_ID: 28736d2a-479b-472b-bf82-703ad0affe10
+    steps:
+      - name: Require exact source and separated private Cloudflare resources
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          test "$GITHUB_REF" = "refs/heads/feat/celebrations-supabase-exit-001"
+          test "${SUPABASE_URL%/}" = "https://jwyayfkssyagvnablttg.supabase.co"
+          test "$STAGING_R2_BUCKET" = "celebrations-exit-staging"
+          test "$STAGING_D1_ID" = "0f761662-241f-42cc-ac94-5c68b4aa7797"
+          test "$PROD_D1_ID" = "28736d2a-479b-472b-bf82-703ad0affe10"
+          test "$PROD_D1_ID" != "$STAGING_D1_ID"
+          test "${#CELEBRATIONS_BACKUP_PASSPHRASE}" -ge 32
+          for v in SUPABASE_SERVICE_ROLE_KEY CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID STAGING_R2_ACCESS_KEY_ID STAGING_R2_SECRET_ACCESS_KEY R2_ENDPOINT; do
+            test -n "${!v:-}" || exit 1
+          done
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Refuse daily shared-account D1 Free exhaustion
+        run: node scripts/check-staging-d1-free-budget.mjs pre
+      - name: Install pinned private backup and migration dependencies
+        run: python -m pip install 'requests==2.32.5' 'cryptography==46.0.4' 'boto3==1.40.57'
+      - name: Create fresh encrypted private source backup; GET it from R2 and restore in RAM
+        env:
+          TMPDIR: /dev/shm
+        run: python -m scripts.mission11_refresh_private_backup
+      - name: Audit real website programme and private participant against Cloudflare D1
+        run: python -m scripts.mission11_preflight_source_vs_cloudflare
+      - name: Re-check 158 preserved originals in staging R2 without recopying 830 MB
+        run: python -m scripts.audit_celebrations_media_dual_copy_readonly
+      - name: Append only new live-source historical clicks into Cloudflare production D1
+        run: python -m scripts.import_historic_stats_production_d1
+      - name: Verify Free D1 account-wide quota remains safe
+        if: always()
+        run: node scripts/check-staging-d1-free-budget.mjs post
+
 # This archive is only one component of backup. It does NOT contain Storage
 # binaries, other apps' tables, roles, settings, or a transaction-wide snapshot.
 # Staging R2 is a private first copy, NOT an independent off-site backup.
