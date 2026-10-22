@@ -36,3 +36,23 @@ Preuve effective à consigner exclusivement après confirmation du job GitHub Ac
 [GitHub Actions #39814127711](https://github.com/ludodulac/Celebrations/actions/runs/39814127711) : **tests unitaires PASS**, audit D1 de production **PASS** avec exactement 11 738 événements historiques, 1 participant, 9 lettres et 9 médias privés, 0 événement Cloudflare nouveau, 0 brouillon juridique source ni page publiée. Navigateur public **PASS** : 3 liens juridiques correctement masqués, 3 pages individuelles servent la mention « Page en préparation » et n'effectuent **aucun appel Supabase**, aucune erreur JS. Seul le démarrage du contrôle administrateur a échoué **avant toute nouvelle session** : variable `SUPABASE_URL` absente du job alors que le garde de sécurité de `verify_editable_admin_candidate.py` l'exige. Le job a été corrigé pour fournir la même valeur via le secret d'environnement préexistant, sans révéler ni modifier Supabase.
 
 Relancement isolé demandé uniquement pour certifier l'interface administrateur et fermer cette mission.
+
+## VERDICT FINAL — MISSION 10 = PASS (22 octobre 2026)
+
+[GitHub Actions #39814358481](https://github.com/ludodulac/Celebrations/actions/runs/39814358481), job `mission10-historic-admin-settings-legal-qa` : **SUCCESS** pour toutes les étapes, y compris la véritable authentification avec le secret propriétaire stocké dans GitHub et la révocation immédiate de la session créée.
+
+### Résultats observés dans les journaux réels
+
+- `MISSION10_PRIVATE_HISTORIC_DATA_READONLY_PASS` : **11 738 événements historiques** dans la D1 de production, **1 participant** conservé, **9 documents de comité** avec **9 PDF privés publiés**, réglage public conservé ; **0 ligne juridique source** et **0 page juridique publiée**, **0 modification des données** ; compte historique des clics figé à l'import et **delta final nécessaire** en mission 11.
+- `MISSION10_PUBLIC_FOOTER_LEGAL_BROWSER_PASS` : les **3 liens juridiques non publiés** restent cachés sur la véritable interface publique ; les trois fichiers HTML directs répondent 200 et affichent « Page en préparation ». **Zéro requête réseau vers Supabase, zéro erreur JS.**
+- `MISSION10_ADMIN_UI_REAL_BROWSER_PASS` : véritable navigateur Android 390px connecté à l'administration de test via D1 migrée, tableau Statistiques et ses **3 cartes** visibles ; **9/9 invitations de comité** listées, leurs **9 boutons Copier** présents, **3 éditeurs juridiques** reçoivent leurs modèles privés locaux (sans jamais les publier). Le panneau de réglage de visibilité volontairement masqué est inchangé. **Aucune mutation métier non autorisée** déclenchée par le navigateur, zéro appel Supabase, zéro erreur JavaScript.
+- `CELEBRATIONS_EDITABLE_ADMIN_QA_PASS` : connexion sécurisée avec le véritable secret d'environnement, statistiques historiques et neuf permaliens privés accessibles sur le domaine QA seulement. `CELEBRATIONS_QA_ADMIN_SESSION_REVOKED verified=YES` : **session temporaire révoquée**, sans conserver un accès de test.
+- Quota D1 Free global pré/post vérifié : instantanés Analytics **156 294 lectures / 1 059 écritures** cumulés, bien sous les limites (reporting différé). L'audit SQL D1 lui-même a déclaré **11 759 lignes lues**, zéro écriture ; des scans additionnels peuvent avoir lieu pour l'interface Statistiques sans apparaître immédiatement dans les instantanés.
+
+### Conclusions de périmètre et sécurité
+
+**Mission 10 terminée pour les fonctions effectivement utilisées sur le site et l'administration.** Le site officiel, GitHub `main`, le Worker historique `celebrations.rondes.workers.dev`, Supabase partagé, les comptes, les documents, R2, le DNS et les textes juridiques publics n'ont pas été modifiés. Les Workers indépendants de prévisualisation et de QA ont été actualisés avec les seuls correctifs.
+
+Les pages légales ne sont **pas déjà remplies** et ne doivent pas être publiées automatiquement : les champs juridiquement nécessaires doivent être fournis par le propriétaire s'il souhaite les rendre visibles dans le pied de page. Le programme reste volontairement en mode universel ; ne pas réactiver de réglage caché. La **synchronisation finale** des statistiques Supabase après le snapshot du 21 octobre et des contenus encore modifiés est impérative avant la bascule (mission 11). Aucune décision de changement de domaine n'est prise en mission 10.
+
+**Mission 11 non commencée sans autorisation du propriétaire.**
