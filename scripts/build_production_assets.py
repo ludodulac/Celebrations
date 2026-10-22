@@ -94,6 +94,18 @@ def main():
     preparation.write_text(page.replace(old_title,
         "<title>Célébrations des Archanges — Préparation</title>"),
         encoding="utf-8")
+    # Three legal footer pages are real files which an admin can open; their
+    # public visibility is controlled by the D1 published flag. They must not
+    # fetch their drafts from the old Supabase host on Cloudflare preview.
+    # Do not force any unpublished draft to become publicly visible.
+    legal_boot='<script>window.CELEBRATIONS_STAGING_BACKEND=location.origin;</script>'
+    for slug in ("mentions-legales","confidentialite","cookies"):
+        legal=PRODUCTION/(slug+".html")
+        doc=legal.read_text(encoding="utf-8")
+        needle='<script src="footer-page-public.js?v=3"></script>'
+        if doc.count(needle)!=1 or legal_boot in doc:
+            raise RuntimeError("Unexpected legal page bootstrap or duplicate")
+        legal.write_text(doc.replace(needle,legal_boot+needle),encoding="utf-8")
     bridge=PRODUCTION/"migration/cloudflare/preview-client.js"
     if not bridge.is_file():
         raise RuntimeError("Cloudflare bridge missing")
