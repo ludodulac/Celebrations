@@ -18,6 +18,8 @@ def main(mode):
     name="celebrations-legacy-links-qa" if mode=="preview" else "celebrations"
     dest=pathlib.Path(f"migration/cloudflare/wrangler.mission06.{mode}.toml")
     if dest.exists():raise ValueError("Refusing config overwrite")
+    if not pathlib.Path("legacy-assets/index.html").is_file():
+        raise ValueError("Sanitized static snapshot missing")
     dest.write_text(f'''# Mission 06: ONLY existing mailed PDFs, rest is original pinned main.
 name = "{name}"
 main = "legacy-mailed-pdf-worker.mjs"
@@ -26,7 +28,7 @@ workers_dev = true
 preview_urls = false
 
 [assets]
-directory = "../../legacy-main"
+directory = "../../legacy-assets"
 binding = "ASSETS"
 run_worker_first = true
 not_found_handling = "single-page-application"
