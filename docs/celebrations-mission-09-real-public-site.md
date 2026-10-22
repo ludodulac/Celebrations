@@ -33,3 +33,7 @@ Le test est déclenché depuis le nouvel état du code (les correctifs sont comp
 ## Premier contrôle CI : endpoints PASS, ajustement de synchronisation du test image
 
 [run #39806822747](https://github.com/ludodulac/Celebrations/actions/runs/39806822747) : les tests unitaires ont réussi, le Worker Cloudflare indépendant a été déployé, et la **vérification HTTP de toutes les 10 pages et des 113 médias** a réussi. Le navigateur a rencontré une erreur **dans le script de test** : sa lecture de `img.currentSrc` pouvait précéder le chargement effectif de l'image (`Invalid URL`). Le test attend maintenant `complete && naturalWidth>0 && currentSrc` avant de construire l'URL, sans réduire aucun contrôle visuel. Nouveau job de navigation déclenché ci-dessous, toujours sans toucher au domaine officiel.
+
+## Tests de navigation : 7/7 journées et galerie mobile PASS ; rectification du scénario de test
+
+[run #39807221548](https://github.com/ludodulac/Celebrations/actions/runs/39807221548) : HTTP de toutes les pages et des médias **SUCCESS**. Dans Chromium mobile, accueil, chargement D1, sélection des sept jours via leurs boutons et la galerie d'images sont **PASS**. Le script browser de contrôle supposait ensuite à tort que l'URL `/apres-celebration/` était une page « Informations », alors que son contenu est le **septième jour du programme**, comme le souhaite le site actuel. Le test a été rectifié pour demander la visibilité de `#program`, sans changer les fonctionnalités du site. Ce nouvel essai inclut les essais bureau et les URLs en accès direct.
