@@ -70,10 +70,25 @@ test("all mailed ?lettre permalinks return the same PDF without changing URL",as
  assert.equal(blocked.status,405);
 });
 test("existing mailed document aliases preserve original external destinations",async()=>{
- for(const name of ["communique","rituel-court","rituel-long","preparation"]){
+ for(const name of ["communique","rituel-court","rituel-long"]){
   const r=await preview.fetch(new Request(origin+"/"+name),{});
   assert.equal(r.status,302);
   assert.match(r.headers.get("location")||"",/^https:\/\/drive.google.com\/file\/d\//);
   assert.equal(r.headers.get("x-robots-tag"),"noindex, nofollow, noarchive");
  }
+});
+
+test("real Préparation programme day is an HTML site page, not an unused Drive shortcut",async()=>{
+ const pages=[];
+ const env={ASSETS:{async fetch(req){
+  pages.push(new URL(req.url).pathname);
+  return new Response("<html>Préparation réelle</html>",{status:200,headers:{"content-type":"text/html"}});
+ }}};
+ for(const route of ["/preparation","/preparation/"]){
+  const r=await preview.fetch(new Request(origin+route),env);
+  assert.equal(r.status,200);
+  assert.equal(r.headers.get("location"),null);
+  assert.match(r.headers.get("content-type")||"",/text\/html/);
+ }
+ assert.deepEqual(pages,["/preparation","/preparation/"]);
 });
