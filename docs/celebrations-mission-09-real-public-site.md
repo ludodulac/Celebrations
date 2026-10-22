@@ -37,3 +37,42 @@ Le test est déclenché depuis le nouvel état du code (les correctifs sont comp
 ## Tests de navigation : 7/7 journées et galerie mobile PASS ; rectification du scénario de test
 
 [run #39807221548](https://github.com/ludodulac/Celebrations/actions/runs/39807221548) : HTTP de toutes les pages et des médias **SUCCESS**. Dans Chromium mobile, accueil, chargement D1, sélection des sept jours via leurs boutons et la galerie d'images sont **PASS**. Le script browser de contrôle supposait ensuite à tort que l'URL `/apres-celebration/` était une page « Informations », alors que son contenu est le **septième jour du programme**, comme le souhaite le site actuel. Le test a été rectifié pour demander la visibilité de `#program`, sans changer les fonctionnalités du site. Ce nouvel essai inclut les essais bureau et les URLs en accès direct.
+
+## RÉSULTAT FINAL — MISSION 09 : PASS (22 octobre 2026)
+
+**GitHub Actions [run #39807554552](https://github.com/ludodulac/Celebrations/actions/runs/39807554552) — SUCCESS**, job `mission09-real-public-site-browser`, suite entière de tests unitaires, HTTP et navigateur exécutée après les correctifs sur les vraies pages.
+
+### Tests HTTP sur le Worker de prévisualisation (D1/R2 migrées)
+
+- **10/10 vrais liens de pages autonomes** : Programme, Préparation, Mercredi, Jeudi, Vendredi, Samedi, Dimanche, Après célébration, Bibliothèque, Après la Ronde.
+- **113/113 fichiers publics** HTTP HEAD 200.
+- **9/9 lettres de comité** privées délivrées par leur slug opaque ; anciennes formes `/?lettre=` conservées ; accès privé direct non autorisé refusé.
+- **211 fiches éditoriales**, **62 événements**, **124 associations événement-contenu** et réglages publics accessibles depuis Cloudflare D1.
+- Photo d'accueil d'origine JPEG HTTP 200 depuis R2 privé avec chemin inchangé.
+- API d'administration et écriture indisponibles par conception sur la prévisualisation, réponses 405 aux POST ; tables sensibles refusées.
+
+### Véritable navigateur Chromium, deux tailles d'écran
+
+| Fonction du site visible | Android (390 px) | Bureau (1280 px) |
+|---|---|---|
+| Accueil et JPEG décodé | PASS | PASS |
+| Chargement exclusif Cloudflare | PASS | PASS |
+| Boutons Accueil, Programme, Médiathèque | 3/3 | 3/3 |
+| Sélection des sept jours | 7/7 | 7/7 |
+| URL du jour synchronisée au clic | 7/7 | 7/7 |
+| Ouverture directe des dix vraies pages | 10/10 | 10/10 |
+| Familles Audio, Vidéo, Textes/PDF, Images | 4/4 | 4/4 |
+| Fiches médias affichées dans l'interface | 38 audios, 17 vidéos, 46 textes/PDF | Idem |
+| Galerie réellement chargée sans image visible cassée | PASS | PASS |
+| PDF du jeudi récupéré en R2 | HTTP 200 | HTTP 200 |
+| Accès administrateur verrouillé | PASS | PASS |
+
+Requêtes vers **l'ancien Supabase depuis le navigateur Cloudflare : 0**. Erreurs JavaScript non interceptées : **0**. Réponses serveur Cloudflare 5xx : **0**. Les 22 tentatives de mutation déclenchées par les navigateurs (suivi statistique) ont été **bloquées avant le réseau**. Quotas D1 Free contrôlés avant/après ; snapshots Analytics agrégés 110 257 lignes lues et 1 059 écrites (métriques différées ; ceci ne constitue pas une mesure du coût exact du job). Ce job n'a effectué aucune écriture volontaire D1, R2, Supabase, DNS ni GitHub `main`.
+
+### Correctifs effectifs et périmètre
+
+1. **`/preparation` est un vrai lien de navigation interne du programme**, désormais servi comme page Cloudflare autonome et non redirigé vers l'ancien raccourci Drive. Le Worker historique des invitations de mission 06 reste inchangé.
+2. Les pages réellement accessibles **Bibliothèque** et **Après la Ronde** chargent désormais aussi le client Cloudflare dans le build migré. Aucun SDK Supabase sur ces entrées profondes.
+3. Les quatre anciens raccourcis Drive non rattachés à l'interface restent **hors périmètre** ; aucune restauration de leur fonction demandée, et aucun blocage arbitraire de bascule.
+
+**Décision : MISSION 09 = PASS pour les écrans publics et chemins testés sur la prévisualisation indépendante.** Ce succès n'est PAS un changement du domaine officiel ni un accord de cutover. L'authentification réelle administrateur et les règles des brouillons légaux/statistiques seront traitées par les missions correspondantes ; la synchronisation finale de données fluctuantes reste à faire avant la bascule. Les lecteurs multimédia ont été contrôlés comme composants et ressources servies ; ce test ne revendique pas l'écoute humaine intégrale de chaque audio, ni la lecture de chaque vidéo tiers.
