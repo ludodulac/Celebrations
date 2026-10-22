@@ -23,3 +23,9 @@ En outre, le test HTTP de prévisualisation déjà existant confirme 113/113 fic
 ## État
 
 Test opt-in lancé sur la branche migration ; résultat réel à consigner d'après les journaux GitHub Actions. Ne déclarer PASS qu'après la preuve réelle sur mobile et bureau. La bascule du domaine officiel reste interdite sans son autorisation distincte.
+
+## Deuxième écart corrigé AVANT le test de navigation
+
+Le builder précédent ne remplaçait l'ancien bootstrap Supabase que pour les sept pages `programme`, `mercredi` à `dimanche`, et `apres-celebration`. Les entrées réelles `bibliotheque/index.html` et `apres-la-ronde/index.html` étaient encore copiées avec l'ancien SDK ; le chargement isolé de ces URLs aurait pu reparler à Supabase. Leur bootstrap est maintenant traité comme celui des autres pages (Cloudflare-only), avec rejet si l'ancien SDK subsiste. Le programme Préparation est généré après la transformation pour réutiliser cette base sûre. Aucun changement du site officiel.
+
+Le test est déclenché depuis le nouvel état du code (les correctifs sont compris dans le commit qui porte le marqueur ci-dessous).
