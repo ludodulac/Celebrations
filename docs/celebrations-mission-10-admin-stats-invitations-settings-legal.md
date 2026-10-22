@@ -30,3 +30,9 @@ Aucune URL de membre, aucun slug d'invitation ou mot de passe ne sort dans les j
 ## Résultat
 
 Preuve effective à consigner exclusivement après confirmation du job GitHub Actions. Toute anomalie bloque uniquement la mission 10, pas le site officiel.
+
+## Premier contrôle — constat réel puis réparation du câblage du test
+
+[GitHub Actions #39814127711](https://github.com/ludodulac/Celebrations/actions/runs/39814127711) : **tests unitaires PASS**, audit D1 de production **PASS** avec exactement 11 738 événements historiques, 1 participant, 9 lettres et 9 médias privés, 0 événement Cloudflare nouveau, 0 brouillon juridique source ni page publiée. Navigateur public **PASS** : 3 liens juridiques correctement masqués, 3 pages individuelles servent la mention « Page en préparation » et n'effectuent **aucun appel Supabase**, aucune erreur JS. Seul le démarrage du contrôle administrateur a échoué **avant toute nouvelle session** : variable `SUPABASE_URL` absente du job alors que le garde de sécurité de `verify_editable_admin_candidate.py` l'exige. Le job a été corrigé pour fournir la même valeur via le secret d'environnement préexistant, sans révéler ni modifier Supabase.
+
+Relancement isolé demandé uniquement pour certifier l'interface administrateur et fermer cette mission.
