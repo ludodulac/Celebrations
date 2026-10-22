@@ -39,3 +39,20 @@ Audit réel lancé ; verdict à consigner uniquement à partir du job GitHub et 
 - Quotas D1 Free pré et post : 109 994 lectures et 1 059 écritures selon les snapshots Analytics, bien sous les plafonds ; métriques à latence possible et **zéro écriture volontaire** lors du contrôle.
 
 **Condition indispensable :** conserver la fonction `celebrations-committee-public` de Supabase et son stockage historique après le transfert du domaine officiel tant que les liens directs `supabase.co` doivent rester disponibles. La compatibilité ne signifie pas pouvoir désactiver Supabase.
+
+## Audit du domaine officiel : anomalie antérieure identifiée
+
+[GitHub Actions #39791582852](https://github.com/ludodulac/Celebrations/actions/runs/39791582852), job `mission07-official-shortlinks-readonly` = **SUCCESS technique pour le relevé**, mais **0/4 redirections Drive fonctionnelles sur le domaine officiel actuellement en service** :
+
+| Route officielle vérifiée | Chaîne de réponse réelle | Atteint le fichier Drive ? |
+|---|---|---|
+| `/communique` | 301 puis 404 | NON |
+| `/rituel-court` | 301 puis 404 | NON |
+| `/rituel-long` | 301 puis 404 | NON |
+| `/preparation` | 301 puis 404 | NON |
+
+Ces chemins fonctionnent déjà **4/4** avec HTTP 302 vers le bon Drive sur `celebrations.rondes.workers.dev`, et **4/4** sur `celebrations-exit-preview-ro.rondes.workers.dev`. Leur traitement figure déjà dans le Worker candidat Cloudflare `migration/cloudflare/production-worker.mjs`, via `legacy-link-router.mjs`. L'échec du domaine officiel provient du chemin d'hébergement actuellement actif ; la simple présence du fichier `_redirects` dans GitHub ne garantit pas son interprétation par l'hébergeur. Aucun ajustement de ce site officiel n'est fait avant la bascule autorisée.
+
+**Condition de sortie / correctif ultérieur impératif :** pendant les missions de préparation au basculement, publier et vérifier la gestion des quatre chemins **sur le domaine officiel exact**, après les éventuelles redirections 301 de canonicalisation. La vérification ajoutée `scripts/mission07_official_redirect_chain.mjs` fonctionne en lecture seule maintenant ; avec `MISSION07_REQUIRE_OFFICIAL_SHORTLINKS=1`, elle refuse de certifier le site final à moins que **4/4 liens atteignent les quatre fichiers Drive originaux**. Exécuter cette condition lors de la bascule et des vérifications post-bascule, sans anticiper le changement de domaine dans cette mission.
+
+**Verdict mission 07 :** `DIRECT_SUPABASE_ORIGINAL_URLS=18/18 PASS`, `LEGACY_AND_PREVIEW_DRIVE_SHORTLINKS=8/8 PASS`, `OFFICIAL_DOMAIN_CURRENT_DRIVE_SHORTLINKS=0/4 FAIL`, `SUPABASE_LEGACY_COMPATIBILITY_SERVICE=KEEP_ACTIVE`. **Mission 07 partiellement validée, correction du domaine officiel à reporter à sa préparation/bascule.** `NO_OFFICIAL_CUTOVER`, `NO_SUPABASE_SHUTDOWN`. Aucune modification GitHub `main`, DNS, R2/D1 métier ni Supabase.
