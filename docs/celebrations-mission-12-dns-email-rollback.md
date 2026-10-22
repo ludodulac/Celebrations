@@ -35,3 +35,36 @@ Contrôle d'exploitation **en lecture seule** :
 ## État du contrôle réel
 
 Workflow opt-in : `mission12-dns-email-rollback-readonly` sur `feat/celebrations-supabase-exit-001`, déclenché par le marqueur `[MISSION12_DNS_ROLLBACK_READONLY_ONCE]`. Les résultats DNS du domaine officiel, les différences et le statut de sauvegarde privée complète de zone seront consignés ici après consultation du run GitHub Actions ; **aucun succès non exécuté n'est affirmé**.
+
+## Relevé réel du 22 octobre 2026 — preuves GitHub Actions
+
+Premier audit réel [GitHub Actions #39821192438](https://github.com/ludodulac/Celebrations/actions/runs/39821192438) : tous les contrôles DNS, du site de secours et de visibilité Cloudflare ont **réussi** ; la conclusion globale du job était provisoirement FAILURE car le **garde de quota D1 appelé en mode post n'avait pas reçu de relevé pré**, alors même que ce job n'a exécuté aucune requête SQL D1. Bug de procédure sans mutation : le workflow est corrigé pour lancer le garde `pre` et `post`. Relevé DNS conservé depuis le log :
+
+| Enregistrement/contrôle | État observé |
+|---|---|
+| Serveurs NS autoritaires | `launch1.spaceship.net`, `launch2.spaceship.net` |
+| CNAME `www` | `ludodulac.github.io` (GitHub Pages) |
+| Apex : IPv4 A | `185.199.108.153`, `185.199.109.153`, `185.199.110.153`, `185.199.111.153` (GitHub Pages) |
+| Apex : AAAA | aucun visible sur la réponse du résolveur |
+| TTL observé des réponses IPv4 `www` | 1 800 s ; **pas nécessairement TTL du CNAME lui-même** |
+| MX | **aucun MX retourné par ce résolveur** ; cela ne prouve pas qu'aucune adresse mail n'est ou ne sera utilisée |
+| SPF `v=spf1` | non trouvé au domaine racine dans cet inventaire public |
+| DMARC `v=DMARC1` | non trouvé sur `_dmarc` dans cet inventaire public |
+| DKIM | aucun des quatre sélecteurs courants testés ne porte de preuve ; **autres sélecteurs non énumérables** |
+| CAA | aucun enregistrement CAA retrouvé dans l'inventaire |
+| **DNSSEC DS parent** | **PRÉSENT**, un DS, TTL observé **86 400 secondes (24 h)** |
+| Empreinte SHA-256 du relevé public | `1e9214479b8d11a1432f7613665b67b820687d05cd0c745a7c416dc3643defb6` |
+
+`CELEBRATIONS_LEGACY_ROLLBACK_BASELINE_READONLY_PASS` : **HTTPS du site officiel HTTP 200**, `main` exact toujours `4b5edd9c19ce989af2eae33445017dd30fcbbe92`, déploiement GitHub Pages associé SUCCESS, domaine actuellement résolu. **L'ancien site peut encore être consulté**, mais un **retour arrière réel après changement de NS** n'est pas démontré : aucune modification DNS ni restauration active n'a été réalisée.
+
+`CUTOVER_8_DNS_DISCOVERY` : **zone `ronde-des-archanges-universelle.eu` NON visible dans le compte Cloudflare déjà connecté**. La zone autoritaire est actuellement **Spaceship DNS**. Le jeton Cloudflare présent ne donne pas accès au fichier DNS de Spaceship ; donc `full_dns_snapshot_captured=false`. La liste R2 produite par la requête de catalogue global s'est révélée **inexploitable par ce script** (`account_r2_inventory_readable=false`) ; cela n'invalide pas les copies privées R2 dont les transactions et restaurations réelles ont été vérifiées en missions précédentes. Aucun emplacement de zone ou secret n'a été inventé.
+
+### Trois points empêchent donc une bascule sûre pour l'instant
+
+1. **Inventaire DNS complet chez Spaceship : NON DISPONIBLE depuis le connecteur**. Un relevé des seuls DNS publics ne garantit ni sous-domaines, ni sélecteurs DKIM cachés, ni valeurs de vérification de domaine. Il faut une **sauvegarde/relevé complet du panneau de zone Spaceship** et une procédure de rétablissement avant bascule.
+2. **Zone Cloudflare non liée/active pour ce domaine dans le compte connecté : NON**. Le Worker autonome `workers.dev` ne suffit pas à attacher le domaine officiel sur offre Free. Préparer une zone dans le compte correct, vérifier les futurs NS attribués et recopier les DNS existants ; ne pas changer les NS ici.
+3. **DNSSEC activé, DS parent TTL ~24 h**. Une substitution précipitée des NS peut faire échouer la résolution DNSSEC sur tous les services du domaine. La procédure concrète de transition (période de propagation des DS et restauration) doit être revue **avant** toute manipulation.
+
+**Conséquence : `MISSION12_DNS_DISCOVERY=PASS`, `EXISTING_SITE_ROLLBACK_BASELINE=PASS`, mais `FULL_ZONE_ESCROW=BLOCKED_NOT_ACCESSIBLE`, `CLOUDFLARE_CUSTOM_DOMAIN=NOT_READY`, `DNSSEC_TRANSITION=NOT_PERFORMED`, `OWNER_CUTOVER_APPROVAL=NO`.** Il serait faux de déclarer le domaine prêt à changer maintenant.
+
+Aucune modification de DNS, de certificat, des e-mails, de GitHub `main`, de Supabase ou des Workers historiques. Les documents et liens existants restent en service.
