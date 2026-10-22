@@ -27,3 +27,15 @@ Script `scripts/mission07_verify_legacy_direct_supabase_links.mjs`, GitHub Actio
 ## Résultat
 
 Audit réel lancé ; verdict à consigner uniquement à partir du job GitHub et de ses logs.
+
+## Premiers résultats vérifiés — 22 octobre 2026
+
+[GitHub Actions #39791022033](https://github.com/ludodulac/Celebrations/actions/runs/39791022033) : **SUCCESS**, sans aucun changement du site ni de Supabase.
+- **9/9 anciennes URL directes Supabase en `?slug=`** : HTTP 200, PDF identiques aux versions privées R2.
+- **9/9 anciennes URL directes Supabase en `?id=`** : HTTP 200, même contenu PDF.
+- Une référence inexistante est refusée ; aucune donnée personnelle, aucun slug, aucun identifiant ni octet PDF n'est inscrit dans les journaux.
+- **4/4 raccourcis Drive sur l'ancien Worker** : HTTP 302 vers les destinations exactes enregistrées ; **4/4** sur la prévisualisation Cloudflare également.
+- La requête HEAD initiale sur le domaine officiel `www.ronde-des-archanges-universelle.eu` a retourné **301** pour les quatre chemins, et non directement 302 vers Drive. Il faut distinguer une redirection canonique intermédiaire d'un véritable lien cassé. Ce constat ne permet pas d'affirmer que les quatre chemins de **ce domaine** conduisent déjà à Drive ; audit GET de la chaîne complète lancé séparément sans toucher au domaine.
+- Quotas D1 Free pré et post : 109 994 lectures et 1 059 écritures selon les snapshots Analytics, bien sous les plafonds ; métriques à latence possible et **zéro écriture volontaire** lors du contrôle.
+
+**Condition indispensable :** conserver la fonction `celebrations-committee-public` de Supabase et son stockage historique après le transfert du domaine officiel tant que les liens directs `supabase.co` doivent rester disponibles. La compatibilité ne signifie pas pouvoir désactiver Supabase.
