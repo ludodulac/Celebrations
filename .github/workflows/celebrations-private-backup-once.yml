@@ -1308,6 +1308,50 @@ jobs:
       - name: Inspect four official-domain redirects without modifying source
         run: node scripts/mission07_official_redirect_chain.mjs
 
+
+  mission08-visible-only-media-audit:
+    # Owner specifically requested ONLY resources actually appearing on site.
+    # Read-only inventory; excludes unused legacy redirects/files.
+    if: ${{ github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && contains(github.event.head_commit.message, '[MISSION08_VISIBLE_ONLY_AUDIT_ONCE]') }}
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    timeout-minutes: 14
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      PROD_D1_ID: 28736d2a-479b-472b-bf82-703ad0affe10
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Confirm source is only current Célébrations and copy scope is guarded
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${SUPABASE_URL%/}" = "https://jwyayfkssyagvnablttg.supabase.co"
+          test "$STAGING_R2_BUCKET" = "celebrations-exit-staging"
+          test -n "$SUPABASE_SERVICE_ROLE_KEY"
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test "$PROD_D1_ID" != "$STAGING_D1_ID"
+      - name: Install pinned requests only
+        run: python -m pip install 'requests==2.32.5'
+      - name: Check D1 Free account-wide reserve
+        run: |
+          node --version
+          node scripts/check-staging-d1-free-budget.mjs pre
+      - name: Classify only assets from user-facing pages and check 113 files online
+        run: python -m scripts.mission08_visible_only_media_audit
+      - name: Confirm D1 Free reserve after read-only audit
+        if: always()
+        run: node scripts/check-staging-d1-free-budget.mjs post
+
 # This archive is only one component of backup. It does NOT contain Storage
 # binaries, other apps' tables, roles, settings, or a transaction-wide snapshot.
 # Staging R2 is a private first copy, NOT an independent off-site backup.
