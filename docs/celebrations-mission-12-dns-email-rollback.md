@@ -53,7 +53,7 @@ Premier audit réel [GitHub Actions #39821192438](https://github.com/ludodulac/C
 | DKIM | aucun des quatre sélecteurs courants testés ne porte de preuve ; **autres sélecteurs non énumérables** |
 | CAA | aucun enregistrement CAA retrouvé dans l'inventaire |
 | **DNSSEC DS parent** | **PRÉSENT**, un DS, TTL observé **86 400 secondes (24 h)** |
-| Empreinte SHA-256 du relevé public | `1e9214479b8d11a1432f7613665b67b820687d05cd0c745a7c416dc3643defb6` |
+| Empreinte du premier relevé (diagnostic, **non stable**) | `1e9214479b8d11a1432f7613665b67b820687d05cd0c745a7c416dc3643defb6` (ordre DNS round-robin et TTL inclus) |
 
 `CELEBRATIONS_LEGACY_ROLLBACK_BASELINE_READONLY_PASS` : **HTTPS du site officiel HTTP 200**, `main` exact toujours `4b5edd9c19ce989af2eae33445017dd30fcbbe92`, déploiement GitHub Pages associé SUCCESS, domaine actuellement résolu. **L'ancien site peut encore être consulté**, mais un **retour arrière réel après changement de NS** n'est pas démontré : aucune modification DNS ni restauration active n'a été réalisée.
 
@@ -72,3 +72,9 @@ Aucune modification de DNS, de certificat, des e-mails, de GitHub `main`, de Sup
 ### Relance du contrôle sans écriture
 
 Le second passage avec sauvegarde des compteurs D1 pré/post est déclenché par le marqueur dédié du workflow. Les barrières de sécurité et le périmètre restent identiques ; en l'absence de zone Spaceship exportable, aucune nouvelle tentative de bascule ou de création de zone Cloudflare n'est autorisée.
+
+### Amélioration de la comparaison DNS
+
+La relance [#39821589658](https://github.com/ludodulac/Celebrations/actions/runs/39821589658) est **SUCCESS** : tous les contrôles DNS, main/GitHub Pages, registre de ressources, sauvegarde de zone si accessible, et quotas Free passent. L'absence de zone Cloudflare est confirmée, sans modification. Le fingerprint des deux premiers runs avait varié à tort par simple rotation de l'ordre des IP DNS et TTL de cache : le script a été corrigé pour trier les réponses et exclure les TTL du fingerprint des **valeurs**. Un nouveau contrôle isolé valide ce calcul, sans modifier la configuration.
+
+**Verdict de mission 12 : PRÉPARATION ET AUDIT EFFECTUÉS, BASCULE BLOQUÉE PAR LES PRÉREQUIS RÉELS DE DNS SPACESHIP, ZONE CLOUDFLARE ET DNSSEC.** Aucune action de raccordement du domaine n'est lancée par la mission 12. Les tests qui ne concernent pas les pages réellement utilisées ne sont pas des prérequis.
