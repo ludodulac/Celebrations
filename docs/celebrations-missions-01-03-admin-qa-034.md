@@ -25,3 +25,11 @@ Ce petit lot ajoute uniquement un job opt-in `isolated-staging-admin-crud-roundt
 Ne jamais affecter les 456 lignes de programme D1 production, les 113 médias publics, les neuf PDF et les URLs historiques. Cette preuve sera un **test staging**, et ne remplace pas un test UI humain authentifié sur le nouveau Worker QA.
 
 Aucun DNS, domaine Spaceship, GitHub main ou Supabase source modifié. La bascule définitive n'est pas autorisée par ces trois missions.
+
+
+## Vérification réelle du 22 octobre 2026
+
+- **Mission 1 : PR #62 et #63 fusionnées dans la branche de migration ; code et configuration du Worker administrateur distinct `celebrations-exit-editable-qa` préparés, mais ce Worker n'a pas été déployé par le job de vérification n°86.** Le domaine public et l'ancien Worker des PDF sont inchangés.
+- **Mission 2 : non validée.** Le job `editable-admin-production-qa-once` a été **SKIPPED** lors de ce run. Le propriétaire doit enregistrer lui-même un mot de passe fort de 14+ caractères dans le secret d'environnement `celebrations-staging` > `CELEBRATIONS_ADMIN_PASSWORD`, sans jamais le transmettre dans une conversation ; ensuite seulement déclencher le job prévu et confirmer la connexion réelle.
+- **Mission 3 : test réel PASS** dans la seule D1 de staging via GitHub Actions [run #39764462133](https://github.com/ludodulac/Celebrations/actions/runs/39764462133), job `isolated-staging-admin-crud-roundtrip-once`. Le navigateur a chargé l'administration et les données (4 célébrations, 62 événements, 211 contenus), sans requête Supabase ni erreur JS. Création/modification/suppression/dissociation des seules lignes synthétiques réussies ; journaux : `STAGING_SAFE_SAVE_ROUNDTRIP`, `STAGING_REAL_ADMIN_UNLINK`, `STAGING_SCOPED_DELETE_ROUNDTRIP` avec `existing_records_untouched=true` ; nettoyage et révocation de session `success=true`. Les contrôles pré/post quota Free sont PASS (snapshot post : 3 lectures/3 écritures D1 agrégées selon métriques à cet instant).
+- **Limite de preuve** : le PASS de staging ne valide pas encore le mot de passe réel ni le Worker modifiable de QA sur les données de production migrées. Aucune bascule officielle, modification DNS/Supabase, opération R2 de production ou suppression historique dans cette mission.
