@@ -34,7 +34,7 @@ let ready=false;
 for(let attempt=0;attempt<15;attempt++){
  try{
   const home=await fetch(origin+"/",{redirect:"follow",signal:AbortSignal.timeout(12000)});
-  if(home.status===200){
+  if(home.status===200 && home.headers.get("x-celebrations-legacy-pdf-bridge")==="mission06-safe-v2"){
    const bytes=Buffer.from(await home.arrayBuffer());
    if(hex(bytes)===hex(readFileSync("legacy-main/index.html"))){ready=true;break}
   }
@@ -50,7 +50,13 @@ for(const [route,file] of staticRoutes){
 }
 for(const restricted of ["/.git/HEAD","/.github/workflows/pages.yml","/scripts/copy_supabase_media_to_r2.py","/tests/test_copy_supabase_media_to_r2.py"]){
  const r=await fetch(origin+restricted,{redirect:"manual",signal:AbortSignal.timeout(15000)});
- assert.equal(r.status,404,"Sensitive repository internals must not be served");
+ assert.equal(r.headers.get("x-celebrations-legacy-pdf-bridge"),"mission06-safe-v2","Wrong Worker version on sensitive route");
+ // An SPA fallback may legitimately return the PUBLIC index with HTTP 200.
+ // It must never return the corresponding private Git/CI file.
+ if(r.status===200){
+  const body=Buffer.from(await r.arrayBuffer());
+  assert.equal(hex(body),hex(readFileSync("legacy-main/index.html")),"Sensitive repository file leaked instead of public SPA fallback");
+ }else assert.equal(r.status,404,"Sensitive repository internals must not be served");
 }
 let checked=0;
 for(const slug of slugs){
