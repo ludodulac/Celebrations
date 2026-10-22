@@ -142,12 +142,8 @@ for(const deny of ["/media/committee/nonexistent.pdf","/media/not-in-approved-ma
  const response=await call(deny,"HEAD");
  assert.equal(response.status,404,"Non approved document must stay denied");
 }
-for(const path of ["/communique","/rituel-court","/rituel-long","/preparation"]){
- const res=await call(path,"HEAD");
- assert.equal(res.status,302,"Old mailed PDF redirect route must remain active");
- assert.ok((res.headers.get("location")||"").startsWith("https://drive.google.com/file/d/"),
-   "Preserve original Drive PDF redirect");
-}
+// Owner scoped the migration to visible/linked website content. These four
+// unlinked legacy shorthand URLs are explicitly OUT OF SCOPE; no cutover gate.
 const forbidden=await call("/?lettre=not-a-real-invitation","HEAD");
 assert.equal(forbidden.status,404,"Unknown invitation link must stay private");
 
