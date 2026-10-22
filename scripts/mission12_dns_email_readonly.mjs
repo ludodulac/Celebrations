@@ -31,16 +31,19 @@ const norm=(x)=>Array.isArray(x)?x:[];
 const v4=s=>norm(s).map(x=>({address:x.address,ttl_seconds:x.ttl}));
 const v6=s=>norm(s).map(x=>({address:x.address,ttl_seconds:x.ttl}));
 const target=norm(wwwCname).map(x=>x.replace(/\.$/,"").toLowerCase()).sort();
+// Canonical fingerprint of ANSWER RECORD SET only: resolver caches change
+// reported TTLs and DNS round-robin changes array order, not zone content.
+const sortedIps=records=>norm(records).map(x=>x.address).sort();
 const dnsSnapshot={
  domain:apex,
  nameservers:ns,
  www_cname:target,
- www_ipv4:v4(wwwA),www_ipv6:v6(wwwAaaa),
- root_ipv4:v4(rootA),root_ipv6:v6(rootAaaa),
+ www_ipv4:sortedIps(wwwA),www_ipv6:sortedIps(wwwAaaa),
+ root_ipv4:sortedIps(rootA),root_ipv6:sortedIps(rootAaaa),
  mail_exchangers:mxSafe,
- spf_txt:spf,
- dmarc_txt:dmarc,
- caa_records:norm(caa)
+ spf_txt:spf.slice().sort(),
+ dmarc_txt:dmarc.slice().sort(),
+ caa_records:norm(caa).map(x=>JSON.stringify(x)).sort()
 };
 const fingerprint=createHash("sha256").update(
  JSON.stringify(dnsSnapshot)).digest("hex");
