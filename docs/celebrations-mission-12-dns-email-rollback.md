@@ -68,3 +68,7 @@ Premier audit réel [GitHub Actions #39821192438](https://github.com/ludodulac/C
 **Conséquence : `MISSION12_DNS_DISCOVERY=PASS`, `EXISTING_SITE_ROLLBACK_BASELINE=PASS`, mais `FULL_ZONE_ESCROW=BLOCKED_NOT_ACCESSIBLE`, `CLOUDFLARE_CUSTOM_DOMAIN=NOT_READY`, `DNSSEC_TRANSITION=NOT_PERFORMED`, `OWNER_CUTOVER_APPROVAL=NO`.** Il serait faux de déclarer le domaine prêt à changer maintenant.
 
 Aucune modification de DNS, de certificat, des e-mails, de GitHub `main`, de Supabase ou des Workers historiques. Les documents et liens existants restent en service.
+
+### Relance du contrôle sans écriture
+
+Le second passage avec sauvegarde des compteurs D1 pré/post est déclenché par le marqueur dédié du workflow. Les barrières de sécurité et le périmètre restent identiques ; en l'absence de zone Spaceship exportable, aucune nouvelle tentative de bascule ou de création de zone Cloudflare n'est autorisée.
