@@ -26,7 +26,7 @@ def main():
         raise ValueError("Refusing unexpected existing config")
     destination.write_text(f'''# Separate temporary QA Worker ONLY; no DNS/custom domain/route.
 name = "{TARGET}"
-main = "production-worker.mjs"
+main = "editable-qa-worker.mjs"
 compatibility_date = "2026-10-16"
 workers_dev = true
 preview_urls = false
