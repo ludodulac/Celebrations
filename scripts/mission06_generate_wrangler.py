@@ -5,7 +5,7 @@ PIN="4b5edd9c19ce989af2eae33445017dd30fcbbe92"
 DB="28736d2a-479b-472b-bf82-703ad0affe10"
 BUCKET="celebrations-exit-production"
 def main(mode):
-    if mode not in ("preview","historic"):
+    if mode not in ("preview","historic","rollback"):
         raise ValueError("Unexpected mission 06 mode")
     if os.environ.get("GITHUB_REF")!="refs/heads/feat/celebrations-supabase-exit-001":
         raise ValueError("Wrong branch")
@@ -20,6 +20,18 @@ def main(mode):
     if dest.exists():raise ValueError("Refusing config overwrite")
     if not pathlib.Path("legacy-assets/index.html").is_file():
         raise ValueError("Sanitized static snapshot missing")
+    if mode=="rollback":
+        dest.write_text(f'''# Verified original ASSETS-ONLY Worker, pinned to main; no D1/R2 bindings.
+name = "celebrations"
+compatibility_date = "2026-09-22"
+workers_dev = true
+
+[assets]
+directory = "../../legacy-assets"
+not_found_handling = "single-page-application"
+''',encoding="utf-8")
+        print("MISSION06_ORIGINAL_ASSETS_ONLY_ROLLBACK_READY pinned_main_verified=YES")
+        return
     dest.write_text(f'''# Mission 06: ONLY existing mailed PDFs, rest is original pinned main.
 name = "{name}"
 main = "legacy-mailed-pdf-worker.mjs"
