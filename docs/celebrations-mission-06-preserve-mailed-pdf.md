@@ -19,3 +19,11 @@ Faire servir directement les neuf PDF privés R2 (contrôle d'accès D1 `committ
 
 ## Contrôle courant
 Audit sans modification du Worker original lancé avec `[MISSION06_ORIGINAL_WORKER_PREFLIGHT_ONCE]`. Résultat et décision à consigner à partir des preuves GitHub Actions. Un test qui échoue est une protection, pas une raison de forcer le déploiement.
+
+## Découverte sûre du 22 octobre 2026 — original récupérable
+
+Le précontrôle réel [GitHub Actions #39785891570](https://github.com/ludodulac/Celebrations/actions/runs/39785891570) a comparé les cinq fichiers critiques (`/`, `/index.html`, `/styles.css`, `/admin-committee-links.js`, `/admin.html`) sur `celebrations.rondes.workers.dev` avec `main` : **5/5 octet pour octet identiques**. GitHub `main` est épinglé au commit `4b5edd9c19ce989af2eae33445017dd30fcbbe92`.
+
+La réponse Cloudflare API `GET /workers/scripts/celebrations` est HTTP **204** (Worker original **assets-only**, aucun script JS à sauvegarder), sa configuration lisible est datée du **22 septembre 2026** avec zéro binding. Le premier précontrôle a échoué volontairement sur l'ancienne hypothèse « un script JS doit exister » ; la protection a été corrigée pour accepter cette configuration vérifiée à l'identique, tout en conservant l'échec si les ressources diffèrent. Aucune modification de `celebrations` ou du domaine officiel à cette étape.
+
+Un Worker de compatibilité séparé `celebrations-legacy-links-qa` utilisant exclusivement les actifs originaux de `main` est désormais préparé : les autres pages demeurent identiques, et seules les neuf URL `?lettre=` peuvent accéder à D1/R2 sans redirection. Une vérification octet par octet des neuf PDF contre le Supabase original est prévue avant de toucher à l'ancien Worker.
