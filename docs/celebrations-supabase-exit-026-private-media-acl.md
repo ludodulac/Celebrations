@@ -54,3 +54,7 @@ Aucune suppression des 158 fichiers originaux Supabase, des 158 copies staging o
 `PUBLIC_DNS_SWITCH=NO`
 
 **Prochaine mission :** import et contrôle des données de compte / brouillons / statistiques, initialisation sécurisée des secrets de production, puis tests sur URL Cloudflare distincte avant toute éventuelle bascule publique.
+
+## Résolution de l'ancien avertissement « 31 références » — mission 08 (22 octobre 2026)
+
+L'avertissement conservé plus haut est **historique**, et non un blocage actuel : [run #39800612532](https://github.com/ludodulac/Celebrations/actions/runs/39800612532) a effectivement classé les **31 chemins absents chez Supabase**. **30** sont des images d'anciens éléments de galerie que l'interface utilisateur retire de l'affichage lorsque le binaire est absent ; le propriétaire a demandé de migrer seulement ce qui est réellement présent sur le site. **1** était le PDF du jeudi déjà restauré et désormais accessible en Cloudflare R2 (HTTP 200). Aucune absence supplémentaire dans les ressources d'accueil, couvertures ou autres catégories utilisées ; **113/113 médias approuvés** répondent HTTP 200 sur le Worker de prévisualisation. Ne pas lancer de recherche/restauration pour les 30 images de galerie non affichées. Ne pas effacer les données source ni modifier le domaine officiel ; l'audit visuel/navigateur exhaustif appartient à la mission 09.
