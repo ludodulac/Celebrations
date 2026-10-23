@@ -99,3 +99,17 @@ Le run [#39821830360](https://github.com/ludodulac/Celebrations/actions/runs/398
 - `OFFICIAL_SITE_AND_DNS_UNCHANGED=YES` ; `NEXT_CUTOVER_AUTHORIZATION=NOT_GRANTED`.
 
 **Mission 12 terminée pour ce qui peut être fait en lecture seule ; la mission 13 (bascule effective) est BLOQUÉE jusqu'à obtention/validation du DNS de Spaceship, de la zone Cloudflare et du plan de bascule DNSSEC.** Conserver cette barrière tant que le propriétaire n'a pas donné son accord explicite pour la transition et que tous les points d'arrêt sont levés.
+
+## Confirmation visuelle du propriétaire — 23 octobre 2026
+
+Le propriétaire a fourni deux captures d'écran de son véritable panneau Spaceship **Advanced DNS**, rubrique « DNS Records (5) » et DNSSEC, sans demander ni autoriser de modification DNS.
+
+Les cinq lignes visibles correspondent à l'inventaire public de la mission 12 :
+- Quatre `A` au nom `@` : `185.199.108.153`, `185.199.109.153`, `185.199.110.153`, `185.199.111.153`, **TTL 30 minutes** ;
+- Un `CNAME` `www` vers `ludodulac.github.io`, **TTL 30 minutes** ;
+- Onglet Spaceship `DNSSEC` : statut visible **Enabled** avec bouton `Disable` (aucune action réalisée).
+- Les onglets DNS Records / DNSSEC / Personal Nameservers / URL Redirect sont visibles ; seule la liste des cinq enregistrements et le statut DNSSEC ont été photographiés. **Ne pas déduire que les redirections URL ou autres paramètres privés ont été entièrement exportés.** Aucune capture de l'onglet URL Redirect ; aucun export de la zone autoritative intégrale.
+
+**Instructions de sécurité :** ne toucher ni aux cinq lignes Spaceship, ni aux nameservers, ni à `Disable` DNSSEC. Préparer seulement une zone Cloudflare **pending** (Free) en reprenant les cinq enregistrements ci-dessus, sans changer la délégation NS ni relier le Worker au domaine officiel. Faire confirmer les nouvelles valeurs NS attribuées et l'inventaire de records Cloudflare **avant** la fenêtre de changement approuvée en mission 13. Dans cette future fenêtre, résoudre le DS DNSSEC existant et son TTL observé de 86 400 secondes avant bascule ; conserver une procédure de secours pour l'ancien site. Les données de messagerie restent non certifiées : pas d'enregistrements MX visibles dans le relevé public, mais vérifier que Spaceship n'affiche pas d'autres services/sous-domaines dans des parties distinctes.
+
+La confirmation visuelle renforce la preuve du *panneau* du propriétaire mais **n'équivaut pas** à une sauvegarde de zone complète ni à une autorisation de migration DNS. Aucun changement de production effectué par la présente note.
