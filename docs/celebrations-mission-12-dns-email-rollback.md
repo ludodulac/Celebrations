@@ -123,3 +123,20 @@ Un nouveau garde de diagnostic `scripts/mission12b_pending_cloudflare_zone_reado
 Préparation de la transition DNSSEC : Cloudflare recommande de retirer le DS ancien chez le registrar, attendre son TTL complet (dernier relevé : 86 400 s) et seulement ensuite remplacer les NS, puis réactiver DNSSEC côté Cloudflare et installer le nouveau DS. Référence : https://developers.cloudflare.com/dns/dnssec/ . **Aucune de ces actions n'est entreprise sans accord distinct du propriétaire**. L'activité DNSSEC et les mail records doivent être revérifiés juste avant la fenêtre réelle.
 
 Contrôle post-configuration de type Mission 12 (sans bascule) déclenché dans GitHub par `[MISSION12_DNS_ROLLBACK_READONLY_ONCE]` ; consigner son résultat réel après exécution, avant de prescrire la moindre action DNSSEC chez Spaceship.
+
+## Audit complémentaire du 23 octobre 2026 — zone Cloudflare créée mais **PENDING**
+
+**GitHub Actions [#39959540607](https://github.com/ludodulac/Celebrations/actions/runs/39959540607) = SUCCESS**, run de diagnostic et secours **entièrement sans modification DNS / D1 / Worker**. Script `scripts/mission12b_pending_cloudflare_zone_readonly.mjs`, appel GET avec jeton de l'environnement protégé.
+
+Constats **réels**, distingués des seules captures d'écran :
+- La zone `ronde-des-archanges-universelle.eu` est **maintenant visible** dans le **bon compte Cloudflare**, plan **Free**, statut API **`pending`** ; l'ancien avertissement « zone non visible » daté d'avant sa création est donc **résolu**.
+- Les deux serveurs assignés par Cloudflare correspondent aux photos : `luke.ns.cloudflare.com` et `maria.ns.cloudflare.com`.
+- La délégation DNS **publique** utilise toujours `launch1.spaceship.net` et `launch2.spaceship.net`. Les 4 IP GitHub Pages du domaine et `www` CNAME `ludodulac.github.io` sont encore inchangés. Ancien site officiel **HTTP 200** et déploiement GitHub Pages `main=4b5edd9c19ce989af2eae33445017dd30fcbbe92` vérifiés.
+- Enregistrement **DS DNSSEC parental toujours présent** (`count=1`, TTL de réponse 86 400 secondes). Ne pas changer les NS tant qu'il n'a pas été supprimé puis expiré selon procédure validée.
+- Le token GitHub autorise la **lecture de la zone elle-même**, mais **PAS des enregistrements DNS** ni des **routes Workers** (`dns_record_readable=false`, `all_worker_routes_readable=false`). Les **cinq enregistrements importés et non proxifiés** demeurent prouvés par les captures du propriétaire, **pas certifiés par cette API**. Le sauvegarde *complète* de zone reste **NON réalisable avec le jeton disponible**. Ne pas prétendre avoir une restauration automatique DNS prête.
+- La tentative d'inventaire R2 par l'API catalogues reste indéterminée, sans remettre en cause les transactions et restaurations d'archives privées déjà vérifiées dans les missions précédentes.
+- Quotas D1 pré/post : 0 lecture, 0 écriture sur la journée à ce moment. Aucun DNS, NS, DNSSEC, routage, Worker ou site public modifié.
+
+**Garde de décision actualisé :** `CLOUDFLARE_ZONE_CREATED=YES`, `ZONE_STATUS=PENDING`, `CURRENT_AUTHORITATIVE_DNS=SPACESHIP`, `DNSSEC_OLD_DS_PRESENT=YES`, `FULL_ZONE_EXPORT=NO`, `WORKER_CUSTOM_DOMAIN_CONNECTED=NO`, `CUTOVER_AUTHORIZED=NO`.
+
+Prochaine préparation sans danger : vérifier s'il existe de vraies redirections dans l'onglet **URL Redirect** chez Spaceship ou des emails `@ronde-des-archanges-universelle.eu` utilisés ; valider une copie manuelle privée et exhaustive des paramètres de registrar/zone (capture des cinq lignes + éventuelles règles et services), puis planifier le retrait DS avec son attente avant les NS. La mission 13 ne peut commencer qu'après consentement explicite et vérification des données/du Worker production.
