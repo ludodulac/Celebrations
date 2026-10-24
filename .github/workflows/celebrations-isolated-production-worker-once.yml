@@ -69,7 +69,8 @@ jobs:
           if grep -Eq '(^|[[:space:]])(route|routes|zone_id|custom_domain)[[:space:]]*=' "$config"; then
             echo "Forbidden official domain route present"; exit 1
           fi
-      - name: Confirm exactly-named Worker does not yet exist (no overwrite)
+      - name: Check isolated Worker presence safely (never overwrite)
+        id: presence
         shell: bash
         run: |
           set -euo pipefail
@@ -79,12 +80,19 @@ jobs:
           const r=await fetch(`https://api.cloudflare.com/client/v4/accounts/${account}/workers/scripts/celebrations-exit-production`,{
            headers:{Authorization:`Bearer ${token}`,Accept:"application/json"},signal:AbortSignal.timeout(25000)
           });
-          if(r.status!==404)throw Error("Existing Worker or unreadable Cloudflare script; refusing overwrite (HTTP "+r.status+")");
-          console.log("ISOLATED_WORKER_NEW_NAME_CONFIRMED existing_script=NO overwrite=NO");
+          if(r.status!==404&&r.status!==200)
+           throw Error("Cloudflare script lookup unavailable; refusing write (HTTP "+r.status+")");
+          const existing=r.status===200;
+          await import("node:fs/promises").then(fs=>fs.appendFile(process.env.GITHUB_OUTPUT,
+           "already_exists="+String(existing)+"\\n"));
+          console.log("ISOLATED_WORKER_PRESENCE_CHECK existing_script="+existing+
+           " safe_action="+(existing?"VERIFY_ONLY_NO_REDEPLOY":"FIRST_DEPLOY_ALLOWED"));
           NODE
       - name: Install pinned Wrangler package without paid plan
+        if: steps.presence.outputs.already_exists == 'false'
         run: npm install --no-save --no-package-lock wrangler@4
-      - name: Deploy ONLY new isolated production candidate with protected derived admin secrets
+      - name: Deploy ONLY when absent, with protected derived admin secrets
+        if: steps.presence.outputs.already_exists == 'false'
         shell: bash
         working-directory: migration/cloudflare
         run: |
