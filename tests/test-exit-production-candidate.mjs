@@ -68,9 +68,24 @@ test("isolated production Workers.dev disallows indexing without affecting futur
  const official=await worker.fetch(new Request("https://www.ronde-des-archanges-universelle.eu/"),env);
  assert.equal(official.status,200);
  assert.equal(official.headers.get("x-robots-tag"),null);
+ assert.equal(official.headers.get("x-content-type-options"),"nosniff");
+ assert.equal(official.headers.get("x-frame-options"),"SAMEORIGIN");
+ assert.equal(official.headers.get("referrer-policy"),"strict-origin-when-cross-origin");
  const forbidden=await worker.fetch(new Request(origin+"/api/auth",{
   method:"POST",headers:{"Content-Type":"application/json"},body:"{}"
  }),env);
  assert.equal(forbidden.status,405);
  assert.match(forbidden.headers.get("x-robots-tag")||"",/noindex/);
+});
+
+test("historical /lettres permalinks never use external storage, unknown files remain private",async()=>{
+ const mock={
+  MEDIA_BUCKET:{},
+  MEDIA_ACL:{prepare(){return {bind(){return {first:async()=>null}}}}}
+ };
+ for(const pathname of ["/lettres/unknown-invitation","/lettres/../not-valid","/lettres/%00-invalid"]){
+  const response=await worker.fetch(new Request("https://www.ronde-des-archanges-universelle.eu"+pathname),mock);
+  assert.equal(response.status,404);
+  assert.equal(response.headers.get("x-content-type-options"),"nosniff");
+ }
 });
