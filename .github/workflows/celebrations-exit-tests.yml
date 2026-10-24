@@ -50,6 +50,7 @@ on:
       - index.html
       - scripts/build_staging_assets.py
       - scripts/build_production_assets.py
+      - scripts/audit_production_supabase_paths.py
       - scripts/prepare_production_wrangler.py
       - migration/cloudflare/production-worker.mjs
   pull_request:
@@ -84,6 +85,8 @@ jobs:
       - run: node --test tests/test-exit-readonly-preview.mjs tests/test-exit-production-candidate.mjs tests/test-exit-media-gateway.mjs tests/test-exit-public-data.mjs tests/test-exit-auth.mjs tests/test-exit-staging-integration.mjs tests/test-exit-preview-client.mjs tests/test-exit-client-isolation.mjs tests/test-exit-footer-admin.mjs tests/test-exit-legal-drafts.mjs tests/test-exit-participants-admin.mjs tests/test-exit-safe-save-sqlite.mjs tests/test-exit-stats.mjs tests/test-exit-participant-full.mjs tests/test-exit-media-admin.mjs tests/test-exit-d1-query-budget.mjs tests/test-exit-admin-lifecycle.mjs tests/test-exit-admin-ui-ids.mjs
       - run: python scripts/build_staging_assets.py
       - run: python scripts/build_production_assets.py
+      - name: Read-only inventory of legacy Supabase references in generated production assets
+        run: python scripts/audit_production_supabase_paths.py
       - name: Confirm all seven direct programme/day pages exclusively boot Cloudflare
         shell: bash
         run: |
