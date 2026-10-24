@@ -84,7 +84,7 @@ jobs:
            throw Error("Cloudflare script lookup unavailable; refusing write (HTTP "+r.status+")");
           const existing=r.status===200;
           await import("node:fs/promises").then(fs=>fs.appendFile(process.env.GITHUB_OUTPUT,
-           "already_exists="+String(existing)+"\\n"));
+           "already_exists="+String(existing)+"\n"));
           console.log("ISOLATED_WORKER_PRESENCE_CHECK existing_script="+existing+
            " safe_action="+(existing?"VERIFY_ONLY_NO_REDEPLOY":"FIRST_DEPLOY_ALLOWED"));
           NODE
