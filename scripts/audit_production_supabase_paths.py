@@ -33,4 +33,6 @@ for label in needles:
     print(label,"files",len(files),"occurrences",sum(n for _,n in files))
     for path,count in files[:60]:
         print(" ",path,"count",count)
-print("CLOUDFLARE_PRODUCTION_ASSETS_LEGACY_SOURCE_AUDIT_COMPLETE no_network=1 no_deploy=1")
+if any(hits[label] for label in needles):
+    raise SystemExit("PRODUCTION_BUILD_BLOCKED: residual Supabase endpoint/SDK/tus reference")
+print("CLOUDFLARE_PRODUCTION_NO_SUPABASE_NETWORK_REFERENCES_PASS no_network=1 no_deploy=1")
