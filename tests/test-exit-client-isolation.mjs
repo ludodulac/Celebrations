@@ -54,12 +54,13 @@ test("legal page renderer fetches only isolated D1 URL on staging hostname",asyn
  const title={textContent:""};
  const document={title:"",body:{dataset:{legalPage:"mentions-legales"}},getElementById(id){return id==="legalContent"?content:title}};
  const location={hostname:"celebrations-exit-staging.rondes.workers.dev",origin:"https://celebrations-exit-staging.rondes.workers.dev"};
+ const window={CELEBRATIONS_STAGING_BACKEND:location.origin};
  let url=null;
  const fetch=async function(u){
    url=u;
    return new Response(JSON.stringify([{content:"# Site de test",title:"Mentions légales"}]),{status:200});
  };
- vm.runInNewContext(code,{document,location,fetch,FOOTER_PAGE_DEFS:{"mentions-legales":{title:"Mentions légales"}}});
+ vm.runInNewContext(code,{document,location,window,fetch,FOOTER_PAGE_DEFS:{"mentions-legales":{title:"Mentions légales"}}});
  await new Promise(resolve=>setImmediate(resolve));
  assert.equal(url,location.origin+"/api/public-data?table=celebrations_footer_page&slug=mentions-legales");
  assert.ok(content.innerHTML.includes("Site de test"));
