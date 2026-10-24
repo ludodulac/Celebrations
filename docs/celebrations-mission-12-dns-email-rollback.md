@@ -140,3 +140,11 @@ Constats **réels**, distingués des seules captures d'écran :
 **Garde de décision actualisé :** `CLOUDFLARE_ZONE_CREATED=YES`, `ZONE_STATUS=PENDING`, `CURRENT_AUTHORITATIVE_DNS=SPACESHIP`, `DNSSEC_OLD_DS_PRESENT=YES`, `FULL_ZONE_EXPORT=NO`, `WORKER_CUSTOM_DOMAIN_CONNECTED=NO`, `CUTOVER_AUTHORIZED=NO`.
 
 Prochaine préparation sans danger : vérifier s'il existe de vraies redirections dans l'onglet **URL Redirect** chez Spaceship ou des emails `@ronde-des-archanges-universelle.eu` utilisés ; valider une copie manuelle privée et exhaustive des paramètres de registrar/zone (capture des cinq lignes + éventuelles règles et services), puis planifier le retrait DS avec son attente avant les NS. La mission 13 ne peut commencer qu'après consentement explicite et vérification des données/du Worker production.
+
+### Contrôle de reprise du 24 octobre 2026 — pré-bascule strictement en lecture seule
+
+Le Worker `celebrations-exit-production` est désormais déployé et certifié **sur son propre hostname Workers.dev**, avec l'ancien site et les DNS Spaceship intacts (Actions #40086047240 et #40095474679). Cela ne connecte **PAS** le domaine officiel.
+
+L'ami du propriétaire envoie des mailings via Brevo et lit des messages avec Outlook/Gmail, mais le ou les domaines de ses vraies adresses e-mail ne sont pas identifiés. L'absence de MX/SPF/DMARC pour `ronde-des-archanges-universelle.eu` lors du dernier audit ne prouve pas que ses comptes ne sont pas utilisés sur un AUTRE domaine. Avant le changement de NS, il faut donc préserver tout ce qui existe ; surtout n'inventer aucun MX, SPF, DKIM ou redirection Cloudflare.
+
+Un nouvel instantané ponctuel (sans bascule) doit confirmer les NS publics actuels, le DS parent DNSSEC, les 5 enregistrements affichés et le statut de la zone Cloudflare. **Aucun changement de DNSSEC, de délégation, de domaine, de contenu, d'e-mail ou de Worker n'est autorisé par ce contrôle.** Après l'audit, préparer une opération distincte de gestion DS/TTL (environ 24 h observées), puis seulement une éventuelle délégation et une validation des e-mails.
