@@ -1,0 +1,93 @@
+name: Célébrations — guarded update of independent Cloudflare candidate
+on:
+  push:
+    branches: [feat/celebrations-supabase-exit-001]
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-isolated-production-worker
+  cancel-in-progress: false
+jobs:
+  refresh-independent-candidate:
+    if: ${{ github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && contains(github.event.head_commit.message, '[PROD_CANDIDATE_REFRESH_NO_DNS]') }}
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    timeout-minutes: 25
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      CELEBRATIONS_ADMIN_PASSWORD: ${{ secrets.CELEBRATIONS_ADMIN_PASSWORD }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+      CELEBRATIONS_PROD_D1_ID: 28736d2a-479b-472b-bf82-703ad0affe10
+      CELEBRATIONS_PROD_R2_BUCKET: celebrations-exit-production
+      CELEBRATIONS_STAGING_D1_ID: 0f761662-241f-42cc-ac94-5c68b4aa7797
+      CELEBRATIONS_STAGING_R2_BUCKET: celebrations-exit-staging
+    steps:
+      - name: Fail closed unless isolated worker credentials and targets match
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/feat/celebrations-supabase-exit-001"
+          test "$STAGING_D1_ID" = "$CELEBRATIONS_STAGING_D1_ID"
+          test "$STAGING_R2_BUCKET" = "$CELEBRATIONS_STAGING_R2_BUCKET"
+          test "$CELEBRATIONS_PROD_D1_ID" != "$STAGING_D1_ID"
+          test "$CELEBRATIONS_PROD_R2_BUCKET" != "$STAGING_R2_BUCKET"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test "${#CELEBRATIONS_ADMIN_PASSWORD}" -ge 14
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Account quota preflight
+        run: node scripts/check-staging-d1-free-budget.mjs pre
+      - name: Local functional and security smoke tests only
+        run: |
+          node --check migration/cloudflare/production-worker.mjs
+          node --check migration/cloudflare/legacy-link-router.mjs
+          node --check supabase-data.js
+          node --check admin-supabase-core.js
+          node --test tests/test-exit-production-candidate.mjs tests/test-exit-client-isolation.mjs tests/test-exit-auth.mjs tests/test-exit-media-admin.mjs
+      - name: Build production assets and BLOCK old Supabase URLs and SDKs
+        run: |
+          python scripts/build_production_assets.py
+          python scripts/audit_production_supabase_paths.py
+          python scripts/prepare_production_wrangler.py
+      - name: Verify exact isolated target, no official domain, no root asset exposure
+        shell: bash
+        run: |
+          set -euo pipefail
+          config=migration/cloudflare/wrangler.production.toml
+          test ! -f wrangler.jsonc
+          grep -Fx 'name = "celebrations-exit-production"' "$config"
+          grep -Fx 'main = "production-worker.mjs"' "$config"
+          grep -Fx 'workers_dev = true' "$config"
+          grep -Fx 'preview_urls = false' "$config"
+          grep -Fx 'run_worker_first = true' "$config"
+          grep -Fx 'directory = "../../production-public"' "$config"
+          grep -Fx 'database_id = "28736d2a-479b-472b-bf82-703ad0affe10"' "$config"
+          grep -Fx 'bucket_name = "celebrations-exit-production"' "$config"
+          if grep -Eq '(^|[[:space:]])(route|routes|zone_id|custom_domain)[[:space:]]*=' "$config"; then exit 1; fi
+      - name: Install Wrangler for only the isolated worker
+        run: npm install --no-save --no-package-lock wrangler@4
+      - name: Refresh independent workers.dev candidate, never the legacy Worker
+        working-directory: migration/cloudflare
+        shell: bash
+        run: |
+          set -euo pipefail
+          secret_file="$(mktemp)"
+          chmod 600 "$secret_file"
+          trap 'rm -f "$secret_file"' EXIT
+          python ../../scripts/make_admin_worker_secrets.py "$secret_file"
+          npx wrangler deploy --config wrangler.production.toml --secrets-file "$secret_file"
+      - name: Read-only official-domain and independent candidate checks
+        run: node scripts/verify_isolated_production_worker.mjs
+      - name: Account quota postflight
+        if: always()
+        run: node scripts/check-staging-d1-free-budget.mjs post
