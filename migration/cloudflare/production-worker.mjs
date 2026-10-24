@@ -1,4 +1,4 @@
-// Production-candidate entrypoint: separate from staging, not deployed.
+// Production-candidate entrypoint: isolated workers.dev deployment allowed before cutover.
 // Never attach a real custom domain before DNS/backup/rollback authorization.
 import {handleMediaAdmin} from "./media-admin-api.mjs";
 import {handleMedia} from "./media-gateway.mjs";
@@ -14,6 +14,12 @@ import {handleStats} from "./stats-api.mjs";
 export default {
  async fetch(request,env){
   const url=new URL(request.url),path=url.pathname;
+  const isolated=url.hostname==="celebrations-exit-production.rondes.workers.dev";
+  if(isolated && path==="/robots.txt")
+   return new Response("User-agent: *\nDisallow: /\n",{
+    headers:{"content-type":"text/plain; charset=utf-8","x-robots-tag":"noindex,nofollow,noarchive","cache-control":"no-store"}});
+  const handleRoute=async()=>{
+
   // The displayed Préparation day links to /preparation via client routing.
   // Never hijack this actual site page as an orphan Google Drive alias.
   const isPreparationPage=path==="/preparation"||path==="/preparation/";
@@ -31,5 +37,13 @@ export default {
   if(path==="/api/stats")return handleStats(request,env);
   if((request.method==="GET"||request.method==="HEAD")&&env.ASSETS)return env.ASSETS.fetch(request);
   return new Response("Not found",{status:404,headers:{"cache-control":"no-store"}});
+  };
+  const response=await handleRoute();
+  if(!isolated)return response;
+  const headers=new Headers(response.headers);
+  headers.set("x-robots-tag","noindex,nofollow,noarchive");
+  headers.set("cache-control","no-store");
+  headers.set("x-content-type-options","nosniff");
+  return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
  }
 };
