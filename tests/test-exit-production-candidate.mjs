@@ -52,3 +52,20 @@ test("published Préparation programme route remains navigable inside site",asyn
  }
  assert.deepEqual(touched,["/preparation","/preparation/"]);
 });
+
+test("isolated production Workers.dev disallows indexing without affecting future official domain",async()=>{
+ const env={ASSETS:{async fetch(){
+  return new Response("<html>candidate</html>",{status:200,headers:{"content-type":"text/html"}});
+ }}};
+ const origin="https://celebrations-exit-production.rondes.workers.dev";
+ const preview=await worker.fetch(new Request(origin+"/"),env);
+ assert.equal(preview.status,200);
+ assert.match(preview.headers.get("x-robots-tag")||"",/noindex/);
+ assert.equal(preview.headers.get("cache-control"),"no-store");
+ const robots=await worker.fetch(new Request(origin+"/robots.txt"),env);
+ assert.equal(robots.status,200);
+ assert.match(await robots.text(),/Disallow/);
+ const official=await worker.fetch(new Request("https://www.ronde-des-archanges-universelle.eu/"),env);
+ assert.equal(official.status,200);
+ assert.equal(official.headers.get("x-robots-tag"),null);
+});
