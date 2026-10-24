@@ -15,6 +15,13 @@ export default {
  async fetch(request,env){
   const url=new URL(request.url),path=url.pathname;
   const isolated=url.hostname==="celebrations-exit-production.rondes.workers.dev";
+  // Before domain cutover the independent candidate is READ-ONLY, by design.
+  // This gate prevents public signups, analytics writes and admin mutations.
+  if(isolated && request.method!=="GET" && request.method!=="HEAD")
+   return new Response("Pre-cutover preview is read-only",{status:405,headers:{
+    "x-robots-tag":"noindex,nofollow,noarchive","cache-control":"no-store"
+   }});
+
   if(isolated && path==="/robots.txt")
    return new Response("User-agent: *\nDisallow: /\n",{
     headers:{"content-type":"text/plain; charset=utf-8","x-robots-tag":"noindex,nofollow,noarchive","cache-control":"no-store"}});
