@@ -1,0 +1,39 @@
+name: Célébrations — production D1 Supabase-reference counts (read only)
+on:
+  push:
+    branches: [feat/celebrations-supabase-exit-001]
+permissions:
+  contents: read
+jobs:
+  privacy-safe-counts:
+    if: ${{ github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && contains(github.event.head_commit.message, '[MISSION13_D1_LEGACY_REFERENCES_READONLY_ONCE]') }}
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    timeout-minutes: 12
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+      CELEBRATIONS_PROD_D1_ID: 28736d2a-479b-472b-bf82-703ad0affe10
+    steps:
+      - name: Fail closed on wrong environment
+        run: |
+          test "$GITHUB_REF" = "refs/heads/feat/celebrations-supabase-exit-001"
+          test "$STAGING_D1_ID" = "0f761662-241f-42cc-ac94-5c68b4aa7797"
+          test "$STAGING_R2_BUCKET" = "celebrations-exit-staging"
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Quota preflight
+        run: node scripts/check-staging-d1-free-budget.mjs pre
+      - name: Read only production D1 tables with aggregate counts; no raw personal data
+        run: node scripts/mission13_d1_legacy_references_readonly.mjs
+      - name: Quota postflight
+        if: always()
+        run: node scripts/check-staging-d1-free-budget.mjs post
