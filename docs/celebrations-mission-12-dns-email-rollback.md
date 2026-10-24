@@ -161,3 +161,14 @@ GitHub Actions [#40095766063](https://github.com/ludodulac/Celebrations/actions/
 Le propriétaire a désactivé DNSSEC depuis l’onglet Spaceship « Advanced DNS → DNSSEC ». Capture transmise : écran affiche distinctement **« DNSSEC Disabled »** et le bouton « Enable » ; les anciens NS **launch1.spaceship.net** et **launch2.spaceship.net** apparaissent toujours. L’opération a été effectuée volontairement en vue de la migration Cloudflare. Le statut du panneau Spaceship ne garantit pas la disparition immédiate du DS du registre ou de caches ; dernière valeur du TTL DS observée avant désactivation : 86 400 secondes (~24 heures). **Interdiction de basculer immédiatement les NS sans contrôle de ce DS** et sans copie prouvée des cinq enregistrements web (et vérification éventuelle des dépendances email).
 
 Déclencher seulement un nouvel audit GitHub DNS/public read-only, ne rien changer sur le site ou le domaine.
+
+### 25 octobre 2026 — Cloudflare production : assainissement du code source et préparation de publication isolée
+Nouvelle mission préalable au cutover lancée sur la SEULE branche de migration :
+- Supabase-client ne crée plus aucun client Supabase ; absence de bootstrap Cloudflare = erreur explicite.
+- Les chargements publics, statistiques, pages légales, visibilité des liens et téléversements admin utilisent désormais exclusivement les API Cloudflare D1/R2, sans branche réseau Supabase ; le code historique de téléversement tus a été retiré.
+- Les liens /lettres/<slug> sont servis par la passerelle R2 privée/ACL ; la page 404 ne contient plus d'appel Supabase.
+- wrangler.jsonc à la racine a été supprimé de la branche de migration pour bloquer un déploiement accidentel de la racine du dépôt comme fichiers statiques publics.
+- La compilation des fichiers production doit échouer si elle retrouve un hôte Supabase, le SDK supabase-js ou le SDK tus-js ; après correction, scan zéro référence de ces catégories et tests GitHub CI verts.
+- En-têtes X-Content-Type-Options nosniff, Referrer-Policy, X-Frame-Options SAMEORIGIN ajoutés dans le Worker cible.
+- Le Worker Cloudflare existant celebrations-exit-production.rondes.workers.dev peut être actualisé de manière isolée avec les contrôles CI ; cela n'effectue aucun basculement DNS et n'altère pas le Worker historique « celebrations ».
+IMPORTANT : cette actualisation ne prouve pas à elle seule que le nouveau site est déjà en production sur le domaine officiel. NS encore Spaceship, attendre au moins 24h après désactivation DNSSEC. Vérifier les données D1 (notamment external_url) et les actions admin avec un test effectif avant cutover. Ne jamais supprimer les données Supabase ni les autres sites de ce compte sans sauvegarde et décision distincte.
