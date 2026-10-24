@@ -3,6 +3,12 @@ on:
   push:
     branches: [feat/celebrations-supabase-exit-001]
     paths:
+      # All admin/public UI changes must run the existing automated checks.
+      - 'admin.html'
+      - 'admin-*.js'
+      - 'public-*.js'
+      - '*.html'
+      - '*.css'
       - migration/**
       - tests/test-exit-media-gateway.mjs
       - tests/test-exit-preview-client.mjs
@@ -48,6 +54,12 @@ on:
       - migration/cloudflare/production-worker.mjs
   pull_request:
     paths:
+      # All admin/public UI changes must run the existing automated checks.
+      - 'admin.html'
+      - 'admin-*.js'
+      - 'public-*.js'
+      - '*.html'
+      - '*.css'
       - scripts/build_production_assets.py
       - scripts/verify-production-readonly-preview.mjs
       - scripts/verify-production-readonly-browser.mjs
