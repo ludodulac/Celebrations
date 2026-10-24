@@ -172,3 +172,6 @@ Nouvelle mission préalable au cutover lancée sur la SEULE branche de migration
 - En-têtes X-Content-Type-Options nosniff, Referrer-Policy, X-Frame-Options SAMEORIGIN ajoutés dans le Worker cible.
 - Le Worker Cloudflare existant celebrations-exit-production.rondes.workers.dev peut être actualisé de manière isolée avec les contrôles CI ; cela n'effectue aucun basculement DNS et n'altère pas le Worker historique « celebrations ».
 IMPORTANT : cette actualisation ne prouve pas à elle seule que le nouveau site est déjà en production sur le domaine officiel. NS encore Spaceship, attendre au moins 24h après désactivation DNSSEC. Vérifier les données D1 (notamment external_url) et les actions admin avec un test effectif avant cutover. Ne jamais supprimer les données Supabase ni les autres sites de ce compte sans sauvegarde et décision distincte.
+
+### 25 octobre 2026 — preuve supplémentaire D1 lecture seule
+Vérification PRIVÉE par agrégations SELECT seulement sur tables de production : contenu, liens, textes, événements, pages juridiques et documents du comité. Le but est de compter les éventuelles références à Supabase encore stockées dans les données qui alimentent le nouveau site, sans exposer aucune URL, aucun texte ni aucune donnée personnelle. Contrôle du quota D1 avant et après. Aucune mutation.
