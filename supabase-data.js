@@ -1,17 +1,26 @@
-const CELEBRATIONS_SUPABASE_URL='https://jwyayfkssyagvnablttg.supabase.co';
-const CELEBRATIONS_SUPABASE_KEY='sb_publishable_qm8yJyH_5LfP-oZ1sz4QLg_r9J5VdnA';
-const CELEBRATIONS_MEDIA_BUCKET='celebrations-media';
-const sbHeaders=(extra={})=>({apikey:CELEBRATIONS_SUPABASE_KEY,'Content-Type':'application/json',...extra});
-const smartId=v=>/^\d+$/.test(String(v??''))?Number(v):String(v??'');
-async function sbJson(path,options={}){if(window.celebrationsStagingData){const m=path.match(/^\/rest\/v1\/(celebrations_[a-z_]+)\?/);if(!m)throw new Error("Unsupported staging read");return window.celebrationsStagingData(m[1])}const r=await fetch(CELEBRATIONS_SUPABASE_URL+path,{...options,headers:sbHeaders(options.headers||{})});if(!r.ok)throw new Error((await r.text())||`Supabase ${r.status}`);const t=await r.text();return t?JSON.parse(t):null}
+// Cloudflare D1/R2 is the sole data source. Legacy function names are
+// retained until the HTML entrypoints can be renamed together.
+const smartId=v=>/^\\d+$/.test(String(v??''))?Number(v):String(v??'');
+async function sbJson(path){
+ const m=path.match(/^\\/rest\\/v1\\/(celebrations_[a-z_]+)\\?/);
+ if(!m||typeof window.celebrationsStagingData!=='function')
+  throw new Error('Cloudflare D1 indisponible');
+ return window.celebrationsStagingData(m[1]);
+}
 async function loadStateFromSupabase(){
  const [celebrations,steps,events,contents,eventContents,stepContents,links,groups]=await Promise.all([sbJson('/rest/v1/celebrations_celebrations?select=*&order=id'),sbJson('/rest/v1/celebrations_steps?select=*&order=sort_order'),sbJson('/rest/v1/celebrations_events?select=*&order=sort_order'),sbJson('/rest/v1/celebrations_contents?select=*&order=created_at'),sbJson('/rest/v1/celebrations_event_contents?select=*&order=sort_order'),sbJson('/rest/v1/celebrations_step_contents?select=*&order=sort_order'),sbJson('/rest/v1/celebrations_links?select=*&order=sort_order'),sbJson('/rest/v1/celebrations_groups?select=*&order=sort_order')]);
  const ecs=new Map(),scs=new Map();eventContents.forEach(x=>{const k=String(x.event_id);if(!ecs.has(k))ecs.set(k,[]);ecs.get(k).push(smartId(x.content_id))});stepContents.forEach(x=>{const k=`${x.celebration_id}|${x.step_key}`;if(!scs.has(k))scs.set(k,[]);scs.get(k).push(smartId(x.content_id))});
  const byCel=new Map();steps.forEach(x=>{if(!byCel.has(Number(x.celebration_id)))byCel.set(Number(x.celebration_id),[]);byCel.get(Number(x.celebration_id)).push({key:x.step_key,label:x.label,startDate:x.start_date||'',endDate:x.end_date||'',text:x.body_text||'',links:[],contentIds:scs.get(`${x.celebration_id}|${x.step_key}`)||[]})});links.forEach(l=>{if(l.event_id)return;const d=(byCel.get(Number(l.celebration_id))||[]).find(x=>x.key===l.step_key);if(d)d.links.push({label:l.label||'',url:l.url,kind:l.link_type||'link'})});
  const cels=celebrations.map(c=>({id:Number(c.id),archangel:c.archangel,year:c.year||'',status:c.status||'planned',days:byCel.get(Number(c.id))||[]}));const cont=contents.map(c=>({id:smartId(c.id),name:c.name,type:c.content_type,category:c.category||'',audience:c.audience||'all',description:c.description||'',sourceType:c.source_type||'',url:c.external_url||'',text:c.inline_text||'',fileName:c.file_name||'',mimeType:c.mime_type||'',storagePath:c.storage_path||'',hasCover:!!c.has_cover,coverStoragePath:c.cover_storage_path||'',coverFileName:c.cover_file_name||'',audioKind:c.audio_kind||''}));const ev=events.map(e=>({id:smartId(e.id),celebrationId:Number(e.celebration_id),dayKey:e.step_key,title:e.title,time:e.event_time||'',description:e.description||'',audience:e.audience||'all',sortOrder:Number(e.sort_order??0),contentIds:ecs.get(String(e.id))||[],links:links.filter(l=>String(l.event_id||'')===String(e.id)).map(l=>({label:l.label||'',url:l.url,kind:l.link_type||'link'}))}));const active=cels.find(c=>c.status==='active')||cels[0];return {version:7,currentCelebrationId:active?.id||null,adminCelebrationId:active?.id||cels[0]?.id||null,profile:localStorage.getItem('celebrations-public-profile-chosen')||'all',groups:groups.length?groups.map(g=>({id:g.id,name:g.name})):clone(DEFAULTS.groups),categories:[...new Set(cont.map(c=>c.category).filter(Boolean))],celebrations:cels,contents:cont,events:ev};
 }
-function supabaseMediaUrl(path){if(!path)return '';const value=String(path);if(value.startsWith('data:')||/^https?:\/\//i.test(value))return value;return window.celebrationsStagingMedia?window.celebrationsStagingMedia(value):`${CELEBRATIONS_SUPABASE_URL}/storage/v1/object/public/${CELEBRATIONS_MEDIA_BUCKET}/${value.split('/').map(encodeURIComponent).join('/')}`}
-async function getMedia(key){const s=typeof state!=='undefined'?state:null;const c=s?.contents?.find(x=>String(x.id)===String(key).replace(/^cover-/,''));if(!c)return null;const path=String(key).startsWith('cover-')?c.coverStoragePath:c.storagePath;if(!path)return null;const isStagingAdmin=!!window.CELEBRATIONS_STAGING_BACKEND&&document.body?.classList.contains('admin-app');const headers=isStagingAdmin?{authorization:'Bearer '+(localStorage.getItem('celebrations-admin-token')||'')}:{apikey:CELEBRATIONS_SUPABASE_KEY};const r=await fetch(supabaseMediaUrl(path),{headers});return r.ok?await r.blob():null}
+function supabaseMediaUrl(path){
+ if(!path)return '';
+ const value=String(path);
+ if(value.startsWith('data:')||/^https?:\\/\\//i.test(value))return value;
+ return typeof window.celebrationsStagingMedia==='function'
+  ?window.celebrationsStagingMedia(value):'';
+}
+async function getMedia(key){const s=typeof state!=='undefined'?state:null;const c=s?.contents?.find(x=>String(x.id)===String(key).replace(/^cover-/,''));if(!c)return null;const path=String(key).startsWith('cover-')?c.coverStoragePath:c.storagePath;if(!path)return null;const isStagingAdmin=!!window.CELEBRATIONS_STAGING_BACKEND&&document.body?.classList.contains('admin-app');const headers=isStagingAdmin?{authorization:'Bearer '+(localStorage.getItem('celebrations-admin-token')||'')}:{};const r=await fetch(supabaseMediaUrl(path),{headers});return r.ok?await r.blob():null}
 function escPreviewText(v){return String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
 async function openStoredFile(content){
  const path=content?.storagePath;if(!path)return alert('Fichier indisponible.');
