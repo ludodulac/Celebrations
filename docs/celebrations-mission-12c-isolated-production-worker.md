@@ -25,3 +25,22 @@ Le présent commit est la demande opt-in de déploiement de la mission 12C. Lire
 - NS, DNSSEC, DS, e-mails, Brevo, Outlook, Gmail : **NE PAS CHANGER**.
 - Supabase partagé (et liens directs historiques), neuf PDF et Worker historique : **NE PAS CHANGER**.
 - Pas de dernière synchronisation définitive des statistiques, pas d'activation Custom Domain, pas de suppression ni d'abonnement payant.
+
+## RÉSULTAT EFFECTIF — 24 octobre 2026
+
+**GitHub Actions [#40086047240](https://github.com/ludodulac/Celebrations/actions/runs/40086047240) : SUCCESS.** La nouvelle application a été **réellement déployée** uniquement à l'adresse isolée :
+
+`https://celebrations-exit-production.rondes.workers.dev`
+
+Preuves spécifiques dans le journal :
+- Pré-contrôle : script Cloudflare cible non existant ; **aucun autre Worker écrasé**.
+- Wrangler : **91 fichiers statiques chargés**, Worker `celebrations-exit-production` créé avec les secrets d'admin dérivés temporairement ; aucune modification du site officiel ni du Worker historique.
+- Contrôle HTTPS : **10 pages du programme HTTP 200** ; 3 tables publiques correctement lues ; photo d'accueil HTTP 200 ; une invitation invalide répond 404 ; prévisualisation non indexable ; aucune mutation D1/R2 nécessaire.
+- Déclaration réelle de DNS au contrôle : `launch1.spaceship.net`, `launch2.spaceship.net` ; **l'ancien site officiel est resté accessible**.
+- Quotas du 24 octobre contrôlés avant et après : 1 304 lignes D1 lues, **zéro ligne écrite**, aucun dépassement Free.
+
+**Restriction volontaire :** ce hostname `workers.dev` refuse toute requête POST/PUT/DELETE (HTTP 405), afin de bloquer les inscriptions, statistiques et changements administratifs avant le lancement. Le futur vrai domaine n'est pas soumis à cette restriction une fois sa bascule autorisée, mais **l'administration de la nouvelle production officielle ne doit pas être activée avant préparation et validation du domaine**. L'interface admin complète peut toujours être testée sur l'ancien Worker dédié `celebrations-exit-editable-qa` (secret requis).
+
+Le navigateur du propriétaire avait déjà confirmé que `celebrations-exit-preview-ro` s'affiche correctement ; la nouvelle URL de production a en plus passé ces tests HTTP automatisés. Ce résultat ne remplace PAS la vérification humaine de toutes les pages ni l'autorisation de mission 13.
+
+**Bilan mission 12C : nouveau Worker de production indépendant créé et testé ; raccordement du domaine, DNSSEC et e-mails inchangés.**
