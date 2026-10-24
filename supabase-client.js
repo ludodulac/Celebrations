@@ -1,13 +1,8 @@
+// Legacy filename retained temporarily because the original HTML load order
+// depends on this path. Production and staging now use Cloudflare exclusively.
+// A missing Cloudflare bootstrap must fail closed rather than contact Supabase.
 (function(){
-  const url='https://jwyayfkssyagvnablttg.supabase.co';
-  const key='sb_publishable_qm8yJyH_5LfP-oZ1sz4QLg_r9J5VdnA';
-  window.CELEBRATIONS_SUPABASE_URL=url;
-  window.CELEBRATIONS_SUPABASE_KEY=key;
-  // Staging runs against Cloudflare D1/R2, never instantiate a Supabase client.
-  if(new URLSearchParams(location.search).get('staging')==='1')return;
-  if(window.supabase?.createClient){
-    window.celebrationsSupabase=window.supabase.createClient(url,key,{
-      auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}
-    });
+  if(!window.CELEBRATIONS_STAGING_BACKEND){
+    throw new Error('Cloudflare backend bootstrap is missing.');
   }
 })();
