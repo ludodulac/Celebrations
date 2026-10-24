@@ -52,6 +52,14 @@ def main():
                 raise RuntimeError("Unexpected legacy committee shortlink boot")
             html=html.replace(original,replacement)
 
+        if name=="admin.html":
+            # The Cloudflare R2 uploader does not require tus-js-client.
+            # Keep the original site (GitHub main) unchanged during cutover.
+            tus='<script src="https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js"></script>'
+            if html.count(tus)!=1:
+                raise RuntimeError("Unexpected obsolete resumable-upload SDK bootstrap")
+            html=html.replace(tus,"")
+
         if "cdn.jsdelivr.net/npm/@supabase/supabase-js" in html:
             raise RuntimeError("Legacy Supabase SDK must not load in production candidate")
         p.write_text(html,encoding="utf-8")
