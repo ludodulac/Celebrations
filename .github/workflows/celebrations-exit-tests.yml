@@ -6,6 +6,9 @@ on:
       # All admin/public UI changes must run the existing automated checks.
       - 'admin.html'
       - 'admin-*.js'
+      - 'supabase-data.js'
+      - 'supabase-client.js'
+      - 'tests/test-exit-production-candidate.mjs'
       - 'public-*.js'
       - '*.html'
       - '*.css'
@@ -58,6 +61,9 @@ on:
       # All admin/public UI changes must run the existing automated checks.
       - 'admin.html'
       - 'admin-*.js'
+      - 'supabase-data.js'
+      - 'supabase-client.js'
+      - 'tests/test-exit-production-candidate.mjs'
       - 'public-*.js'
       - '*.html'
       - '*.css'
@@ -93,7 +99,7 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           d=Path("production-public")
-          days=("programme","mercredi","jeudi","vendredi","samedi","dimanche","apres-celebration")
+          days=("programme","mercredi","jeudi","vendredi","samedi","dimanche","apres-celebration","bibliotheque","apres-la-ronde")
           for slug in days:
               html=(d/slug/"index.html").read_text(encoding="utf-8")
               assert html.count("window.CELEBRATIONS_STAGING_BACKEND=location.origin;")==1,slug
