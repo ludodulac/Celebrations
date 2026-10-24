@@ -13,9 +13,9 @@ built=root/"production-public"
 if not (built/"admin.html").is_file() or not (built/"index.html").is_file():
     raise SystemExit("MISSING_PRODUCTION_ASSET_BUILD")
 needles={
-    "supabase_host":re.compile(r"(?:supabase\\.co|storage\\.supabase\\.co)",re.I),
+    "supabase_host":re.compile(r"supabase[.]co",re.I),
     "supabase_sdk":re.compile(r"@supabase/supabase-js|supabase-js@",re.I),
-    "tus_sdk":re.compile(r"tus-js-client|tus\\.min\\.js",re.I),
+    "tus_sdk":re.compile(r"tus-js-client|tus[.]min[.]js",re.I),
 }
 hits=defaultdict(list)
 for f in sorted(built.rglob("*")):
