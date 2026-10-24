@@ -68,4 +68,9 @@ test("isolated production Workers.dev disallows indexing without affecting futur
  const official=await worker.fetch(new Request("https://www.ronde-des-archanges-universelle.eu/"),env);
  assert.equal(official.status,200);
  assert.equal(official.headers.get("x-robots-tag"),null);
+ const forbidden=await worker.fetch(new Request(origin+"/api/auth",{
+  method:"POST",headers:{"Content-Type":"application/json"},body:"{}"
+ }),env);
+ assert.equal(forbidden.status,405);
+ assert.match(forbidden.headers.get("x-robots-tag")||"",/noindex/);
 });
