@@ -17,6 +17,8 @@ UUID=re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
 def generate(prod_db,prod_bucket,staging_db,staging_bucket,destination):
     if not UUID.fullmatch(str(prod_db)) or not UUID.fullmatch(str(staging_db)):
         raise ValueError("Database identifiers must be UUIDs")
+    if str(prod_db).lower()!="28736d2a-479b-472b-bf82-703ad0affe10":
+        raise ValueError("Unexpected production D1 ID")
     if str(prod_db).lower()==str(staging_db).lower():
         raise ValueError("Production and staging databases cannot be identical")
     if prod_bucket!=BUCKET or staging_bucket!="celebrations-exit-staging":
@@ -26,16 +28,17 @@ def generate(prod_db,prod_bucket,staging_db,staging_bucket,destination):
     target=pathlib.Path(destination)
     if target.exists():
         raise ValueError("Refusing overwrite of production config")
-    config=f'''# OFFLINE PRODUCTION CANDIDATE. Do not deploy or attach a domain without approval.
+    config=f'''# ISOLATED PRODUCTION CANDIDATE — workers.dev only; custom domain NOT approved.
 name = "{NAME}"
 main = "production-worker.mjs"
 compatibility_date = "2026-10-16"
 workers_dev = true
+preview_urls = false
 
 [assets]
 directory = "../../production-public"
 binding = "ASSETS"
-run_worker_first = ["/", "/index.html", "/admin.html", "/admin"]
+run_worker_first = true
 
 [[d1_databases]]
 binding = "DB"
