@@ -1,8 +1,8 @@
 // Cloudflare D1/R2 is the sole data source. Legacy function names are
 // retained until the HTML entrypoints can be renamed together.
-const smartId=v=>/^\\d+$/.test(String(v??''))?Number(v):String(v??'');
+const smartId=v=>/^\d+$/.test(String(v??''))?Number(v):String(v??'');
 async function sbJson(path){
- const m=path.match(/^\\/rest\\/v1\\/(celebrations_[a-z_]+)\\?/);
+ const m=path.match(/^\/rest\/v1\/(celebrations_[a-z_]+)\?/);
  if(!m||typeof window.celebrationsStagingData!=='function')
   throw new Error('Cloudflare D1 indisponible');
  return window.celebrationsStagingData(m[1]);
@@ -16,7 +16,7 @@ async function loadStateFromSupabase(){
 function supabaseMediaUrl(path){
  if(!path)return '';
  const value=String(path);
- if(value.startsWith('data:')||/^https?:\\/\\//i.test(value))return value;
+ if(value.startsWith('data:')||/^https?:\/\//i.test(value))return value;
  return typeof window.celebrationsStagingMedia==='function'
   ?window.celebrationsStagingMedia(value):'';
 }
