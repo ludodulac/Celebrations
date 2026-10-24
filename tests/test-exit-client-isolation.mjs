@@ -4,14 +4,15 @@ import vm from "node:vm";
 import {readFile} from "node:fs/promises";
 const src=async path=>readFile(new URL("../"+path,import.meta.url),"utf8");
 
-test("staging skips Supabase SDK initialization while default production still uses it",async()=>{
+test("Cloudflare frontend never instantiates a Supabase client and fails closed without bootstrap",async()=>{
  const code=await src("supabase-client.js");
- for(const [search,expected] of [["?staging=1",false],["",true]]){
-  let called=false;
-  const window={supabase:{createClient(){called=true;return {production:true}}}};
-  vm.runInNewContext(code,{window,location:{search},URLSearchParams});
-  assert.equal(called,expected);
- }
+ let called=false;
+ const window={CELEBRATIONS_STAGING_BACKEND:"https://site.invalid",supabase:{createClient(){called=true;throw Error("Forbidden legacy call")}}};
+ vm.runInNewContext(code,{window});
+ assert.equal(called,false);
+ assert.equal(window.celebrationsSupabase,undefined);
+ assert.throws(()=>vm.runInNewContext(code,{window:{supabase:{createClient(){called=true}}}}),/Cloudflare backend bootstrap is missing/);
+ assert.equal(called,false);
 });
 
 test("staging page views are written only to same-origin Cloudflare D1 statistics",async()=>{
