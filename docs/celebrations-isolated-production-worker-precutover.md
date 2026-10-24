@@ -18,3 +18,6 @@ Le site réel ne basculera pas sans une autorisation **distincte** et explicite.
 
 ## Mise en garde
 Ne pas confondre le Worker candidat isolé avec le Worker `celebrations` historique des 9 PDF. Ne pas supposer qu'un job a réussi sans lire sa conclusion et ses tests.
+
+## Résultat réel du 24 octobre
+Premier déploiement isolé réussi via GitHub Actions [#40086047240](https://github.com/ludodulac/Celebrations/actions/runs/40086047240) : nouveau Worker déployé sur https://celebrations-exit-production.rondes.workers.dev, 10 routes HTTP 200, trois tables publiques D1, photo 200, rejet PDF inconnu, réponse noindex, et NS officiels toujours Spaceship. Aucun changement DNS/DNSSEC ni écriture D1/R2/Supabase dans le contrôle. Un second lancement redondant [#40095338648](https://github.com/ludodulac/Celebrations/actions/runs/40095338648) s'est arrêté volontairement avec FAILURE devant la barrière « Worker déjà existant » ; le site candidat n'a pas été écrasé. Le workflow est rendu idempotent : s'il existe, on valide seulement ses pages sans redéployer. Le commit de validation ci-après utilise le marqueur de run pour une seule vérification sans réinstallation ni bascule officielle.
