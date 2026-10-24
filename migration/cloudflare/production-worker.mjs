@@ -46,11 +46,16 @@ export default {
   return new Response("Not found",{status:404,headers:{"cache-control":"no-store"}});
   };
   const response=await handleRoute();
-  if(!isolated)return response;
   const headers=new Headers(response.headers);
-  headers.set("x-robots-tag","noindex,nofollow,noarchive");
-  headers.set("cache-control","no-store");
+  // These protections apply to the future official domain as well as previews.
+  // SAMEORIGIN permits legitimate same-site PDF frames without clickjacking.
   headers.set("x-content-type-options","nosniff");
+  headers.set("referrer-policy","strict-origin-when-cross-origin");
+  headers.set("x-frame-options","SAMEORIGIN");
+  if(isolated){
+   headers.set("x-robots-tag","noindex,nofollow,noarchive");
+   headers.set("cache-control","no-store");
+  }
   return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
  }
 };
