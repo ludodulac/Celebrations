@@ -175,3 +175,7 @@ IMPORTANT : cette actualisation ne prouve pas à elle seule que le nouveau site 
 
 ### 25 octobre 2026 — preuve supplémentaire D1 lecture seule
 Vérification PRIVÉE par agrégations SELECT seulement sur tables de production : contenu, liens, textes, événements, pages juridiques et documents du comité. Le but est de compter les éventuelles références à Supabase encore stockées dans les données qui alimentent le nouveau site, sans exposer aucune URL, aucun texte ni aucune donnée personnelle. Contrôle du quota D1 avant et après. Aucune mutation.
+
+
+### 25 octobre 2026 — sauvegarde source chiffrée pré-bascule
+Le propriétaire demande d'achever rapidement la migration, avec préservation de l'ancien site tant que le délai TTL DNSSEC de 86 400 s n'est pas écoulé. Déclenchement du workflow existant de sauvegarde `[BACKUP_ENCRYPTED_ONCE]` : lecture seule de 16 tables source, chiffrement AES-256-GCM dans le runner, copie du seul ciphertext vers le bucket privé `celebrations-exit-staging`, comparaison du fichier distant, sans changer aucun enregistrement DNS ni le site officiel, ni D1. **La réussite du backup doit être attestée par le résultat GitHub Actions, pas anticipée.** Contrôle distinct du dernier delta source/D1 requis juste avant bascule. Aucune suppression de Supabase ou d'autres projets n'est autorisée.
