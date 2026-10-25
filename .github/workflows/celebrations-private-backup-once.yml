@@ -1619,6 +1619,8 @@ jobs:
         run: |
           command -v dig
           node scripts/mission12c_dnssec_multi_resolver_readonly.mjs
+      - name: Compare assigned Cloudflare web DNS with both Spaceship authoritative servers (READ ONLY)
+        run: node scripts/mission12d_pending_zone_web_parity_readonly.mjs
       - name: Inspect newly prepared Cloudflare zone vs original five Spaceship DNS records (GET only)
         run: node scripts/mission12b_pending_cloudflare_zone_readonly.mjs
       - name: Prove old official site and successful immutable GitHub Pages rollback baseline
