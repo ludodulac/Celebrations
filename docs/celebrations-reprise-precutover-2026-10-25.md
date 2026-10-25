@@ -1,0 +1,29 @@
+# CÉLÉBRATIONS — reprise vérifiée du 25 octobre 2026, avant la bascule DNS
+
+> Point établi à partir des **journaux GitHub Actions réels**. Aucune modification du domaine ou de Supabase par ce checkpoint. Pour l'exploitation, relire des preuves fraîches : les nombres et le DNS changent avec le temps.
+
+## État de référence
+
+- Dépôt : `ludodulac/Celebrations`; **ne pas changer `main`** (GitHub Pages de secours au commit `4b5edd9c19ce989af2eae33445017dd30fcbbe92`).
+- Branche de migration : `feat/celebrations-supabase-exit-001`; dernière référence vérifiée avant cette note : `fec38124cc0f4ed5bf48d95b002c7af4055172d2`.
+- Nouveau Worker isolé : `https://celebrations-exit-production.rondes.workers.dev`. Déploiement initial et dix pages HTTP 200 attestés par Actions [#40086047240](https://github.com/ludodulac/Celebrations/actions/runs/40086047240). **Le Worker reste volontairement en lecture seule sur son hostname workers.dev**, refusant les méthodes d'écriture.
+- Domaine officiel : `www.ronde-des-archanges-universelle.eu`; **encore sur Github Pages, sans bascule**. Le Worker historique des neuf liens de comité reste inchangé. Ne pas couper Supabase : projet partagé avec d'autres usages.
+
+## Preuves nouvelles du 25 octobre
+
+1. **Parité du contenu réel** : Actions [#40184781498](https://github.com/ludodulac/Celebrations/actions/runs/40184781498) — job `mission13-production-parity-readonly` **SUCCESS** à 10:26 UTC. Comparaison réussie des **9 tables éditoriales** (456 lignes : 4 célébrations, 3 groupes, 1 réglage, 211 contenus, 28 étapes, 62 événements, 23 liens, 124 relations, 0 relation étape/contenu), **1 compte historique** et **9 lettres privées**. Zéro écriture.
+2. **Sauvegarde chiffrée et delta de visites** : Actions [#40184880438](https://github.com/ludodulac/Celebrations/actions/runs/40184880438), job `mission11-backup-audit-and-append-only-delta` **SUCCESS** à 10:29 UTC. Export de **16 tables et 12 346 lignes**, archive **AES-256-GCM** privée dans R2 staging ; ciphertext **385 929 octets**, SHA-256 de contrôle `7e7e6108cc2c545b5e2ccd518a43a3642377b4fe8daf297fbe1078a6b315fe39`, téléchargé/revérifié/restauré en SQLite RAM, zéro erreur de clé étrangère. **158 originaux R2 staging** présents par clés et tailles (SHA-256 des contenus vérifié lors d'une mission antérieure, pas rehashé ici). **39 clics/visites supplémentaires** repris en D1 production et **11 863 / 11 863 anciens événements** vérifiés. Pas de modification des contenus, autres comptes ni Supabase. Cette archive n'est pas une sauvegarde indépendante d'un autre fournisseur ; REST source non transactionnel.
+3. **DNSSEC, DNS et site de secours** : Actions [#40185127502](https://github.com/ludodulac/Celebrations/actions/runs/40185127502) — job `mission12-dns-email-rollback-readonly` **SUCCESS** à 10:31 UTC. DNS **encore chez Spaceship**, `launch1.spaceship.net` et `launch2.spaceship.net` ; `www` CNAME `ludodulac.github.io`, apex GitHub Pages ; ancien site HTTP 200. Zone Cloudflare Free **`pending`** dans le bon compte, NS Cloudflare `luke.ns.cloudflare.com` / `maria.ns.cloudflare.com`. La liste DNS de la zone **reste illisible avec le jeton disponible**, pas de preuve d'export complet. **Le résolveur Cloudflare n'a PAS rapporté de DS parent** (`not_reported`, count 0), mais ce résultat **ne prouve ni la disparition chez tous les résolveurs ni l'expiration de l'ancien TTL 86 400 s**. DNSSEC avait été désactivé par le propriétaire le **24 octobre vers 14 h 20 (heure France)** ; ne pas changer les NS avant la fin de cette période et une vérification multi-résolveurs/au registre. Aucun changement DNS exécuté par cet audit.
+4. **Quota Free** : diagnostic à 10:31 UTC : 48 348 lignes lues et 78 écrites tous D1 du compte dans le relevé du jour, marge ample. Les compteurs sont différés et doivent être revérifiés.
+
+## Barrières finales pour une vraie bascule
+
+- Refaire le contrôle DS parent **après expiration de l'ancien TTL**, en consultant idéalement **plusieurs résolveurs et le parent autoritaire**. Le seul `not_reported` du 25 octobre à 10:31 UTC n'autorise pas un changement immédiat de NS.
+- Valider les cinq DNS Web repris dans Cloudflare, et toute autre règle Spaceship/URL Redirect, de manière **exhaustive** ; vérifier que le domaine transféré n'héberge pas d'email oublié. Le jeton actuel ne certifie pas la zone complète ni les routes Workers. Ne pas inventer de MX/SPF/DKIM.
+- Vérifier que la version actuellement déployée du Worker candidat (notamment les corrections de sécurité et le bundle sans SDK/réseau Supabase) est celle testée, et valider réellement une connexion/admin D1/R2 avec une session autorisée, **sans exposer de mot de passe**. L'essai du site en lecture seule ne démontre pas les écritures sur le futur domaine.
+- Avant modification des NS, organiser le **gel court des écritures de l'ancien site**, refaire une **synchronisation finale** des clics et données (les 11 863 événements correspondent au relevé de 10:28 UTC, non à une source figée). Prévoir retour arrière et réconciliation des écritures apparues après bascule.
+- Ensuite seulement, sous autorisation expresse du propriétaire, changer la délégation chez Spaceship vers les **NS attribués par Cloudflare** et raccorder le domaine au bon Worker. Tester HTTPS, pages, médias, neuf lettres, admin, participant, statistiques et courrier. **Ne jamais supprimer le projet Supabase partagé**, même après séparation de ce site, sans audit indépendant des autres applications et de leurs liens historiques.
+
+## État opérationnel
+
+**Migration code/données largement prête ; délégation du domaine officiel NON effectuée.** Le prochain acte utile est de certifier le DS après son TTL et la fidélité de la zone DNS, puis de préparer la bascule réversible ; ne pas multiplier les transferts déjà réussis.
