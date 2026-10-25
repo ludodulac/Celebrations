@@ -1630,3 +1630,49 @@ jobs:
 # binaries, other apps' tables, roles, settings, or a transaction-wide snapshot.
 # Staging R2 is a private first copy, NOT an independent off-site backup.
 # No workflow result alone authorizes production cutover or Supabase removal.
+
+  # One-time source-vs-D1 parity check before delegation. No modifications anywhere.
+  mission13-production-parity-readonly:
+    if: ${{ github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && contains(github.event.head_commit.message, '[MISSION13_FINAL_PARITY_READONLY_ONCE]') }}
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    timeout-minutes: 20
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      PROD_D1_ID: 28736d2a-479b-472b-bf82-703ad0affe10
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+    steps:
+      - name: Confirm exact production read-only scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/feat/celebrations-supabase-exit-001"
+          test "$STAGING_D1_ID" = "0f761662-241f-42cc-ac94-5c68b4aa7797"
+          test "$PROD_D1_ID" = "28736d2a-479b-472b-bf82-703ad0affe10"
+          test "$STAGING_R2_BUCKET" = "celebrations-exit-staging"
+          test "${SUPABASE_URL%/}" = "https://jwyayfkssyagvnablttg.supabase.co"
+          for name in SUPABASE_SERVICE_ROLE_KEY CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_API_TOKEN; do
+            test -n "${!name:-}" || { echo "Missing protected read credentials"; exit 1; }
+          done
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check D1 quota before read-only parity
+        run: node scripts/check-staging-d1-free-budget.mjs pre
+      - name: Install source and D1 read-only audit dependencies
+        run: python -m pip install 'requests==2.32.5'
+      - name: Compare live source vs production D1 without copying or logging personal data
+        run: python scripts/mission11_preflight_source_vs_cloudflare.py
+      - name: Check D1 quota after read-only parity
+        if: always()
+        run: node scripts/check-staging-d1-free-budget.mjs post
