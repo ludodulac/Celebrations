@@ -3,7 +3,13 @@
 // legacy Supabase fetch, JS failure, or unlocked administration screen.
 import assert from "node:assert/strict";
 import {chromium} from "playwright";
-const origin="https://celebrations-exit-preview-ro.rondes.workers.dev";
+const approved=new Set([
+ "https://celebrations-exit-preview-ro.rondes.workers.dev",
+ "https://celebrations-exit-production.rondes.workers.dev"
+]);
+const origin=process.env.CELEBRATIONS_READONLY_BROWSER_ORIGIN||
+ "https://celebrations-exit-preview-ro.rondes.workers.dev";
+assert.ok(approved.has(origin),"Refuse unknown audit origin: no production domain changes");
 const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
 const result={};
 try{
@@ -31,6 +37,7 @@ try{
  });
  const response=await page.goto(origin+"/",{waitUntil:"domcontentloaded",timeout:45000});
  assert.equal(response.status(),200);
+ assert.match(response.headers()["x-robots-tag"]||"",/noindex/,"Isolated preview must not be indexed");
  await page.locator("img.welcome-autumn").waitFor({state:"visible",timeout:18000});
  const welcome=await page.locator("img.welcome-autumn").evaluate(img=>({
   src:new URL(img.currentSrc).pathname,
