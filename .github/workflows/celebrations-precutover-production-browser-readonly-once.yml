@@ -1,0 +1,53 @@
+name: Célébrations — independent candidate mobile/browser audit (read only)
+on:
+  push:
+    branches: [feat/celebrations-supabase-exit-001]
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-precutover-readonly-browser
+  cancel-in-progress: false
+jobs:
+  precutover-browser-audit:
+    if: ${{ github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && contains(github.event.head_commit.message, '[PROD_ISOLATED_BROWSER_READONLY_ONCE]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CELEBRATIONS_READONLY_BROWSER_ORIGIN: https://celebrations-exit-production.rondes.workers.dev
+    steps:
+      - name: Fail closed unless correct branch and exact isolated host
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/feat/celebrations-supabase-exit-001"
+          test "$CELEBRATIONS_READONLY_BROWSER_ORIGIN" = "https://celebrations-exit-production.rondes.workers.dev"
+          echo "ONLY_OFFICIAL_DOMAIN_UNCHANGED=YES; no Cloudflare token, no registrar token, no SQL, no deployments"
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Audit source offline and generated candidate assets before HTTP requests
+        run: |
+          node --check scripts/verify-production-readonly-browser.mjs
+          node --check scripts/verify_isolated_production_worker.mjs
+          node --test tests/test-exit-production-candidate.mjs tests/test-exit-client-isolation.mjs
+          python scripts/build_production_assets.py
+          python scripts/audit_production_supabase_paths.py
+      - name: Install headless Chromium pinned for read-only browser
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Verify deployed isolated Worker and existing official website using GET and HEAD only
+        run: node scripts/verify_isolated_production_worker.mjs
+      - name: Walk isolated site on mobile, navigate programme and check admin lock without real POST
+        run: node scripts/verify-production-readonly-browser.mjs
+      - name: Explain limits; no writes authorized
+        run: |
+          echo "ISOLATED_CANDIDATE_MOBILE_READONLY_AUDIT_FINISHED"
+          echo "No D1/R2/Supabase mutations, no official DNS changes."
+          echo "Read-only browser acceptance does NOT certify admin mutations, participant registrations, Brevo mail, or final cutover."
