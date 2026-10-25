@@ -19,7 +19,11 @@ try{
  });
  const page=await context.newPage();
  const legacy=[],errors=[],mutationAttempts=[],serverFailures=[];
- page.on("pageerror",e=>errors.push(String(e.name||"Error")));
+ page.on("pageerror",e=>{
+  let route="unknown";try{route=new URL(page.url()).pathname}catch{}
+  const brief=String(e.message||"").replace(/https?:\/\/\S+/g,"[url]").replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi,"[email]").slice(0,180);
+  errors.push({type:String(e.name||"Error"),route,message:brief});
+ });
  page.on("request",r=>{
   if(/jwyayfkssyagvnablttg\.(supabase\.co|storage\.supabase\.co)/i.test(r.url()))
     legacy.push(r.method());
@@ -94,6 +98,7 @@ try{
  result.supabase_network_requests=legacy.length;
  result.javascript_errors=errors.length;
  assert.equal(legacy.length,0,"Preview browser must not contact legacy Supabase");
+ if(errors.length)console.log("PRODUCTION_READONLY_BROWSER_ERROR_DIAGNOSTIC "+JSON.stringify(errors));
  assert.equal(errors.length,0,"Uncaught browser error in read-only preview");
  console.log("PRODUCTION_READONLY_PREVIEW_BROWSER_PASS "+JSON.stringify(result));
 }finally{await browser.close()}
