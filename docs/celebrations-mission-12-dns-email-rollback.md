@@ -183,3 +183,5 @@ Le propriétaire demande d'achever rapidement la migration, avec préservation d
 Mission 13 — démarrage du pré-contrôle strict en lecture seule : comparaison des neuf tables éditoriales source/Cloudflare D1, de l'unique compte privé converti, des neuf PDF d'invitations et des nouveaux clics non synchronisés. Aucun changement du domaine, des données, du Worker ou de l'ancien site. Critère : résultat réel du run GitHub Actions, échec bloquant si dérive. Le dernier delta ne doit être repris qu'après l'arrêt des écritures sur l'ancien site.
 
 Mission 13 — relance du même diagnostic : premier essai stoppé AVANT toute requête vers la base à cause d'un PYTHONPATH GitHub Actions manquant (ModuleNotFoundError). Configuration CI corrigée ; aucun statut de parité n'est inféré du premier échec.
+
+25 octobre 2026 — contrôle DNSSEC juste avant le changement de serveurs de noms, via la mission 12 existante strictement en lecture seule. Un résultat favorable sur un résolveur ne remplace pas la fenêtre de 24h de mise en cache du DS. Aucun changement de domaine ou de zone n'est autorisé par ce contrôle.
