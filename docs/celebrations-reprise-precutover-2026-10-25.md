@@ -27,3 +27,7 @@
 ## État opérationnel
 
 **Migration code/données largement prête ; délégation du domaine officiel NON effectuée.** Le prochain acte utile est de certifier le DS après son TTL et la fidélité de la zone DNS, puis de préparer la bascule réversible ; ne pas multiplier les transferts déjà réussis.
+
+## Contrôle DNSSEC multi-résolveurs du 25 octobre, après délai
+
+Contrôle de continuation strictement en lecture seule, déclenché UNE fois après l'attente de plus de 24 heures depuis la désactivation par le propriétaire : lecture de DS sur Cloudflare et Google DoH, et interrogations non récursives d'au moins deux serveurs autoritaires du parent `.eu`. La preuve doit être tirée des journaux du job GitHub Actions `mission12-dns-email-rollback-readonly`, pas anticipée. Le même job vérifie l'ancien DNS Spaceship, le site de secours et le statut Cloudflare Pending. Aucun changement NS, DS, DNS Cloudflare, Worker, données, projet Supabase ou `main` n'est prévu. Un résultat DNSSEC positif ne suffira pas à lui seul à autoriser la délégation : export complet de la zone, éventuel courrier, contrôle admin et gel des écritures restent à valider.
