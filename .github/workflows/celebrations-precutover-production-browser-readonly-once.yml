@@ -10,7 +10,7 @@ concurrency:
 jobs:
   precutover-browser-audit:
     if: ${{ github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && contains(github.event.head_commit.message, '[PROD_ISOLATED_BROWSER_READONLY_ONCE]') }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
       CELEBRATIONS_READONLY_BROWSER_ORIGIN: https://celebrations-exit-production.rondes.workers.dev
