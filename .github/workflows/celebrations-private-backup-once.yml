@@ -1615,6 +1615,10 @@ jobs:
         run: node scripts/check-staging-d1-free-budget.mjs pre
       - name: Inventory current real public DNS, email SPF/MX/DMARC, DNSSEC DS
         run: node scripts/mission12_dns_email_readonly.mjs
+      - name: Confirm DS disappearance with independent resolvers and EU authoritative nameservers (READ ONLY)
+        run: |
+          command -v dig
+          node scripts/mission12c_dnssec_multi_resolver_readonly.mjs
       - name: Inspect newly prepared Cloudflare zone vs original five Spaceship DNS records (GET only)
         run: node scripts/mission12b_pending_cloudflare_zone_readonly.mjs
       - name: Prove old official site and successful immutable GitHub Pages rollback baseline
