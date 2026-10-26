@@ -140,3 +140,22 @@ Ces deux jobs sont déclenchés sur la branche migration par ce seul commit de d
 - Budget D1 global Cloudflare Free (relevé différé) : **10 814 lignes lues, 0 ligne écrite** en cette journée au moment du contrôle, marge ample.
 
 **Action suivante permise uniquement à périmètre restreint** : exécuter **une seule** sauvegarde privée AES-256-GCM restaurable et un rattrapage append-only des **26 clics actuellement manquants** (nombre susceptible d'augmenter pendant la procédure), sur D1 production isolée. Ne pas modifier le site ancien, aucune NS, aucun changement DNS ni aucune suppression Supabase. Ce n'est PAS encore le delta de gel final.
+
+## Bilan du 26 octobre — sauvegarde et synchronisation append-only vérifiées
+
+[GitHub Actions #40335213441](https://github.com/ludodulac/Celebrations/actions/runs/40335213441), job `mission11-backup-audit-and-append-only-delta` : **SUCCESS**, toutes étapes.
+- Sauvegarde privée **fraîche** source : **16 tables / 12 372 lignes**, chiffrée **AES-256-GCM** avant upload dans R2 staging privé, **386 768 octets** de ciphertext ; SHA-256 **`6d4a224efa1cbec48ee064ab339ca3ee3a1067242a1d27650a2e196b45ca88c3`**. Télécharger/revérifier/déchiffrer **en mémoire** et restaurer SQLite **sans erreur de clés étrangères** : PASS. Anciennes archives conservées, aucun plaintext envoyé. **Ce n'est pas une sauvegarde transactionnelle** (export REST source paginé), ni une copie indépendante d'un autre fournisseur, et les médias binaires sont distincts.
+- Recontrôle **158 originaux / 830 312 417 octets** dans R2 privé staging : **0 fichier manquant, 0 taille divergente, 0 recopie**. Le contrôle SHA-256 des octets a été effectué lors d'un audit antérieur, **pas dans ce run**. Les objets temporaires/archives privés de staging sont préservés.
+- Parité programme source ↔ D1 production **9 tables, 456 lignes**, 1 compte privé, 9 invitations historiques : PASS, **aucun changement éditorial**.
+- Statistiques source **11 889** au snapshot, D1 avant **11 863**. Ajout **strictement append-only de 26 nouvelles visites/clics**, puis **vérification intégrale des 11 889 lignes** jusque dans les champs dont `visitor_id`. Namespace D1 d'IDs historiques négatifs conservé ; **0 écriture source Supabase, 0 modification des autres tables D1**, **52 écritures D1 rapportées** pour les 26 insertions (métadonnées D1). Pas de Worker déployé ni de modification DNS.
+- Audit quota Cloudflare Free pré/post : à la date du 26 octobre, relevés Analytics différés mais **sous les quotas**. L'import a déclaré 23 752 lignes D1 lues, 52 lignes écrites ; les métriques compte peuvent ne pas encore être actualisées.
+
+**STATUT ACTUEL :** données migrées mises à jour jusqu'au relevé des **11 889** événements ; **aucun « dernier delta » garanti** tant que l'ancien site GitHub Pages / Supabase peut recevoir de nouvelles visites. Avant changement officiel du domaine : valider que les données ne changent plus, organiser le rapprochement après propagation, et préparer explicitement un rollback sans écraser les nouvelles écritures Cloudflare.
+
+### Barrières restantes, distinguer faits et étapes humaines
+
+**PASS vérifié** : DNSSEC DS disparu ; zone A/CNAME Web paritaire ; Brevo authentifie UNIQUEMENT `nation-essenienne.eu` (1/1), expéditeur unique conforme ; Worker Cloudflare autonome sur `workers.dev`, programme public et bootstrap admin mobile 0 erreur JS ; administration réelle déjà authentifiée en QA distincte (Mission 10 #39814358481) et CRUD synthétique en D1 staging (#39764462133) avec nettoyage.
+
+**NON CERTIFIÉ pour bascule** : export complet de la configuration DNS Spaceship et des routes Workers (API Cloudflare token insuffisant) ; activation de la zone Cloudflare (toujours `pending`) ; branchement explicite des deux noms apex et `www` au Worker ; capacité d'enregistrer dans l'administration sous le **domaine public définitif** (le candidat `workers.dev` refuse volontairement tous les POST) ; gel des modifications et delta final/post-propagation ; contrôle manuel du chemin de retour arrière (ancien NS et GitHub Pages inchangés mais retour arrière en production pas encore exercé) ; autorisation du propriétaire.
+
+**Ne pas modifier `main`, Spaceship/NS, `nation-essenienne.eu`, anciens liens PDF, Supabase partagé ou les données métier sans mandat distinct.** Ne pas présenter les contrôles staging/QA comme une preuve de la connexion réelle sur le futur domaine avant cutover.
