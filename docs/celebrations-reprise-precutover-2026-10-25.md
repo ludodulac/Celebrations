@@ -111,3 +111,13 @@ Le contrôle mobile #40218019001 révèle une exception **sur /admin** : « Clou
 
 ### Rafraîchissement du Worker isolé, sans bascule
 GitHub Actions [#40326058464](https://github.com/ludodulac/Celebrations/actions/runs/40326058464) : **SUCCESS**. Déploiement de la compilation avec correctif admin sur le seul `celebrations-exit-production.rondes.workers.dev` ; contrôles locaux, audit anti-Supabase, URL HTTPS isolée, ancien domaine officiel et contrôles de quota PASS. Aucun rattachement de domaine personnalisé, aucune modification Spaceship, Brevo, `main` ou Supabase. **Relancer maintenant une seule fois le test Chromium en lecture seule pour vérifier la disparition réelle de l'exception /admin** avant toute validation de ce correctif.
+
+### Résultat définitif du test Chromium mobile après correctif — 26 octobre
+
+GitHub Actions [#40326179981](https://github.com/ludodulac/Celebrations/actions/runs/40326179981) **SUCCESS**. Run autonome **sans jeton Cloudflare, sans modification DNS, sans POST non filtré ni écriture D1/R2**. Preuves :
+- Compilation locale du candidat et contrôle de zéro référence réseau Supabase dans les actifs : `CLOUDFLARE_PRODUCTION_NO_SUPABASE_NETWORK_REFERENCES_PASS`.
+- Tests réels HTTP sur le Worker isolé : **10 pages**, trois tables D1 publiques, photographie d'accueil HEAD 200, lien PDF inconnu refusé, ancien domaine officiel (NS Spaceship et GitHub Pages) inchangé.
+- **Vrai navigateur Chromium en viewport mobile :** `PRODUCTION_READONLY_PREVIEW_BROWSER_PASS` ; image affichée ; **4 célébrations, 62 événements, 211 contenus** ; **7 pages de jours autonomes** ; verrou de l'administration affiché ; **8 POST navigateur interceptés** avant tout envoi ; **0 requête Supabase**, **0 erreur JavaScript**.
+- L'exception `Cloudflare backend bootstrap is missing` de `/admin` est **corrigée dans le bundle déployé** et sa disparition vérifiée. **Le test n'a pas démontré les écritures admin sur le futur domaine officiel** : le Worker `workers.dev` est volontairement en lecture seule.
+
+**Décisions après contrôle :** `BREVO_SEPARATE_DOMAIN=CONFIRMED` ; `MOBILE_PUBLIC_AND_ADMIN_GATE_NO_JS_ERROR=PASS` ; `OFFICIAL_NS_CUTOVER=NOT_DONE`. Prochaines étapes : sauvegarde/ultime delta sécurisé, tests admin complets et rollback, puis autorisation expresse d'une bascule du seul domaine `ronde-des-archanges-universelle.eu`. **Ne jamais modifier `nation-essenienne.eu` ni détruire Supabase partagé**, et conserver les anciens liens PDF.
