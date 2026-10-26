@@ -53,6 +53,19 @@ def main():
             html=html.replace(original,replacement)
 
         if name=="admin.html":
+            # The legacy admin HTML places its Cloudflare bootstrap after
+            # supabase-client.js. On the isolated candidate, that client is
+            # an intentional fail-closed guard and throws if the bootstrap
+            # has not run yet. Move the generated-only bootstrap before it.
+            # NEVER alter the original GitHub Pages HTML or the old main.
+            client='<script src="supabase-client.js?v=1"></script>'
+            boot='<script>window.CELEBRATIONS_STAGING_BACKEND=location.origin;</script>'
+            if html.count(client)!=1 or html.count(boot)!=1:
+                raise RuntimeError("Unexpected admin Cloudflare bootstrap shape")
+            html=html.replace(boot,"")
+            html=html.replace(client,boot+client)
+            if html.index(boot)>html.index(client):
+                raise RuntimeError("Admin Cloudflare bootstrap must precede guarded client")
             # The Cloudflare R2 uploader does not require tus-js-client.
             # Keep the original site (GitHub main) unchanged during cutover.
             tus='<script src="https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js"></script>'
