@@ -91,3 +91,17 @@ GitHub Actions [#40217785269](https://github.com/ludodulac/Celebrations/actions/
 ### Deuxième exécution — test HTTP positif, erreur JS mobile à diagnostiquer
 
 GitHub Actions [#40217869959](https://github.com/ludodulac/Celebrations/actions/runs/40217869959), Ubuntu 24.04 : installation Chromium **SUCCESS**, audit offline du bundle **SUCCESS**, et contrôles HTTPS `ISOLATED_PRODUCTION_WORKER_CANDIDATE_PASS` (**10 pages HTTP 200**, image d'accueil et trois tables, ancien site officiel et NS Spaceship conservés). Le navigateur Chromium a parcouru le site et a constaté **une erreur JavaScript non interceptée** dans une des pages (`javascript_errors=1`), empêchant le statut global PASS. Les logs n'identifiaient pas le type ni la page. C'est une vraie lacune diagnostique ; n'affirmer ni « site cassé » ni « tout réussi ». Instrumentation ajoutée avec seule route et classe de l'erreur (sans données privées ni mot de passe), suivie d'un nouveau passage contrôlé. Zéro mutation/DNS.
+
+## 26 octobre 2026 — PREUVE BREVO REÇUE, ENVOI DES E-MAILS DISTINCT DU DOMAINE DU SITE
+
+Deux photographies transmises par le propriétaire de l'interface Brevo de l'ami :
+- Rubrique **Domaines** : **1 domaine sur 1**, `nation-essenienne.eu`, marqué **Authentifié**, avec statut **Avec marque** et sous-domaine de marque `mail`. Aucune ligne `ronde-des-archanges-universelle.eu` visible dans cette liste exhaustive affichée « 1–1 of 1 ».
+- Rubrique **Expéditeurs** : **1 expéditeur sur 1**, `Ronde des Archanges <ronde-des-archanges@nation-essenienne.eu>`, **Vérifié**. La carte de l'expéditeur indique **DKIM = nation-essenienne.eu** (coche verte), **DMARC est configuré** (coche verte), **IP mutualisée**.
+- Les trois adresses de réception annoncées auparavant par l'ami et Isabelle utilisent toutes le domaine **distinct** `nation-essenienne.eu`; Outlook/iPhone n'étaient pas encore configurés.
+
+**Conclusion circonscrite** : les envois Brevo et les adresses de communication *présentés dans les preuves* ne dépendent **pas des DNS du domaine web** `ronde-des-archanges-universelle.eu`. L'ancien blocage mail `BREVO_AUTHENTICATED_DOMAINS_PENDING` peut être marqué **RÉSOLU POUR LE COMPTE BREVO OBSERVÉ**. **Ne changer aucun DNS ni email routing de `nation-essenienne.eu`**, et ne pas demander de codes, ni de captures supplémentaires d'Outlook ou Gmail. Ce relevé ne certifie pas d'éventuels systèmes inconnus, mais est cohérent avec le DNS autoritaire du domaine web qui ne possède pas de MX.
+
+**Les barrières NON levées** concernent l'administration opérationnelle Cloudflare, la version effectivement déployée du Worker autonome, l'erreur JS mobile du test #40218019001, la dernière synchronisation après gel, le rollback, et l'accord spécifique de bascule DNS. **NS du site et site public laissés inchangés.** Ne pas prendre cette validation Brevo pour une autorisation automatique de cutover.
+
+### Dernier test navigateur (#40218019001), diagnostic confirmé
+Le run est **FAILURE** ; l'unique exception navigateur provient de la route `/admin` : `Error: Cloudflare backend bootstrap is missing.`. Les dix pages publiques et les données/images avaient répondu HTTP 200, l'ancien site était préservé, mais l'administration du Worker **actuellement déployé** ne démarre pas convenablement. **Bascule toujours interdite.** À comparer avec le bundle généré de la branche avant toute modification et redéployer/tester seulement le Worker `workers.dev` isolé si une correction est confirmée. Aucun secret, DNS, ou source Supabase modifié par ce diagnostic.
