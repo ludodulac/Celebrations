@@ -121,3 +121,14 @@ GitHub Actions [#40326179981](https://github.com/ludodulac/Celebrations/actions/
 - L'exception `Cloudflare backend bootstrap is missing` de `/admin` est **corrigée dans le bundle déployé** et sa disparition vérifiée. **Le test n'a pas démontré les écritures admin sur le futur domaine officiel** : le Worker `workers.dev` est volontairement en lecture seule.
 
 **Décisions après contrôle :** `BREVO_SEPARATE_DOMAIN=CONFIRMED` ; `MOBILE_PUBLIC_AND_ADMIN_GATE_NO_JS_ERROR=PASS` ; `OFFICIAL_NS_CUTOVER=NOT_DONE`. Prochaines étapes : sauvegarde/ultime delta sécurisé, tests admin complets et rollback, puis autorisation expresse d'une bascule du seul domaine `ronde-des-archanges-universelle.eu`. **Ne jamais modifier `nation-essenienne.eu` ni détruire Supabase partagé**, et conserver les anciens liens PDF.
+
+## 26 octobre — mission de revalidation avant bascule (sans action DNS)
+
+Après la confirmation que **Brevo n'utilise que nation-essenienne.eu**, et la réussite du navigateur mobile #40326179981 (0 erreur JS, 0 requête Supabase), lancer une unique campagne de **contrôle sans bascule**. La source Supabase est toujours active et susceptible de changer : les résultats du 25 octobre ne prouvent pas l'état du 26.
+
+1. `[MISSION13_FINAL_PARITY_READONLY_ONCE]` : comparer les **neuf tables éditoriales**, le compte privé, les **neuf invitations** et le nombre exact de visites/clics encore à copier vers D1 production. Contrôle de quota D1 Free avant/après, zéro mutation D1/Supabase/R2 et aucune donnée privée dans les logs. **Ce n'est pas le delta final tant que l'ancien site reste actif**.
+2. `[MISSION12_DNS_ROLLBACK_READONLY_ONCE]` : vérifier l'absence du DS parent .eu, les deux résolveurs, l'identité des serveurs DNS Spaceship/Cloudflare, les A/CNAME et la présence de l'ancien site GitHub Pages. L'inventaire Cloudflare peut, uniquement si le jeton a accès à la zone, archiver de manière chiffrée les paramètres DNS dans R2 privé (pas d'écriture DNS). Les deux domaines mail restent intouchés.
+3. Confirmer séparément qu'une vraie UI admin **authentifiée et capable d'enregistrer** a été testée en QA avant d'envisager la délégation. Le test public sur workers.dev refuse volontairement tous les POST.
+4. Ne rien changer à `main`, au Worker historique des neuf PDF, à Spaceship, à `nation-essenienne.eu` ni au projet Supabase partagé. Pas de modification des NS sans une décision explicite ultérieure du propriétaire.
+
+Ces deux jobs sont déclenchés sur la branche migration par ce seul commit de documentation. Les **résultats réels** seront consignés après lecture des journaux GitHub ; ne pas anticiper « SUCCESS ».
