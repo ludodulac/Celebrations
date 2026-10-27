@@ -85,3 +85,20 @@ jobs:
             worker_custom_domain_attached_by_this_check:false
           }));
           NODE
+
+      - name: Parent EU authoritative NS check; do not modify DNS
+        shell: bash
+        run: |
+          command -v dig
+          node --input-type=module <<'NODE'
+          import {spawnSync} from 'node:child_process';
+          const d='ronde-des-archanges-universelle.eu';
+          const names=['be.dns.eu','si.dns.eu','w.dns.eu','x.dns.eu'];
+          const records=[];
+          for(const server of names){
+            const p=spawnSync('dig',['@'+server,d,'NS','+norecurse','+time=4','+tries=1','+noall','+answer','+authority'],{encoding:'utf8',timeout:12000});
+            const entries=(p.stdout||'').split(/\r?\n/).map(x=>x.trim()).filter(x=>new RegExp('^'+d.replaceAll('.','\\.')+'\\.\\s+\\d+\\s+IN\\s+NS\\s+','i').test(x)).map(x=>x.split(/\s+/).at(-1).toLowerCase().replace(/\.$/,'')).sort();
+            records.push({parent:server,reachable:p.status===0,delegate_ns:entries});
+          }
+          console.log('CELEBRATIONS_EU_PARENT_NS_READONLY '+JSON.stringify({checked_at_utc:new Date().toISOString(),parents:records,changed:false}));
+          NODE
