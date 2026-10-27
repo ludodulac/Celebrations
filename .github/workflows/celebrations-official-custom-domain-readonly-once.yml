@@ -1,0 +1,59 @@
+name: Célébrations — official custom domain smoke test (read-only, once)
+on:
+  push:
+    branches: [feat/celebrations-supabase-exit-001]
+permissions:
+  contents: read
+jobs:
+  production-domain-smoke:
+    if: ${{ github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && contains(github.event.head_commit.message, '[OFFICIAL_CONNECT_READONLY_ONCE]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - name: Inspect official root and preview without writes, DNS changes or deployment
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import crypto from 'node:crypto';
+          import dns from 'node:dns/promises';
+          const domain='ronde-des-archanges-universelle.eu';
+          const urls={
+            official:'https://'+domain+'/',
+            independent_preview:'https://celebrations-exit-production.rondes.workers.dev/',
+            www_fallback:'https://www.'+domain+'/',
+            official_admin:'https://'+domain+'/admin',
+          };
+          const records={};
+          for(const [label,url] of Object.entries(urls)){
+            const result={};
+            try{
+              const response=await fetch(url,{redirect:'follow',headers:{'cache-control':'no-cache'},signal:AbortSignal.timeout(20000)});
+              const text=await response.text();
+              Object.assign(result,{
+                http_status:response.status,
+                final_host:new URL(response.url).hostname,
+                content_type:response.headers.get('content-type')?.split(';')[0]||null,
+                server:response.headers.get('server')||null,
+                html_sha256:crypto.createHash('sha256').update(text).digest('hex'),
+                body_bytes:Buffer.byteLength(text),
+                page_title:(text.match(/<title[^>]*>([^<]*)<\/title>/i)||[])[1]||null,
+              });
+            }catch(error){
+              result.error=(error.cause?.code||error.name||'request_error').toString().slice(0,90);
+            }
+            records[label]=result;
+          }
+          const addresses=await dns.resolve4(domain).catch(()=>[]);
+          const identical=!!records.official.html_sha256&&records.official.html_sha256===records.independent_preview.html_sha256;
+          console.log('CELEBRATIONS_CUSTOM_DOMAIN_READONLY '+JSON.stringify({
+            checked_at:new Date().toISOString(),
+            root_ipv4_addresses:addresses,
+            pages:records,
+            official_matches_worker_preview_exactly:identical,
+            no_dns_mutations:true,
+            no_deployment:true,
+            no_database_writes:true,
+            no_supabase_mutations:true
+          }));
+          if(records.official.http_status!==200) process.exitCode=1;
+          NODE
