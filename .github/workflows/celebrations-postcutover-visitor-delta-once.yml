@@ -1,0 +1,72 @@
+name: Célébrations — post-cutover final known visitor delta & private draft audit (once)
+on:
+  push:
+    branches: [feat/celebrations-supabase-exit-001]
+permissions:
+  contents: read
+jobs:
+  post-cutover-reconcile:
+    if: ${{ github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && contains(github.event.head_commit.message, '[POSTCUTOVER_STATS_AND_DRAFT_ONCE]') }}
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    concurrency:
+      group: celebrations-exit-precutover-backup-and-sync
+      cancel-in-progress: false
+    timeout-minutes: 25
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+      PROD_D1_ID: 28736d2a-479b-472b-bf82-703ad0affe10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify exact source/target identity and reserve
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/feat/celebrations-supabase-exit-001"
+          test "${SUPABASE_URL%/}" = "https://jwyayfkssyagvnablttg.supabase.co"
+          test "$STAGING_R2_BUCKET" = "celebrations-exit-staging"
+          test "$STAGING_D1_ID" = "0f761662-241f-42cc-ac94-5c68b4aa7797"
+          test "$PROD_D1_ID" = "28736d2a-479b-472b-bf82-703ad0affe10"
+          for var in SUPABASE_SERVICE_ROLE_KEY CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_API_TOKEN; do
+            test -n "${!var:-}" || exit 1
+          done
+      - name: Check daily D1 quota before reconciliation
+        run: node scripts/check-staging-d1-free-budget.mjs pre
+      - name: Install immutable REST dependency
+        run: python -m pip install 'requests==2.32.5'
+      - name: Assert temporary legal test line gone and draft remains private
+        run: |
+          python - <<'PY'
+          import os,requests,json
+          from scripts.import_public_programme_production_d1 import check_env,query
+          root,db=check_env()
+          session=requests.Session()
+          session.headers.update({"Authorization":"Bearer "+os.environ["CLOUDFLARE_API_TOKEN"],"Content-Type":"application/json"})
+          endpoint=root+"/d1/database/"+db+"/query"
+          meta=session.get(root+"/d1/database/"+db,timeout=25).json()
+          if meta.get("success") is not True or (meta.get("result") or {}).get("name")!="celebrations-exit-production":raise RuntimeError("Wrong D1 database")
+          sql="SELECT COUNT(*) AS n FROM celebrations_footer_drafts WHERE slug='mentions-legales' AND (is_public=1 OR instr(content,'TEST TECHNIQUE TEMPORAIRE')>0)"
+          matches,reads,writes=query(session,endpoint,sql)
+          if matches!=[{"n":0}] or writes:raise RuntimeError("Legal draft test line or publication still present")
+          drafts,_,_=query(session,endpoint,"SELECT COUNT(*) AS n FROM celebrations_footer_drafts WHERE slug='mentions-legales' AND is_active=1")
+          if len(drafts)!=1 or drafts[0]["n"]!=1:raise RuntimeError("Expected exactly one active private legal draft")
+          print("CELEBRATIONS_POSTCUTOVER_PRIVATE_LEGAL_DRAFT_PASS "+json.dumps({"active_private_draft":True,"temporary_test_marker_absent":True,"public_legal_draft_absent":True,"only_read_operations":True}))
+          PY
+      - name: Append only remaining Supabase historical clicks; preserve positive Cloudflare rows
+        run: python -m scripts.import_historic_stats_production_d1
+      - name: Check daily D1 quota after reconciliation
+        if: always()
+        run: node scripts/check-staging-d1-free-budget.mjs post
