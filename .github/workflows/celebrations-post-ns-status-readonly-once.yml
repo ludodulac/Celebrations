@@ -1,0 +1,87 @@
+name: Célébrations — point actuel du DNS après changement de serveurs (lecture seule)
+on:
+  push:
+    branches: [feat/celebrations-supabase-exit-001]
+permissions:
+  contents: read
+jobs:
+  post-ns-status:
+    if: ${{ github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && contains(github.event.head_commit.message, '[POST_NS_STATUS_READONLY_ONCE]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Current NS delegation, Cloudflare zone status and website public HTTP, no mutation
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import dns from 'node:dns/promises';
+          const d='ronde-des-archanges-universelle.eu';
+          const cfAssigned=['luke.ns.cloudflare.com','maria.ns.cloudflare.com'];
+          const sorted=a=>(a||[]).map(x=>String(x).toLowerCase().replace(/\.$/,'')).sort();
+          const noSecrets=async(url,options={})=>{
+            try {const r=await fetch(url,{...options,signal:AbortSignal.timeout(12000)});return r;}
+            catch{return null;}
+          };
+          const ns=await dns.resolveNs(d).then(sorted).catch(()=>[]);
+          const queryDoh=async(label,url)=>{
+            const u=new URL(url);u.searchParams.set('name',d);u.searchParams.set('type','NS');
+            const r=await noSecrets(u,{headers:{Accept:'application/dns-json'}});
+            if(!r?.ok)return {resolver:label,available:false};
+            const data=await r.json();
+            const answer=sorted((data.Answer||[]).filter(x=>x.type===2).map(x=>x.data));
+            return {resolver:label,available:data.Status===0,nameservers:answer};
+          };
+          const recursive=await Promise.all([
+            queryDoh('Google','https://dns.google/resolve'),
+            queryDoh('Cloudflare','https://cloudflare-dns.com/dns-query')
+          ]);
+          const token=process.env.CLOUDFLARE_API_TOKEN||'';
+          const account=process.env.CLOUDFLARE_ACCOUNT_ID||'';
+          let zone={readable:false};
+          if(token.length>10&&/^[a-f0-9]{32}$/i.test(account)){
+            const r=await noSecrets('https://api.cloudflare.com/client/v4/zones?name='+encodeURIComponent(d)+'&per_page=100',{
+              headers:{Authorization:'Bearer '+token,Accept:'application/json'}
+            });
+            if(r?.ok){
+              const data=await r.json();
+              const zones=(data.success&&Array.isArray(data.result)?data.result:[])
+                .filter(x=>x.name===d&&x.account?.id===account);
+              zone={readable:true,matching_zones:zones.length};
+              if(zones.length===1){
+                zone={...zone,status:zones[0].status,
+                  assigned_nameservers:sorted(zones[0].name_servers),
+                  plan:zones[0].plan?.legacy_id||'unknown'};
+              }
+            }else zone={readable:false,http_code:r?.status||null};
+          }
+          async function webStatus(url){
+            const r=await noSecrets(url,{headers:{'cache-control':'no-cache'},redirect:'follow'});
+            return r?{http_status:r.status,final_host:new URL(r.url).hostname}:{http_status:null};
+          }
+          const [official,preview]=await Promise.all([
+            webStatus('https://www.'+d+'/'),
+            webStatus('https://celebrations-exit-production.rondes.workers.dev/')
+          ]);
+          console.log('CELEBRATIONS_AFTER_NAMESERVER_CHANGE_READONLY '+JSON.stringify({
+            checked_at_utc:new Date().toISOString(),domain:d,
+            expected_cloudflare_nameservers:cfAssigned,
+            system_recursive_nameservers:ns,
+            system_recursive_cloudflare_match:JSON.stringify(ns)===JSON.stringify(cfAssigned),
+            external_dns_resolvers:recursive,
+            cloudflare_zone:zone,
+            official_homepage:official,independent_worker_preview:preview,
+            no_dns_changes:true,no_worker_deploy:true,no_supabase_changes:true,
+            no_database_writes:true,no_email_changes:true,
+            worker_custom_domain_attached_by_this_check:false
+          }));
+          NODE
