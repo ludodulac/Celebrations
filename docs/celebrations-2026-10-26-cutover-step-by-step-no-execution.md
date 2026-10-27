@@ -55,3 +55,9 @@ Références officielles Cloudflare (vérifiées le 26 octobre 2026) :
 - https://developers.cloudflare.com/dns/zone-setups/full-setup/setup/
 - https://developers.cloudflare.com/workers/configuration/routing/custom-domains/
 - https://developers.cloudflare.com/dns/dnssec/
+
+## Contrôle post-correction du NS — 27 octobre, sans toucher au site
+
+Le propriétaire a signalé avoir corrigé manuellement chez Spaceship le premier NS `luke.ns.cloudfare.com` (ERRONÉ, `cloudfare`) en `luke.ns.cloudflare.com` (ATTENDU, `cloudflare`). Le second reste `maria.ns.cloudflare.com`. Le tableau Cloudflare affiche « vérification des serveurs de noms en cours, veuillez attendre quelques heures ».
+
+Contrôle DNS **en lecture seule** lancé une seule fois via la CI : `[POST_NS_STATUS_READONLY_ONCE]`, pour relever **les NS directs du parent .eu**, Google DNS, Cloudflare DNS, statut de la zone Cloudflare et réponses HTTP de l'ancien site et du Worker candidat. **Le fait que le propriétaire ait enregistré la correction ne prouve pas encore sa propagation au parent .eu.** Aucun enregistrement, Worker, base, mail ni domaine n'est modifié par la CI.
