@@ -126,11 +126,13 @@ def main():
     rows,source_max=source_snapshot(src,os.environ["SUPABASE_URL"].rstrip("/"))
     expected={r["id"]:r for r in rows}
     existing,pre_reads=target_rows(cf,endpoint)
-    # Future production page-view logs must start positive. Do not modify them.
+    # Post-cutover: new visitor statistics use positive IDs. Preserve them.
+    # Source history is imported only under negative IDs; no upsert/update.
     other,_,_=query(cf,endpoint,
         'SELECT count(*) AS n FROM "celebrations_clicks" WHERE id>=0')
-    if other!=[{"n":0}]:
-        raise RuntimeError("Production already has non-source statistics; stop")
+    if len(other)!=1 or type(other[0].get("n")) is not int or other[0]["n"]<0:
+        raise RuntimeError("Cannot validate independent live visitor records")
+    live_before=other[0]["n"]
     for id,prior in existing.items():
         if id not in expected or not equal_row(prior,expected[id]):
             raise RuntimeError("Source statistics differ from existing production rows")
@@ -151,9 +153,16 @@ def main():
             id not in final or not equal_row(final[id],row)
             for id,row in expected.items()):
         raise RuntimeError("Production statistics full-record verification failed")
+    live_after_rows,_,_=query(cf,endpoint,
+        'SELECT count(*) AS n FROM "celebrations_clicks" WHERE id>=0')
+    if len(live_after_rows)!=1 or type(live_after_rows[0].get("n")) is not int or live_after_rows[0]["n"]<live_before:
+        raise RuntimeError("Independent live visitor records unexpectedly decreased")
     if pre_reads+post_reads>MAX_READ_BUDGET or writes>MAX_WRITE_BUDGET:
         raise RuntimeError("D1 operation exceeded internal budget")
     print("PROD_HISTORIC_STATS_IMPORT_VERIFIED "+json.dumps({
+        "cloudflare_live_visits_before":live_before,
+        "cloudflare_live_visits_after":live_after_rows[0]["n"],
+        "cloudflare_live_visits_preserved":True,
         "snapshot_source_rows":len(expected),
         "source_max_id_at_snapshot":source_max,
         "all_source_rows_verified":len(final),
