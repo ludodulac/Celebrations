@@ -1,0 +1,66 @@
+name: CELEBRATIONS B - read-only deployed staging bindings and quota gate
+on:
+  push:
+    branches: [feat/celebrations-admin-visual-mission-b]
+    paths:
+      - .github/workflows/celebrations-admin-b-preflight-once.yml
+permissions:
+  contents: read
+jobs:
+  staging-preflight-readonly:
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    timeout-minutes: 5
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Inspect actually deployed Worker settings without changing anything
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const EXPECTED_STAGING='0f761662-241f-42cc-ac94-5c68b4aa7797';
+          const PRODUCTION_FORBIDDEN='28736d2a-479b-472b-bf82-703ad0affe10';
+          const EXPECTED_R2='celebrations-exit-staging';
+          const account=process.env.CLOUDFLARE_ACCOUNT_ID;
+          const token=process.env.CLOUDFLARE_API_TOKEN;
+          assert.match(account||'',/^[a-f0-9]{32}$/i);
+          assert.ok(token?.length>15,'Protected Cloudflare token unavailable');
+          assert.equal(process.env.STAGING_D1_ID,EXPECTED_STAGING,'Staging D1 variable mismatch');
+          assert.equal(process.env.STAGING_R2_BUCKET,EXPECTED_R2,'Staging R2 variable mismatch');
+          const url='https://api.cloudflare.com/client/v4/accounts/'+account+'/workers/scripts/celebrations-exit-staging/settings';
+          const response=await fetch(url,{method:'GET',headers:{Authorization:'Bearer '+token}});
+          assert.equal(response.status,200,'Cloudflare deployed Worker settings read denied');
+          const payload=await response.json();
+          assert.equal(payload.success,true,'Cloudflare settings API did not confirm success');
+          const bindings=payload.result?.bindings;
+          assert.ok(Array.isArray(bindings),'Cloudflare returned no deployed bindings');
+          const d1=bindings.filter(x=>x.type==='d1');
+          const r2=bindings.filter(x=>x.type==='r2_bucket');
+          assert.equal(d1.length,2,'Unexpected deployed D1 binding count');
+          assert.equal(r2.length,1,'Unexpected deployed R2 binding count');
+          for(const b of d1){
+            const id=b.database_id||b.id||'';
+            assert.notEqual(id,PRODUCTION_FORBIDDEN,'Production D1 found in staging: STOP');
+            assert.equal(id,EXPECTED_STAGING,'Unexpected deployed D1: STOP');
+          }
+          assert.deepEqual(d1.map(x=>x.name).sort(),['DB','MEDIA_ACL']);
+          assert.equal(r2[0].name,'MEDIA_BUCKET');
+          assert.equal(r2[0].bucket_name,EXPECTED_R2);
+          // Unknown cross-Worker service bindings could bypass the isolation.
+          const dangerous=bindings.filter(x=>['service','dispatch_namespace'].includes(x.type));
+          assert.equal(dangerous.length,0,'Unreviewed cross-Worker binding: STOP');
+          console.log('MISSION_B_DEPLOYED_BINDINGS_PASS staging_d1=true production_d1_absent=true staging_r2=true service_bindings_absent=true');
+          NODE
+      - name: Check CURRENT account-wide D1 daily quota via Cloudflare billing analytics only
+        run: node scripts/check-staging-d1-free-budget.mjs pre
