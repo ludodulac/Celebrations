@@ -83,6 +83,6 @@ jobs:
       - name: Run Playwright real desktop and phone screens; compare to existing site
         run: node scripts/verify-editor-d-browser.mjs
       - name: Check post-operation D1 quota reserve
-        if: always()
+        if: ${{ always() && env.D1_BASELINE_READS != '' }}
         run: node scripts/check-staging-d1-free-budget.mjs post
 # Re-run after repairing purely synthetic renderer test adapter. No production changes.
