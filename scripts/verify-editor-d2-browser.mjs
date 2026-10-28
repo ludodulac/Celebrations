@@ -64,6 +64,7 @@ try{
   ['celebration:'+id,'index.html?staging=1#celebration-'+id],
   ['celebration:'+id+':step:Mercredi','mercredi/?staging=1'],
   ['bibliotheque','bibliotheque/?staging=1'],
+  ['catalogue-part:0','bibliotheque/?staging=1'],
   ['legal:mentions-legales','mentions-legales.html?staging=1']
  ];
  for(const profile of [
@@ -126,6 +127,15 @@ try{
  console.log('MISSION_D2_VISUAL_ISSUES '+JSON.stringify(visibleIssues));
  console.log('MISSION_D2_NAVIGATION browser_click_pass='+clickNavPass+' of_2');
  assert.equal(clickNavPass,2,'Navigation links not functional in real browser');
+ // A real PDF/document media probe through the new authenticated ID route.
+ const items=await sql("SELECT id FROM celebrations_contents WHERE content_type='PDF' AND source_type='file' AND storage_path NOT LIKE 'committee/%' ORDER BY id LIMIT 1");
+ if(items.length){
+  const res=await plain.request.get(ORIGIN+'/__editor/media?id='+encodeURIComponent(items[0].id),{headers:{'x-editor-d-preview-token':auth}});
+  console.log('MISSION_D2_DOCUMENT_PROBE sample_count=1 status='+res.status()+' mime='+(res.headers()['content-type']||'unknown').split(';')[0]);
+ }
+ const unprivileged=await plain.request.get(ORIGIN+'/__editor/media?id=not-a-real-content');
+ assert.equal(unprivileged.status(),401,'Anonymous media gateway access permitted');
+
  console.log('MISSION_D2_VISUAL_PARITY automated_visual_inspection=true pixel_identical=false manual_screenshot_review_not_claimed=true');
 }finally{await browser.close()}
 
