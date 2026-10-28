@@ -1,0 +1,89 @@
+name: CELEBRATIONS D - isolated staging visual renderer and browser QA
+on:
+  push:
+    branches: [feat/celebrations-admin-visual-mission-d]
+    paths: [.github/workflows/celebrations-admin-d-preview-once.yml]
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-staging-only
+  cancel-in-progress: false
+jobs:
+  preview:
+    if: github.ref == 'refs/heads/feat/celebrations-admin-visual-mission-d'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 24
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Guard staging identity and syntax, no historical D1 writes
+        run: |
+          set -euo pipefail
+          test "$STAGING_D1_ID" = '0f761662-241f-42cc-ac94-5c68b4aa7797'
+          test "$STAGING_D1_ID" != '28736d2a-479b-472b-bf82-703ad0affe10'
+          test "$STAGING_R2_BUCKET" = 'celebrations-exit-staging'
+          node --check migration/cloudflare/editor-d-preview.mjs
+          node --check migration/cloudflare/staging-worker.mjs
+          node --check scripts/verify-editor-d-browser.mjs
+          node --test tests/test-editor-b-foundations.mjs tests/test-editor-c-converter.mjs tests/test-editor-d-preview.mjs
+      - name: Check daily Cloudflare D1 quota before deployment
+        run: node scripts/check-staging-d1-free-budget.mjs pre
+      - name: Verify actual deployed staging bindings, reject any production service or D1
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const url='https://api.cloudflare.com/client/v4/accounts/'+process.env.CLOUDFLARE_ACCOUNT_ID+'/workers/scripts/celebrations-exit-staging/settings';
+          const r=await fetch(url,{headers:{Authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN}});
+          assert.equal(r.status,200,'Cannot check actual deployed staging bindings');
+          const payload=await r.json();assert.equal(payload.success,true);
+          const bs=payload.result?.bindings;assert.ok(Array.isArray(bs));
+          const d1=bs.filter(x=>x.type==='d1'),r2=bs.filter(x=>x.type==='r2_bucket');
+          assert.deepEqual(d1.map(x=>x.name).sort(),['DB','MEDIA_ACL']);
+          assert.ok(d1.every(x=>(x.database_id||x.id)==='0f761662-241f-42cc-ac94-5c68b4aa7797'),'Production/unknown D1 binding');
+          assert.equal(r2.length,1);assert.equal(r2[0].bucket_name,'celebrations-exit-staging');
+          assert.equal(bs.filter(x=>['service','dispatch_namespace'].includes(x.type)).length,0);
+          console.log('MISSION_D_STAGING_BINDINGS_PASS');
+          NODE
+      - name: Build unchanged staging assets and isolated Wrangler config
+        run: |
+          python scripts/build_staging_assets.py
+          python scripts/configure_staging_wrangler.py
+      - name: Install pinned Wrangler and browser test tools (no third-party script on site)
+        run: |
+          npm install --no-save --no-package-lock wrangler@4 playwright@1.58.2 pngjs@7
+          npx playwright install --with-deps chromium
+      - name: Create a single random transient preview secret, never print it
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const {randomBytes}=require('node:crypto'),fs=require('node:fs');
+          const token=randomBytes(48).toString('hex');
+          process.stdout.write('::add-mask::'+token+'\n');
+          fs.appendFileSync(process.env.GITHUB_ENV,'EDITOR_D_PREVIEW_TOKEN='+token+'\n');
+          console.log('MISSION_D_PREVIEW_SECRET_GENERATED length=96 log_exposure=NO');
+          NODE
+      - name: Install preview-only secret on existing staging Worker, no admin session / no D1 writes
+        working-directory: migration/cloudflare
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s' "$EDITOR_D_PREVIEW_TOKEN" | npx wrangler secret put EDITOR_D_PREVIEW_TOKEN --name celebrations-exit-staging
+      - name: Deploy visual renderer only on existing staging workers.dev
+        working-directory: migration/cloudflare
+        run: npx wrangler deploy --config wrangler.toml
+      - name: Run Playwright real desktop and phone screens; compare to existing site
+        run: node scripts/verify-editor-d-browser.mjs
+      - name: Check post-operation D1 quota reserve
+        if: ${{ always() && env.D1_BASELINE_READS != '' }}
+        run: node scripts/check-staging-d1-free-budget.mjs post
+# Re-run after repairing purely synthetic renderer test adapter. No production changes.
+# Retry after verifying response-header CSP and escaped historical HTML, no production changes.
