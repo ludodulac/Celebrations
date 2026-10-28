@@ -15,8 +15,13 @@ export async function handleEditorDMedia(request,env){
  if(!await canPreview(request,env))return json('Authentication required',401);
  const id=u.searchParams.get('id');
  const cover=u.searchParams.get('cover')==='1';
- if(!id||id.length>160)return json('Not found',404);
- const item=await env.DB.prepare('SELECT id,source_type,storage_path,cover_storage_path,mime_type,content_type FROM celebrations_contents WHERE id=?').bind(id).first();
+ const asset=u.searchParams.get('asset');
+ if(asset&&asset!=='welcome')return json('Not found',404);
+ if(!asset&&(!id||id.length>160))return json('Not found',404);
+ // Exact staging welcome key, no untrusted R2 path parameter.
+ const item=asset==='welcome'
+  ?{id:'staging-welcome',source_type:'file',storage_path:'media/celebrations-staging-welcome-autumn-2026.jpg',mime_type:'image/jpeg'}
+  :await env.DB.prepare('SELECT id,source_type,storage_path,cover_storage_path,mime_type,content_type FROM celebrations_contents WHERE id=?').bind(id).first();
  if(!item)return json('Not found',404);
  if(!cover&&item.source_type!=='file')return json('Not found',404);
  const key=cover?item.cover_storage_path:item.storage_path;
