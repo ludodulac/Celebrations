@@ -1,0 +1,95 @@
+name: CELEBRATIONS C - guarded staging historical draft import ONCE
+on:
+  push:
+    branches: [feat/celebrations-admin-visual-mission-c]
+    paths: [.github/workflows/celebrations-admin-c-apply-once.yml]
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-staging-only
+  cancel-in-progress: false
+jobs:
+  import-only:
+    if: github.ref == 'refs/heads/feat/celebrations-admin-visual-mission-c'
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Verify exact isolated staging identifiers before any write
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$STAGING_D1_ID" = '0f761662-241f-42cc-ac94-5c68b4aa7797'
+          test "$STAGING_D1_ID" != '28736d2a-479b-472b-bf82-703ad0affe10'
+          test "$STAGING_R2_BUCKET" = 'celebrations-exit-staging'
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+      - name: Validate syntax and complete synthetic-data tests BEFORE Cloudflare D1 writes
+        run: |
+          node --check scripts/editor-c-converter.mjs
+          node --check scripts/editor-c-staging-runner.mjs
+          node --check migration/cloudflare/editor-b-api.mjs
+          node --test tests/test-editor-b-foundations.mjs tests/test-editor-c-converter.mjs
+      - name: Confirm CURRENT account-wide quota before any write
+        run: node scripts/check-staging-d1-free-budget.mjs pre
+      - name: Recheck actual deployed staging bindings and complete dry-run, stop if anything is missing
+        run: node scripts/editor-c-staging-runner.mjs --dry-run
+      - name: Install same Wrangler major as Mission B
+        run: npm install --no-save --no-package-lock wrangler@4
+      - name: Create ONLY two new editor_c tables in staging, leave all historic tables unchanged
+        working-directory: migration/cloudflare
+        run: |
+          set -euo pipefail
+          npx wrangler d1 execute celebrations-exit-staging --remote --file editor-c-schema.sql
+      - name: Prepare guarded, idempotent import SQL from current staging snapshot
+        run: node scripts/editor-c-staging-runner.mjs --emit-sql
+      - name: Apply ONLY editor_b and editor_c draft snapshots to existing D1 staging
+        working-directory: migration/cloudflare
+        run: |
+          set -euo pipefail
+          test -s /tmp/editor-c-staging-import.sql
+          npx wrangler d1 execute celebrations-exit-staging --remote --file /tmp/editor-c-staging-import.sql
+          rm -f /tmp/editor-c-staging-import.sql
+      - name: Prepare existing staging Worker without changing any public or admin page
+        run: |
+          python scripts/build_staging_assets.py
+          python scripts/configure_staging_wrangler.py
+      - name: Deploy ONLY existing staging Worker with historical draft awareness
+        working-directory: migration/cloudflare
+        run: |
+          set -euo pipefail
+          npx wrangler deploy --config wrangler.toml
+      - name: Re-read every imported page and block by checksum, confirm 0 publications
+        run: node scripts/editor-c-staging-runner.mjs --verify
+      - name: Live HTTP checks for anonymous access and retained historic staging administration
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {stableId} from './scripts/editor-c-converter.mjs';
+          const root='https://celebrations-exit-staging.rondes.workers.dev';
+          const id=stableId('legacy-page:home');
+          const old=await fetch(root+'/admin.html?staging=1');
+          assert.equal(old.status,200,'Existing staging administration unavailable');
+          const pub=await fetch(root+'/api/editor-b?action=public&page_id='+id);
+          assert.equal(pub.status,404,'Converted but unpublished home page visible');
+          const draft=await fetch(root+'/api/editor-b?action=draft&page_id='+id);
+          assert.equal(draft.status,401,'Anonymous visitor can access draft');
+          const mutation=await fetch(root+'/api/editor-b',{method:'POST',
+           headers:{'content-type':'application/json'},
+           body:JSON.stringify({action:'publish',page_id:id,expected_version:1})});
+          assert.equal(mutation.status,401,'Anonymous publishing permitted');
+          console.log('MISSION_C_STAGING_HTTP_PASS existing_admin=true all_imports_private=true anonymous_read_denied=true anonymous_publish_denied=true');
+          NODE
+      - name: Verify post-operation D1 budget
+        if: always()
+        run: node scripts/check-staging-d1-free-budget.mjs post
