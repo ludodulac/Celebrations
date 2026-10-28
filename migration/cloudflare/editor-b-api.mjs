@@ -1,6 +1,5 @@
 // Mission B ONLY: additive staging visual editor API.
 // No production routing, no historical-table writes, no R2 operations.
-import {randomUUID} from 'node:crypto';
 import {authorize} from './auth-api.mjs';
 
 const STAGING_HOST='celebrations-exit-staging.rondes.workers.dev';
@@ -87,7 +86,7 @@ export async function handleEditorB(request,env){
   let b;try{b=JSON.parse(raw)}catch{return bad('Invalid JSON')}
   if(!b||typeof b!=='object'||Array.isArray(b))return bad('Invalid payload');
   if(b.action==='create'){
-   const name=title(b.title),path=pagePath(b.route_path),id=randomUUID();
+   const name=title(b.title),path=pagePath(b.route_path),id=crypto.randomUUID();
    const celebration=b.celebration_id===undefined||b.celebration_id===null?null:b.celebration_id;
    if(celebration!==null){
     if(!Number.isSafeInteger(celebration)||celebration<1)return bad('Invalid celebration id');
@@ -119,7 +118,7 @@ export async function handleEditorB(request,env){
    const kind=b.kind;const data=JSON.parse(payload(kind,b.data));
    const idx=b.position===undefined?blocks.length:b.position;
    if(!Number.isSafeInteger(idx)||idx<0||idx>blocks.length)return bad('Invalid block position');
-   blocks.splice(idx,0,{block_id:randomUUID(),kind,data});break;
+   blocks.splice(idx,0,{block_id:crypto.randomUUID(),kind,data});break;
   }
   case 'edit_block':{
    const match=blocks.find(x=>x.block_id===b.block_id);
