@@ -186,10 +186,61 @@ function same(a,b){
  if(typeof a!=='string'||typeof b!=='string'||a.length!==b.length)return false;
  let diff=0;for(let i=0;i<a.length;i++)diff|=a.charCodeAt(i)^b.charCodeAt(i);return diff===0;
 }
+
+// D2: a short-lived HTTP-only navigation cookie is tied to an ACTIVE, existing
+// admin session. The cookie alone cannot outlive a revoked session. No D1 writes.
+const en=new TextEncoder();
+function readCookie(request){
+ const match=(request.headers.get('cookie')||'').match(/(?:^|;\s*)d2_preview=([^;]+)/);
+ return match?.[1]||'';
+}
+const hex=bytes=>[...new Uint8Array(bytes)].map(x=>x.toString(16).padStart(2,'0')).join('');
+async function mac(input,env){
+ if(!env.EDITOR_D_PREVIEW_TOKEN||env.EDITOR_D_PREVIEW_TOKEN.length<48)throw Error('Preview secret unavailable');
+ const k=await crypto.subtle.importKey('raw',en.encode(env.EDITOR_D_PREVIEW_TOKEN),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+ return hex(await crypto.subtle.sign('HMAC',k,en.encode(input)));
+}
+async function validateCookie(request,env){
+ const match=readCookie(request).match(/^(\d{13})\.([a-f0-9]{64})\.([a-f0-9]{24})\.([a-f0-9]{64})$/i);
+ if(!match||!env.DB||Number(match[1])<=Date.now()||Number(match[1])>Date.now()+20*60*1000)return false;
+ const message=match[1]+'.'+match[2]+'.'+match[3];
+ if(!same(match[4],await mac(message,env)))return false;
+ const session=await env.DB.prepare('SELECT expires_at FROM celebrations_admin_sessions WHERE token_hash=?').bind(match[2]).first();
+ return !!session&&Date.parse(session.expires_at)>Date.now();
+}
+export async function handleEditorDSession(request,env){
+ if(new URL(request.url).hostname!==HOST)return response('Not found',404,'text/plain');
+ if(request.method!=='POST')return response('Method not allowed',405,'text/plain');
+ if(!env.DB||!env.EDITOR_D_PREVIEW_TOKEN)return response('Unavailable',503,'text/plain');
+ if(!await authorize(request,env,true))return forbidden();
+ const token=request.headers.get('authorization')?.match(/^Bearer ([^\s]+)$/)?.[1];
+ if(!token)return forbidden();
+ const hash=await sha256(token);
+ const until=String(Date.now()+20*60*1000);
+ const nonce=hex(crypto.getRandomValues(new Uint8Array(12)));
+ const message=until+'.'+hash+'.'+nonce;
+ const cookie=message+'.'+await mac(message,env);
+ const res=response('Session de prévisualisation établie.',200,'text/plain');
+ res.headers.set('set-cookie','d2_preview='+cookie+'; Path=/__editor/; Max-Age=1200; Secure; HttpOnly; SameSite=Strict');
+ return res;
+}
+export async function handleEditorDEntry(request,env){
+ if(new URL(request.url).hostname!==HOST)return response('Not found',404,'text/plain');
+ if(request.method!=='GET')return response('Method not allowed',405,'text/plain');
+ // Bootstrap is trusted authored code ONLY, never an historical HTML input.
+ const nonce=hex(crypto.getRandomValues(new Uint8Array(16)));
+ const js=`(async()=>{const status=document.getElementById('message');const token=localStorage.getItem('celebrations-admin-token')||'';if(!token){status.textContent='Connectez-vous d’abord à l’ancienne administration de test.';return}try{const r=await fetch('/__editor/session',{method:'POST',headers:{authorization:'Bearer '+token},credentials:'same-origin'});if(!r.ok){status.textContent='Session administrateur expirée : reconnectez-vous à l’administration staging.';return}location.replace('/__editor/preview?key=home')}catch{status.textContent='Prévisualisation temporairement indisponible.'}})();`;
+ const html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Prévisualisation administrateur</title></head><body><main><h1>Ouverture de la prévisualisation sécurisée</h1><p id="message">Vérification de votre session administrateur…</p><a href="/admin.html?staging=1">Retour à l’administration staging</a></main><script nonce="'+nonce+'">'+js+'</script></body></html>';
+ const res=response(html);
+ res.headers.set('content-security-policy',"default-src 'none'; script-src 'nonce-"+nonce+"'; connect-src 'self'; style-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'");
+ return res;
+}
+
 export async function canPreview(request,env){
  if(env.EDITOR_D_PREVIEW_TOKEN&&env.EDITOR_D_PREVIEW_TOKEN.length>=48&&
   same(request.headers.get('x-editor-d-preview-token'),env.EDITOR_D_PREVIEW_TOKEN))return true;
- return !!(env.DB&&await authorize(request,env,true));
+ if(env.DB&&await authorize(request,env,true))return true;
+ return !!(env.DB&&await validateCookie(request,env));
 }
 export async function handleEditorD(request,env){
  const url=new URL(request.url);
