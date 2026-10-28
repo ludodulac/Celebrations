@@ -88,7 +88,7 @@ test('D2 navigation uses a short-lived admin cookie and rejects revoked sessions
   assert.equal(exchange.status,200);
   const cookie=exchange.headers.get('set-cookie')||'';
   assert.match(cookie,/HttpOnly; SameSite=Strict/);
-  assert.match(cookie,/Path=\\/__editor\\//);
+  assert.ok(cookie.includes('Path=/__editor/'));
   const credential=cookie.split(';')[0];
   const page=await handleEditorD(get('home',{cookie:credential}),env);
   assert.equal(page.status,200);
