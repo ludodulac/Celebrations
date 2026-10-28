@@ -1,0 +1,35 @@
+name: CÉLÉBRATIONS — export du code complet (site + admin) pour Claude, sans secrets
+on:
+  push:
+    branches: [feat/celebrations-supabase-exit-001]
+permissions:
+  contents: read
+jobs:
+  export-claude:
+    if: ${{ github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && contains(github.event.head_commit.message, '[EXPORT_CLAUDE_CODE_ONCE]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout the precise migration branch, without persisting any GitHub token
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile the actual deployed-site HTML and JS locally only
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/feat/celebrations-supabase-exit-001"
+          python scripts/build_production_assets.py
+      - name: Export complete Cloudflare site, admin, APIs and source with strict credential/PII exclusions
+        run: |
+          python scripts/export_code_pour_claude.py
+          unzip -t CELEBRATIONS_CODE_COMPLET_ADMIN_CLAUDE_2026-10-28.zip | tail -n 2
+      - name: Publish downloadable ZIP with 3-day retention (not deployed anywhere)
+        uses: actions/upload-artifact@v4
+        with:
+          name: CELEBRATIONS_CODE_COMPLET_ADMIN_CLAUDE_2026-10-28
+          path: CELEBRATIONS_CODE_COMPLET_ADMIN_CLAUDE_2026-10-28.zip
+          retention-days: 3
+          if-no-files-found: error
