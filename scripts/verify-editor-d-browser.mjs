@@ -55,7 +55,7 @@ try{
   if(r.status()!==200){missing++;continue}
   const html=await r.text();
   assert.match(html,/PRÉVISUALISATION ADMINISTRATEUR/,'Missing draft watermark');
-  assert.match(html,/script-src 'none'/,'CSP script execution not blocked');
+  assert.match(r.headers()['content-security-policy']||'',/script-src 'none'/,'CSP script execution not blocked');
   viewed++;
  }
  assert.equal(missing,0,'Unrenderable historic converted pages');
