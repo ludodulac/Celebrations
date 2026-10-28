@@ -7,7 +7,7 @@ import {createHash} from 'node:crypto';
 
 function dbFixture(){
  const s=new DatabaseSync(':memory:');
- s.exec('PRAGMA foreign_keys=ON; CREATE TABLE celebrations_celebrations(id INTEGER PRIMARY KEY,archangel TEXT,status TEXT,year TEXT); CREATE TABLE celebrations_steps(id INTEGER PRIMARY KEY,celebration_id INTEGER,step_key TEXT,start_date TEXT,end_date TEXT); CREATE TABLE celebrations_contents(id TEXT PRIMARY KEY,name TEXT,content_type TEXT,source_type TEXT,storage_path TEXT,external_url TEXT,inline_text TEXT,audience TEXT,description TEXT,has_cover INTEGER,cover_storage_path TEXT); CREATE TABLE celebrations_admin_sessions(token_hash TEXT PRIMARY KEY,admin_email TEXT,expires_at TEXT);');
+ s.exec('PRAGMA foreign_keys=ON; CREATE TABLE celebrations_celebrations(id INTEGER PRIMARY KEY,archangel TEXT,status TEXT,year TEXT); CREATE TABLE celebrations_steps(id INTEGER PRIMARY KEY,celebration_id INTEGER,step_key TEXT,start_date TEXT,end_date TEXT); CREATE TABLE celebrations_contents(id TEXT PRIMARY KEY,name TEXT,file_name TEXT,content_type TEXT,source_type TEXT,storage_path TEXT,external_url TEXT,inline_text TEXT,audience TEXT,description TEXT,has_cover INTEGER,cover_storage_path TEXT); CREATE TABLE celebrations_admin_sessions(token_hash TEXT PRIMARY KEY,admin_email TEXT,expires_at TEXT);');
  s.exec(readFileSync(new URL('../migration/cloudflare/editor-b-schema.sql',import.meta.url),'utf8'));
  s.exec(readFileSync(new URL('../migration/cloudflare/editor-c-schema.sql',import.meta.url),'utf8'));
  s.prepare("INSERT INTO celebrations_celebrations(id,archangel,status,year) VALUES(101,'Michaël','active','2026')").run();
