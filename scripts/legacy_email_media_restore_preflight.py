@@ -24,7 +24,8 @@ def main():
     s=requests.Session()
     s.headers.update({"apikey":key,"Authorization":"Bearer "+key})
     b=s.get(os.environ["SUPABASE_URL"].rstrip("/")+"/storage/v1/bucket/celebrations-media",timeout=30)
-    assert b.status_code in (200,404)
+    if b.status_code not in (200,400,404):
+        raise RuntimeError('Unexpected bucket response status '+str(b.status_code))
     def metric(a):
         return {"count":len(a),"bytes":sum(int(v["Size"]) for v in a),
             "largest_bytes":max((int(v["Size"]) for v in a),default=0)}
