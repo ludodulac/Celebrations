@@ -92,3 +92,29 @@ test('Mission B drafts, deliberate publication, versions, CAS, secure API and hi
  assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM celebrations_admin_sessions').get().n,initial.sessions);
  console.log('MISSION_B_LOCAL_INTEGRATION_PASS create=true blocks=true move=true edit=true draft_private=true publish_explicit=true version_restore=true conflict_409=true anonymous_denied=true future_blocked=true historical_unchanged=true');
 });
+
+test('Mission C historical rich draft blocks remain visible to admin but cannot be published',async()=>{
+ const {api,sqlite}=setup();
+ const id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+ const sourceId='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+ sqlite.prepare('INSERT INTO editor_b_pages(id,route_path,head_version,draft_version,published_version) VALUES(?,?,1,1,NULL)')
+  .run(id,'/__editor/legacy/test');
+ sqlite.prepare("INSERT INTO editor_b_revisions(page_id,version,title,operation) VALUES(?,1,'Page historique fictive','create')").run(id);
+ sqlite.prepare('INSERT INTO editor_c_blocks(page_id,version,block_id,position,legacy_kind,source_table,source_id,data_json) VALUES(?,1,?,0,?,?,?,?)')
+  .run(id,sourceId,'legacy_resource','celebrations_contents','synthetic-file',JSON.stringify({record:{id:'synthetic-file',audience:'angel',storage_path:'mock/no-real-file.pdf'}}));
+ sqlite.prepare('INSERT INTO editor_c_imports(page_id,source_key,original_route,source_sha256,imported_version) VALUES(?,?,?,?,1)')
+  .run(id,'test-legacy','/historique','somesyntheticchecksum');
+ assert.equal((await api('draft',{page_id:id},false)).status,401);
+ const view=await api('draft',{page_id:id},true);
+ assert.equal(view.status,200);
+ assert.equal(view.body.page.blocks.length,1);
+ assert.equal(view.body.page.blocks[0].kind,'legacy_resource');
+ assert.equal(view.body.page.blocks[0].data.record.audience,'angel');
+ assert.equal((await api('public',{page_id:id},false)).status,404);
+ assert.equal((await api('publish',{page_id:id,expected_version:1},true)).status,403);
+ const edit=await api('edit_title',{page_id:id,expected_version:1,title:'Relecture du titre'});
+ assert.equal(edit.status,200);
+ assert.equal((await api('draft',{page_id:id},true)).body.page.blocks.length,1,'Historical block lost in revision');
+ assert.equal((await api('public',{page_id:id},false)).status,404);
+ assert.equal(sqlite.prepare('SELECT published_version FROM editor_b_pages WHERE id=?').get(id).published_version,null);
+});
