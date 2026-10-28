@@ -63,7 +63,7 @@ test('D only returns HTML to authenticated staging preview; no historical inline
   assert.equal(res.headers.get('cache-control'),'no-store');
   assert.equal((await handleEditorD(req('not-existing',headers),env)).status,404);
   const step=await (await handleEditorD(req('celebration:101:step:Mercredi',headers),env)).text();
-  assert.ok(step.includes('Réunion')&&step.includes('28 octobre 2026')&&step.includes('media/programme.pdf'));
+  assert.ok(step.includes('Réunion')&&step.includes('28 octobre 2026')&&step.includes('__editor/media?id=p1'));
   assert.ok(step.includes('Accès réservé'),'Restricted audio not embedded as public');
   assert.ok(!step.includes('src="/media/media/private.wav"'),'Restricted media leaked');
   assert.ok(step.includes('&lt;img src=x onerror=alert(1)&gt;'),'Untrusted text escaped');
