@@ -24,8 +24,12 @@ async function select(sql){
  return j.result[0].results;
 }
 async function request(url,method="HEAD",redirect="manual"){
- const r=await fetch(url,{method,redirect,signal:AbortSignal.timeout(30000)});
- return r;
+ let last;
+ for(let attempt=0;attempt<2;attempt++){
+  try{return await fetch(url,{method,redirect,signal:AbortSignal.timeout(22000)})}
+  catch(e){last=e}
+ }
+ throw new Error("HTTP request failed after two bounded attempts: "+String(last?.name||"network failure"));
 }
 for(const [host,expected] of [[domain,"ronde-des-archanges-universelle.eu"],[www,"www.ronde-des-archanges-universelle.eu"]]){
  const r=await request(host+"/","GET");
@@ -39,8 +43,8 @@ const invitations=await select("SELECT slug FROM committee_media WHERE published
 assert.equal(publicMedia.length,113,"Missing approved public media");
 assert.equal(invitations.length,9,"Missing approved invitations");
 let mediaOK=0,pdfOfficial=0,pdfLegacy=0,pdfPreview=0;
-for(let offset=0;offset<publicMedia.length;offset+=8){
- await Promise.all(publicMedia.slice(offset,offset+8).map(async item=>{
+for(let offset=0;offset<publicMedia.length;offset+=4){
+ await Promise.all(publicMedia.slice(offset,offset+4).map(async item=>{
   const path=item.storage_path;
   assert.equal(typeof path,"string");
   assert.ok(path.length>5&&!path.startsWith("committee/"));
@@ -50,6 +54,8 @@ for(let offset=0;offset<publicMedia.length;offset+=8){
   assert.ok(Number(r.headers.get("content-length")||1)>0,"Empty media");
   mediaOK++;
  }));
+ if(mediaOK===publicMedia.length||mediaOK%20===0)console.log("FINAL_PUBLIC_MEDIA_PROGRESS "+JSON.stringify({verified:mediaOK,total:publicMedia.length}));
+
 }
 for(const {slug} of invitations){
  assert.ok(typeof slug==="string"&&slug.length>=8);
