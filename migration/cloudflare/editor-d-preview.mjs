@@ -84,17 +84,17 @@ function media(r,{gallery=false}={}){
  const source=String(r.source_type||'').toLowerCase();
  const display=label(r);
  const doc='<h3>'+esc(display)+'</h3>'+(r.description?'<p>'+text(r.description)+'</p>':'');
- const cover=mediaUrl(r.cover_storage_path);
- const thumbnail=r.has_cover&&r.audience==='all'&&cover?'<img class="d-cover" alt="" loading="lazy" src="'+esc(cover)+'">':'';
- if(r.audience!=='all')return '<article class="d-resource restricted">'+doc+'<p class="meta">Accès réservé : '+esc(r.audience)+' — document conservé, non exposé dans cette prévisualisation.</p></article>';
- const href=source==='file'?mediaUrl(r.storage_path):safeUrl(r.external_url);
+ const cover=r.id&&r.cover_storage_path?'/__editor/media?id='+encodeURIComponent(String(r.id))+'&cover=1':'';
+ const thumbnail=r.has_cover&&cover?'<img class="d-cover" alt="" loading="lazy" src="'+esc(cover)+'">':'';
+ const accessBadge=r.audience!=='all'?'<p class="meta">Accès réservé : '+esc(r.audience)+' — aperçu uniquement pour administrateur autorisé.</p>':'';
+ const href=source==='file'&&r.storage_path&&r.id?'/__editor/media?id='+encodeURIComponent(String(r.id)):safeUrl(r.external_url);
  if(kind==='image'&&href&&source==='file')
-  return '<figure class="d-image"><a href="'+esc(href)+'" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="'+esc(href)+'" alt="'+esc(display)+'"></a><figcaption>'+esc(display)+'</figcaption></figure>';
- if(kind==='audio'&&source==='file'&&href)return '<article class="d-resource">'+thumbnail+doc+'<audio controls preload="none" src="'+esc(href)+'"></audio></article>';
- if((kind==='video'||kind==='vidéo')&&source==='file'&&href)return '<article class="d-resource">'+thumbnail+doc+'<video controls preload="none" src="'+esc(href)+'"></video></article>';
+  return '<figure class="d-image"><a href="'+esc(href)+'" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="'+esc(href)+'" alt="'+esc(display)+'"></a><figcaption>'+esc(display)+(r.audience!=='all'?' · accès réservé':'')+'</figcaption></figure>';
+ if(kind==='audio'&&source==='file'&&href)return '<article class="d-resource">'+thumbnail+doc+accessBadge+'<audio controls preload="none" src="'+esc(href)+'"></audio></article>';
+ if((kind==='video'||kind==='vidéo')&&source==='file'&&href)return '<article class="d-resource">'+thumbnail+doc+accessBadge+'<video controls preload="none" src="'+esc(href)+'"></video></article>';
  if(kind==='texte'&&source==='text')return '<article class="d-resource">'+doc+'<p>'+text(r.inline_text||'')+'</p></article>';
  const linkHtml=href?link(href,(kind==='pdf'?'Ouvrir le PDF':kind.includes('vid')?'Ouvrir la vidéo':'Ouvrir le document')):'';
- return '<article class="d-resource">'+thumbnail+doc+(linkHtml?'<div class="resources">'+linkHtml+'</div>':'<p class="meta">Aucun média accessible depuis cette référence.</p>')+'</article>';
+ return '<article class="d-resource">'+thumbnail+doc+accessBadge+(linkHtml?'<div class="resources">'+linkHtml+'</div>':'<p class="meta">Aucun média accessible depuis cette référence.</p>')+'</article>';
 }
 async function getContent(db,id){
  const item=await db.prepare('SELECT * FROM celebrations_contents WHERE id=?').bind(String(id)).first();
@@ -123,7 +123,7 @@ async function item(block,db,context){
    resources+=content?media(content):'<p class="meta">Référence introuvable : '+esc(a.content_id)+'</p>';
   }
   const links=(d.links||[]).map(l=>link(l.url,l.label||l.url)).join('');
-  return '<article class="d-event"><div class="d-time">'+esc(event.event_time||'—')+'</div><div><h3>'+esc(event.title)+'</h3>'+(event.description?'<p>'+text(event.description)+'</p>':'')+(event.audience!=='all'?'<div class="d-notice">Rendez-vous réservé : '+esc(event.audience)+'</div>':'')+(event.audience==='all'?resources:'<p class="meta">Ressources masquées : audience restreinte.</p>')+(event.audience==='all'?'<div class="resources">'+links+'</div>':'')+'</div></article>';
+  return '<article class="d-event"><div class="d-time">'+esc(event.event_time||'—')+'</div><div><h3>'+esc(event.title)+'</h3>'+(event.description?'<p>'+text(event.description)+'</p>':'')+(event.audience!=='all'?'<div class="d-notice">Rendez-vous réservé : '+esc(event.audience)+'</div>':'')+resources+'<div class="resources">'+links+'</div>'+'</div></article>';
  }
  case 'legacy_step_content_ref':{
   const c=await getContent(db,d.content_id);return c?media(c):'<p class="meta">Contenu absent : '+esc(d.content_id)+'</p>';
