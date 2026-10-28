@@ -1,0 +1,35 @@
+name: CÉLÉBRATIONS — restauration urgente des liens historiques (copie uniquement)
+on:
+  push:
+    branches: [feat/celebrations-supabase-exit-001]
+permissions:
+  contents: read
+jobs:
+  restore-deleted-legacy-email-media:
+    if: ${{ github.ref == 'refs/heads/feat/celebrations-supabase-exit-001' && contains(github.event.head_commit.message, '[RESTORE_LEGACY_EMAIL_MEDIA_ONCE]') }}
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    concurrency:
+      group: celebrations-source-legacy-repair
+      cancel-in-progress: false
+    timeout-minutes: 32
+    env:
+      CELEBRATIONS_RESTORE_APPROVAL: REPAIR_BROKEN_EMAIL_LINKS_2026_10_28
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+      STAGING_R2_ACCESS_KEY_ID: ${{ secrets.CELEBRATIONS_STAGING_R2_ACCESS_KEY_ID }}
+      STAGING_R2_SECRET_ACCESS_KEY: ${{ secrets.CELEBRATIONS_STAGING_R2_SECRET_ACCESS_KEY }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Pinned dependencies
+        run: python -m pip install 'requests==2.32.5' 'boto3==1.40.57'
+      - name: Restore original paths and verify HTTP object access without any overwrite
+        run: python -m scripts.restore_deleted_legacy_email_media_once
