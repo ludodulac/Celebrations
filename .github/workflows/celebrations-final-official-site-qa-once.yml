@@ -14,6 +14,8 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
       PROD_D1_ID: 28736d2a-479b-472b-bf82-703ad0affe10
+      STAGING_D1_ID: 0f761662-241f-42cc-ac94-5c68b4aa7797
+      STAGING_R2_BUCKET: celebrations-exit-staging
     steps:
       - name: Restrict this job to no writes on official domain
         shell: bash
