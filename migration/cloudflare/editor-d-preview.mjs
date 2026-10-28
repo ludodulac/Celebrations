@@ -35,10 +35,10 @@ function strippedLegacy(html){
   .replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&quot;/g,'"')
   .replace(/&#39;/g,"'").replace(/\s+/g,' ').trim();
  let body='',count=0;
- const elements=/<(h1|h2|h3|h4|p|li|blockquote|a|button|img)\b([^>]*?)(?:\/?>)(?:([\s\S]*?)<\/\1>)?/gi;
+ const elements=/<(h1|h2|h3|h4|p|li|blockquote|a|button)\b([^>]*)>([\s\S]*?)<\/\1>|<img\b([^>]*)\/?>/gi;
  for(const m of raw.matchAll(elements)){
   if(count++>500)break;
-  const tag=m[1].toLowerCase(),attrs=m[2]||'';
+  const tag=(m[1]||'img').toLowerCase(),attrs=m[2]||m[4]||'';
   const value=plain(m[3]||'');
   if(tag==='img'){
    const src=attrs.match(/\bsrc\s*=\s*(["'])(.*?)\1/i)?.[2]||'';
@@ -57,7 +57,13 @@ function strippedLegacy(html){
   else if(tag==='li')body+='<p>• '+esc(value)+'</p>';
   else if(tag==='blockquote')body+='<blockquote>'+esc(value)+'</blockquote>';
   else if(tag.startsWith('h'))body+='<h2>'+esc(value)+'</h2>';
-  else body+='<p>'+esc(value)+'</p>';
+  else{
+   body+='<p>'+esc(value)+'</p>';
+   for(const nested of String(m[3]||'').matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi)){
+    const href=nested[1].match(/\bhref\s*=\s*(["'])(.*?)\1/i)?.[2]||'';
+    body+=link(href,plain(nested[2]),'resource-link d-static-link')||'';
+   }
+  }
  }
  const fullText=plain(raw);
  // Text in custom div/span wrappers is not always covered by the whitelist.
