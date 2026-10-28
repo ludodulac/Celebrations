@@ -49,6 +49,15 @@ export const D2_STYLE = `
 .d-block[data-kind="static_html_snapshot"] .d-static{border:none}
 .d-resource.restricted{background:#f7f8fa;border-style:dashed}
 .d-gap-warning{background:#fff9ed;padding:10px 12px;border-left:4px solid #c08b20;font-size:.84rem;margin:8px 0}
+
+.d-welcome-actions .d-chip{background:#a64c23;color:#fff;border:0;border-radius:10px;font-weight:750;padding:13px 20px}
+.d-home>.d-shell>.d-nav{display:none}
+body.d-celebration .d-heading{display:none}
+.d-home .d-welcome{margin-top:0}
+.d-heading small{color:#667085}
+.d-nav .d-chip:hover{background:#f8f3ed}
+.d-nav .d-chip.active{background:var(--accent);color:#fff}
+
 @media(max-width:850px){
  .d-shell{padding:8px 10px 35px}
  .d-heading{padding:8px 10px}
@@ -59,7 +68,7 @@ export const D2_STYLE = `
  .d-choice-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
  .d-event{grid-template-columns:48px minmax(0,1fr);gap:8px;padding:9px}
  .d-content{gap:8px}
- .d-welcome-actions .d-btn{width:100%;justify-content:center}
+ .d-welcome-actions .d-btn,.d-welcome-actions .d-chip{width:100%;justify-content:center}
 }
 @media(max-width:450px){
  .d-gallery{grid-template-columns:1fr}
