@@ -1,4 +1,4 @@
-name: CELEBRATIONS D - isolated staging visual renderer and browser QA
+name: CELEBRATIONS D2 - visual fidelity and navigation staging only
 on:
   push:
     branches: [feat/celebrations-admin-visual-mission-d2]
@@ -86,3 +86,5 @@ jobs:
       - name: Check post-operation D1 quota reserve
         if: ${{ always() && env.D1_BASELINE_READS != '' }}
         run: node scripts/check-staging-d1-free-budget.mjs post
+
+# Rerun with complete synthetic flame/media fixture; no production changes.
