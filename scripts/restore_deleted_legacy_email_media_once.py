@@ -35,18 +35,20 @@ def choose_originals(items):
     old=[o for o in items if o["LastModified"]<CUTOFF]
     if len(old)!=OLD_CANDIDATE_COUNT or sum(int(o["Size"]) for o in old)!=OLD_CANDIDATE_BYTES:
         stop("R2 historical pre-delete inventory changed: stop before any write")
-    excess=OLD_CANDIDATE_BYTES-EXPECTED_BYTES
-    pairs=[]
-    size_to_indices={}
-    for i,ob in enumerate(old):
-        size_to_indices.setdefault(int(ob["Size"]),[]).append(i)
-    for i,ob in enumerate(old):
-        for j in size_to_indices.get(excess-int(ob["Size"]),[]):
-            if i<j: pairs.append((i,j))
-    if len(pairs)!=1:
-        stop("Cannot uniquely identify exactly two staging-only objects; no restore allowed")
-    extras=set(pairs[0])
-    original=[o for i,o in enumerate(old) if i not in extras]
+    # Stronger identification: the independent 28 Oct read-only audit proved
+    # exactly 157 standard-media objects totaling 793944736 bytes before Oct20.
+    # The single remaining original must then be 36367681 bytes; two other
+    # pre-Oct20 staging-only objects are necessarily excluded.
+    media_ext=(".pdf",".png",".jpg",".jpeg",".webp",".mp3",".m4a",".wav",
+               ".mp4",".webm",".gif",".svg")
+    standard=[o for o in old if o["Key"].lower().endswith(media_ext)]
+    other=[o for o in old if not o["Key"].lower().endswith(media_ext)]
+    if len(standard)!=157 or sum(int(x["Size"]) for x in standard)!=793944736 or len(other)!=3:
+        stop("R2 extension/size proof changed; do not create bucket")
+    rare=[x for x in other if int(x["Size"])==36367681]
+    if len(rare)!=1:
+        stop("Cannot uniquely identify large nonstandard original")
+    original=standard+rare
     if len(original)!=EXPECTED_COUNT or sum(int(x["Size"]) for x in original)!=EXPECTED_BYTES:
         stop("158 original object identity/count/byte parity fail")
     if any(not o["Key"] or ".." in o["Key"].split("/") or o["Key"].startswith("private-backups/") for o in original):
@@ -181,5 +183,5 @@ def main():
 if __name__=="__main__":
     try:main()
     except Exception as exc:
-        print("LEGACY_RESTORE_STOP category="+type(exc).__name__,flush=True)
+        print("LEGACY_RESTORE_STOP category="+type(exc).__name__+" reason="+str(exc)[:180],flush=True)
         raise SystemExit(1)
