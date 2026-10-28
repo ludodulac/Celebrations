@@ -30,10 +30,14 @@ function dbFixture(){
  page('legal:mentions-legales','Mentions légales',[
   {kind:'legal_draft',data:{record:{title:'Mentions',content:'Texte légal',is_public:0,draft_number:1}}}]);
  const DB={
-  prepare(sql){return{bind(...args){let q=s.prepare(sql);return{
-   first:async()=>q.get(...args)||null,
-   all:async()=>({results:q.all(...args)})
-  }}}}
+  prepare(sql){const q=s.prepare(sql);return{
+   async first(){return q.get()||null},
+   async all(){return{results:q.all()}},
+   bind(...args){return{
+    first:async()=>q.get(...args)||null,
+    all:async()=>({results:q.all(...args)})
+   }}
+  }}
  };
  return {DB,close:()=>s.close()};
 }
