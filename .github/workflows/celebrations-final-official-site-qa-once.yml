@@ -35,14 +35,14 @@ jobs:
           node --check scripts/mission14_official_site_browser.mjs
           node --check scripts/mission14_official_public_media_pdfs.mjs
           node scripts/check-staging-d1-free-budget.mjs pre
-      - name: Confirm all publicly approved media and nine mailed letters on official/old host
-        run: node scripts/mission14_official_public_media_pdfs.mjs
       - name: Install Chromium once for read-only desktop and mobile site UX
         run: |
           npm install --no-save --no-package-lock playwright@1.58.2
           npx playwright install --with-deps chromium
       - name: Test homepage/day/programme/mediatheque/image/audio-video tabs on real domain with all browser POST blocked
         run: node scripts/mission14_official_site_browser.mjs
+      - name: Confirm all publicly approved media and nine mailed letters on official/old host
+        run: node scripts/mission14_official_public_media_pdfs.mjs
       - name: Audit complete and Cloudflare D1 quota reserve
         if: always()
         run: |
