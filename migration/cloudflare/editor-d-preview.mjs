@@ -274,7 +274,7 @@ export async function handleEditorD(request,env){
   .sort((a,b)=>a.position-b.position);
  const known=new Set((allImports.results||[]).map(x=>x.source_key));
  let navigation=go('home','Accueil',key==='home');
- const celebrationKeys=[...(allImports.results||[])].map(x=>x.source_key).filter(x=>/^celebration:\\d+$/.test(x)).sort((a,b)=>a.localeCompare(b));
+ const celebrationKeys=[...(allImports.results||[])].map(x=>x.source_key).filter(x=>/^celebration:\d+$/.test(x)).sort((a,b)=>a.localeCompare(b));
  for(const name of celebrationKeys){const c=await env.DB.prepare('SELECT archangel,year,status FROM celebrations_celebrations WHERE id=?').bind(Number(name.split(':')[1])).first();
   if(c)navigation+=go(name,c.archangel+' '+(c.year||''),key===name);
  }
@@ -321,7 +321,7 @@ export async function handleEditorD(request,env){
  }
  if(key.startsWith('catalogue-part:'))html='<div class="d-gallery">'+html+'</div>';
  const page='< !doctype html>'.replace(' ','')+'<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'+
- '<title>'+esc(rev.title)+' — Prévisualisation Célébrations</title><style>'+CSS+D2_STYLE+'</style></head><body class="'+(key==='home'?'d-home':/^celebration:\\d+$/.test(key)?'d-celebration':'d-other')+'" style="--accent:'+celebrationAccent+'">'+
+ '<title>'+esc(rev.title)+' — Prévisualisation Célébrations</title><style>'+CSS+D2_STYLE+'</style></head><body class="'+(key==='home'?'d-home':/^celebration:\d+$/.test(key)?'d-celebration':'d-other')+'" style="--accent:'+celebrationAccent+'">'+
  '<div class="d-bar"><strong>PRÉVISUALISATION ADMINISTRATEUR — BROUILLON</strong><small>Non publié · staging uniquement · aucune modification possible ici</small></div>'+
  '<main class="d-shell"><div class="d-heading"><small>Ronde des Archanges Universelle / '+esc(imp.original_route)+'</small><h1>'+esc(rev.title)+'</h1></div>'+
  '<nav class="d-nav" aria-label="Navigation">'+navigation+'</nav><section class="d-content">'+html+'</section>'+
