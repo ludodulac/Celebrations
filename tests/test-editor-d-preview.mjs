@@ -57,7 +57,7 @@ test('D only returns HTML to authenticated staging preview; no historical inline
   assert.ok(html.includes('Bienvenue')&&html.includes('Programme.pdf'));
   assert.ok(!html.includes('LEAK'),'Raw historic script was leaked');
   assert.ok(!html.includes('onerror=alert(1)'),'Raw event handler was leaked');
-  assert.match(html,/script-src 'none'/);
+  assert.match(res.headers.get('content-security-policy'),/script-src 'none'/);
   assert.equal(res.headers.get('cache-control'),'no-store');
   assert.equal((await handleEditorD(req('not-existing',headers),env)).status,404);
   const step=await (await handleEditorD(req('celebration:101:step:Mercredi',headers),env)).text();
