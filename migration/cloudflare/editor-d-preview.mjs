@@ -1,6 +1,7 @@
 // Mission D: isolated, admin-only, server-rendered historical draft preview.
 // NEVER connected to the official domain, public routes, or publication pipeline.
-import {authorize} from './auth-api.mjs';
+import {authorize,sha256} from './auth-api.mjs';
+import {D2_STYLE} from './editor-d2-style.mjs';
 const HOST='celebrations-exit-staging.rondes.workers.dev';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const text=x=>esc(x).replace(/\r?\n/g,'<br>');
@@ -24,11 +25,46 @@ const link=(url,label,cls='resource-link')=>{
 const pageHref=k=>'/__editor/preview?key='+encodeURIComponent(k);
 const go=(k,label,active=false)=>'<a class="d-chip'+(active?' active':'')+'" href="'+esc(pageHref(k))+'">'+esc(label)+'</a>';
 function strippedLegacy(html){
- // NOTE: never inject historic HTML. Extract a few readable plaintext headings.
- const s=String(html||'').slice(0,90000).replace(/<(script|style|template|svg|iframe)\b[^>]*>[\s\S]*?<\/\1>/gi,'');
- const found=[...s.matchAll(/<(h1|h2|h3|p)\b[^>]*>([\s\S]*?)<\/\1>/gi)].slice(0,14);
- const plain=v=>String(v).replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/\s+/g,' ').trim().slice(0,1000);
- return found.map(m=>m[1].toLowerCase()==='p'?'<p>'+esc(plain(m[2]))+'</p>':'<h2>'+esc(plain(m[2]))+'</h2>').join('');
+ // Parse selected textual elements and linked resources; NEVER send an old tag
+ // or attribute to the browser. This is an intentionally limited, read-only
+ // representation, not the original executable DOM.
+ const raw=String(html||'').slice(0,230000)
+  .replace(/<(script|style|template|svg|iframe|noscript)\b[^>]*>[\s\S]*?<\/\1>/gi,' ')
+  .replace(/<script\b[^>]*\/\s*>/gi,' ');
+ const plain=v=>String(v||'').replace(/<[^>]+>/g,' ')
+  .replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&quot;/g,'"')
+  .replace(/&#39;/g,"'").replace(/\s+/g,' ').trim();
+ let body='',count=0;
+ const elements=/<(h1|h2|h3|h4|p|li|blockquote|a|button|img)\b([^>]*?)(?:\/?>)(?:([\s\S]*?)<\/\1>)?/gi;
+ for(const m of raw.matchAll(elements)){
+  if(count++>500)break;
+  const tag=m[1].toLowerCase(),attrs=m[2]||'';
+  const value=plain(m[3]||'');
+  if(tag==='img'){
+   const src=attrs.match(/\bsrc\s*=\s*(["'])(.*?)\1/i)?.[2]||'';
+   const url=safeUrl(src);
+   if(url&&(url.startsWith('/')||url.startsWith('https://celebrations-exit-staging.rondes.workers.dev/'))){
+    const alt=attrs.match(/\balt\s*=\s*(["'])(.*?)\1/i)?.[2]||'Image historique';
+    body+='<img src="'+esc(url)+'" alt="'+esc(alt)+'" loading="lazy">';
+   }else body+='<p class="meta">Image historique externe non chargée automatiquement : '+esc(plain(attrs.match(/\balt\s*=\s*(["'])(.*?)\1/i)?.[2]||''))+'</p>';
+   continue;
+  }
+  if(!value)continue;
+  if(tag==='a'){
+   const href=attrs.match(/\bhref\s*=\s*(["'])(.*?)\1/i)?.[2]||'';
+   body+=link(href,value,'resource-link d-static-link')||'<p>'+esc(value)+'</p>';
+  }else if(tag==='button')body+='<span class="d-muted-chip">'+esc(value)+'</span>';
+  else if(tag==='li')body+='<p>• '+esc(value)+'</p>';
+  else if(tag==='blockquote')body+='<blockquote>'+esc(value)+'</blockquote>';
+  else if(tag.startsWith('h'))body+='<h2>'+esc(value)+'</h2>';
+  else body+='<p>'+esc(value)+'</p>';
+ }
+ const fullText=plain(raw);
+ // Text in custom div/span wrappers is not always covered by the whitelist.
+ // Provide an explicit complete readable fallback, without executing any HTML.
+ body+='<details><summary>Texte historique complet (lecture sécurisée)</summary><p>'+esc(fullText.slice(0,130000))+'</p></details>';
+ if(raw.length>=230000)body+='<div class="d-gap-warning">Document historique très long : lecture complémentaire du fichier source requise.</div>';
+ return body;
 }
 const when=d=>{
  const s=d?.start_date,e=d?.end_date;
@@ -66,9 +102,9 @@ async function item(block,db,context){
  case 'banner':return '<aside class="d-banner">'+text(d.text)+'</aside>';
  case 'button':return link(d.url,d.text,'d-btn');
  case 'static_html_snapshot':
-  return '<section class="d-static">'+strippedLegacy(d.html)+(d.html?'<small>Texte extrait de l’ancienne page ; mise en page et scripts non exécutés.</small>':'<small>Page statique référencée, sans contenu HTML archivé.</small>')+'</section>';
+  return context.key==='home'?'':('<section class="d-static">'+strippedLegacy(d.html)+(d.html?'<small>Version historique sécurisée : aucun script original exécuté.</small>':'<small>Page statique référencée, sans contenu HTML archivé.</small>')+'</section>');
  case 'celebration_record':
-  return '<section class="d-card d-celebration"><h2>Archange '+esc(r.archangel)+' '+esc(r.year)+'</h2><p class="meta">Statut historique : '+esc(r.status||'')+'</p>'+go('celebration:'+r.id+':step:Préparation','Voir les sept étapes')+'</section>';
+  return '<section class="d-card d-celebration-title"><h2>Archange '+esc(r.archangel)+' '+esc(r.year)+'</h2><p class="d-date">'+esc(context.celebrationDate||'')+'</p><p class="meta">Statut historique : '+esc(r.status||'')+'</p>'+go('celebration:'+r.id+':step:Préparation','Programme et sept étapes')+'</section>';
  case 'legacy_day':
   return '<section class="d-day"><h2>'+esc(r.label)+'</h2>'+caption('Dates',when(r))+(r.body_text?'<p>'+text(r.body_text)+'</p>':'')+'</section>';
  case 'legacy_event':{
@@ -194,15 +230,30 @@ export async function handleEditorD(request,env){
  }
  if(key==='home'||key.startsWith('legal:'))navigation+=go('legal:mentions-legales','Mentions légales',key==='legal:mentions-legales')+go('legal:confidentialite','Confidentialité',key==='legal:confidentialite')+go('legal:cookies','Cookies',key==='legal:cookies');
  let html='';
+ let celebrationDate='';
+ if(p.celebration_id!==null){const dates=await env.DB.prepare('SELECT MIN(start_date) AS first, MAX(end_date) AS last FROM celebrations_steps WHERE celebration_id=?').bind(p.celebration_id).first();celebrationDate=dates?.first?when({start_date:dates.first,end_date:dates.last}):'';}
  for(const b of blocks){
-  const fragment=await item(b,env.DB,{key});
+  const fragment=await item(b,env.DB,{key,celebrationDate});
   html+='<div class="d-block" data-kind="'+esc(b.kind)+'">'+fragment+'</div>';
  }
+ if(key==='home'){
+  const hero='<div class="d-home-banner"><strong>INFORMATION IMPORTANTE — Le travail des psaumes a repris !</strong> Pensez à vérifier vos spams : nos messages, oracles et informations sur la Ronde des Archanges et Gabriel arrivent désormais depuis ronde-des-archanges@nation-essenienne.eu.</div>'+
+   '<section class="d-welcome"><h1>Bienvenue sur le site de la Ronde des Archanges Universelle</h1><p>Retrouvez les célébrations, les psaumes et les ressources partagées.</p>'+
+   '<img src="/media/media/celebrations-staging-welcome-autumn-2026.jpg" alt="Ronde des Archanges — coordonnées et couleurs d’automne">'+
+   '<div class="d-welcome-actions">'+go('celebration:101','Accéder aux célébrations')+'<span class="d-muted-chip">Facebook · Bientôt disponible</span><span class="d-muted-chip">Instagram · Bientôt disponible</span></div></section>';
+  html=hero+html;
+ }
+ if(key==='bibliotheque'){
+   html+='<div class="d-choice-grid">'+[...(allImports.results||[])].map(x=>x.source_key)
+    .filter(k=>k.startsWith('catalogue-part:')).map((k,i)=>'<a class="d-choice" href="'+esc(pageHref(k))+'">Ressources et images — '+(i+1)+'</a>').join('')+'</div>';
+ }
+ if(key==='programme'){
+   const e=await env.DB.prepare('SELECT id,archangel,year FROM celebrations_celebrations ORDER BY year,id').all();
+   html+='<section class="d-card"><h2>Les sept étapes et les rendez-vous</h2><div class="d-choice-grid">'+(e.results||[]).map(c=>'<a class="d-choice" href="'+esc(pageHref('celebration:'+c.id+':step:Mercredi'))+'">Archange '+esc(c.archangel)+' '+esc(c.year||'')+'</a>').join('')+'</div></section>';
+ }
  if(key.startsWith('catalogue-part:'))html='<div class="d-gallery">'+html+'</div>';
- if(key==='home')html='<div class="d-banner">Bienvenue sur le site de la Ronde des Archanges Universelle — prévisualisation de travail.</div>'+
-  '<figure class="d-image"><img src="/media/media/celebrations-staging-welcome-autumn-2026.jpg" alt="Ronde des Archanges — automne"></figure>'+html;
  const page='< !doctype html>'.replace(' ','')+'<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'+
- '<title>'+esc(rev.title)+' — Prévisualisation Célébrations</title><style>'+CSS+'</style></head><body>'+
+ '<title>'+esc(rev.title)+' — Prévisualisation Célébrations</title><style>'+CSS+D2_STYLE+'</style></head><body class="'+(key==='home'?'d-home':'d-other')+'">'+
  '<div class="d-bar"><strong>PRÉVISUALISATION ADMINISTRATEUR — BROUILLON</strong><small>Non publié · staging uniquement · aucune modification possible ici</small></div>'+
  '<main class="d-shell"><div class="d-heading"><small>Ronde des Archanges Universelle / '+esc(imp.original_route)+'</small><h1>'+esc(rev.title)+'</h1></div>'+
  '<nav class="d-nav" aria-label="Navigation">'+navigation+'</nav><section class="d-content">'+html+'</section>'+
