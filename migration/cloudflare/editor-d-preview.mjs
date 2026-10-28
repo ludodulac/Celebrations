@@ -109,8 +109,10 @@ async function item(block,db,context){
  case 'button':return link(d.url,d.text,'d-btn');
  case 'static_html_snapshot':
   return context.key==='home'?'':('<section class="d-static">'+strippedLegacy(d.html)+(d.html?'<small>Version historique sécurisée : aucun script original exécuté.</small>':'<small>Page statique référencée, sans contenu HTML archivé.</small>')+'</section>');
- case 'celebration_record':
-  return '<section class="d-card d-celebration-title"><h2>Archange '+esc(r.archangel)+' '+esc(r.year)+'</h2><p class="d-date">'+esc(context.celebrationDate||'')+'</p><p class="meta">Statut historique : '+esc(r.status||'')+'</p>'+go('celebration:'+r.id+':step:Préparation','Programme et sept étapes')+'</section>';
+ case 'celebration_record':{
+  const flame=context.celebrationFlame?'<img class="d-celebration-flame" src="'+esc(context.celebrationFlame)+'" alt="" loading="lazy">':'';
+  return '<section class="d-card d-celebration-title"><div class="d-celebration-identity">'+flame+'<h2>Archange '+esc(r.archangel)+' '+esc(r.year)+'</h2>'+flame+'</div><p class="d-date">'+esc(context.celebrationDate||'')+'</p><p class="meta">Statut historique : '+esc(r.status||'')+'</p>'+go('celebration:'+r.id+':step:Préparation','Programme et sept étapes')+'</section>';
+ }
  case 'legacy_day':
   return '<section class="d-day"><h2>'+esc(r.label)+'</h2>'+caption('Dates',when(r))+(r.body_text?'<p>'+text(r.body_text)+'</p>':'')+'</section>';
  case 'legacy_event':{
@@ -288,9 +290,18 @@ export async function handleEditorD(request,env){
  if(key==='home'||key.startsWith('legal:'))navigation+=go('legal:mentions-legales','Mentions légales',key==='legal:mentions-legales')+go('legal:confidentialite','Confidentialité',key==='legal:confidentialite')+go('legal:cookies','Cookies',key==='legal:cookies');
  let html='';
  let celebrationDate='';
- if(p.celebration_id!==null){const dates=await env.DB.prepare('SELECT MIN(start_date) AS first, MAX(end_date) AS last FROM celebrations_steps WHERE celebration_id=?').bind(p.celebration_id).first();celebrationDate=dates?.first?when({start_date:dates.first,end_date:dates.last}):'';}
+ let celebrationAccent='#b42318';
+ let celebrationFlame='';
+ if(p.celebration_id!==null){
+  const dates=await env.DB.prepare('SELECT MIN(start_date) AS first, MAX(end_date) AS last FROM celebrations_steps WHERE celebration_id=?').bind(p.celebration_id).first();
+  celebrationDate=dates?.first?when({start_date:dates.first,end_date:dates.last}):'';
+  const c=await env.DB.prepare('SELECT archangel FROM celebrations_celebrations WHERE id=?').bind(p.celebration_id).first();
+  celebrationAccent=({Michaël:'#b42318',Gabriel:'#173b70',Raphaël:'#16803c',Ouriel:'#d39e00'})[c?.archangel]||'#b42318';
+  const flame=await env.DB.prepare("SELECT storage_path FROM celebrations_contents WHERE (name='shin.png' OR file_name='shin.png') AND audience='all' LIMIT 1").first();
+  if(flame)celebrationFlame=mediaUrl(flame.storage_path);
+ }
  for(const b of blocks){
-  const fragment=await item(b,env.DB,{key,celebrationDate});
+  const fragment=await item(b,env.DB,{key,celebrationDate,celebrationFlame});
   html+='<div class="d-block" data-kind="'+esc(b.kind)+'">'+fragment+'</div>';
  }
  if(key==='home'){
@@ -310,10 +321,10 @@ export async function handleEditorD(request,env){
  }
  if(key.startsWith('catalogue-part:'))html='<div class="d-gallery">'+html+'</div>';
  const page='< !doctype html>'.replace(' ','')+'<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'+
- '<title>'+esc(rev.title)+' — Prévisualisation Célébrations</title><style>'+CSS+D2_STYLE+'</style></head><body class="'+(key==='home'?'d-home':'d-other')+'">'+
+ '<title>'+esc(rev.title)+' — Prévisualisation Célébrations</title><style>'+CSS+D2_STYLE+'</style></head><body class="'+(key==='home'?'d-home':/^celebration:\\d+$/.test(key)?'d-celebration':'d-other')+'" style="--accent:'+celebrationAccent+'">'+
  '<div class="d-bar"><strong>PRÉVISUALISATION ADMINISTRATEUR — BROUILLON</strong><small>Non publié · staging uniquement · aucune modification possible ici</small></div>'+
  '<main class="d-shell"><div class="d-heading"><small>Ronde des Archanges Universelle / '+esc(imp.original_route)+'</small><h1>'+esc(rev.title)+'</h1></div>'+
  '<nav class="d-nav" aria-label="Navigation">'+navigation+'</nav><section class="d-content">'+html+'</section>'+
- '<footer class="d-footer">Célébrations — prévisualisation de travail, version historique non publiée.</footer></main></body></html>';
+ '<footer class="d-footer"><nav class="d-nav" aria-label="Pages complémentaires">'+(known.has('static:concepteur.html')?go('static:concepteur.html','Conception du site'):'')+(known.has('static:apres-la-ronde/index.html')?go('static:apres-la-ronde/index.html','Après la Ronde'):'')+go('legal:mentions-legales','Mentions légales')+go('legal:confidentialite','Confidentialité')+go('legal:cookies','Cookies')+'</nav>Célébrations — prévisualisation de travail, version historique non publiée.</footer></main></body></html>';
  return response(request.method==='HEAD'?null:page);
 }
