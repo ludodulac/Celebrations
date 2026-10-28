@@ -1,0 +1,26 @@
+name: CELEBRATIONS visual editor B+C local regression tests
+on:
+  pull_request:
+    paths:
+      - 'scripts/editor-c-*.mjs'
+      - 'migration/cloudflare/editor-*.sql'
+      - 'migration/cloudflare/editor-b-api.mjs'
+      - 'tests/test-editor-*.mjs'
+      - '.github/workflows/celebrations-admin-c-local-tests.yml'
+permissions:
+  contents: read
+jobs:
+  purely-local:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Syntax and local in-memory SQLite synthetic tests, no Cloudflare token or deploy
+        run: |
+          node --check migration/cloudflare/editor-b-api.mjs
+          node --check scripts/editor-c-converter.mjs
+          node --check scripts/editor-c-staging-runner.mjs
+          node --test tests/test-editor-b-foundations.mjs tests/test-editor-c-converter.mjs
