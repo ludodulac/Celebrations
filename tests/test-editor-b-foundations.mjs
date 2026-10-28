@@ -11,6 +11,7 @@ function setup(){
  const sqlite=new DatabaseSync(':memory:');
  sqlite.exec('PRAGMA foreign_keys=ON; CREATE TABLE celebrations_celebrations(id INTEGER PRIMARY KEY,status TEXT); CREATE TABLE celebrations_admin_sessions(token_hash TEXT PRIMARY KEY,admin_email TEXT,expires_at TEXT);');
  sqlite.exec(readFileSync(new URL('../migration/cloudflare/editor-b-schema.sql',import.meta.url),'utf8'));
+ sqlite.exec(readFileSync(new URL('../migration/cloudflare/editor-c-schema.sql',import.meta.url),'utf8'));
  sqlite.prepare("INSERT INTO celebrations_celebrations(id,status) VALUES(1,'active'),(2,'planned')").run();
  const raw=randomBytes(32).toString('hex');
  const hash=createHash('sha256').update(raw).digest('hex');
