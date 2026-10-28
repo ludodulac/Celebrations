@@ -1,0 +1,102 @@
+name: CELEBRATIONS B - isolated staging foundation, once
+on:
+  push:
+    branches: [feat/celebrations-admin-visual-mission-b]
+    paths:
+      - .github/workflows/celebrations-admin-b-apply-once.yml
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-staging-only
+  cancel-in-progress: false
+jobs:
+  isolated-foundations:
+    if: github.ref == 'refs/heads/feat/celebrations-admin-visual-mission-b'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Refuse unsafe names, public domains and production resources
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$STAGING_D1_ID" = '0f761662-241f-42cc-ac94-5c68b4aa7797'
+          test "$STAGING_D1_ID" != '28736d2a-479b-472b-bf82-703ad0affe10'
+          test "$STAGING_R2_BUCKET" = 'celebrations-exit-staging'
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+      - name: Run API syntax and ALL mission B operations on in-memory SQLite fixtures
+        run: |
+          node --check migration/cloudflare/editor-b-api.mjs
+          node --check migration/cloudflare/staging-worker.mjs
+          node --test tests/test-editor-b-foundations.mjs
+      - name: Verify CURRENT deployed staging bindings, not local config
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const account=process.env.CLOUDFLARE_ACCOUNT_ID;
+          const res=await fetch('https://api.cloudflare.com/client/v4/accounts/'+account+'/workers/scripts/celebrations-exit-staging/settings',{
+            headers:{Authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN}});
+          assert.equal(res.status,200,'Cloudflare deployed settings access denied');
+          const payload=await res.json();
+          assert.equal(payload.success,true,'Cloudflare deployed settings failed');
+          const bindings=payload.result?.bindings;
+          assert.ok(Array.isArray(bindings),'No deployed Worker bindings');
+          const d1=bindings.filter(b=>b.type==='d1');
+          const r2=bindings.filter(b=>b.type==='r2_bucket');
+          assert.equal(d1.length,2,'D1 binding count unexpected');
+          assert.deepEqual(d1.map(b=>b.name).sort(),['DB','MEDIA_ACL']);
+          for(const b of d1)assert.equal(b.database_id||b.id,'0f761662-241f-42cc-ac94-5c68b4aa7797','D1 production/unknown forbidden');
+          assert.equal(r2.length,1);
+          assert.equal(r2[0].name,'MEDIA_BUCKET');
+          assert.equal(r2[0].bucket_name,'celebrations-exit-staging','R2 production/unknown forbidden');
+          assert.equal(bindings.filter(b=>['service','dispatch_namespace'].includes(b.type)).length,0,'Cross-worker binding forbidden');
+          console.log('MISSION_B_WRITE_GATE_DEPLOYED_BINDINGS_PASS');
+          NODE
+      - name: Verify CURRENT account-wide free D1 quota before ANY write
+        run: node scripts/check-staging-d1-free-budget.mjs pre
+      - name: Build existing assets without changing the old admin or historical data
+        run: python scripts/build_staging_assets.py
+      - name: Prepare ONLY the existing staging bindings
+        run: python scripts/configure_staging_wrangler.py
+      - name: Install Wrangler
+        run: npm install --no-save --no-package-lock wrangler@4
+      - name: Create ONLY additive editor_b tables in staging D1, never ALTER historical tables
+        working-directory: migration/cloudflare
+        run: |
+          set -euo pipefail
+          npx wrangler d1 execute celebrations-exit-staging --remote --file editor-b-schema.sql
+      - name: Deploy updated Worker only to existing staging workers.dev hostname
+        working-directory: migration/cloudflare
+        run: npx wrangler deploy --config wrangler.toml
+      - name: Verify new editor API denies visitors and old administration still serves
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const origin='https://celebrations-exit-staging.rondes.workers.dev';
+          const admin=await fetch(origin+'/admin.html?staging=1');
+          assert.equal(admin.status,200,'Old staging admin unavailable');
+          const draft=await fetch(origin+'/api/editor-b?action=draft&page_id=00000000-0000-4000-8000-000000000000');
+          assert.equal(draft.status,401,'Anonymous draft request not blocked');
+          const write=await fetch(origin+'/api/editor-b',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'create',route_path:'/mission-b/unauth',title:'test'})});
+          assert.equal(write.status,401,'Anonymous write not blocked');
+          const absent=await fetch(origin+'/api/editor-b?action=public&page_id=00000000-0000-4000-8000-000000000000');
+          assert.equal(absent.status,404,'Nonpublished fixture accessible');
+          console.log('MISSION_B_STAGING_HTTP_PASS old_admin=true anonymous_write_denied=true anonymous_draft_denied=true nonpublished_hidden=true');
+          NODE
+      - name: Check post-operation D1 quota reserve
+        if: always()
+        run: node scripts/check-staging-d1-free-budget.mjs post
