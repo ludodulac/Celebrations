@@ -58,6 +58,10 @@ body.d-celebration .d-heading{display:none}
 .d-nav .d-chip:hover{background:#f8f3ed}
 .d-nav .d-chip.active{background:var(--accent);color:#fff}
 
+
+.d-celebration-identity{display:flex;align-items:center;justify-content:center;gap:14px}
+.d-celebration-flame{height:45px;width:45px;object-fit:contain}
+@media(max-width:500px){.d-celebration-flame{height:30px;width:30px}.d-celebration-identity{gap:7px}}
 @media(max-width:850px){
  .d-shell{padding:8px 10px 35px}
  .d-heading{padding:8px 10px}
