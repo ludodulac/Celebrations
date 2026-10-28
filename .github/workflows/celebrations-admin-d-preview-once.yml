@@ -85,3 +85,4 @@ jobs:
       - name: Check post-operation D1 quota reserve
         if: always()
         run: node scripts/check-staging-d1-free-budget.mjs post
+# Re-run after repairing purely synthetic renderer test adapter. No production changes.
