@@ -31,10 +31,11 @@ jobs:
           test "$STAGING_D1_ID" != '28736d2a-479b-472b-bf82-703ad0affe10'
           test "$STAGING_R2_BUCKET" = 'celebrations-exit-staging'
           node --check migration/cloudflare/editor-d-preview.mjs
+          node --check migration/cloudflare/editor-d2-media.mjs
           node --check migration/cloudflare/editor-d2-style.mjs
           node --check migration/cloudflare/staging-worker.mjs
           node --check scripts/verify-editor-d2-browser.mjs
-          node --test tests/test-editor-b-foundations.mjs tests/test-editor-c-converter.mjs tests/test-editor-d-preview.mjs
+          node --test tests/test-editor-b-foundations.mjs tests/test-editor-c-converter.mjs tests/test-editor-d-preview.mjs tests/test-editor-d2-media.mjs
       - name: Check daily Cloudflare D1 quota before deployment
         run: node scripts/check-staging-d1-free-budget.mjs pre
       - name: Verify actual deployed staging bindings, reject any production service or D1
@@ -88,3 +89,5 @@ jobs:
         run: node scripts/check-staging-d1-free-budget.mjs post
 
 # Rerun with complete synthetic flame/media fixture; no production changes.
+
+# D2 secure media gateway, archive-preserving staging-only recheck.
