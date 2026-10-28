@@ -79,9 +79,10 @@ export function convertLegacy(input,{staticPages={}}={}){
   pages.push(final(overview));
   for(let i=0;i<ORDER.length;i++){
    const stage=ORDER[i];
-   const found=steps.filter(x=>String(x.celebration_id)===String(c.id)&&x.step_key===stage);
+   const found=steps.filter(x=>String(x.celebration_id)===String(c.id) && (routeId(x.label)===routeId(stage) || routeId(x.step_key)===DAY_SLUGS[i]+'-'+c.id));
    const record=found[0]||null;
-   const p=page('celebration:'+c.id+':step:'+stage,'/'+DAY_SLUGS[i],c.archangel+' — '+stage,c.id,stage);
+   const canonicalKey=record?.step_key||stage;
+   const p=page('celebration:'+c.id+':step:'+stage,'/'+DAY_SLUGS[i],c.archangel+' — '+stage,c.id,canonicalKey);
    if(record){
     seen('celebrations_steps',record);
     add(p,block('celebrations_steps',record.id,'legacy_day',{record,show_exact_dates:true}));
@@ -89,7 +90,7 @@ export function convertLegacy(input,{staticPages={}}={}){
     notes.push('missing_step:'+c.id+':'+stage);
     add(p,block('system',c.id+':'+stage,'missing_stage',{stage,exists:false}));
    }
-   const dayEvents=events.filter(x=>String(x.celebration_id)===String(c.id)&&x.step_key===stage).sort(byOrder);
+   const dayEvents=events.filter(x=>String(x.celebration_id)===String(c.id)&&x.step_key===canonicalKey).sort(byOrder);
    for(const event of dayEvents){
     seen('celebrations_events',event);
     const assoc=ec.filter(x=>String(x.event_id)===String(event.id)).sort(byOrder);
@@ -105,13 +106,13 @@ export function convertLegacy(input,{staticPages={}}={}){
      links:eventLinks.map(l=>({id:l.id,label:l.label,url:l.url,sort_order:l.sort_order,link_type:l.link_type}))
     }));
    }
-   const dayLinks=links.filter(x=>!x.event_id&&String(x.celebration_id)===String(c.id)&&x.step_key===stage).sort(byOrder);
+   const dayLinks=links.filter(x=>!x.event_id&&String(x.celebration_id)===String(c.id)&&x.step_key===canonicalKey).sort(byOrder);
    for(const l of dayLinks){seen('celebrations_links',l);allLinks.add(String(l.id));add(p,block('celebrations_links',l.id,'legacy_link',{record:l}))}
-   const dayContents=sc.filter(x=>String(x.celebration_id)===String(c.id)&&x.step_key===stage).sort(byOrder);
+   const dayContents=sc.filter(x=>String(x.celebration_id)===String(c.id)&&x.step_key===canonicalKey).sort(byOrder);
    for(const relation of dayContents){
     seen('celebrations_step_contents',relation);
     if(!indexedContents.has(String(relation.content_id)))notes.push('missing_content_ref:'+relation.content_id);
-    add(p,block('celebrations_step_contents',c.id+':'+stage+':'+relation.content_id,'legacy_step_content_ref',
+    add(p,block('celebrations_step_contents',c.id+':'+canonicalKey+':'+relation.content_id,'legacy_step_content_ref',
       {celebration_id:relation.celebration_id,step_key:relation.step_key,
        content_id:relation.content_id,sort_order:relation.sort_order}));
    }
