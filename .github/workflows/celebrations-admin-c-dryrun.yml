@@ -1,0 +1,35 @@
+name: CELEBRATIONS C - read-only legacy conversion dry-run
+on:
+  push:
+    branches: [feat/celebrations-admin-visual-mission-c]
+    paths: [.github/workflows/celebrations-admin-c-dryrun.yml]
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-staging-only
+  cancel-in-progress: false
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Local B + C integration tests on invented data only
+        run: |
+          node --check migration/cloudflare/editor-b-api.mjs
+          node --check scripts/editor-c-converter.mjs
+          node --check scripts/editor-c-staging-runner.mjs
+          node --test tests/test-editor-b-foundations.mjs tests/test-editor-c-converter.mjs
+      - name: Current quota read-only, no D1 SQL writes
+        run: node scripts/check-staging-d1-free-budget.mjs pre
+      - name: Verify actual deployed staging bindings and convert all historic data IN MEMORY
+        run: node scripts/editor-c-staging-runner.mjs --dry-run
