@@ -33,3 +33,4 @@ jobs:
         run: node scripts/check-staging-d1-free-budget.mjs pre
       - name: Verify actual deployed staging bindings and convert all historic data IN MEMORY
         run: node scripts/editor-c-staging-runner.mjs --dry-run
+# Retry after canonical step-key mapping; no Cloudflare mutation.
