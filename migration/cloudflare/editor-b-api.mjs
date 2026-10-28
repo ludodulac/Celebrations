@@ -27,7 +27,10 @@ async function snapshot(db,id,version){
  const rev=await db.prepare('SELECT title,operation,version,source_version FROM editor_b_revisions WHERE page_id=? AND version=?').bind(id,version).first();
  if(!rev)return null;
  const blocks=await db.prepare('SELECT block_id,kind,data_json,position FROM editor_b_blocks WHERE page_id=? AND version=? ORDER BY position,block_id').bind(id,version).all();
- return {version:rev.version,title:rev.title,operation:rev.operation,source_version:rev.source_version,blocks:(blocks.results||[]).map(b=>({block_id:b.block_id,kind:b.kind,position:b.position,data:JSON.parse(b.data_json)}))};
+ const legacy=await db.prepare('SELECT block_id,legacy_kind,source_table,source_id,data_json,position FROM editor_c_blocks WHERE page_id=? AND version=? ORDER BY position,block_id').bind(id,version).all();
+ const standard=(blocks.results||[]).map(b=>({block_id:b.block_id,kind:b.kind,position:b.position,data:JSON.parse(b.data_json)}));
+ const linked=(legacy.results||[]).map(b=>({block_id:b.block_id,kind:b.legacy_kind,legacy_kind:b.legacy_kind,source_table:b.source_table,source_id:b.source_id,position:b.position,data:JSON.parse(b.data_json)}));
+ return {version:rev.version,title:rev.title,operation:rev.operation,source_version:rev.source_version,blocks:[...standard,...linked].sort((a,b)=>a.position-b.position||a.block_id.localeCompare(b.block_id))};
 }
 async function save(db,page,expected,headline,blocks,operation,sourceVersion=null){
  if(!Number.isSafeInteger(expected)||expected<1)return bad('Invalid revision');
@@ -38,7 +41,8 @@ async function save(db,page,expected,headline,blocks,operation,sourceVersion=nul
  // additional compare-and-swap guard against two simultaneous writers.
  const statements=[
   db.prepare('INSERT INTO editor_b_revisions(page_id,version,title,operation,source_version) SELECT ?,?,?,?,? FROM editor_b_pages WHERE id=? AND head_version=?').bind(page.id,next,headline,operation,sourceVersion,page.id,expected),
-  ...positions(blocks).map(b=>db.prepare('INSERT INTO editor_b_blocks(page_id,version,block_id,position,kind,data_json) VALUES(?,?,?,?,?,?)').bind(page.id,next,b.block_id,b.position,b.kind,JSON.stringify(b.data))),
+  ...positions(blocks).filter(b=>!b.legacy_kind).map(b=>db.prepare('INSERT INTO editor_b_blocks(page_id,version,block_id,position,kind,data_json) VALUES(?,?,?,?,?,?)').bind(page.id,next,b.block_id,b.position,b.kind,JSON.stringify(b.data))),
+  ...positions(blocks).filter(b=>b.legacy_kind).map(b=>db.prepare('INSERT INTO editor_c_blocks(page_id,version,block_id,position,legacy_kind,source_table,source_id,data_json) VALUES(?,?,?,?,?,?,?,?)').bind(page.id,next,b.block_id,b.position,b.legacy_kind,b.source_table,b.source_id,JSON.stringify(b.data))),
   db.prepare('UPDATE editor_b_pages SET head_version=?,draft_version=?,published_version=CASE WHEN ?=1 THEN ? ELSE published_version END,updated_at=CURRENT_TIMESTAMP WHERE id=? AND head_version=?').bind(next,next,operation==='publish'?1:0,next,page.id,expected)
  ];
  try{
@@ -123,6 +127,7 @@ export async function handleEditorB(request,env){
   case 'edit_block':{
    const match=blocks.find(x=>x.block_id===b.block_id);
    if(!match)return bad('Block not found',404);
+   if(match.legacy_kind)return bad('Complex historical block requires a dedicated editor',409);
    const kind=b.kind||match.kind;
    match.kind=kind;match.data=JSON.parse(payload(kind,b.data));break;
   }
@@ -145,6 +150,10 @@ export async function handleEditorB(request,env){
    name=older.title;blocks=older.blocks;operation='restore';source=b.source_version;break;
   }
   case 'publish':{
+   // Mission C data imports are drafts only. Their rich legacy references
+   // require public-renderer/ACL validation in a separately approved mission.
+   const imported=await env.DB.prepare('SELECT page_id FROM editor_c_imports WHERE page_id=?').bind(p.id).first();
+   if(imported)return bad('Historical import publication needs rendering and ACL approval',403);
    if(p.celebration_id!==null){
     const c=await env.DB.prepare('SELECT status FROM celebrations_celebrations WHERE id=?').bind(p.celebration_id).first();
     if(!c||String(c.status||'').toLowerCase()!=='active')return bad('Unpublished celebration: publication forbidden',403);
