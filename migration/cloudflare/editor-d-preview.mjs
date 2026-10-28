@@ -297,8 +297,8 @@ export async function handleEditorD(request,env){
   celebrationDate=dates?.first?when({start_date:dates.first,end_date:dates.last}):'';
   const c=await env.DB.prepare('SELECT archangel FROM celebrations_celebrations WHERE id=?').bind(p.celebration_id).first();
   celebrationAccent=({Michaël:'#b42318',Gabriel:'#173b70',Raphaël:'#16803c',Ouriel:'#d39e00'})[c?.archangel]||'#b42318';
-  const flame=await env.DB.prepare("SELECT storage_path FROM celebrations_contents WHERE (name='shin.png' OR file_name='shin.png') AND audience='all' LIMIT 1").first();
-  if(flame)celebrationFlame=mediaUrl(flame.storage_path);
+  const flame=await env.DB.prepare("SELECT id,storage_path FROM celebrations_contents WHERE (name='shin.png' OR file_name='shin.png') AND audience='all' LIMIT 1").first();
+  if(flame?.id&&flame.storage_path)celebrationFlame='/__editor/media?id='+encodeURIComponent(String(flame.id));
  }
  for(const b of blocks){
   const fragment=await item(b,env.DB,{key,celebrationDate,celebrationFlame});
@@ -307,7 +307,7 @@ export async function handleEditorD(request,env){
  if(key==='home'){
   const hero='<div class="d-home-banner"><strong>INFORMATION IMPORTANTE — Le travail des psaumes a repris !</strong> Pensez à vérifier vos spams : nos messages, oracles et informations sur la Ronde des Archanges et Gabriel arrivent désormais depuis ronde-des-archanges@nation-essenienne.eu.</div>'+
    '<section class="d-welcome"><h1>Bienvenue sur le site de la Ronde des Archanges Universelle</h1><p>Retrouvez les célébrations, les psaumes et les ressources partagées.</p>'+
-   '<img src="/media/media/celebrations-staging-welcome-autumn-2026.jpg" alt="Ronde des Archanges — coordonnées et couleurs d’automne">'+
+   '<img src="/__editor/media?asset=welcome" alt="Ronde des Archanges — coordonnées et couleurs d’automne">'+
    '<div class="d-welcome-actions">'+go('celebration:101','Accéder aux célébrations')+'<span class="d-muted-chip">Facebook · Bientôt disponible</span><span class="d-muted-chip">Instagram · Bientôt disponible</span></div></section>';
   html=hero+html;
  }
