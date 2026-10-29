@@ -3,6 +3,7 @@
 // controls a small editable overlay. Editing API requires a live admin token.
 import {handleEditorD,canPreview} from './editor-d-preview.mjs';
 import {E1_CLIENT} from './editor-e1-client.mjs';
+import {handleEditorRecovery} from './editor-e2a-access-recovery.mjs';
 const HOST='celebrations-exit-staging.rondes.workers.dev';
 const pilot=new Set(['home','celebration:101:step:Mercredi']);
 const css=`
@@ -68,6 +69,7 @@ export async function handleEditorE1Page(request,env){
  const key=url.searchParams.get('key')||'home';
  if(!pilot.has(key))return new Response('Page encore en lecture seule',{status:404,headers:{'cache-control':'no-store'}});
  const base=await handleEditorD(request,env);
+ if(base.status===401)return handleEditorRecovery(request,key);
  if(!base.ok)return base;
  const html=await base.text();
  if(!html.includes('<main class="d-shell">'))return new Response('Indisponible',{status:503});
