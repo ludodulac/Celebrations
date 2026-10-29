@@ -29,7 +29,7 @@ try{
   assert.equal(await page.locator('a[href="/__editor/entry"]').count(),1);
   await page.locator('a[href="/admin.html?staging=1"]').click();
   console.log('MISSION_D4_ADMIN_CLICK '+JSON.stringify({path:new URL(page.url()).pathname,search:new URL(page.url()).search}));
-  await page.waitForURL(/\/admin\.html\?staging=1/,{timeout:20000,waitUntil:'domcontentloaded'});
+  await page.waitForURL(/\/admin(?:\.html)?\?staging=1/,{timeout:20000,waitUntil:'domcontentloaded'});
   await page.locator('body:not(.admin-auth-locked)').waitFor({timeout:25000});
   assert.equal(await page.locator('#adminPasswordGate').count(),0,'Staging admin asked for official password');
   assert.ok(await page.locator('button[data-admin="home"]').count()>0,'Existing staging admin missing');
