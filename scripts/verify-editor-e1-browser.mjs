@@ -47,7 +47,9 @@ try{
    const base=await initial.json();
    assert.ok(base.editable.length>=1,'Actual historical content not editable');
    assert.ok(base.version>=1);
-   const beforeText=base.editable[0].values[key==='home'?'heading':'title'];
+   const edited=base.editable.find(x=>x.kind===(key==='home'?'static_html_snapshot':'legacy_event'));
+   assert.ok(edited,'Missing historical event/home block');
+   const beforeText=edited.values[key==='home'?'heading':'title'];
    const marker='E1QA-'+device.name+'-'+(key==='home'?'accueil':'mercredi');
    const target=BASE+'/__editor/edit?key='+encodeURIComponent(key);
    let restored=false;
@@ -66,12 +68,12 @@ try{
     assert.equal((await page.locator(task.selector).first().textContent()).trim(),marker,'Draft did not survive reload');
     const modified=await(await context.request.get(api(),{headers:auth})).json();
     assert.equal(modified.version,base.version+1);
-    const row=modified.editable.find(x=>x.kind===base.editable[0].kind);
+    const row=modified.editable.find(x=>x.id===edited.id);
     assert.ok(row,'Source block identity lost');
     assert.equal(row.values[key==='home'?'heading':'title'],marker);
     // CAS: second editor has stale version and must receive 409.
     const stale=await context.request.post(BASE+'/api/editor-e1',{headers:auth,data:{
-     action:'save',key,expected_version:base.version,changes:[{id:base.editable[0].id,values:{[key==='home'?'heading':'title']:'STALE-MUST-NOT-SAVE'}}]
+     action:'save',key,expected_version:base.version,changes:[{id:edited.id,values:{[key==='home'?'heading':'title']:'STALE-MUST-NOT-SAVE'}}]
     }});
     assert.equal(stale.status(),409);
     // Cancel before saving a second change.
@@ -99,7 +101,7 @@ try{
     console.log('MISSION_E1_RESTORE_DIAG '+JSON.stringify({device:device.name,page:key==='home'?'home':'wednesday',
       current_version:after.version,expected_version:base.version+2,status:await page.locator('#e1-status').innerText().then(x=>x.slice(0,90)).catch(()=>null)}));
     assert.equal(after.version,base.version+2,'Restoration did not create a new draft revision');
-    assert.equal(after.editable[0].values[key==='home'?'heading':'title'],beforeText,'Restored data differs from the original');
+    assert.equal(after.editable.find(x=>x.id===edited.id)?.values[key==='home'?'heading':'title'],beforeText,'Restored data differs from the original');
     await page.goto(target,{waitUntil:'domcontentloaded'});
     assert.equal((await page.locator(task.selector).first().textContent()).trim(),beforeText,'Restored draft is not visible in browser');
     restored=true;
