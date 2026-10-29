@@ -88,9 +88,14 @@ try{
     page.once('dialog',dialog=>dialog.accept());
     await page.locator('#e1-restore').click();
     // Read-back the exact server revision independently of any navigation timing.
-    await page.waitForTimeout(600);
-    const restoredReply=await context.request.get(api(),{headers:auth});
-    const after=await restoredReply.json();
+    let after=null;
+    for(let attempt=0;attempt<24;attempt++){
+     await page.waitForTimeout(550);
+     const restoredReply=await context.request.get(api(),{headers:auth});
+     assert.equal(restoredReply.status(),200);
+     after=await restoredReply.json();
+     if(after.version>=base.version+2)break;
+    }
     console.log('MISSION_E1_RESTORE_DIAG '+JSON.stringify({device:device.name,page:key==='home'?'home':'wednesday',
       current_version:after.version,expected_version:base.version+2,status:await page.locator('#e1-status').innerText().then(x=>x.slice(0,90)).catch(()=>null)}));
     assert.equal(after.version,base.version+2,'Restoration did not create a new draft revision');
