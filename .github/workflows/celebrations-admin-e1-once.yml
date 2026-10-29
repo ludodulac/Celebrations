@@ -126,3 +126,5 @@ jobs:
 # E1 QA short propagation diagnostic; masked secrets and immutable source tables.
 
 # E1 guarded staging replay: await async revision restore completion on Cloudflare D1.
+
+# E1 staging QA: select historical appointment rather than day title in saved revision assertions.
