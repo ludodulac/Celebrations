@@ -12,6 +12,7 @@ import {handleStats} from "./stats-api.mjs";
 import {handleEditorB} from "./editor-b-api.mjs";
 import {handleEditorD,handleEditorDSession,handleEditorDEntry} from "./editor-d-preview.mjs";
 import {handleEditorDMedia} from "./editor-d2-media.mjs";
+import {handleEditorD4Access,handleEditorD4Login} from "./editor-d4-access.mjs";
 export default {
  async fetch(request,env){
   const url=new URL(request.url),path=url.pathname;
@@ -34,6 +35,8 @@ export default {
   if(path==="/__editor/session")return handleEditorDSession(request,env);
   if(path==="/__editor/entry")return handleEditorDEntry(request,env);
   if(path==="/__editor/media")return handleEditorDMedia(request,env);
+  if(path==="/__editor/access")return handleEditorD4Access(request);
+  if(path==="/__editor/access/session")return handleEditorD4Login(request,env);
   if((request.method==="GET"||request.method==="HEAD")&&env.ASSETS)return env.ASSETS.fetch(request);
   return new Response("Not found",{status:404,headers:{"cache-control":"no-store"}});
  }
