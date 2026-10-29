@@ -40,7 +40,7 @@ export async function handleEditorD4Login(request,env){
 const html=`<!doctype html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><title>Accès personnel de test — Célébrations</title>
-<style>
+<style nonce="D4_NONCE_PLACEHOLDER">
 :root{font-family:system-ui,Arial,sans-serif;color:#243046;background:#faf8f5}
 *{box-sizing:border-box}body{margin:0;padding:clamp(15px,4vw,34px)}
 main{margin:5vh auto;max-width:460px;padding:clamp(20px,4vw,32px);background:white;border:1px solid #e9e3da;border-radius:18px;box-shadow:0 6px 24px #0001}
@@ -76,7 +76,7 @@ export async function handleEditorD4Access(request){
  if(new URL(request.url).hostname!==HOST)return new Response('Not found',{status:404});
  if(request.method!=='GET')return new Response('Method not allowed',{status:405});
  const nonce=token().slice(0,32);
- const body=html.replace('D4_NONCE_PLACEHOLDER',nonce);
+ const body=html.replaceAll('D4_NONCE_PLACEHOLDER',nonce);
  return new Response(body,{headers:{
   'content-type':'text/html; charset=utf-8','cache-control':'no-store','x-robots-tag':'noindex,nofollow,noarchive',
   'referrer-policy':'no-referrer','x-content-type-options':'nosniff',
