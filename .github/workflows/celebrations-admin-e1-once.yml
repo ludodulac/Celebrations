@@ -122,3 +122,5 @@ jobs:
 # E1 retry: separate data readback from browser rerender after history restoration.
 
 # E1 fix: bind original B/C block IDs in safe rendered DOM to allow touch editing of program events.
+
+# E1 QA short propagation diagnostic; masked secrets and immutable source tables.
