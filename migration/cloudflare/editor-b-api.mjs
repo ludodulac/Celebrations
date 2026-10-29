@@ -23,7 +23,7 @@ function payload(kind,data){
 }
 function positions(blocks){return blocks.map((b,i)=>({...b,position:i}))}
 async function row(db,id){return db.prepare('SELECT * FROM editor_b_pages WHERE id=?').bind(id).first()}
-async function snapshot(db,id,version){
+export async function snapshot(db,id,version){
  const rev=await db.prepare('SELECT title,operation,version,source_version FROM editor_b_revisions WHERE page_id=? AND version=?').bind(id,version).first();
  if(!rev)return null;
  const blocks=await db.prepare('SELECT block_id,kind,data_json,position FROM editor_b_blocks WHERE page_id=? AND version=? ORDER BY position,block_id').bind(id,version).all();
@@ -32,7 +32,7 @@ async function snapshot(db,id,version){
  const linked=(legacy.results||[]).map(b=>({block_id:b.block_id,kind:b.legacy_kind,legacy_kind:b.legacy_kind,source_table:b.source_table,source_id:b.source_id,position:b.position,data:JSON.parse(b.data_json)}));
  return {version:rev.version,title:rev.title,operation:rev.operation,source_version:rev.source_version,blocks:[...standard,...linked].sort((a,b)=>a.position-b.position||a.block_id.localeCompare(b.block_id))};
 }
-async function save(db,page,expected,headline,blocks,operation,sourceVersion=null){
+export async function save(db,page,expected,headline,blocks,operation,sourceVersion=null){
  if(!Number.isSafeInteger(expected)||expected<1)return bad('Invalid revision');
  if(page.head_version!==expected)return bad('Revision conflict',409);
  if(blocks.length>64)return bad('Too many blocks');

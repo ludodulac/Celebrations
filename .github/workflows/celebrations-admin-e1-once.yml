@@ -1,0 +1,132 @@
+name: CELEBRATIONS E1 - historical visual editing staging-only and browser QA
+on:
+  push:
+    branches: [feat/celebrations-admin-visual-mission-e1]
+    paths: [.github/workflows/celebrations-admin-e1-once.yml]
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-staging-only
+  cancel-in-progress: false
+jobs:
+  verify-e1:
+    if: github.ref == 'refs/heads/feat/celebrations-admin-visual-mission-e1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Guard stage, syntax and existing B/C/D4/E1 regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$STAGING_D1_ID" = 0f761662-241f-42cc-ac94-5c68b4aa7797
+          test "$STAGING_D1_ID" != 28736d2a-479b-472b-bf82-703ad0affe10
+          test "$STAGING_R2_BUCKET" = celebrations-exit-staging
+          node --check migration/cloudflare/editor-e1-api.mjs
+          node --check migration/cloudflare/editor-e1-page.mjs
+          node --check migration/cloudflare/editor-e1-client.mjs
+          node --check migration/cloudflare/editor-d-preview.mjs
+          node --check migration/cloudflare/staging-worker.mjs
+          node --check scripts/verify-editor-e1-browser.mjs
+          node --test tests/test-editor-b-foundations.mjs tests/test-editor-c-converter.mjs tests/test-editor-d-preview.mjs tests/test-editor-d2-media.mjs tests/test-editor-d4-access.mjs tests/test-editor-e1.mjs
+      - name: Guard actual deployed Cloudflare Worker bindings (reject production)
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const u='https://api.cloudflare.com/client/v4/accounts/'+process.env.CLOUDFLARE_ACCOUNT_ID+'/workers/scripts/celebrations-exit-staging/settings';
+          const res=await fetch(u,{headers:{Authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN}});
+          assert.equal(res.status,200);
+          const data=await res.json();assert.equal(data.success,true);
+          const bs=data.result.bindings;
+          const d1=bs.filter(x=>x.type==='d1'),r2=bs.filter(x=>x.type==='r2_bucket');
+          assert.deepEqual(d1.map(x=>x.name).sort(),['DB','MEDIA_ACL']);
+          assert.ok(d1.every(x=>(x.database_id||x.id)==='0f761662-241f-42cc-ac94-5c68b4aa7797'));
+          assert.equal(r2.length,1);assert.equal(r2[0].bucket_name,'celebrations-exit-staging');
+          assert.equal(bs.filter(x=>['service','dispatch_namespace'].includes(x.type)).length,0);
+          assert.ok(bs.some(x=>x.name==='ADMIN_D4_ACCESS_HASH'),'Personal staging login secret must remain in place');
+          console.log('MISSION_E1_BINDINGS_PASS production=false staging_d1_only=true staging_r2_only=true personal_login_intact=true');
+          NODE
+      - name: Check D1 daily free quota before any E1 revision writes
+        run: node scripts/check-staging-d1-free-budget.mjs pre
+      - name: Verify imported drafts and current typed blocks before editing
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const url='https://api.cloudflare.com/client/v4/accounts/'+process.env.CLOUDFLARE_ACCOUNT_ID+'/d1/database/'+process.env.STAGING_D1_ID+'/query';
+          const query="SELECT (SELECT COUNT(*) FROM editor_c_imports) AS imported, (SELECT COUNT(*) FROM editor_b_pages WHERE published_version IS NOT NULL) AS published, (SELECT COUNT(*) FROM editor_c_blocks b JOIN editor_b_pages p ON b.page_id=p.id AND b.version=p.draft_version) AS current_blocks, (SELECT COUNT(*) FROM editor_c_imports WHERE source_key IN ('home','celebration:101:step:Mercredi')) AS pilots";
+          const res=await fetch(url,{method:'POST',headers:{Authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN,'content-type':'application/json'},body:JSON.stringify({sql:query})});
+          assert.equal(res.status,200);const data=await res.json();assert.equal(data.success,true);
+          const row=data.result[0].results[0];
+          assert.deepEqual([row.imported,row.published,row.current_blocks,row.pilots],[47,0,327,2]);
+          console.log('MISSION_E1_ORIGINALS_PASS 47_pages 327_current_historic_blocks 0_publications 2_actual_pilots');
+          NODE
+      - name: Build immutable public assets and staging-only worker config
+        run: |
+          python scripts/build_staging_assets.py
+          python scripts/configure_staging_wrangler.py
+      - name: Install Wrangler and browser for actual phone/desktop tests
+        run: |
+          npm install --no-save --no-package-lock wrangler@4 playwright@1.58.2 pngjs@7
+          npx playwright install --with-deps chromium
+      - name: Generate masked ephemeral QA invitation; no personal secret touched
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const {randomBytes,createHash}=require('node:crypto'),fs=require('node:fs');
+          const code='D4'+randomBytes(20).toString('hex').toUpperCase();
+          const digest=createHash('sha256').update(code).digest('hex');
+          process.stdout.write('::add-mask::'+code+'\n');
+          process.stdout.write('::add-mask::'+digest+'\n');
+          fs.appendFileSync(process.env.GITHUB_ENV,'E1_QA_CODE='+code+'\nE1_QA_SHA='+digest+'\n');
+          console.log('MISSION_E1_EPHEMERAL_QA_READY code_never_logged=true personal_staging_code_untouched=true');
+          NODE
+      - name: Set QA verifier only; do not overwrite owner's personal staging access
+        shell: bash
+        working-directory: migration/cloudflare
+        run: |
+          set -euo pipefail
+          printf '%s' "$E1_QA_SHA" | npx wrangler secret put ADMIN_D4_QA_HASH --name celebrations-exit-staging >/dev/null
+      - name: Deploy E1 additions ONLY to isolated staging Worker
+        working-directory: migration/cloudflare
+        run: npx wrangler deploy --config wrangler.toml
+      - name: Browser E1 on two historic pages desktop and phone (restore originals)
+        run: node scripts/verify-editor-e1-browser.mjs
+      - name: Verify 47 unchanged drafts, 327 current historic blocks and zero published after E1
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const url='https://api.cloudflare.com/client/v4/accounts/'+process.env.CLOUDFLARE_ACCOUNT_ID+'/d1/database/'+process.env.STAGING_D1_ID+'/query';
+          const sql="SELECT (SELECT COUNT(*) FROM editor_c_imports) AS imported, (SELECT COUNT(*) FROM editor_b_pages WHERE published_version IS NOT NULL) AS published, (SELECT COUNT(*) FROM editor_c_blocks b JOIN editor_b_pages p ON b.page_id=p.id AND b.version=p.draft_version) AS current_blocks";
+          const res=await fetch(url,{method:'POST',headers:{Authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN,'content-type':'application/json'},body:JSON.stringify({sql})});
+          assert.equal(res.status,200);const data=await res.json();assert.equal(data.success,true);
+          const row=data.result[0].results[0];
+          assert.deepEqual([row.imported,row.published,row.current_blocks],[47,0,327]);
+          console.log('MISSION_E1_AFTER_PASS imported=47 blocks=327 published=0');
+          NODE
+      - name: Post-check free D1 quota
+        if: always()
+        run: node scripts/check-staging-d1-free-budget.mjs post
+
+# E1 rerun: target first historic meeting, keep all remaining appointments intact.
+
+# E1 retry: separate data readback from browser rerender after history restoration.
+
+# E1 fix: bind original B/C block IDs in safe rendered DOM to allow touch editing of program events.
+
+# E1 QA short propagation diagnostic; masked secrets and immutable source tables.
+
+# E1 guarded staging replay: await async revision restore completion on Cloudflare D1.
+
+# E1 staging QA: select historical appointment rather than day title in saved revision assertions.
+
+# E1 targeted diagnosis of actual program-version restore HTTP status/confirm; no user secret logged.

@@ -121,17 +121,19 @@ async function item(block,db,context){
   const flame=context.celebrationFlame?'<img class="d-celebration-flame" src="'+esc(context.celebrationFlame)+'" alt="" loading="lazy">':'';
   return '<section class="d-card d-celebration-title"><div class="d-celebration-identity">'+flame+'<h2>Archange '+esc(r.archangel)+' '+esc(r.year)+'</h2>'+flame+'</div><p class="d-date">'+esc(context.celebrationDate||'')+'</p><p class="meta">Statut historique : '+esc(r.status||'')+'</p>'+go('celebration:'+r.id+':step:Préparation','Programme et sept étapes')+'</section>';
  }
- case 'legacy_day':
-  return '<section class="d-day"><h2>'+esc(r.label)+'</h2>'+caption('Dates',when(r))+(r.body_text?'<p>'+text(r.body_text)+'</p>':'')+'</section>';
+ case 'legacy_day':{
+  const body=d.e1?.body_text??r.body_text??'';
+  return '<section class="d-day"><h2>'+esc(r.label)+'</h2>'+caption('Dates',when(r))+(body?'<p>'+text(body)+'</p>':'<p class="d-empty-description"></p>')+'</section>';
+ }
  case 'legacy_event':{
-  const event=r;
+  const event={...r,title:d.e1?.title??r.title,description:d.e1?.description??r.description};
   let resources='';
   for(const a of d.ordered_content_refs||[]){
    const content=await getContent(db,a.content_id);
    resources+=content?media(content):'<p class="meta">Référence introuvable : '+esc(a.content_id)+'</p>';
   }
   const links=(d.links||[]).map(l=>link(l.url,l.label||l.url)).join('');
-  return '<article class="d-event"><div class="d-time">'+esc(event.event_time||'—')+'</div><div><h3>'+esc(event.title)+'</h3>'+(event.description?'<p>'+text(event.description)+'</p>':'')+(event.audience!=='all'?'<div class="d-notice">Rendez-vous réservé : '+esc(event.audience)+'</div>':'')+resources+'<div class="resources">'+links+'</div>'+'</div></article>';
+  return '<article class="d-event"><div class="d-time">'+esc(event.event_time||'—')+'</div><div><h3>'+esc(event.title)+'</h3>'+(event.description?'<p>'+text(event.description)+'</p>':'<p class="d-empty-description"></p>')+(event.audience!=='all'?'<div class="d-notice">Rendez-vous réservé : '+esc(event.audience)+'</div>':'')+resources+'<div class="resources">'+links+'</div>'+'</div></article>';
  }
  case 'legacy_step_content_ref':{
   const c=await getContent(db,d.content_id);return c?media(c):'<p class="meta">Contenu absent : '+esc(d.content_id)+'</p>';
@@ -277,8 +279,8 @@ export async function handleEditorD(request,env){
   env.DB.prepare('SELECT block_id,legacy_kind,source_table,source_id,data_json,position FROM editor_c_blocks WHERE page_id=? AND version=? ORDER BY position').bind(p.id,p.draft_version).all(),
   env.DB.prepare('SELECT source_key FROM editor_c_imports ORDER BY source_key').all()
  ]);
- const blocks=[...(standard.results||[]).map(b=>({kind:b.kind,position:b.position,data:JSON.parse(b.data_json)})),
-  ...(legacy.results||[]).map(b=>({kind:b.legacy_kind,position:b.position,data:JSON.parse(b.data_json),source_table:b.source_table,source_id:b.source_id}))]
+ const blocks=[...(standard.results||[]).map(b=>({block_id:b.block_id,kind:b.kind,position:b.position,data:JSON.parse(b.data_json)})),
+  ...(legacy.results||[]).map(b=>({block_id:b.block_id,kind:b.legacy_kind,position:b.position,data:JSON.parse(b.data_json),source_table:b.source_table,source_id:b.source_id}))]
   .sort((a,b)=>a.position-b.position);
  const known=new Set((allImports.results||[]).map(x=>x.source_key));
  let navigation=go('home','Accueil',key==='home');
@@ -310,13 +312,19 @@ export async function handleEditorD(request,env){
  }
  for(const b of blocks){
   const fragment=await item(b,env.DB,{key,celebrationDate,celebrationFlame});
-  html+='<div class="d-block" data-kind="'+esc(b.kind)+'">'+fragment+'</div>';
+  html+='<div class="d-block" data-kind="'+esc(b.kind)+'" data-editor-block="'+esc(b.block_id)+'">'+fragment+'</div>';
  }
  if(key==='home'){
-  const hero='<div class="d-home-banner"><strong>INFORMATION IMPORTANTE — Le travail des psaumes a repris !</strong> Pensez à vérifier vos spams : nos messages, oracles et informations sur la Ronde des Archanges et Gabriel arrivent désormais depuis ronde-des-archanges@nation-essenienne.eu.</div>'+
-   '<section class="d-welcome"><h1>Bienvenue sur le site de la Ronde des Archanges Universelle</h1><p>Retrouvez les célébrations, les psaumes et les ressources partagées.</p>'+
-   '<img src="/__editor/media?asset=welcome" alt="Ronde des Archanges — coordonnées et couleurs d’automne">'+
-   '<div class="d-welcome-actions">'+go('celebration:101','Accéder aux célébrations')+'<span class="d-muted-chip">Facebook · Bientôt disponible</span><span class="d-muted-chip">Instagram · Bientôt disponible</span></div></section>';
+  const welcome=blocks.find(b=>b.kind==='static_html_snapshot')?.data?.e1||{};
+  const banner=welcome.banner===undefined?'INFORMATION IMPORTANTE — Le travail des psaumes a repris ! Pensez à vérifier vos spams : nos messages, oracles et informations sur la Ronde des Archanges et Gabriel arrivent désormais depuis ronde-des-archanges@nation-essenienne.eu.':welcome.banner;
+  const imageId=welcome.hero_image_id||'';
+  const imageHref=imageId?'/__editor/media?id='+encodeURIComponent(imageId):'/__editor/media?asset=welcome';
+  const label=welcome.button_label??'Accéder aux célébrations';
+  const destination=welcome.button_href??pageHref('celebration:101');
+  const hero='<div class="d-home-banner">'+text(banner)+'</div>'+
+   '<section class="d-welcome"><h1>'+text(welcome.heading??'Bienvenue sur le site de la Ronde des Archanges Universelle')+'</h1><p>'+text(welcome.subtitle??'Retrouvez les célébrations, les psaumes et les ressources partagées.')+'</p>'+
+   '<img src="'+esc(imageHref)+'" alt="Ronde des Archanges — photographie d’accueil">'+
+   '<div class="d-welcome-actions">'+link(destination,label,'d-chip')+'<span class="d-muted-chip">Facebook · Bientôt disponible</span><span class="d-muted-chip">Instagram · Bientôt disponible</span></div></section>';
   html=hero+html;
  }
  if(key==='bibliotheque'){
@@ -331,6 +339,10 @@ export async function handleEditorD(request,env){
  const page='< !doctype html>'.replace(' ','')+'<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'+
  '<title>'+esc(rev.title)+' — Prévisualisation Célébrations</title><style>'+CSS+D2_STYLE+'</style></head><body class="'+(key==='home'?'d-home':/^celebration:\d+$/.test(key)?'d-celebration':'d-other')+'" style="--accent:'+celebrationAccent+'">'+
  '<div class="d-bar"><strong>PRÉVISUALISATION ADMINISTRATEUR — BROUILLON</strong><small>Non publié · staging uniquement · aucune modification possible ici</small></div>'+
+ '<div class="e1-previewbar" style="display:flex;flex-wrap:wrap;gap:9px;padding:10px 12px;justify-content:center;border-bottom:1px solid #e8e8e8">'+
+ '<a class="d-chip" href="/__editor/preview?key=home">Pages</a>'+
+ (['home','celebration:101:step:Mercredi'].includes(key)?'<a class="d-chip" style="background:#a64c23;color:#fff" href="/__editor/edit?key='+encodeURIComponent(key)+'">Modifier cette page</a>':'<span class="d-chip" aria-disabled="true">Modification à venir</span>')+
+ '<button disabled style="padding:8px 12px;border:1px solid #ddd;border-radius:12px">Enregistrer</button></div>'+
  '<main class="d-shell"><div class="d-heading"><small>Ronde des Archanges Universelle / '+esc(imp.original_route)+'</small><h1>'+esc(rev.title)+'</h1></div>'+
  '<nav class="d-nav" aria-label="Navigation">'+navigation+'</nav><section class="d-content">'+html+'</section>'+
  '<footer class="d-footer"><nav class="d-nav" aria-label="Pages complémentaires">'+(known.has('static:concepteur.html')?go('static:concepteur.html','Conception du site'):'')+(known.has('static:apres-la-ronde/index.html')?go('static:apres-la-ronde/index.html','Après la Ronde'):'')+go('legal:mentions-legales','Mentions légales')+go('legal:confidentialite','Confidentialité')+go('legal:cookies','Cookies')+'</nav>Célébrations — prévisualisation de travail, version historique non publiée.</footer></main></body></html>';
