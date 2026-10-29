@@ -63,10 +63,19 @@ small{display:block;margin-top:18px;color:#606a7c}
 <small>Accès de test personnel à durée limitée. Ne communiquez pas le code et n'utilisez pas votre mot de passe officiel. Les pages restent des brouillons.</small></main>
 <script nonce="D4_NONCE_PLACEHOLDER">
 (()=>{const form=document.getElementById('gate'),input=document.getElementById('code'),btn=document.getElementById('connect'),status=document.getElementById('status'),links=document.getElementById('links');
+const returnKey=new URLSearchParams(location.search).get('return');
+const returnTo=['home','celebration:101:step:Mercredi'].includes(returnKey)
+ ?'/__editor/edit?key='+encodeURIComponent(returnKey):null;
 form.addEventListener('submit',async e=>{e.preventDefault();btn.disabled=true;status.textContent='Vérification en cours…';
 try{const res=await fetch('/__editor/access/session',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({code:input.value}),cache:'no-store',credentials:'same-origin'});
 input.value='';const data=await res.json();if(!res.ok||!data.ok||!data.token){status.textContent=data.error||'Accès refusé';status.className='err';return}
 localStorage.setItem('celebrations-admin-token',data.token);
+if(returnTo){
+ // Establish an HttpOnly preview cookie from the freshly validated admin
+ // session before returning to the original editor page.
+ const preview=await fetch('/__editor/session',{method:'POST',headers:{authorization:'Bearer '+data.token},cache:'no-store',credentials:'same-origin'});
+ if(preview.ok){location.replace(returnTo);return;}
+}
 status.textContent='Accès autorisé. Ouvrez l’administration ou la prévisualisation.';status.className='good';form.hidden=true;links.hidden=false;
 }catch{status.textContent='Connexion au site de test indisponible.';status.className='err'}
 finally{btn.disabled=false}});
