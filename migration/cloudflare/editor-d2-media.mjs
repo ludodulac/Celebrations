@@ -25,6 +25,18 @@ export async function handleEditorDMedia(request,env){
  if(!item)return json('Not found',404);
  if(!cover&&item.source_type!=='file')return json('Not found',404);
  const key=cover?item.cover_storage_path:item.storage_path;
+ // D3: read-only reason code for a content-id image, available exclusively to
+ // already-authorized staging preview administrators. Never exposes file bytes,
+ // tokens, raw private paths or an arbitrary R2 key.
+ if(u.searchParams.get('diagnose')==='1'){
+  if(!allowedKey(key))return new Response(JSON.stringify({ok:true,reason:'invalid_or_forbidden_key',id:String(item.id),cover}),{headers:{'content-type':'application/json','cache-control':'no-store'}});
+  const status=await env.MEDIA_ACL.prepare('SELECT approved,revoked_at FROM public_media WHERE storage_path=?').bind(key).first();
+  let head=null;
+  try{head=await env.MEDIA_BUCKET.head(key)}catch{return json('Unable to inspect R2',502)}
+  const reason=status&&(status.approved!==1||status.revoked_at)?'acl_denied':!head?'r2_object_missing':'object_present';
+  return new Response(JSON.stringify({ok:true,reason,id:String(item.id),cover,approved:status?status.approved:null,revoked:!!status?.revoked_at,
+    r2_exists:!!head,r2_size:head?.size||0}),{headers:{'content-type':'application/json','cache-control':'no-store','x-robots-tag':'noindex'}});
+ }
  if(!allowedKey(key))return json('Not found',404);
  const acl=await env.MEDIA_ACL.prepare('SELECT approved,revoked_at FROM public_media WHERE storage_path=?').bind(key).first();
  if(acl&&(acl.approved!==1||acl.revoked_at))return json('Not found',404);
