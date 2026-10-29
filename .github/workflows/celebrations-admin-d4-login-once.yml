@@ -101,3 +101,5 @@ jobs:
         run: node scripts/check-staging-d1-free-budget.mjs post
 
 # D4 follow-up: browser navigation diagnosis, no official credentials are accessed.
+
+# D4 final browser flow retry after documenting Cloudflare's /admin canonical redirect.
