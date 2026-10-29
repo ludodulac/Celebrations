@@ -99,3 +99,5 @@ jobs:
       - name: Check account D1 quota after ephemeral staging sessions
         if: always()
         run: node scripts/check-staging-d1-free-budget.mjs post
+
+# D4 follow-up: browser navigation diagnosis, no official credentials are accessed.
