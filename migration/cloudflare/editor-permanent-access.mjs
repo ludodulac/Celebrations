@@ -42,7 +42,7 @@ export async function accessLogin(request,env){
  if(!env.DB||!configured(env))return json({ok:false,error:'Non configuré'},503);
  if(await blocked(env.DB))return json({ok:false,error:'Trop de tentatives. Réessayez plus tard.'},429);
  let b;try{const raw=await request.text();if(raw.length>1000)return json({ok:false},413);b=JSON.parse(raw);}catch{return json({ok:false,error:'Demande invalide'},400);}
- if(!HEX.test(b?.proof||'')||!same(await sha256(b.proof),env.STAGING_ADMIN_PASSWORD_VERIFIER)){
+ if(!HEX.test(b?.proof||'')||!same(hex(await crypto.subtle.digest('SHA-256',Uint8Array.from(b.proof.match(/../g),v=>parseInt(v,16)))),env.STAGING_ADMIN_PASSWORD_VERIFIER)){
   await failed(env.DB);return json({ok:false,error:'Mot de passe incorrect.'},401);
  }
  await env.DB.prepare('DELETE FROM celebrations_login_attempts WHERE identity_hash=?').bind(await sha256(rateKey)).run();

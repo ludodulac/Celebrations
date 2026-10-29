@@ -114,3 +114,5 @@ jobs:
         if: always()
         run: node scripts/check-staging-d1-free-budget.mjs post
 
+
+# Campaign 2/2: match browser SHA256(PBKDF2 raw bytes) with protected server verifier.
