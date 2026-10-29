@@ -14,6 +14,8 @@ function dbFixture(){
  s.prepare("INSERT INTO celebrations_steps(id,celebration_id,step_key,start_date,end_date) VALUES(1,101,'mercredi-101','2026-10-28','2026-10-29')").run();
  s.prepare("INSERT INTO celebrations_contents(id,name,content_type,source_type,storage_path,audience,has_cover) VALUES('p1','Programme.pdf','PDF','file','media/programme.pdf','all',0)").run();
  s.prepare("INSERT INTO celebrations_contents(id,name,content_type,source_type,storage_path,audience,has_cover) VALUES('private','Réservé','Audio','file','media/private.wav','angel',0)").run();
+ s.prepare("INSERT INTO celebrations_contents(id,name,content_type,source_type,storage_path,audience,has_cover,cover_storage_path) VALUES(?,?,?,?,?,?,?,?)")
+  .run('guide-file-30','Programme RA Universelle Michaël AN23','PDF','file','media/programme-30.pdf','all',1,'https://drive.google.com/file/d/synthetic/view');
  function page(key,title,blocks){
   const id='aaa00000-0000-4000-8000-'+String(s.prepare('SELECT COUNT(*) as n FROM editor_b_pages').get().n+1).padStart(12,'0');
   s.prepare('INSERT INTO editor_b_pages(id,route_path,celebration_id,head_version,draft_version,published_version) VALUES(?,?,?,?,1,NULL)').run(id,'/__editor/legacy/'+key,key.startsWith('celebration')?101:null,1);
@@ -28,7 +30,7 @@ function dbFixture(){
   {kind:'celebration_record',data:{record:{id:101,archangel:'Michaël',year:'2026',status:'active'}}}]);
  page('celebration:101:step:Mercredi','Mercredi',[
   {kind:'legacy_day',data:{record:{label:'Mercredi',start_date:'2026-10-28',body_text:'<img src=x onerror=alert(1)>'}}},
-  {kind:'legacy_event',data:{record:{title:'Réunion',event_time:'18:00',description:'Concert',audience:'all'},ordered_content_refs:[{content_id:'p1',sort_order:0},{content_id:'private',sort_order:1}],links:[]}}]);
+  {kind:'legacy_event',data:{record:{title:'Réunion',event_time:'18:00',description:'Concert',audience:'all'},ordered_content_refs:[{content_id:'p1',sort_order:0},{content_id:'private',sort_order:1},{content_id:'guide-file-30',sort_order:2}],links:[]}}]);
  page('legal:mentions-legales','Mentions légales',[
   {kind:'legal_draft',data:{record:{title:'Mentions',content:'Texte légal',is_public:0,draft_number:1}}}]);
  const DB={
@@ -67,6 +69,11 @@ test('D only returns HTML to authenticated staging preview; no historical inline
   assert.ok(step.includes('Accès réservé'),'Restricted audio not embedded as public');
   assert.ok(!step.includes('src="/media/media/private.wav"'),'Restricted media leaked');
   assert.ok(step.includes('&lt;img src=x onerror=alert(1)&gt;'),'Untrusted text escaped');
+  assert.match(step,/Voir la couverture originale \(source externe\)/,'External historical cover reference must remain visible');
+  assert.ok(step.includes('https://drive.google.com/file/d/synthetic/view'),'Original Google Drive cover link lost');
+  assert.ok(!step.includes('__editor/media?id=guide-file-30&amp;cover=1'),'External Drive URL incorrectly treated as R2 cover image');
+  assert.ok(step.includes('__editor/media?id=guide-file-30'),'Original PDF document must remain accessible through protected staging media');
+  console.log('MISSION_D3_COVER_FIX_PASS source=external_google_drive reference_preserved=true false_r2_thumbnail_removed=true pdf_preserved=true');
   const legal=await(await handleEditorD(req('legal:mentions-legales',headers),env)).text();
   assert.ok(legal.includes('Brouillon légal non public'));
   console.log('MISSION_D_RENDER_SECURITY_PASS html=true navigation=true dates=true pdf=true private_media_hidden=true legal=true no_raw_scripts=true');
