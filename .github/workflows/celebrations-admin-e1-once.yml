@@ -116,3 +116,5 @@ jobs:
       - name: Post-check free D1 quota
         if: always()
         run: node scripts/check-staging-d1-free-budget.mjs post
+
+# E1 rerun: target first historic meeting, keep all remaining appointments intact.
