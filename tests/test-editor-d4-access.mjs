@@ -27,7 +27,7 @@ test('D4 temporary personal access authenticates only on staging without changin
   });
   assert.equal((await handleEditorD4Login(post(code,'https://example.org'),env)).status,404);
   assert.equal((await handleEditorD4Login(post('D4'+randomBytes(20).toString('hex')),env)).status,401);
-  assert.equal((await handleEditorD4Login(post(code),{DB:f.DB}),).status,503);
+  assert.equal((await handleEditorD4Login(post(code),{DB:f.DB})).status,503);
   const invitation=await handleEditorD4Login(post(code),env);
   assert.equal(invitation.status,200);
   const data=await invitation.json();
