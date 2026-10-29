@@ -97,3 +97,5 @@ jobs:
       - name: Free plan quota post-check
         if: always()
         run: node scripts/check-staging-d1-free-budget.mjs post
+
+# Campaign 2/2: repair only the fictitious per-device login counter assertion.
