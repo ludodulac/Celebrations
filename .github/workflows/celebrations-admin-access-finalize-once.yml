@@ -1,0 +1,54 @@
+name: CELEBRATIONS permanent staging access finalization once
+on:
+  push:
+    branches: [feat/celebrations-admin-visual-mission-e2a-access]
+    paths: [.github/workflows/celebrations-admin-access-finalize-once.yml]
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-staging-only
+  cancel-in-progress: false
+jobs:
+  finalize:
+    if: github.ref == 'refs/heads/feat/celebrations-admin-visual-mission-e2a-access'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 21
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Validate staging target and existing authentication using synthetic local data
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$STAGING_D1_ID" = 0f761662-241f-42cc-ac94-5c68b4aa7797
+          test "$STAGING_R2_BUCKET" = celebrations-exit-staging
+          node --check scripts/finalize-editor-permanent-access-once.mjs
+          node --test tests/test-editor-permanent-access.mjs
+      - name: Prepare isolated Wrangler config and Chromium
+        run: |
+          python scripts/configure_staging_wrangler.py
+          npm install --no-save --no-package-lock wrangler@4 playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Install two Cloudflare staging secrets from memory and verify real editor login
+        run: node scripts/finalize-editor-permanent-access-once.mjs
+      - name: Verify historic draft preservation and non-publication (read only)
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const endpoint='https://api.cloudflare.com/client/v4/accounts/'+process.env.CLOUDFLARE_ACCOUNT_ID+'/d1/database/'+process.env.STAGING_D1_ID+'/query';
+          const sql="SELECT (SELECT COUNT(*) FROM editor_c_imports) AS pages, (SELECT COUNT(*) FROM editor_b_pages WHERE published_version IS NOT NULL) AS published, (SELECT COUNT(*) FROM editor_c_blocks b JOIN editor_b_pages p ON b.page_id=p.id AND b.version=p.draft_version) AS blocks";
+          const r=await fetch(endpoint,{method:'POST',headers:{Authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN,'content-type':'application/json'},body:JSON.stringify({sql})});
+          assert.equal(r.status,200);
+          const data=await r.json();assert.equal(data.success,true);
+          const p=data.result[0].results[0];
+          assert.deepEqual([p.pages,p.published,p.blocks],[47,0,327]);
+          console.log('ACCESS_FINAL_HISTORICAL_DATA_UNCHANGED pages=47 blocks=327 publications=0');
+          NODE
