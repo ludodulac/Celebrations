@@ -23,6 +23,9 @@ try{
   const oldAdmin=await context.request.get(BASE+'/admin.html?staging=1');
   assert.equal(oldAdmin.status(),200);
   const page=await context.newPage();
+  page.on('response',r=>{if(r.url().includes('/api/editor-e1')&&r.request().method()==='POST')
+   console.log('MISSION_E1_API_WRITE device='+device.name+' status='+r.status());
+  });
   await page.goto(BASE+'/__editor/access');
   for(let attempt=0;attempt<2;attempt++){
    await page.locator('input#code').fill(CODE);
@@ -87,7 +90,7 @@ try{
     // Version history: restore the exact source overlay state, not a synthetic page.
     await page.locator('#e1-history').click();
     await page.locator('#e1-versions').selectOption(String(base.version));
-    page.once('dialog',dialog=>dialog.accept());
+    page.once('dialog',dialog=>{console.log('MISSION_E1_RESTORE_CONFIRM device='+device.name+' page='+(key==='home'?'home':'wednesday'));return dialog.accept()});
     await page.locator('#e1-restore').click();
     // Read-back the exact server revision independently of any navigation timing.
     let after=null;
