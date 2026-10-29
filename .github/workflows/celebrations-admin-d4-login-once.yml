@@ -103,3 +103,5 @@ jobs:
 # D4 follow-up: browser navigation diagnosis, no official credentials are accessed.
 
 # D4 final browser flow retry after documenting Cloudflare's /admin canonical redirect.
+
+# D4 browser retry: click actual visible home call-to-action for authenticated preview navigation.
