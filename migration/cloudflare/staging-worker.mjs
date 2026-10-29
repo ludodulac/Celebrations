@@ -13,6 +13,8 @@ import {handleEditorB} from "./editor-b-api.mjs";
 import {handleEditorD,handleEditorDSession,handleEditorDEntry} from "./editor-d-preview.mjs";
 import {handleEditorDMedia} from "./editor-d2-media.mjs";
 import {handleEditorD4Access,handleEditorD4Login} from "./editor-d4-access.mjs";
+import {handleEditorE1} from "./editor-e1-api.mjs";
+import {handleEditorE1Page,handleEditorE1Client} from "./editor-e1-page.mjs";
 export default {
  async fetch(request,env){
   const url=new URL(request.url),path=url.pathname;
@@ -37,6 +39,9 @@ export default {
   if(path==="/__editor/media")return handleEditorDMedia(request,env);
   if(path==="/__editor/access")return handleEditorD4Access(request);
   if(path==="/__editor/access/session")return handleEditorD4Login(request,env);
+  if(path==="/api/editor-e1")return handleEditorE1(request,env);
+  if(path==="/__editor/edit")return handleEditorE1Page(request,env);
+  if(path==="/__editor/e1-client.js")return handleEditorE1Client(request,env);
   if((request.method==="GET"||request.method==="HEAD")&&env.ASSETS)return env.ASSETS.fetch(request);
   return new Response("Not found",{status:404,headers:{"cache-control":"no-store"}});
  }
