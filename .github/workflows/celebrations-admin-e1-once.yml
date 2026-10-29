@@ -128,3 +128,5 @@ jobs:
 # E1 guarded staging replay: await async revision restore completion on Cloudflare D1.
 
 # E1 staging QA: select historical appointment rather than day title in saved revision assertions.
+
+# E1 targeted diagnosis of actual program-version restore HTTP status/confirm; no user secret logged.
