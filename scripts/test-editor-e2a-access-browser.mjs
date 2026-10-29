@@ -57,10 +57,11 @@ try{
   let context=await browser.newContext({viewport:device.viewport,isMobile:device.isMobile});
   await context.addInitScript(()=>localStorage.setItem('celebrations-admin-token','fictive-active'));
   let page=await context.newPage();
+  const personalLoginsBefore=logins;
   await page.goto(origin+path,{waitUntil:'domcontentloaded'});
   await page.locator('#editor-ready').waitFor({timeout:9000});
   assert.ok(page.url().includes(path),'Should return to exactly the requested editor');
-  assert.equal(logins,0,'Automatic recovery must not need the personal code');
+  assert.equal(logins,personalLoginsBefore,'Automatic recovery must not need a new personal code');
   const exchanged=exchange;
   assert.ok(exchanged>=1,'Missing preview session exchange');
   await context.close();
