@@ -91,3 +91,5 @@ jobs:
 # Rerun with complete synthetic flame/media fixture; no production changes.
 
 # D3 image root-cause audit with read-only R2 HEAD, no production actions.
+
+# Final D3 replay: external Drive cover is a link, never a false R2 image; debug endpoint removed.
