@@ -114,7 +114,13 @@ export async function handleEditorE1(request,env){
  }
  if(b.action!=='save')return err('Action non autorisée',400);
  const changes=b.changes;
- if(!Array.isArray(changes)||changes.length<1||changes.length>30)return err('Sélectionnez un texte à modifier',400);
+ // E2A: permit exactly ONE new paragraph per save on the imported home page.
+ // Never mutate historic rows, associations or source blocks.
+ const adding=Object.hasOwn(b,'paragraph_text');
+ if(adding&&(b.key!=='home'||!text(b.paragraph_text,4000)||!b.paragraph_text.trim()))
+  return err('Saisissez le texte du paragraphe sur l’accueil.',400);
+ if(!Array.isArray(changes)||changes.length>30||(!changes.length&&!adding))
+  return err('Sélectionnez un texte à modifier',400);
  const ids=new Set();
  for(const entry of changes){
   if(!entry||typeof entry.id!=='string'||ids.has(entry.id))return err('Bloc invalide');
@@ -130,7 +136,11 @@ export async function handleEditorE1(request,env){
   // Preserve data.record, original source IDs, associations, links and order.
   blk.data={...blk.data,e1:values};
  }
- // Zero destructive changes: B-save copies all 327 imported historical
- // reference blocks into immutable revision snapshots in staging only.
+ if(adding){
+  if(blocks.length>=64)return err('Cette page a atteint le nombre maximal de blocs.',400);
+  blocks.push({block_id:crypto.randomUUID(),kind:'text',data:{text:b.paragraph_text.trim()}});
+ }
+ // B/C transactional revision copies historic blocks intact, adding only
+ // the new text block to the staging draft. Never publishes.
  return save(env.DB,p,b.expected_version,snap.title,blocks,'edit');
 }
