@@ -96,3 +96,33 @@ test('E1 real imported Wednesday event stores editable overlay, not historical s
   assert.equal((await(await get(x.DB,before.key)).json()).editable[0].values.title,event.values.title);
  }finally{x.close()}
 });
+
+test('E2A adds exactly one home paragraph in immutable B/C draft; reload and conflicts, no legacy writes',async()=>{
+ const x=fixture();
+ try{
+  const historic=x.db.prepare('SELECT data_json FROM editor_c_blocks WHERE page_id=? AND version=1').get(pid[0]).data_json;
+  const payload={action:'save',key:'home',expected_version:1,changes:[],paragraph_text:'Paragraphe fictif E2A'};
+  assert.equal((await send(x.DB,payload,false)).status,401,'Unauthorized write');
+  assert.equal((await send(x.DB,{...payload,key:'celebration:101:step:Mercredi'})).status,400,'Only home can add paragraph');
+  assert.equal((await send(x.DB,{...payload,paragraph_text:'  '})).status,400,'No empty paragraph');
+  assert.equal((await send(x.DB,{...payload,paragraph_text:'x'.repeat(4001)})).status,400,'Paragraph length limited');
+  const result=await send(x.DB,payload);
+  assert.equal(result.status,200,'Authorized draft paragraph save should succeed');
+  const saved=await result.json();
+  assert.equal(saved.version,2);
+  assert.equal(saved.published,false);
+  const now=x.db.prepare('SELECT block_id,kind,data_json,position FROM editor_b_blocks WHERE page_id=? AND version=2').all(pid[0]);
+  assert.equal(now.length,1);
+  assert.equal(now[0].kind,'text');
+  assert.equal(JSON.parse(now[0].data_json).text,'Paragraphe fictif E2A');
+  assert.equal((await(await get(x.DB,'home')).json()).version,2,'Saved paragraph survives reload');
+  assert.equal(x.db.prepare('SELECT COUNT(*) AS n FROM editor_b_pages WHERE published_version IS NOT NULL').get().n,0);
+  assert.equal(x.db.prepare('SELECT data_json FROM editor_c_blocks WHERE page_id=? AND version=1').get(pid[0]).data_json,historic);
+  assert.equal(x.db.prepare('SELECT data_json FROM editor_c_blocks WHERE page_id=? AND version=2').get(pid[0]).data_json,historic);
+  assert.equal((await send(x.DB,payload)).status,409,'Stale edit rejected');
+  // Restoring a previous version discards the newly added text only in the new draft.
+  assert.equal((await send(x.DB,{action:'restore',key:'home',expected_version:2,source_version:1})).status,200);
+  assert.equal(x.db.prepare('SELECT COUNT(*) AS n FROM editor_b_blocks WHERE page_id=? AND version=3').get(pid[0]).n,0);
+  assert.equal(x.db.prepare('SELECT COUNT(*) AS n FROM editor_b_blocks WHERE page_id=? AND version=2').get(pid[0]).n,1,'History kept');
+ }finally{x.close()}
+});

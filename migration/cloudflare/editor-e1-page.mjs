@@ -21,6 +21,9 @@ const css=`
 .e1-active .d-event,.e1-active .d-day{border-color:#edc686}
 .e1-active .d-welcome-actions a{outline:2px dashed #d28b37;outline-offset:4px}
 .e1-empty-hint{font-size:.8rem;color:#666}
+.e2a-new{padding:12px;border:2px dashed #c4802b;border-radius:10px;background:#fffaf1;margin:12px 0}
+.e2a-new p{min-height:44px;margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.e2a-new p:empty:before{content:"Saisissez votre paragraphe…";color:#7a736b;pointer-events:none}
 #e1-page-menu a{display:block;padding:8px;border-radius:8px;border:1px solid #dfd6c6;margin:3px;text-decoration:none}
 @media(max-width:560px){.e1-toolbar{justify-content:stretch;gap:5px;padding:7px}.e1-toolbar button,.e1-toolbar a{flex:1;font-size:.78rem;padding:8px 5px;text-align:center}
  .e1-panel{margin:8px;padding:11px}.e1-toolbar #e1-status{font-size:.77rem}}
@@ -30,9 +33,14 @@ const toolbar=`
 <button id="e1-pages" type="button">Pages</button>
 <button id="e1-edit" type="button" disabled>Modifier cette page</button>
 <button id="e1-save" type="button" disabled>Enregistrer</button>
+<button id="e2a-add" type="button" hidden>+ Ajouter un bloc</button>
 <button id="e1-cancel" type="button" disabled>Annuler</button>
 <button id="e1-history" type="button">Versions</button>
 <p id="e1-status" role="status" aria-live="polite">Chargement du brouillon…</p>
+</div>
+<div id="e2a-choice" class="e1-panel" hidden>
+<strong>Choisir le type de bloc</strong>
+<button id="e2a-paragraph" type="button">Paragraphe</button>
 </div>
 <div id="e1-page-menu" class="e1-panel" hidden>
 <strong>Choisir une page</strong>
