@@ -80,10 +80,16 @@ try{
     await page.locator('#e1-versions').selectOption(String(base.version));
     page.once('dialog',dialog=>dialog.accept());
     await page.locator('#e1-restore').click();
-    await page.waitForFunction((args)=>document.querySelector(args.sel)?.textContent?.trim()===args.text,{sel:task.selector,text:beforeText},{timeout:15000});
-    const after=await(await context.request.get(api(),{headers:auth})).json();
-    assert.equal(after.version,base.version+2);
-    assert.equal(after.editable[0].values[key==='home'?'heading':'title'],beforeText);
+    // Read-back the exact server revision independently of any navigation timing.
+    await page.waitForTimeout(600);
+    const restoredReply=await context.request.get(api(),{headers:auth});
+    const after=await restoredReply.json();
+    console.log('MISSION_E1_RESTORE_DIAG '+JSON.stringify({device:device.name,page:key==='home'?'home':'wednesday',
+      current_version:after.version,expected_version:base.version+2,status:await page.locator('#e1-status').innerText().then(x=>x.slice(0,90)).catch(()=>null)}));
+    assert.equal(after.version,base.version+2,'Restoration did not create a new draft revision');
+    assert.equal(after.editable[0].values[key==='home'?'heading':'title'],beforeText,'Restored data differs from the original');
+    await page.goto(target,{waitUntil:'domcontentloaded'});
+    assert.equal((await page.locator(task.selector).first().textContent()).trim(),beforeText,'Restored draft is not visible in browser');
     restored=true;
     pass++;
     console.log('MISSION_E1_LIVE_PILOT_PASS device='+device.name+' page='+(key==='home'?'home':'wednesday')+
