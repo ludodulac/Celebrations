@@ -339,6 +339,10 @@ export async function handleEditorD(request,env){
  const page='< !doctype html>'.replace(' ','')+'<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'+
  '<title>'+esc(rev.title)+' — Prévisualisation Célébrations</title><style>'+CSS+D2_STYLE+'</style></head><body class="'+(key==='home'?'d-home':/^celebration:\d+$/.test(key)?'d-celebration':'d-other')+'" style="--accent:'+celebrationAccent+'">'+
  '<div class="d-bar"><strong>PRÉVISUALISATION ADMINISTRATEUR — BROUILLON</strong><small>Non publié · staging uniquement · aucune modification possible ici</small></div>'+
+ '<div class="e1-previewbar" style="display:flex;flex-wrap:wrap;gap:9px;padding:10px 12px;justify-content:center;border-bottom:1px solid #e8e8e8">'+
+ '<a class="d-chip" href="/__editor/preview?key=home">Pages</a>'+
+ (['home','celebration:101:step:Mercredi'].includes(key)?'<a class="d-chip" style="background:#a64c23;color:#fff" href="/__editor/edit?key='+encodeURIComponent(key)+'">Modifier cette page</a>':'<span class="d-chip" aria-disabled="true">Modification à venir</span>')+
+ '<button disabled style="padding:8px 12px;border:1px solid #ddd;border-radius:12px">Enregistrer</button></div>'+
  '<main class="d-shell"><div class="d-heading"><small>Ronde des Archanges Universelle / '+esc(imp.original_route)+'</small><h1>'+esc(rev.title)+'</h1></div>'+
  '<nav class="d-nav" aria-label="Navigation">'+navigation+'</nav><section class="d-content">'+html+'</section>'+
  '<footer class="d-footer"><nav class="d-nav" aria-label="Pages complémentaires">'+(known.has('static:concepteur.html')?go('static:concepteur.html','Conception du site'):'')+(known.has('static:apres-la-ronde/index.html')?go('static:apres-la-ronde/index.html','Après la Ronde'):'')+go('legal:mentions-legales','Mentions légales')+go('legal:confidentialite','Confidentialité')+go('legal:cookies','Cookies')+'</nav>Célébrations — prévisualisation de travail, version historique non publiée.</footer></main></body></html>';
