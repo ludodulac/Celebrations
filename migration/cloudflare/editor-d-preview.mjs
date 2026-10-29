@@ -84,8 +84,16 @@ function media(r,{gallery=false}={}){
  const source=String(r.source_type||'').toLowerCase();
  const display=label(r);
  const doc='<h3>'+esc(display)+'</h3>'+(r.description?'<p>'+text(r.description)+'</p>':'');
- const cover=r.id&&r.cover_storage_path?'/__editor/media?id='+encodeURIComponent(String(r.id))+'&cover=1':'';
+ // Historical cover_storage_path may contain an external Google Drive URL,
+ // not an R2 object key. Do not send external URLs to the R2 gateway as a cover:
+ // that creates broken images and can never succeed. Preserve a safe clickable
+ // link to the historical source instead of inventing a replacement picture.
+ const historicalCover=String(r.cover_storage_path||'').trim();
+ const r2Cover=historicalCover&&historicalCover.length<1024&&!historicalCover.startsWith('/')&&!historicalCover.startsWith('committee/')&&!/^https?:\/\//i.test(historicalCover)&&!historicalCover.split('/').some(x=>!x||x==='.'||x==='..')&&!/[\\\u0000-\u001f]/.test(historicalCover);
+ const cover=r.id&&r2Cover?'/__editor/media?id='+encodeURIComponent(String(r.id))+'&cover=1':'';
  const thumbnail=r.has_cover&&cover?'<img class="d-cover" alt="" loading="lazy" src="'+esc(cover)+'">':'';
+ const coverLink=r.has_cover&&!r2Cover&&safeUrl(historicalCover)?
+   '<div class="resources">'+link(historicalCover,'Voir la couverture originale (source externe)')+'</div>':'';
  const accessBadge=r.audience!=='all'?'<p class="meta">Accès réservé : '+esc(r.audience)+' — aperçu uniquement pour administrateur autorisé.</p>':'';
  const href=source==='file'&&r.storage_path&&r.id?'/__editor/media?id='+encodeURIComponent(String(r.id)):safeUrl(r.external_url);
  if(kind==='image'&&href&&source==='file')
@@ -94,7 +102,7 @@ function media(r,{gallery=false}={}){
  if((kind==='video'||kind==='vidéo')&&source==='file'&&href)return '<article class="d-resource">'+thumbnail+doc+accessBadge+'<video controls preload="none" src="'+esc(href)+'"></video></article>';
  if(kind==='texte'&&source==='text')return '<article class="d-resource">'+doc+'<p>'+text(r.inline_text||'')+'</p></article>';
  const linkHtml=href?link(href,(kind==='pdf'?'Ouvrir le PDF':kind.includes('vid')?'Ouvrir la vidéo':'Ouvrir le document')):'';
- return '<article class="d-resource">'+thumbnail+doc+accessBadge+(linkHtml?'<div class="resources">'+linkHtml+'</div>':'<p class="meta">Aucun média accessible depuis cette référence.</p>')+'</article>';
+ return '<article class="d-resource">'+thumbnail+doc+accessBadge+coverLink+(linkHtml?'<div class="resources">'+linkHtml+'</div>':'<p class="meta">Aucun média accessible depuis cette référence.</p>')+'</article>';
 }
 async function getContent(db,id){
  const item=await db.prepare('SELECT * FROM celebrations_contents WHERE id=?').bind(String(id)).first();
