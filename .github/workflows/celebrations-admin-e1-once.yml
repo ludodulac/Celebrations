@@ -124,3 +124,5 @@ jobs:
 # E1 fix: bind original B/C block IDs in safe rendered DOM to allow touch editing of program events.
 
 # E1 QA short propagation diagnostic; masked secrets and immutable source tables.
+
+# E1 guarded staging replay: await async revision restore completion on Cloudflare D1.
