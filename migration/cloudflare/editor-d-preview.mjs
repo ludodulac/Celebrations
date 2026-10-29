@@ -279,8 +279,8 @@ export async function handleEditorD(request,env){
   env.DB.prepare('SELECT block_id,legacy_kind,source_table,source_id,data_json,position FROM editor_c_blocks WHERE page_id=? AND version=? ORDER BY position').bind(p.id,p.draft_version).all(),
   env.DB.prepare('SELECT source_key FROM editor_c_imports ORDER BY source_key').all()
  ]);
- const blocks=[...(standard.results||[]).map(b=>({kind:b.kind,position:b.position,data:JSON.parse(b.data_json)})),
-  ...(legacy.results||[]).map(b=>({kind:b.legacy_kind,position:b.position,data:JSON.parse(b.data_json),source_table:b.source_table,source_id:b.source_id}))]
+ const blocks=[...(standard.results||[]).map(b=>({block_id:b.block_id,kind:b.kind,position:b.position,data:JSON.parse(b.data_json)})),
+  ...(legacy.results||[]).map(b=>({block_id:b.block_id,kind:b.legacy_kind,position:b.position,data:JSON.parse(b.data_json),source_table:b.source_table,source_id:b.source_id}))]
   .sort((a,b)=>a.position-b.position);
  const known=new Set((allImports.results||[]).map(x=>x.source_key));
  let navigation=go('home','Accueil',key==='home');
