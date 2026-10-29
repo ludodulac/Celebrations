@@ -37,7 +37,7 @@ try{
   await page.waitForURL(/\/__editor\/preview\?key=home/,{timeout:20000});
   assert.ok(await page.locator('main h1').count()>0,'Preview home page not rendered');
   assert.ok(await page.locator('.d-welcome').count()>0,'Preview welcome missing');
-  const nav=page.locator('nav a[href*="key=celebration%3A101"]').first();
+  const nav=page.locator('.d-welcome-actions a[href*="key=celebration%3A101"]').first();
   if(await nav.count()){
    await nav.click();
    await page.waitForURL(/key=celebration%3A101/,{timeout:12000});
