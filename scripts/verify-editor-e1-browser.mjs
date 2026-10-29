@@ -50,13 +50,13 @@ try{
     await page.locator('#e1-edit:enabled').waitFor({timeout:15000});
     assert.ok(await page.locator('#e1-save').isDisabled(),'Save should be disabled initially');
     await page.locator('#e1-edit').click();
-    assert.ok(await page.locator(task.selector).getAttribute('contenteditable')==='true');
-    await page.locator(task.selector).fill(marker);
+    assert.ok(await page.locator(task.selector).first().getAttribute('contenteditable')==='true');
+    await page.locator(task.selector).first().fill(marker);
     await page.locator('#e1-save').click();
     await page.waitForFunction(sel=>document.querySelector(sel)?.textContent?.includes('E1QA-'),task.selector,{timeout:15000});
     const reload=await page.reload({waitUntil:'domcontentloaded'});
     assert.equal(reload.status(),200);
-    assert.equal((await page.locator(task.selector).textContent()).trim(),marker,'Draft did not survive reload');
+    assert.equal((await page.locator(task.selector).first().textContent()).trim(),marker,'Draft did not survive reload');
     const modified=await(await context.request.get(api(),{headers:auth})).json();
     assert.equal(modified.version,base.version+1);
     const row=modified.editable.find(x=>x.kind===base.editable[0].kind);
@@ -70,11 +70,11 @@ try{
     // Cancel before saving a second change.
     await page.locator('#e1-edit:enabled').waitFor();
     await page.locator('#e1-edit').click();
-    await page.locator(task.selector).fill(marker+'-ABANDON');
+    await page.locator(task.selector).first().fill(marker+'-ABANDON');
     await page.locator('#e1-cancel').click();
-    assert.equal((await page.locator(task.selector).textContent()).trim(),marker,'Cancel did not revert unsaved text');
+    assert.equal((await page.locator(task.selector).first().textContent()).trim(),marker,'Cancel did not revert unsaved text');
     await page.reload({waitUntil:'domcontentloaded'});
-    assert.equal((await page.locator(task.selector).textContent()).trim(),marker);
+    assert.equal((await page.locator(task.selector).first().textContent()).trim(),marker);
     // Version history: restore the exact source overlay state, not a synthetic page.
     await page.locator('#e1-history').click();
     await page.locator('#e1-versions').selectOption(String(base.version));
