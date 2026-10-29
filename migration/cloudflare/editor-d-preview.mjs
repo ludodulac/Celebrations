@@ -121,17 +121,19 @@ async function item(block,db,context){
   const flame=context.celebrationFlame?'<img class="d-celebration-flame" src="'+esc(context.celebrationFlame)+'" alt="" loading="lazy">':'';
   return '<section class="d-card d-celebration-title"><div class="d-celebration-identity">'+flame+'<h2>Archange '+esc(r.archangel)+' '+esc(r.year)+'</h2>'+flame+'</div><p class="d-date">'+esc(context.celebrationDate||'')+'</p><p class="meta">Statut historique : '+esc(r.status||'')+'</p>'+go('celebration:'+r.id+':step:Préparation','Programme et sept étapes')+'</section>';
  }
- case 'legacy_day':
-  return '<section class="d-day"><h2>'+esc(r.label)+'</h2>'+caption('Dates',when(r))+(r.body_text?'<p>'+text(r.body_text)+'</p>':'')+'</section>';
+ case 'legacy_day':{
+  const body=d.e1?.body_text??r.body_text??'';
+  return '<section class="d-day"><h2>'+esc(r.label)+'</h2>'+caption('Dates',when(r))+(body?'<p>'+text(body)+'</p>':'<p class="d-empty-description"></p>')+'</section>';
+ }
  case 'legacy_event':{
-  const event=r;
+  const event={...r,title:d.e1?.title??r.title,description:d.e1?.description??r.description};
   let resources='';
   for(const a of d.ordered_content_refs||[]){
    const content=await getContent(db,a.content_id);
    resources+=content?media(content):'<p class="meta">Référence introuvable : '+esc(a.content_id)+'</p>';
   }
   const links=(d.links||[]).map(l=>link(l.url,l.label||l.url)).join('');
-  return '<article class="d-event"><div class="d-time">'+esc(event.event_time||'—')+'</div><div><h3>'+esc(event.title)+'</h3>'+(event.description?'<p>'+text(event.description)+'</p>':'')+(event.audience!=='all'?'<div class="d-notice">Rendez-vous réservé : '+esc(event.audience)+'</div>':'')+resources+'<div class="resources">'+links+'</div>'+'</div></article>';
+  return '<article class="d-event"><div class="d-time">'+esc(event.event_time||'—')+'</div><div><h3>'+esc(event.title)+'</h3>'+(event.description?'<p>'+text(event.description)+'</p>':'<p class="d-empty-description"></p>')+(event.audience!=='all'?'<div class="d-notice">Rendez-vous réservé : '+esc(event.audience)+'</div>':'')+resources+'<div class="resources">'+links+'</div>'+'</div></article>';
  }
  case 'legacy_step_content_ref':{
   const c=await getContent(db,d.content_id);return c?media(c):'<p class="meta">Contenu absent : '+esc(d.content_id)+'</p>';
@@ -310,13 +312,19 @@ export async function handleEditorD(request,env){
  }
  for(const b of blocks){
   const fragment=await item(b,env.DB,{key,celebrationDate,celebrationFlame});
-  html+='<div class="d-block" data-kind="'+esc(b.kind)+'">'+fragment+'</div>';
+  html+='<div class="d-block" data-kind="'+esc(b.kind)+'" data-editor-block="'+esc(b.block_id)+'">'+fragment+'</div>';
  }
  if(key==='home'){
-  const hero='<div class="d-home-banner"><strong>INFORMATION IMPORTANTE — Le travail des psaumes a repris !</strong> Pensez à vérifier vos spams : nos messages, oracles et informations sur la Ronde des Archanges et Gabriel arrivent désormais depuis ronde-des-archanges@nation-essenienne.eu.</div>'+
-   '<section class="d-welcome"><h1>Bienvenue sur le site de la Ronde des Archanges Universelle</h1><p>Retrouvez les célébrations, les psaumes et les ressources partagées.</p>'+
-   '<img src="/__editor/media?asset=welcome" alt="Ronde des Archanges — coordonnées et couleurs d’automne">'+
-   '<div class="d-welcome-actions">'+go('celebration:101','Accéder aux célébrations')+'<span class="d-muted-chip">Facebook · Bientôt disponible</span><span class="d-muted-chip">Instagram · Bientôt disponible</span></div></section>';
+  const welcome=blocks.find(b=>b.kind==='static_html_snapshot')?.data?.e1||{};
+  const banner=welcome.banner===undefined?'INFORMATION IMPORTANTE — Le travail des psaumes a repris ! Pensez à vérifier vos spams : nos messages, oracles et informations sur la Ronde des Archanges et Gabriel arrivent désormais depuis ronde-des-archanges@nation-essenienne.eu.':welcome.banner;
+  const imageId=welcome.hero_image_id||'';
+  const imageHref=imageId?'/__editor/media?id='+encodeURIComponent(imageId):'/__editor/media?asset=welcome';
+  const label=welcome.button_label??'Accéder aux célébrations';
+  const destination=welcome.button_href??pageHref('celebration:101');
+  const hero='<div class="d-home-banner">'+text(banner)+'</div>'+
+   '<section class="d-welcome"><h1>'+text(welcome.heading??'Bienvenue sur le site de la Ronde des Archanges Universelle')+'</h1><p>'+text(welcome.subtitle??'Retrouvez les célébrations, les psaumes et les ressources partagées.')+'</p>'+
+   '<img src="'+esc(imageHref)+'" alt="Ronde des Archanges — photographie d’accueil">'+
+   '<div class="d-welcome-actions">'+link(destination,label,'d-chip')+'<span class="d-muted-chip">Facebook · Bientôt disponible</span><span class="d-muted-chip">Instagram · Bientôt disponible</span></div></section>';
   html=hero+html;
  }
  if(key==='bibliotheque'){
