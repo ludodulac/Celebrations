@@ -123,6 +123,26 @@ try{
    }));
    if(visual.document_width>visual.width+3||visual.broken_images)
     visibleIssues.push({device:profile.name,scene:key,horizontal_overflow:visual.document_width-visual.width,broken_images:visual.broken_images});
+   assert.ok(visual.document_width<=visual.width+3,'Horizontal clipping: '+profile.name+' '+key);
+   assert.equal(visual.broken_images,0,'Broken image on representative page: '+profile.name+' '+key);
+   // Visually relevant functional checks, beyond the pixel-difference metric.
+   if(key==='home'){
+    assert.equal(await newPage.locator('.d-welcome h1').count(),1,'Welcome heading missing');
+    assert.ok(await newPage.locator('.d-welcome-actions a[href]').count()>0,'Welcome CTA missing');
+   }
+   if(key==='celebration:'+id){
+    assert.ok(await newPage.locator('.d-celebration-title').count()>0,'Celebration identity missing');
+    assert.ok((await newPage.locator('.d-nav a[href*="step"]').count())>=7,'Seven-stage navigation incomplete');
+   }
+   if(key==='celebration:'+id+':step:Mercredi'){
+    assert.ok((await newPage.locator('.d-event').count())>0,'Wednesday meetings not displayed');
+    assert.ok(await newPage.locator('.d-day').count()>0,'Wednesday dates missing');
+    const link=await newPage.locator('a:has-text("Voir la couverture originale")').count();
+    assert.ok(link>0,'Original Google Drive cover link not preserved');
+    console.log('MISSION_D3_WEDNESDAY_COVER_PASS device='+profile.name+' broken_images=0 pdf_cover_link_present=true');
+   }
+   if(key==='catalogue-part:0')assert.ok(await newPage.locator('.d-gallery').count()>0,'Media gallery absent');
+   if(key==='legal:mentions-legales')assert.ok(await newPage.locator('.d-legal').count()>0,'Legal notice absent');
    if(key==='celebration:'+id){
     const nav=newPage.locator('nav a[href*="key=programme"]:visible').first();
     await nav.click();assert.ok(newPage.url().includes('key=programme'),'Preview navigation does not work');
