@@ -118,3 +118,5 @@ jobs:
         run: node scripts/check-staging-d1-free-budget.mjs post
 
 # E1 rerun: target first historic meeting, keep all remaining appointments intact.
+
+# E1 retry: separate data readback from browser rerender after history restoration.
