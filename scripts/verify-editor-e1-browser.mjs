@@ -24,9 +24,16 @@ try{
   assert.equal(oldAdmin.status(),200);
   const page=await context.newPage();
   await page.goto(BASE+'/__editor/access');
-  await page.locator('input#code').fill(CODE);
-  await page.locator('button#connect').click();
-  await page.locator('#links:not([hidden])').waitFor({timeout:20000});
+  for(let attempt=0;attempt<2;attempt++){
+   await page.locator('input#code').fill(CODE);
+   await page.locator('button#connect').click();
+   await page.waitForTimeout(1100);
+   if(await page.locator('#links:not([hidden])').isVisible())break;
+   const status=(await page.locator('#status').innerText()).slice(0,100);
+   console.log('MISSION_E1_QA_LOGIN_STATUS device='+device.name+' attempt='+(attempt+1)+' message='+status);
+   if(attempt===0)await page.waitForTimeout(2300);
+  }
+  assert.equal(await page.locator('#links:not([hidden])').isVisible(),true,'Staging personal login refused ephemeral QA code');
   await page.goto(BASE+'/__editor/entry');
   await page.waitForURL(/\/__editor\/preview\?key=home/,{timeout:15000});
   const token=await page.evaluate(()=>localStorage.getItem('celebrations-admin-token'));
