@@ -1,0 +1,101 @@
+name: CELEBRATIONS D4 - temporary staging admin login and browser validation
+on:
+  push:
+    branches: [feat/celebrations-admin-visual-mission-d4]
+    paths: [.github/workflows/celebrations-admin-d4-login-once.yml]
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-staging-only
+  cancel-in-progress: false
+jobs:
+  staging-access:
+    if: github.ref == 'refs/heads/feat/celebrations-admin-visual-mission-d4'
+    runs-on: ubuntu-24.04
+    environment: celebrations-staging
+    timeout-minutes: 23
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+      # One-way SHA-256 of an independent 128-bit random invitation code.
+      # This verifier is NOT an access code/password or a bearer token.
+      D4_PERSONAL_VERIFIER_SHA256: 1a53efd0d65dfb1837e08cc3bb53efc0ef13989643251c78ac826f78f9a1c1bc
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Local regression and staging-only checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$STAGING_D1_ID" = 0f761662-241f-42cc-ac94-5c68b4aa7797
+          test "$STAGING_D1_ID" != 28736d2a-479b-472b-bf82-703ad0affe10
+          test "$STAGING_R2_BUCKET" = celebrations-exit-staging
+          node --check migration/cloudflare/editor-d4-access.mjs
+          node --check migration/cloudflare/staging-worker.mjs
+          node --check scripts/verify-editor-d4-browser.mjs
+          node --test tests/test-editor-b-foundations.mjs tests/test-editor-c-converter.mjs tests/test-editor-d-preview.mjs tests/test-editor-d2-media.mjs tests/test-editor-d4-access.mjs
+      - name: Read current deployed bindings AND independent staging admin verifier names
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const u='https://api.cloudflare.com/client/v4/accounts/'+process.env.CLOUDFLARE_ACCOUNT_ID+'/workers/scripts/celebrations-exit-staging/settings';
+          const r=await fetch(u,{headers:{Authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN}});
+          assert.equal(r.status,200);
+          const out=await r.json();assert.equal(out.success,true);
+          const binds=out.result?.bindings;assert.ok(Array.isArray(binds));
+          const d1=binds.filter(x=>x.type==='d1'),r2=binds.filter(x=>x.type==='r2_bucket');
+          assert.deepEqual(d1.map(x=>x.name).sort(),['DB','MEDIA_ACL']);
+          assert.ok(d1.every(x=>(x.database_id||x.id)==='0f761662-241f-42cc-ac94-5c68b4aa7797'));
+          assert.equal(r2.length,1);assert.equal(r2[0].bucket_name,'celebrations-exit-staging');
+          assert.equal(binds.filter(x=>['service','dispatch_namespace'].includes(x.type)).length,0);
+          const names=new Set(binds.map(x=>x.name));
+          console.log('MISSION_D4_STAGING_IDENTITY_PASS');
+          console.log('MISSION_D4_EXISTING_ADMIN_CONFIG '+JSON.stringify({
+           hash_present:names.has('ADMIN_PASSWORD_HASH'),salt_present:names.has('ADMIN_PASSWORD_SALT'),
+           preview_secret_present:names.has('EDITOR_D_PREVIEW_TOKEN')
+          }));
+          NODE
+      - name: Inspect current daily D1 free quota before staging session test
+        run: node scripts/check-staging-d1-free-budget.mjs pre
+      - name: Build existing staging assets and its unchanged D1/R2 config
+        run: |
+          python scripts/build_staging_assets.py
+          python scripts/configure_staging_wrangler.py
+      - name: Install Wrangler and Chromium
+        run: |
+          npm install --no-save --no-package-lock wrangler@4 playwright@1.58.2 pngjs@7
+          npx playwright install --with-deps chromium
+      - name: Generate short-lived QA code in memory; mask it and never log or commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const {randomBytes,createHash}=require('node:crypto');
+          const fs=require('node:fs');
+          const code='D4'+randomBytes(20).toString('hex').toUpperCase();
+          const sha=createHash('sha256').update(code).digest('hex');
+          process.stdout.write('::add-mask::'+code+'\n');
+          process.stdout.write('::add-mask::'+sha+'\n');
+          fs.appendFileSync(process.env.GITHUB_ENV,'D4_QA_CODE='+code+'\nD4_QA_HASH='+sha+'\n');
+          console.log('MISSION_D4_QA_CODE_READY code_logged=false');
+          NODE
+      - name: Install ONLY SHA-256 verifiers into existing Cloudflare staging Worker
+        shell: bash
+        working-directory: migration/cloudflare
+        run: |
+          set -euo pipefail
+          printf '%s' "$D4_PERSONAL_VERIFIER_SHA256" | npx wrangler secret put ADMIN_D4_ACCESS_HASH --name celebrations-exit-staging >/dev/null
+          printf '%s' "$D4_QA_HASH" | npx wrangler secret put ADMIN_D4_QA_HASH --name celebrations-exit-staging >/dev/null
+          echo "MISSION_D4_STAGING_HASHES_INSTALLED raw_credentials_absent_from_repository=true"
+      - name: Deploy only existing staging Worker, no production, DNS, D1 schema or R2 changes
+        working-directory: migration/cloudflare
+        run: npx wrangler deploy --config wrangler.toml
+      - name: Normal mobile and desktop browser login then administration then preview
+        run: node scripts/verify-editor-d4-browser.mjs
+      - name: Check account D1 quota after ephemeral staging sessions
+        if: always()
+        run: node scripts/check-staging-d1-free-budget.mjs post
