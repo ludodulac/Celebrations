@@ -52,3 +52,6 @@ jobs:
           assert.deepEqual([p.pages,p.published,p.blocks],[47,0,327]);
           console.log('ACCESS_FINAL_HISTORICAL_DATA_UNCHANGED pages=47 blocks=327 publications=0');
           NODE
+
+# Finalization campaign 2/2: follow the D4 post-secret staging deploy,
+# confirm the newly active salt and real password proof before browser checks.

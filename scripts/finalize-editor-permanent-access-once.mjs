@@ -48,10 +48,47 @@ try {
   });
   if(proc.status!==0)throw Error('Cloudflare staging secret operation failed');
  }
+ // D4 also redeployed the staging Worker after secret put. Ensure the new
+ // bindings are active before beginning actual login (no production deployment).
+ stage='redeploy-staging-after-secret-put';
+ const deploy=spawnSync('npx',['wrangler','deploy','--config','wrangler.toml'],{
+  cwd:'migration/cloudflare',env:process.env,encoding:'utf8',
+  stdio:['ignore','pipe','pipe'],timeout:120000,maxBuffer:1048576
+ });
+ if(deploy.status!==0)throw Error('Isolated staging deploy failed');
  // No verifier, salt, or password may reach a log, a repository file or artifact.
  stage='confirm-staging-binding-names';
  await checkBindings(true);
  console.log('ACCESS_FINAL_BOTH_SECRETS_INSTALLED true');
+ stage='verify-live-salt-propagation';
+ // Two installations may take time to propagate through Cloudflare's network.
+ // Never send the proof until the exact new salt is live.
+ let ready=false;
+ for(let i=0;i<12;i++){
+  const r=await fetch(ORIGIN+'/__editor/access/config',{cache:'no-store'});
+  if(r.ok){
+   const config=await r.json();
+   if(config.salt===salt.toString('hex')&&config.iterations===210000){ready=true;break;}
+  }
+  await new Promise(resolve=>setTimeout(resolve,6000));
+ }
+ assert.ok(ready,'New staging password salt not propagated');
+ stage='verify-real-password-proof';
+ const direct=await fetch(ORIGIN+'/__editor/access/session',{
+  method:'POST',headers:{'content-type':'application/json'},
+  body:JSON.stringify({proof:proof.toString('hex')}),cache:'no-store'
+ });
+ assert.equal(direct.status,200,'Permanent staging login proof must authenticate');
+ const session=await direct.json();
+ assert.ok(session.ok&&/^[a-f0-9]{64}$/.test(session.token));
+ const lifetime=Date.parse(session.expires_at)-Date.now();
+ assert.ok(lifetime>29*86400000&&lifetime<=30*86400000+4000,'Session duration must be 30 days');
+ // Revoke the synthetic installer's test session; only browser sessions follow.
+ const revoke=await fetch(ORIGIN+'/__editor/access/logout',{
+  method:'POST',headers:{authorization:'Bearer '+session.token},cache:'no-store'
+ });
+ assert.equal(revoke.status,200);
+ console.log('ACCESS_FINAL_BACKEND_LOGIN_PASS proof_verified=true duration_days=30 revoked=true');
  stage='verify-login-desktop-and-mobile';
  browser=await chromium.launch({headless:true});
  for(const device of [
@@ -67,6 +104,7 @@ try {
    assert.equal(start.status(),200);
    await page.locator('#password').fill(password);
    await page.locator('#send').click();
+   // The editor page has an authenticated server response, not a fake redirect.
    await page.waitForURL(/\/__editor\/edit\?key=home/,{timeout:35000,waitUntil:'domcontentloaded'});
    await page.locator('#e1-edit:not([disabled])').waitFor({timeout:20000});
    assert.ok(await page.locator('.d-welcome').count()>0);
