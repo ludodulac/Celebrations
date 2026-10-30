@@ -50,8 +50,9 @@ test('D4 access form is mobile-ready, CSP protected, no code or verifier exposed
  const body=await res.text();
  assert.ok(body.includes('<meta name="viewport"')&&body.includes('Code d\'accès temporaire'));
  assert.ok(body.includes('/__editor/access/session'));
- assert.ok(body.includes('admin.html?staging=1')&&body.includes('/__editor/entry'));
+ assert.ok(body.includes("const returnTo=\'/__editor/edit?key=\'")&&body.includes("returnKey:\'home\'"));
  assert.ok(!body.includes('ADMIN_D4_ACCESS_HASH'));
+ assert.ok(body.includes("location.replace(returnTo)")&&body.includes("if(!preview.ok)"));
  assert.equal(res.headers.get('cache-control'),'no-store');
  const csp=res.headers.get('content-security-policy');
  assert.match(csp,/script-src 'nonce-/);

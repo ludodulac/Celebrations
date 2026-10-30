@@ -12,7 +12,8 @@ import {handleStats} from "./stats-api.mjs";
 import {handleEditorB} from "./editor-b-api.mjs";
 import {handleEditorD,handleEditorDSession,handleEditorDEntry} from "./editor-d-preview.mjs";
 import {handleEditorDMedia} from "./editor-d2-media.mjs";
-import {accessPage,setupPage,accessConfig,accessLogin,accessLogout} from "./editor-permanent-access.mjs";
+import {setupPage,accessConfig,accessLogout} from "./editor-permanent-access.mjs";
+import {handleEditorD4Access,handleEditorD4Login} from "./editor-d4-access.mjs";
 import {handleEditorE1} from "./editor-e1-api.mjs";
 import {handleEditorE1Page,handleEditorE1Client} from "./editor-e1-page.mjs";
 export default {
@@ -37,10 +38,10 @@ export default {
   if(path==="/__editor/session")return handleEditorDSession(request,env);
   if(path==="/__editor/entry")return handleEditorDEntry(request,env);
   if(path==="/__editor/media")return handleEditorDMedia(request,env);
-  if(path==="/__editor/access")return accessPage(request);
+  if(path==="/__editor/access")return handleEditorD4Access(request);
   if(path==="/__editor/access/setup")return setupPage(request);
   if(path==="/__editor/access/config")return accessConfig(request,env);
-  if(path==="/__editor/access/session")return accessLogin(request,env);
+  if(path==="/__editor/access/session")return handleEditorD4Login(request,env);
   if(path==="/__editor/access/logout")return accessLogout(request,env);
   if(path==="/api/editor-e1")return handleEditorE1(request,env);
   if(path==="/__editor/edit")return handleEditorE1Page(request,env);
