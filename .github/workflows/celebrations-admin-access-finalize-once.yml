@@ -1,4 +1,4 @@
-name: CELEBRATIONS permanent staging access finalization once
+name: CELEBRATIONS ACCESS-RESTORE - staging, no password rotation
 on:
   push:
     branches: [feat/celebrations-admin-visual-mission-e2a-access]
@@ -9,10 +9,9 @@ concurrency:
   group: celebrations-staging-only
   cancel-in-progress: false
 jobs:
-  finalize:
-    if: github.ref == 'refs/heads/feat/celebrations-admin-visual-mission-e2a-access'
+  restore:
     runs-on: ubuntu-24.04
-    timeout-minutes: 21
+    timeout-minutes: 16
     environment: celebrations-staging
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
@@ -24,34 +23,82 @@ jobs:
         with: {persist-credentials: false}
       - uses: actions/setup-node@v4
         with: {node-version: '22'}
-      - name: Validate staging target and existing authentication using synthetic local data
-        shell: bash
+      - name: No production, no secret rotation, fictional authentication regression
         run: |
           set -euo pipefail
           test "$STAGING_D1_ID" = 0f761662-241f-42cc-ac94-5c68b4aa7797
+          test "$STAGING_D1_ID" != 28736d2a-479b-472b-bf82-703ad0affe10
           test "$STAGING_R2_BUCKET" = celebrations-exit-staging
-          node --check scripts/finalize-editor-permanent-access-once.mjs
-          node --test tests/test-editor-permanent-access.mjs
-      - name: Prepare isolated Wrangler config and Chromium
-        run: |
-          python scripts/configure_staging_wrangler.py
-          npm install --no-save --no-package-lock wrangler@4 playwright@1.58.2
-          npx playwright install --with-deps chromium
-      - name: Install two Cloudflare staging secrets from memory and verify real editor login
-        run: node scripts/finalize-editor-permanent-access-once.mjs
-      - name: Verify historic draft preservation and non-publication (read only)
+          node --check migration/cloudflare/staging-worker.mjs
+          node --check migration/cloudflare/editor-permanent-access.mjs
+          node --test tests/test-editor-permanent-access.mjs tests/test-editor-d-preview.mjs tests/test-editor-e2a-access.mjs
+      - name: Verify staging bindings and existing secret names only
         run: |
           node --input-type=module <<'NODE'
           import assert from 'node:assert/strict';
-          const endpoint='https://api.cloudflare.com/client/v4/accounts/'+process.env.CLOUDFLARE_ACCOUNT_ID+'/d1/database/'+process.env.STAGING_D1_ID+'/query';
-          const sql="SELECT (SELECT COUNT(*) FROM editor_c_imports) AS pages, (SELECT COUNT(*) FROM editor_b_pages WHERE published_version IS NOT NULL) AS published, (SELECT COUNT(*) FROM editor_c_blocks b JOIN editor_b_pages p ON b.page_id=p.id AND b.version=p.draft_version) AS blocks";
-          const r=await fetch(endpoint,{method:'POST',headers:{Authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN,'content-type':'application/json'},body:JSON.stringify({sql})});
-          assert.equal(r.status,200);
-          const data=await r.json();assert.equal(data.success,true);
-          const p=data.result[0].results[0];
-          assert.deepEqual([p.pages,p.published,p.blocks],[47,0,327]);
-          console.log('ACCESS_FINAL_HISTORICAL_DATA_UNCHANGED pages=47 blocks=327 publications=0');
+          const url='https://api.cloudflare.com/client/v4/accounts/'+process.env.CLOUDFLARE_ACCOUNT_ID+'/workers/scripts/celebrations-exit-staging/settings';
+          const r=await fetch(url,{headers:{Authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN}});
+          assert.equal(r.status,200);const j=await r.json();assert.equal(j.success,true);
+          const b=j.result.bindings;
+          assert.deepEqual(b.filter(x=>x.type==='d1').map(x=>x.name).sort(),['DB','MEDIA_ACL']);
+          assert.ok(b.filter(x=>x.type==='d1').every(x=>(x.database_id||x.id)==='0f761662-241f-42cc-ac94-5c68b4aa7797'));
+          assert.deepEqual(b.filter(x=>x.type==='r2_bucket').map(x=>x.bucket_name),['celebrations-exit-staging']);
+          assert.equal(b.filter(x=>['service','dispatch_namespace'].includes(x.type)).length,0);
+          const names=new Set(b.map(x=>x.name));
+          const required=['EDITOR_D_PREVIEW_TOKEN','STAGING_ADMIN_PASSWORD_SALT','STAGING_ADMIN_PASSWORD_VERIFIER'];
+          const present=Object.fromEntries(required.map(name=>[name,names.has(name)]));
+          console.log('ACCESS_RESTORE_SECRET_PRESENCE_ONLY '+JSON.stringify(present));
+          assert.ok(required.every(name=>names.has(name)));
           NODE
-
-# Finalization campaign 2/2: follow the D4 post-secret staging deploy,
-# confirm the newly active salt and real password proof before browser checks.
+      - name: D1 daily Free quota pre-check
+        run: node scripts/check-staging-d1-free-budget.mjs pre
+      - name: FIX build missing static staging assets before generating Wrangler config
+        run: |
+          set -euo pipefail
+          python scripts/build_staging_assets.py
+          test -s staging-public/index.html
+          test -s staging-public/admin.html
+          test -s staging-public/migration/cloudflare/preview-client.js
+          python scripts/configure_staging_wrangler.py
+          grep -Fq 'directory = "../../staging-public"' migration/cloudflare/wrangler.toml
+          echo ACCESS_RESTORE_STATIC_ASSETS_PASS
+      - name: Deploy only existing Worker to staging; retain Cloudflare protected secrets
+        run: |
+          npm install --no-save --no-package-lock wrangler@4
+          cd migration/cloudflare
+          npx wrangler deploy --config wrangler.toml
+      - name: Live read-only authentication route checks; cannot certify unknown password
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const o='https://celebrations-exit-staging.rondes.workers.dev';
+          const login=await fetch(o+'/__editor/access',{cache:'no-store'});
+          assert.equal(login.status,200);
+          assert.ok((await login.text()).includes('id="password"'));
+          const config=await fetch(o+'/__editor/access/config',{cache:'no-store'});
+          assert.equal(config.status,200,'Existing password verifier must be configured');
+          const data=await config.json();assert.equal(data.iterations,210000);
+          assert.match(data.salt,/^[a-f0-9]{32}$/);
+          assert.ok(!JSON.stringify(data).includes('STAGING_ADMIN_PASSWORD_VERIFIER'));
+          const api=await fetch(o+'/api/editor-e1?key=home',{cache:'no-store'});
+          assert.equal(api.status,401);
+          const editor=await fetch(o+'/__editor/edit?key=home',{cache:'no-store'});
+          assert.equal(editor.status,401);
+          assert.ok((await editor.text()).includes('/__editor/access?return=home'));
+          console.log('ACCESS_RESTORE_ROUTE_PASS login_200=true salt_configured=true anonymous_denied=true');
+          console.log('ACCESS_RESTORE_CREDENTIAL_LOGIN_NOT_VERIFIED credential_not_available=true');
+          NODE
+      - name: Read-only check historic pages, blocks and publication state
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const url='https://api.cloudflare.com/client/v4/accounts/'+process.env.CLOUDFLARE_ACCOUNT_ID+'/d1/database/'+process.env.STAGING_D1_ID+'/query';
+          const sql="SELECT (SELECT COUNT(*) FROM editor_c_imports) AS pages, (SELECT COUNT(*) FROM editor_b_pages WHERE published_version IS NOT NULL) AS published, (SELECT COUNT(*) FROM editor_c_blocks b JOIN editor_b_pages p ON b.page_id=p.id AND b.version=p.draft_version) AS historical_blocks";
+          const r=await fetch(url,{method:'POST',headers:{Authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN,'content-type':'application/json'},body:JSON.stringify({sql})});
+          assert.equal(r.status,200);const j=await r.json();assert.equal(j.success,true);
+          const p=j.result[0].results[0];assert.deepEqual([p.pages,p.historical_blocks,p.published],[47,327,0]);
+          console.log('ACCESS_RESTORE_HISTORICAL_PASS pages=47 blocks=327 published=0');
+          NODE
+      - name: D1 Free quota post-check
+        if: always()
+        run: node scripts/check-staging-d1-free-budget.mjs post
