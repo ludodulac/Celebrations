@@ -68,3 +68,5 @@ jobs:
 # Stage 3+4 block control mobile touch correction: CI campaign 2/2; no production modifications.
 
 # Simplified contextual block tools: first staging deployment and mobile/desktop QA.
+
+# Mobile clean-editor dock QA: retry after first browser-run touch overlay failure; staging only.
