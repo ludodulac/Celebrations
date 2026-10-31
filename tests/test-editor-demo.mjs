@@ -1,0 +1,23 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import vm from 'node:vm';
+import {handleEditorDemo} from '../migration/cloudflare/editor-demo-page.mjs';
+import {DEMO_CLIENT} from '../migration/cloudflare/editor-demo-client.mjs';
+const BASE='https://celebrations-exit-staging.rondes.workers.dev/__editor/demo';
+test('demo is anonymous, local and CSP-restricted',async()=>{
+ const response=handleEditorDemo(new Request(BASE));
+ assert.equal(response.status,200);
+ assert.match(await response.text(),/Atelier visuel/);
+ assert.match(response.headers.get('content-security-policy'),/connect-src 'none'/);
+ assert.equal(response.headers.get('cache-control'),'no-store');
+});
+test('demo rejects other hosts and POST',()=>{
+ assert.equal(handleEditorDemo(new Request(BASE,{method:'POST'})).status,405);
+ assert.equal(handleEditorDemo(new Request('https://example.com/__editor/demo')).status,404);
+});
+test('demo client parses and uses browser local drafts only',()=>{
+ new vm.Script(DEMO_CLIENT);
+ assert.ok(DEMO_CLIENT.includes('localStorage.setItem'));
+ assert.ok(DEMO_CLIENT.includes('contentEditable'));
+ assert.ok(!DEMO_CLIENT.includes('fetch('));
+});
