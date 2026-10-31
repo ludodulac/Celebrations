@@ -52,3 +52,11 @@ test('block toolbar remains visible and in flow on desktop and phone',()=>{
  assert.ok(DEMO_CLIENT.includes("'Dupliquer'"));
  assert.ok(DEMO_CLIENT.includes("'Supprimer'"));
 });
+
+test('only the selected block shows editing controls, simplifying the page',()=>{
+ assert.match(DEMO_CSS,/\.block>\.tools,\.block>\.formatbar,\.block>\.link-line,\.block>\.block-edit-actions\{display:none !important\}/);
+ assert.match(DEMO_CSS,/\.block\.is-selected>\.tools/);
+ assert.ok(DEMO_CLIENT.includes('function selectBlock('));
+ assert.ok(DEMO_CLIENT.includes("box.onclick=()=>selectBlock(box)"));
+ assert.ok(DEMO_CLIENT.includes('z.onfocus=()=>selectBlock(box)'));
+});
