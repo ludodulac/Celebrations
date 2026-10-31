@@ -17,6 +17,7 @@ import {handleEditorD4Access,handleEditorD4Login} from "./editor-d4-access.mjs";
 import {handleEditorE1} from "./editor-e1-api.mjs";
 import {handleEditorE1Page,handleEditorE1Client} from "./editor-e1-page.mjs";
 import {handleEditorDemo} from "./editor-demo-page.mjs";
+import {handlePreparationDemo} from "./editor-demo-preparation-page.mjs";
 export default {
  async fetch(request,env){
   const url=new URL(request.url),path=url.pathname;
@@ -46,6 +47,7 @@ export default {
   if(path==="/__editor/access/logout")return accessLogout(request,env);
   if(path==="/api/editor-e1")return handleEditorE1(request,env);
   if(path==="/__editor/demo")return handleEditorDemo(request);
+  if(path==="/__editor/demo-preparation")return handlePreparationDemo(request,env);
   if(path==="/__editor/edit")return handleEditorE1Page(request,env);
   if(path==="/__editor/e1-client.js")return handleEditorE1Client(request,env);
   if((request.method==="GET"||request.method==="HEAD")&&env.ASSETS)return env.ASSETS.fetch(request);
