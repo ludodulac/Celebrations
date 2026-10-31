@@ -62,3 +62,5 @@ jobs:
           NODE
 
 # Text styles and block duplication: staging-only, second/final CI campaign after contextual control QA fix.
+
+# Accessible static block controls fix for stages 3 and 4; staged demo only.
