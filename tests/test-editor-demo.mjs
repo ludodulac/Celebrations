@@ -21,3 +21,12 @@ test('demo client parses and uses browser local drafts only',()=>{
  assert.ok(DEMO_CLIENT.includes('contentEditable'));
  assert.ok(!DEMO_CLIENT.includes('fetch('));
 });
+test('demo file manager uses IndexedDB only, with PDF/audio/video and file-backed preview buttons',()=>{
+ assert.ok(DEMO_CLIENT.includes('indexedDB.open'));
+ assert.ok(DEMO_CLIENT.includes('application/pdf'));
+ assert.ok(DEMO_CLIENT.includes("startsWith('video/')"));
+ assert.ok(DEMO_CLIENT.includes("startsWith('audio/')"));
+ assert.ok(DEMO_CLIENT.includes("data-action='choose-asset'")||DEMO_CLIENT.includes("dataset.action='choose-asset'"));
+ assert.ok(DEMO_CLIENT.includes('URL.createObjectURL'));
+ assert.ok(!DEMO_CLIENT.includes('fetch('));
+});
