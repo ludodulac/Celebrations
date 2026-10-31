@@ -15,6 +15,7 @@ const sqls=[];
 const env={DB:{prepare(sql){sqls.push(sql);return {bind(...params){return {async all(){
   if(sql.includes('FROM celebrations_celebrations'))return {results:data.celebrations};
   if(sql.includes('FROM celebrations_steps'))return {results:data.steps};
+  if(sql.includes('FROM celebrations_links'))return {results:data.links};
   if(sql.includes('FROM celebrations_events WHERE'))return {results:data.events};
   if(sql.includes('FROM celebrations_event_contents'))return {results:data.eventContents};
   if(sql.includes('FROM celebrations_step_contents'))return {results:data.stepContents};
