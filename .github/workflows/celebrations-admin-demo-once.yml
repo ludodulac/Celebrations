@@ -1,0 +1,60 @@
+name: CELEBRATIONS DEMO - visual playground staging only
+on:
+  push:
+    branches: [feat/celebrations-admin-visual-mission-e2a-access]
+    paths: [.github/workflows/celebrations-admin-demo-once.yml]
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-staging-only
+  cancel-in-progress: false
+jobs:
+  demo:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Verify isolated demo code and no production binding
+        run: |
+          set -euo pipefail
+          test "$STAGING_D1_ID" = 0f761662-241f-42cc-ac94-5c68b4aa7797
+          test "$STAGING_R2_BUCKET" = celebrations-exit-staging
+          node --check migration/cloudflare/editor-demo-page.mjs
+          node --check migration/cloudflare/editor-demo-client.mjs
+          node --check migration/cloudflare/staging-worker.mjs
+          node --test tests/test-editor-demo.mjs
+      - name: Prepare staging assets and Wrangler
+        run: |
+          python scripts/build_staging_assets.py
+          test -s staging-public/index.html
+          test -s staging-public/admin.html
+          python scripts/configure_staging_wrangler.py
+          npm install --no-save --no-package-lock wrangler@4 playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Deploy isolated staging only
+        working-directory: migration/cloudflare
+        run: npx wrangler deploy --config wrangler.toml
+      - name: Verify browser demo on desktop and phone
+        run: node scripts/test-editor-demo-browser.mjs
+      - name: Check historical content is untouched
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const url='https://api.cloudflare.com/client/v4/accounts/'+process.env.CLOUDFLARE_ACCOUNT_ID+'/d1/database/'+process.env.STAGING_D1_ID+'/query';
+          const sql="SELECT (SELECT COUNT(*) FROM editor_c_imports) AS pages, (SELECT COUNT(*) FROM editor_b_pages WHERE published_version IS NOT NULL) AS published, (SELECT COUNT(*) FROM editor_c_blocks b JOIN editor_b_pages p ON b.page_id=p.id AND b.version=p.draft_version) AS blocks";
+          const r=await fetch(url,{method:'POST',headers:{Authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN,'content-type':'application/json'},body:JSON.stringify({sql})});
+          assert.equal(r.status,200);
+          const result=await r.json();
+          const q=result.result[0].results[0];
+          assert.deepEqual([q.pages,q.published,q.blocks],[47,0,327]);
+          console.log('DEMO_HISTORICAL_PASS pages=47 published=0 blocks=327');
+          NODE
