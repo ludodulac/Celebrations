@@ -30,6 +30,7 @@ jobs:
           test "$STAGING_R2_BUCKET" = celebrations-exit-staging
           node --check migration/cloudflare/editor-demo-page.mjs
           node --check migration/cloudflare/editor-demo-client.mjs
+          node --check migration/cloudflare/editor-demo-style.mjs
           node --check migration/cloudflare/editor-demo-preparation-page.mjs
           node --check migration/cloudflare/staging-worker.mjs
           node --test tests/test-editor-demo.mjs tests/test-editor-demo-preparation.mjs
@@ -60,4 +61,4 @@ jobs:
           console.log('DEMO_HISTORICAL_PASS pages=47 published=0 blocks=327');
           NODE
 
-# Preparation source-view deploy: campaign 2/2; SQL mock fixed, no production writes.
+# PDF/image/audio/video and link actions for staged browser-only demo; no production writes.
