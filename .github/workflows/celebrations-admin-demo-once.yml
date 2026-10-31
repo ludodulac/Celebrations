@@ -61,4 +61,4 @@ jobs:
           console.log('DEMO_HISTORICAL_PASS pages=47 published=0 blocks=327');
           NODE
 
-# File library and link blocks second CI campaign (tests corrected); staging only, no production writes.
+# Text styles and block duplication: staging-only, first CI campaign; production untouched.
