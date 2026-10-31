@@ -30,3 +30,17 @@ test('demo file manager uses IndexedDB only, with PDF/audio/video and file-backe
  assert.ok(DEMO_CLIENT.includes('URL.createObjectURL'));
  assert.ok(!DEMO_CLIENT.includes('fetch('));
 });
+
+test('rich text is restricted to safe tags and formatting uses block-local state',()=>{
+ assert.ok(DEMO_CLIENT.includes("function htmlSafe("));
+ assert.ok(DEMO_CLIENT.includes("function editorFormatToolbar("));
+ assert.ok(DEMO_CLIENT.includes("function duplicateBlock("));
+ assert.ok(DEMO_CLIENT.includes("strong"));
+ assert.ok(DEMO_CLIENT.includes("em"));
+ assert.ok(DEMO_CLIENT.includes("fontSize"));
+ assert.ok(DEMO_CLIENT.includes("validColor"));
+ assert.ok(DEMO_CLIENT.includes("sizeOf"));
+ assert.ok(DEMO_CLIENT.includes("uniqueBlockId"));
+ assert.ok(DEMO_CLIENT.includes("Supprimer cet élément"));
+ assert.ok(!DEMO_CLIENT.includes("eval("));
+});
