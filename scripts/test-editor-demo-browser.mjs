@@ -16,6 +16,9 @@ try{
   // Test steps 3-4: text formatting, add, duplicate, reorder, delete, and saved drafts.
   const firstBlock=page.locator('#workspace .block').first();
   const title=firstBlock.locator('.ed.heading');
+  assert.equal(await firstBlock.locator('.tools').evaluate(e=>getComputedStyle(e).position),'static');
+  assert.ok(await firstBlock.getByLabel('Dupliquer').isVisible());
+  assert.ok(await firstBlock.getByLabel('Supprimer').isVisible());
   assert.ok(await title.isVisible());
   await firstBlock.getByLabel('Taille du texte').selectOption('24');
   await firstBlock.getByLabel('Couleur du texte').fill('#a14b35');
