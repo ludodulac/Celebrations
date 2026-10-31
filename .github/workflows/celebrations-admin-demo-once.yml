@@ -66,3 +66,5 @@ jobs:
 # Accessible static block controls fix for stages 3 and 4; staged demo only.
 
 # Stage 3+4 block control mobile touch correction: CI campaign 2/2; no production modifications.
+
+# Simplified contextual block tools: first staging deployment and mobile/desktop QA.
