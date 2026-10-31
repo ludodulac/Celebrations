@@ -61,4 +61,4 @@ jobs:
           console.log('DEMO_HISTORICAL_PASS pages=47 published=0 blocks=327');
           NODE
 
-# Text styles and block duplication: staging-only, first CI campaign; production untouched.
+# Text styles and block duplication: staging-only, second/final CI campaign after contextual control QA fix.
