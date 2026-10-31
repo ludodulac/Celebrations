@@ -59,3 +59,5 @@ jobs:
           assert.deepEqual([q.pages,q.published,q.blocks],[47,0,327]);
           console.log('DEMO_HISTORICAL_PASS pages=47 published=0 blocks=327');
           NODE
+
+# Preparation source-view deploy: campaign 2/2; SQL mock fixed, no production writes.
