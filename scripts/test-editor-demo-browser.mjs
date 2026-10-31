@@ -17,9 +17,12 @@ try{
   const firstBlock=page.locator('#workspace .block').first();
   const title=firstBlock.locator('.ed.heading');
   assert.equal(await firstBlock.locator('.tools').evaluate(e=>getComputedStyle(e).position),'static');
+  assert.equal(await firstBlock.getByLabel('Dupliquer').isVisible(),false,'Unselected block controls must be hidden');
+  assert.equal(await firstBlock.getByLabel('Taille du texte').isVisible(),false,'Unselected formatting must be hidden');
+  await title.click();
   assert.ok(await firstBlock.getByLabel('Dupliquer').isVisible());
   assert.ok(await firstBlock.getByLabel('Supprimer').isVisible());
-  assert.ok(await title.isVisible());
+  assert.ok(await firstBlock.getByLabel('Taille du texte').isVisible());
   await firstBlock.getByLabel('Taille du texte').selectOption('24');
   await firstBlock.getByLabel('Couleur du texte').fill('#a14b35');
   await firstBlock.getByLabel('Alignement').selectOption('right');
@@ -71,7 +74,9 @@ try{
   assert.equal(await page.locator('[data-file-id]').count(),2);
   await page.locator('[data-tab="pages"]').click();
   // Choose the BUTTON block, not the earlier IMAGE block (which filters PDFs).
-  await page.locator('.block').filter({has:page.locator('.link-block')}).locator('[data-action="choose-asset"]').click();
+  const buttonBlock=page.locator('.block').filter({has:page.locator('.link-block')});
+  await buttonBlock.locator('.link-block').click();
+  await buttonBlock.locator('[data-action="choose-asset"]').click();
   await page.locator('[data-file-id]').filter({hasText:'exemple.pdf'}).locator('[data-action="use-asset"]').click();
   await page.locator('#save-btn').click();
   await page.reload();
