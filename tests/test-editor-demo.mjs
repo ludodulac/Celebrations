@@ -3,6 +3,7 @@ import test from 'node:test';
 import vm from 'node:vm';
 import {handleEditorDemo} from '../migration/cloudflare/editor-demo-page.mjs';
 import {DEMO_CLIENT} from '../migration/cloudflare/editor-demo-client.mjs';
+import {DEMO_CSS} from '../migration/cloudflare/editor-demo-style.mjs';
 const BASE='https://celebrations-exit-staging.rondes.workers.dev/__editor/demo';
 test('demo is anonymous, local and CSP-restricted',async()=>{
  const response=handleEditorDemo(new Request(BASE));
@@ -43,4 +44,11 @@ test('rich text is restricted to safe tags and formatting uses block-local state
  assert.ok(DEMO_CLIENT.includes("uniqueBlockId"));
  assert.ok(DEMO_CLIENT.includes("Supprimer cet élément"));
  assert.ok(!DEMO_CLIENT.includes("eval("));
+});
+
+test('block toolbar remains visible and in flow on desktop and phone',()=>{
+ assert.match(DEMO_CSS,/\.tools\{position:static;display:flex;/);
+ assert.doesNotMatch(DEMO_CSS,/\.tools\{position:absolute;/);
+ assert.ok(DEMO_CLIENT.includes("'Dupliquer'"));
+ assert.ok(DEMO_CLIENT.includes("'Supprimer'"));
 });
