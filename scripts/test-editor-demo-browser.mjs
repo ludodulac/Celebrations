@@ -22,6 +22,7 @@ try{
   await title.click();
   assert.ok(await firstBlock.getByLabel('Dupliquer').isVisible());
   assert.ok(await firstBlock.getByLabel('Supprimer').isVisible());
+  assert.equal(await firstBlock.locator('.tools').evaluate(e=>getComputedStyle(e).position),mobile?'fixed':'static');
   assert.ok(await firstBlock.getByLabel('Taille du texte').isVisible());
   await firstBlock.getByLabel('Taille du texte').selectOption('24');
   await firstBlock.getByLabel('Couleur du texte').fill('#a14b35');
