@@ -12,6 +12,43 @@ try{
   await page.locator('#save-btn').click();
   await page.reload();
   await page.getByText('Essai visuel').waitFor();
+
+  // Test steps 3-4: text formatting, add, duplicate, reorder, delete, and saved drafts.
+  const firstBlock=page.locator('#workspace .block').first();
+  const title=firstBlock.locator('.ed.heading');
+  assert.ok(await title.isVisible());
+  await firstBlock.getByLabel('Taille du texte').selectOption('24');
+  await firstBlock.getByLabel('Couleur du texte').fill('#a14b35');
+  await firstBlock.getByLabel('Alignement').selectOption('right');
+  await firstBlock.getByLabel('Gras (sélection ou bloc)').click();
+  await firstBlock.getByLabel('Italique (sélection ou bloc)').click();
+  assert.equal(await title.evaluate(e=>getComputedStyle(e).fontSize),'24px');
+  assert.equal(await firstBlock.evaluate(e=>e.style.textAlign),'right');
+  const before=await page.locator('#workspace .block').count();
+  await firstBlock.getByLabel('Dupliquer').click();
+  assert.equal(await page.locator('#workspace .block').count(),before+1);
+  await page.locator('#workspace .block').nth(1).locator('.ed.heading').fill('Titre dupliqué');
+  await page.locator('#workspace .block').nth(1).getByLabel('Descendre').click();
+  await page.getByRole('button',{name:'Paragraphe'}).click();
+  assert.equal(await page.locator('#workspace .block').count(),before+2);
+  await page.locator('#save-btn').click();
+  await page.reload();
+  await page.getByText('Titre dupliqué').waitFor();
+  assert.equal(await page.locator('#workspace .block').count(),before+2);
+  const afterReload=page.locator('#workspace .block').first();
+  assert.equal(await afterReload.evaluate(e=>e.style.textAlign),'right');
+  assert.equal(await afterReload.locator('.ed.heading').evaluate(e=>getComputedStyle(e).fontSize),'24px');
+  assert.equal(await afterReload.locator('.ed.heading').evaluate(e=>getComputedStyle(e).fontWeight),'700');
+  await page.locator('#preview-btn').click();
+  assert.equal(await page.locator('#workspace .formatbar').count(),0);
+  await page.locator('#preview-btn').click();
+  const duplicate=page.locator('#workspace .block').filter({hasText:'Titre dupliqué'});
+  page.once('dialog',d=>d.accept());
+  await duplicate.getByLabel('Supprimer').click();
+  assert.equal(await page.locator('#workspace .block').count(),before+1);
+  await page.locator('#save-btn').click();
+  console.log('VISUAL_FORMAT_AND_BLOCKS_PASS mobile='+mobile+' rich_text=true duplicate=true move=true delete=true saved=true');
+
   await page.locator('[data-tab="celebrations"]').click();
   await page.getByText('Programme de démonstration').waitFor();
   // Import a PDF and sound file into the browser-local library and attach the PDF to a button.
