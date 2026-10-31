@@ -23,7 +23,8 @@ try{
   await page.locator('[data-file-id]').first().waitFor();
   assert.equal(await page.locator('[data-file-id]').count(),2);
   await page.locator('[data-tab="pages"]').click();
-  await page.locator('[data-action="choose-asset"]').first().click();
+  // Choose the BUTTON block, not the earlier IMAGE block (which filters PDFs).
+  await page.locator('.block').filter({has:page.locator('.link-block')}).locator('[data-action="choose-asset"]').click();
   await page.locator('[data-file-id]').filter({hasText:'exemple.pdf'}).locator('[data-action="use-asset"]').click();
   await page.locator('#save-btn').click();
   await page.reload();
