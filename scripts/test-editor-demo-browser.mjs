@@ -28,10 +28,14 @@ try{
   assert.equal(await title.evaluate(e=>getComputedStyle(e).fontSize),'24px');
   assert.equal(await firstBlock.evaluate(e=>e.style.textAlign),'right');
   const before=await page.locator('#workspace .block').count();
-  await firstBlock.getByLabel('Dupliquer').click();
+  // Exercise a real touchscreen tap on the phone, not only desktop pointer clicks.
+  const duplicateAction=firstBlock.getByLabel('Dupliquer');
+  await duplicateAction.scrollIntoViewIfNeeded();
+  if(mobile)await duplicateAction.tap();else await duplicateAction.click();
   assert.equal(await page.locator('#workspace .block').count(),before+1);
   await page.locator('#workspace .block').nth(1).locator('.ed.heading').fill('Titre dupliqué');
-  await page.locator('#workspace .block').nth(1).getByLabel('Descendre').click();
+  const moveAction=page.locator('#workspace .block').nth(1).getByLabel('Descendre');
+  if(mobile)await moveAction.tap();else await moveAction.click();
   await page.getByRole('button',{name:'Paragraphe'}).click();
   assert.equal(await page.locator('#workspace .block').count(),before+2);
   await page.locator('#save-btn').click();
@@ -49,7 +53,8 @@ try{
   // Toolbar stays hidden on desktop until the block is focused or hovered.
   await duplicate.locator('.ed').click();
   page.once('dialog',d=>d.accept());
-  await duplicate.getByLabel('Supprimer').click();
+  const deleteAction=duplicate.getByLabel('Supprimer');
+  if(mobile)await deleteAction.tap();else await deleteAction.click();
   assert.equal(await page.locator('#workspace .block').count(),before+1);
   await page.locator('#save-btn').click();
   console.log('VISUAL_FORMAT_AND_BLOCKS_PASS mobile='+mobile+' rich_text=true duplicate=true move=true delete=true saved=true');
