@@ -61,4 +61,4 @@ jobs:
           console.log('DEMO_HISTORICAL_PASS pages=47 published=0 blocks=327');
           NODE
 
-# PDF/image/audio/video and link actions for staged browser-only demo; no production writes.
+# File library and link blocks second CI campaign (tests corrected); staging only, no production writes.
