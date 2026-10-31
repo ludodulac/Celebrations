@@ -27,6 +27,9 @@ try{
   await page.locator('[data-file-id]').filter({hasText:'exemple.pdf'}).locator('[data-action="use-asset"]').click();
   await page.locator('#save-btn').click();
   await page.reload();
+  await page.locator('[data-tab="media"]').click();
+  await page.getByText('exemple.pdf').waitFor();
+  await page.locator('[data-tab="pages"]').click();
   await page.locator('#preview-btn').click();
   assert.ok(await page.locator('a.link-block[href^="blob:"]').count()>0);
   await page.locator('#preview-btn').click();
