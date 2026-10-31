@@ -43,6 +43,8 @@ try{
   assert.equal(await page.locator('#workspace .formatbar').count(),0);
   await page.locator('#preview-btn').click();
   const duplicate=page.locator('#workspace .block').filter({hasText:'Titre dupliqué'});
+  // Toolbar stays hidden on desktop until the block is focused or hovered.
+  await duplicate.locator('.ed').click();
   page.once('dialog',d=>d.accept());
   await duplicate.getByLabel('Supprimer').click();
   assert.equal(await page.locator('#workspace .block').count(),before+1);
