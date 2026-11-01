@@ -108,3 +108,5 @@ jobs:
 # Neutral white/grey pages; only archangel celebration frames retain their colour. Staging-only deployment + browser QA.
 
 # Browser test updated: check only --frame-color and white neutral surfaces; final staging QA rerun.
+
+# Navigation fix: new editor's Accueil general stays within demo-preparation (no old /__editor/demo), staging only.
