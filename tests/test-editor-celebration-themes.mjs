@@ -39,3 +39,14 @@ test('Theme selection is kept in local drafts and preview without changing text 
  assert.match(TRIAL_SITE_STYLE,/\.trial-paragraph\{color:#484f55\}/);
  assert.match(TRIAL_SITE_STYLE,/\.trial-heading\{color:#292e32\}/);
 });
+
+test('Only the frame uses the archangel colour in both editor and trial site',()=>{
+ assert.match(DEMO_CSS,/\.stage-editor\{--tone-bg:#fff;--tone-light:#fafafa/);
+ assert.match(DEMO_CSS,/\.stage-editor\.is-celebration \.canvas\{border:5px solid var\(--frame-color\)/);
+ assert.match(TRIAL_SITE_STYLE,/:root\{--tone-bg:#fff;--tone-light:#fafafa/);
+ assert.match(TRIAL_SITE_STYLE,/\.site-paper\{border:6px solid var\(--frame-color\)/);
+ assert.ok(DEMO_CLIENT.includes("setProperty('--frame-color'"));
+ assert.ok(TRIAL_SITE_CLIENT.includes("setProperty('--frame-color'"));
+ assert.ok(!DEMO_CLIENT.includes("setProperty('--tone-'+key"));
+ assert.ok(!TRIAL_SITE_CLIENT.includes("setProperty('--tone-'+keys[i]"));
+});
