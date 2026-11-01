@@ -32,6 +32,11 @@ Dans l'atelier de test `/__editor/demo-preparation` → **♫ MP3 et stockage R2
 
 ## Limites actuellement assumées
 - Le stockage des brouillons n'est pas encore serveur : un collègue connecté depuis un autre appareil peut voir le même stock R2, mais pas encore les utilisations locales des MP3 sur chaque autre appareil.
-- Aucune compression MP3 automatique n'est intégrée. Elle devra être facultative et testée pour respecter la qualité des conférences et de la musique.
+- Les WAV RIFF PCM (8/16/24/32 bits) et float 32 bits peuvent être convertis **facultativement** en MP3 dans un Web Worker local, sans téléverser le WAV ; le WAV d’origine reste intact.
+- Qualités disponibles : 96 et 128 kb/s mono pour la parole, 160 et 192 kb/s stéréo pour la musique lorsque la source comporte plusieurs canaux.
+- Conversion par fragments pour limiter la mémoire sur téléphone. Les WAV supérieurs à 1 Gio et les WAV compressés ou dans des conteneurs non RIFF ne sont pas pris en charge.
+- L’encodeur `lamejs@1.2.1` est empaqueté dans les ressources du domaine staging par la CI : aucun CDN externe requis à l’exécution. Voir `scripts/bundle_staging_audio_encoder.mjs` et l'avis LGPL-3.0.
+- Avant l'import dans R2, un MP3 converti peut être écouté ou téléchargé localement. Il n’est jamais téléversé sans cliquer sur « Importer ».
+- Les vérifications automatisées ne remplacent pas un essai d'un WAV réel de trois minutes sur le téléphone du propriétaire.
 - La suppression de médias R2 depuis cet atelier est volontairement bloquée tant que la détection des références multi-appareils n'est pas fiable.
 - Les tests automatisés du backend utilisent un faux stockage et ne prouvent pas encore un vrai upload de 300 Mio. Ne pas déclarer l'intégration complète avant un essai manuel avec un compte administrateur sur le staging.
