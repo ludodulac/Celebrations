@@ -89,3 +89,5 @@ jobs:
 # Four archangels / five coordinated colourways each: staging editor and trial-site palette QA only.
 
 # Archangel palette browser QA: verify saved draft and site preview after reload; staging only.
+
+# Final palette UX fix: save selected colourway immediately before changing the editing page.
