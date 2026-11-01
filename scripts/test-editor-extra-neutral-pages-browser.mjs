@@ -81,6 +81,7 @@ try {
   await page.locator('.block').last().locator('.picture').click();
   page.once('dialog',d=>{assert.ok(d.message().includes('restera dans la bibliothèque'));d.accept()});
   await page.locator('.block').last().getByLabel('Supprimer').click();
+  await page.locator('#save-btn').click();
   await page.locator('#workspace .list .item').filter({hasText:'Informations pratiques'}).click();
   await page.locator('.block').last().locator('.picture').click();
   page.once('dialog',d=>d.accept());
