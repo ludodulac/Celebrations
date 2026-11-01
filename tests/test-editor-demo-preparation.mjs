@@ -26,22 +26,24 @@ test('Preparation demo includes every public step/event/content/link without dat
  const r=await handlePreparationDemo(new Request(host),env);
  assert.equal(r.status,200);
  const html=await r.text();
- for(const required of ['Texte source exact','Temps de préparation','Description exacte','Audio historique','Description audio','Programme PDF','Texte du document','Lien source','preparation-101','Les sept étapes']){
+ for(const required of ['Texte source exact','Temps de préparation','Description exacte','Audio historique','Description audio','Programme PDF','Texte du document','Lien source','preparation-101','Pages de la célébration']){
   assert.ok(html.includes(required),required);
  }
  assert.ok(html.includes('media/son.mp3'));
  assert.ok(html.includes('media/preparation.pdf'));
  assert.ok(!html.includes('secret')&&!html.includes('committee/'));
  const seedMatch=html.match(/window\.__PREPARATION_SEED__=([\s\S]*?);document\.getElementById/);
- assert.ok(seedMatch,'7-page public seed embedded');
+ assert.ok(seedMatch,'8 celebration pages plus neutral home embedded');
  const seed=JSON.parse(seedMatch[1]);
- assert.equal(seed.pages.length,7);
- assert.deepEqual(seed.pages.map(p=>p.name),STAGES.map(s=>s.label));
+ assert.equal(seed.pages.length,9);
+ assert.deepEqual(seed.pages.filter(p=>p.group==='celebration').map(p=>p.name),STAGES.map(s=>s.label));
  for(const page of seed.pages)assert.ok(page.blocks.length>0,'Missing '+page.name);
- assert.ok(seed.pages[1].blocks.some(b=>b.text.includes('Rencontre mercredi')));
- assert.ok(seed.pages[6].blocks.some(b=>b.text.includes('PDF de clôture')));
- assert.ok(seed.pages[0].blocks.some(b=>b.text.includes('Programme PDF')));
+ assert.ok(seed.pages.find(p=>p.name==='Mercredi').blocks.some(b=>b.text.includes('Rencontre mercredi')));
+ assert.ok(seed.pages.find(p=>p.name==='Après préparation').blocks.some(b=>b.text.includes('PDF de clôture')));
+ assert.ok(seed.pages.find(p=>p.name==='Préparation').blocks.some(b=>b.text.includes('Programme PDF')));
  assert.ok(!html.includes('NE_PAS_PUBLIER'));
+ assert.equal(seed.pages.filter(p=>p.group==='page').length,1);
+ assert.equal(seed.pages[0].name,'Accueil de la célébration');
  assert.ok(html.includes("for(const archived of seed.pages"),'Older local edits preserved while other stages appear');
   assert.ok(sqls.every(x=>x.trim().startsWith('SELECT ')));
  assert.equal(sqls.length,6);
