@@ -1,0 +1,48 @@
+name: CELEBRATIONS - inventaire public MP3 en lecture seule
+on:
+  push:
+    branches: [feat/celebrations-admin-visual-mission-e2a-access]
+    paths: [.github/workflows/celebrations-mp3-index-readonly.yml]
+permissions:
+  contents: read
+jobs:
+  inventory:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+    steps:
+      - name: Lire les MP3 déjà publiquement reliés aux pages, sans écrire ni déployer
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          const account=process.env.CLOUDFLARE_ACCOUNT_ID,db=process.env.STAGING_D1_ID;
+          if(db!=='0f761662-241f-42cc-ac94-5c68b4aa7797')throw Error('Wrong staging database');
+          const sql=`SELECT c.id AS id,c.name AS title,c.file_name AS filename,
+            cc.archangel AS archangel,s.label AS page,e.title AS event_title,'event' AS source
+            FROM celebrations_contents c
+            JOIN celebrations_event_contents ec ON ec.content_id=c.id
+            JOIN celebrations_events e ON e.id=ec.event_id AND e.audience='all'
+            JOIN celebrations_celebrations cc ON cc.id=e.celebration_id
+            LEFT JOIN celebrations_steps s ON s.celebration_id=e.celebration_id AND s.step_key=e.step_key
+            WHERE c.audience='all' AND c.source_type='file' AND LOWER(c.storage_path) LIKE '%.mp3'
+            UNION ALL
+            SELECT c.id AS id,c.name AS title,c.file_name AS filename,
+            cc.archangel AS archangel,s.label AS page,NULL AS event_title,'step' AS source
+            FROM celebrations_contents c
+            JOIN celebrations_step_contents sc ON sc.content_id=c.id
+            JOIN celebrations_celebrations cc ON cc.id=sc.celebration_id
+            LEFT JOIN celebrations_steps s ON s.celebration_id=sc.celebration_id AND s.step_key=sc.step_key
+            WHERE c.audience='all' AND c.source_type='file' AND LOWER(c.storage_path) LIKE '%.mp3'
+            ORDER BY archangel,page,title`;
+          const url='https://api.cloudflare.com/client/v4/accounts/'+account+'/d1/database/'+db+'/query';
+          const r=await fetch(url,{method:'POST',headers:{Authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN,'Content-Type':'application/json'},body:JSON.stringify({sql})});
+          if(!r.ok)throw Error('Cloudflare HTTP '+r.status);
+          const x=await r.json();if(!x.success||!x.result?.[0]?.success)throw Error(JSON.stringify(x.errors||x.result?.[0]?.error||x).slice(0,600));
+          const rows=x.result[0].results||[];
+          console.log('PUBLIC_MP3_ROWS='+rows.length+' UNIQUE='+new Set(rows.map(r=>r.id)).size);
+          for(const a of rows)console.log('PUBLIC_MP3 '+JSON.stringify(a));
+          NODE
