@@ -116,3 +116,5 @@ jobs:
 # Retry visual selection QA with native Range-based bold/italic wrapping on touchscreens; staging only.
 
 # Targeted diagnostics of inline-colour draft persistence, isolated staging only.
+
+# Check persistence after normalising both legacy and modern rgb() colour syntax; staging only.
