@@ -26,7 +26,7 @@ test('Preparation demo includes every public step/event/content/link without dat
  const r=await handlePreparationDemo(new Request(host),env);
  assert.equal(r.status,200);
  const html=await r.text();
- for(const required of ['Texte source exact','Temps de préparation','Description exacte','Audio historique','Description audio','Programme PDF','Texte du document','Lien source','preparation-101','Préparation réelle']){
+ for(const required of ['Texte source exact','Temps de préparation','Description exacte','Audio historique','Description audio','Programme PDF','Texte du document','Lien source','preparation-101','Les sept étapes']){
   assert.ok(html.includes(required),required);
  }
  assert.ok(html.includes('media/son.mp3'));
