@@ -16,9 +16,9 @@ try{
   assert.equal(await page.locator('#workspace .list .item').count(),9);
   assert.equal(await page.locator('.editor-head h2').innerText(),'Accueil de la célébration');
   await page.locator('[data-tab="celebrations"]').click();
-  await page.getByText('Préparer la prochaine célébration : Gabriel').waitFor();
+  await page.getByText('Nouvelle célébration : Gabriel').waitFor();
   await page.getByLabel('Date du mercredi').fill('2026-11-04');
-  await page.getByRole('button',{name:'Créer le brouillon Gabriel'}).click();
+  await page.getByRole('button',{name:'Créer Gabriel'}).click();
   await page.waitForURL('**/demo-preparation?celebration=plan-gabriel-2026-11-04');
   assert.equal(await page.locator('.editor-head h2').innerText(),'Accueil de la célébration');
   assert.equal(await page.locator('#workspace .list .item').count(),9);
@@ -34,6 +34,8 @@ try{
   await preview.getByRole('button',{name:'⌂ Accueil'}).click();
   await preview.locator('#page-heading').getByText('Accueil général').waitFor();
   assert.ok(await preview.locator('body').evaluate(e=>e.classList.contains('is-neutral-preview')));
+  assert.equal(await preview.locator('.footer a').innerText(),'Administration');
+  assert.equal(await preview.locator('header a').count(),0,'No administration link in top of public preview');
   const back=await preview.locator('#back-admin').getAttribute('href');
   assert.ok(back.includes('page=neutral-accueil-general'));
   await preview.locator('#back-admin').click();
