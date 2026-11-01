@@ -28,7 +28,7 @@ try {
   assert.equal(await trial.locator('#stage-navigation').isVisible(),false);
   assert.ok(await trial.locator('body').evaluate(e=>e.classList.contains('is-neutral-preview')));
   await trial.locator('#menu-toggle').click();
-  assert.equal(await trial.locator('.general-tab').count(),2);
+  assert.equal(await trial.locator('.general-tab').count(),4);
   await trial.locator('#return-celebration').click();
   assert.equal(await trial.locator('.stage-tab').count(),9);
   await trial.getByRole('button',{name:'Un moment particulier'}).click();
