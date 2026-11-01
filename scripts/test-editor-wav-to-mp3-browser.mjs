@@ -26,12 +26,12 @@ try{
   await page.goto(BASE+'/__editor/demo-preparation');
   await page.locator('[data-tab="audio"]').click();
   await page.getByLabel('Choisir un MP3 ou WAV').setInputFiles({name:'essai-3-minutes.wav',mimeType:'audio/wav',buffer:generateWav()});
-  await page.getByRole('button',{name:'Convertir ce WAV en MP3'}).click();
+  await page.getByRole('button',{name:'Convertir en MP3'}).click();
   await page.waitForFunction(()=>/Conversion terminée|Conversion non terminée|Conversion annulée/.test(document.querySelector('.audio-feedback')?.textContent||''),{timeout:30000});
   const status=await page.locator('.audio-feedback').innerText();
   console.log('WAV_CONVERT_STATUS '+status);
   assert.ok(status.includes('Conversion terminée'),status);
-  const href=await page.getByRole('link',{name:'Télécharger le MP3 converti'}).getAttribute('href');
+  const href=await page.getByRole('link',{name:'Télécharger MP3'}).getAttribute('href');
   assert.ok(href.startsWith('blob:'));
   const downloadEvent=page.waitForEvent('download');
   await page.getByRole('link',{name:'Télécharger le MP3 converti'}).click();
@@ -42,8 +42,9 @@ try{
   assert.ok(converted.size>1000&&converted.size<400000,JSON.stringify(converted));
   // ID3 header or MPEG frame sync.
   assert.ok((converted.magic[0]===73&&converted.magic[1]===68&&converted.magic[2]===51)||(converted.magic[0]===255&&(converted.magic[1]&224)===224),'MP3 signature '+JSON.stringify(converted.magic));
-  assert.equal(await page.getByRole('button',{name:'Importer le MP3 dans R2 (test)'}).isEnabled(),true);
-  assert.ok((await page.locator('.audio-details').innerText()).includes('Original préservé'));
+  assert.equal(await page.getByRole('button',{name:'Importer MP3'}).isEnabled(),true);
+  assert.ok((await page.locator('.audio-details').innerText()).includes('.mp3'));
+  assert.ok((await page.locator('.audio-feedback').innerText()).includes('Conversion terminée'));
   console.log('WAV_TO_MP3_BROWSER_PASS mobile='+(width===390)+' encodedBytes='+converted.size+' no_server_upload=true');
   await context.close();
  }
