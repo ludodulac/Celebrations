@@ -53,7 +53,7 @@ try{
   const trialState=await trial.evaluate(()=>({key:'celebrations-demo-preparation-'+window.__TRIAL_SITE_SEED__.celebrationId,storage:localStorage.getItem('celebrations-demo-preparation-'+window.__TRIAL_SITE_SEED__.celebrationId),stage:document.querySelector('#page-heading')?.textContent,html:document.querySelector('#stage-main')?.innerText?.slice(0,400)}));
   assert.ok(trialState.storage?.includes(marker),'Preview must access saved draft on same origin '+JSON.stringify({stage:trialState.stage,html:trialState.html,key:trialState.key}));
   await trial.getByText(marker).waitFor();
-  assert.equal(await trial.locator('#palette-label').innerText(),paletteName);
+  assert.equal(await trial.locator('#palette-label').count(),0,'No explanatory colour text in reader view');
   assert.equal(await trial.evaluate(()=>document.documentElement.style.getPropertyValue('--frame-color')),chosenFrame);
   assert.equal(await trial.locator('body').evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(255, 255, 255)','Trial site backgrounds remain neutral');
   assert.equal(await trial.locator('#page-heading').evaluate(e=>getComputedStyle(e).color),'rgb(41, 46, 50)');
