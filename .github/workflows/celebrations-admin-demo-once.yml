@@ -167,3 +167,5 @@ jobs:
 # Only UI text simplification and bottom-only Administration link; 2026-11-02 staging-only QA.
 
 # QA: palette name hint intentionally absent from reader site; compare actual frame colour instead.
+
+# Test update: WAV MP3 download uses the shortened button name in both Playwright selectors.
