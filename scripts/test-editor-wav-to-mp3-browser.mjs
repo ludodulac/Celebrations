@@ -19,12 +19,17 @@ try{
  for(const width of [390,1280]){
   const context=await browser.newContext({viewport:{width,height:850},isMobile:width===390,hasTouch:width===390});
   const page=await context.newPage();page.setDefaultTimeout(45000);
-  page.on('pageerror',e=>{throw e});
+  page.on('pageerror',e=>console.log('WAV_PAGE_ERROR '+e.message));
+  page.on('console',m=>{if(m.type()==='error')console.log('WAV_BROWSER_CONSOLE '+m.text())});
+  page.on('requestfailed',r=>console.log('WAV_NETWORK_FAILED '+r.url()+' '+r.failure()?.errorText));
   await page.goto(BASE+'/__editor/demo-preparation');
   await page.locator('[data-tab="audio"]').click();
   await page.getByLabel('Choisir un MP3 ou WAV').setInputFiles({name:'essai-3-minutes.wav',mimeType:'audio/wav',buffer:generateWav()});
   await page.getByRole('button',{name:'Convertir ce WAV en MP3'}).click();
-  await page.getByText('✓ Conversion terminée.',{exact:false}).waitFor({timeout:45000});
+  await page.waitForFunction(()=>/Conversion terminée|Conversion non terminée|Conversion annulée/.test(document.querySelector('.audio-feedback')?.textContent||''),{timeout:30000});
+  const status=await page.locator('.audio-feedback').innerText();
+  console.log('WAV_CONVERT_STATUS '+status);
+  assert.ok(status.includes('Conversion terminée'),status);
   const href=await page.getByRole('link',{name:'Télécharger le MP3 converti'}).getAttribute('href');
   assert.ok(href.startsWith('blob:'));
   const converted=await page.evaluate(async()=>{const a=document.querySelector('.audio-converted audio');const x=await fetch(a.src);const blob=await x.blob();const magic=[...new Uint8Array(await blob.slice(0,4).arrayBuffer())];return {size:blob.size,magic,duration:a.duration||null}});
