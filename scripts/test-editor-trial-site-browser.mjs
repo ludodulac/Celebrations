@@ -35,6 +35,9 @@ try{
   await page.locator('#save-btn').click();
   await page.reload();
   await page.locator('#workspace .list .item').filter({hasText:'Mercredi'}).click();
+  const savedState=await page.evaluate(()=>JSON.parse(localStorage.getItem('celebrations-demo-preparation-'+window.__PREPARATION_SEED__.celebrationId)||'null'));
+  const savedPage=savedState?.pages?.find(x=>x.id.startsWith('mercredi-'));
+  assert.equal(savedPage?.blocks?.[0]?.text,marker,'Saving the theme must retain the page text after reload');
   await page.locator('#theme-toggle').click();
   assert.equal(await page.locator('#theme-grid .theme-option[data-palette="3"]').getAttribute('aria-pressed'),'true');
   await page.locator('#theme-toggle').click();
@@ -44,6 +47,8 @@ try{
   const [trial]=await Promise.all([page.waitForEvent('popup'),link.click()]);
   await trial.waitForLoadState('domcontentloaded');
   assert.match(trial.url(),/\/__editor\/voir-le-site/);
+  const trialState=await trial.evaluate(()=>({key:'celebrations-demo-preparation-'+window.__TRIAL_SITE_SEED__.celebrationId,storage:localStorage.getItem('celebrations-demo-preparation-'+window.__TRIAL_SITE_SEED__.celebrationId),stage:document.querySelector('#page-heading')?.textContent,html:document.querySelector('#stage-main')?.innerText?.slice(0,400)}));
+  assert.ok(trialState.storage?.includes(marker),'Preview must access saved draft on same origin '+JSON.stringify({stage:trialState.stage,html:trialState.html,key:trialState.key}));
   await trial.getByText(marker).waitFor();
   assert.equal(await trial.locator('#palette-label').innerText(),paletteName);
   assert.equal(await trial.evaluate(()=>document.documentElement.style.getPropertyValue('--tone-deep')),chosenDeep);
