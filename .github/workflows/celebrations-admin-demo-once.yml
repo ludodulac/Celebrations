@@ -114,3 +114,5 @@ jobs:
 # Inline rich-text QA: selected bold and colour, whole-paragraph font size, local drafts and test-site rendering (staging only).
 
 # Retry visual selection QA with native Range-based bold/italic wrapping on touchscreens; staging only.
+
+# Targeted diagnostics of inline-colour draft persistence, isolated staging only.
