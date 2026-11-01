@@ -26,8 +26,9 @@ try{
   const palette=page.locator('#theme-grid .theme-option[data-palette="3"]');
   const paletteName=await palette.locator('strong').innerText();
   await palette.click();
-  const chosenDeep=await page.locator('.stage-editor').evaluate(e=>e.style.getPropertyValue('--tone-deep'));
-  assert.match(chosenDeep,/^#[0-9a-f]{6}$/i);
+  const chosenFrame=await page.locator('.stage-editor').evaluate(e=>e.style.getPropertyValue('--frame-color'));
+  assert.match(chosenFrame,/^#[0-9a-f]{6}$/i);
+  assert.equal(await page.locator('.stage-editor .main').evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(255, 255, 255)','Editor backgrounds remain neutral');
   assert.equal(await page.locator('.stage-editor .heading').first().evaluate(e=>getComputedStyle(e).color),'rgb(41, 46, 50)');
   assert.equal(await page.locator('#save-btn').innerText(),'Enregistrer','Palette should autosave locally');
   await page.locator('#workspace .list .item').filter({hasText:'Mercredi'}).click();
@@ -53,7 +54,8 @@ try{
   assert.ok(trialState.storage?.includes(marker),'Preview must access saved draft on same origin '+JSON.stringify({stage:trialState.stage,html:trialState.html,key:trialState.key}));
   await trial.getByText(marker).waitFor();
   assert.equal(await trial.locator('#palette-label').innerText(),paletteName);
-  assert.equal(await trial.evaluate(()=>document.documentElement.style.getPropertyValue('--tone-deep')),chosenDeep);
+  assert.equal(await trial.evaluate(()=>document.documentElement.style.getPropertyValue('--frame-color')),chosenFrame);
+  assert.equal(await trial.locator('body').evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(255, 255, 255)','Trial site backgrounds remain neutral');
   assert.equal(await trial.locator('#page-heading').evaluate(e=>getComputedStyle(e).color),'rgb(41, 46, 50)');
   assert.equal(await trial.locator('.stage-tab').count(),8);
   assert.ok(await trial.locator('#site-paper').evaluate(e=>getComputedStyle(e).borderTopColor)!=='rgb(216, 218, 222)');
