@@ -32,12 +32,13 @@ jobs:
           node --check migration/cloudflare/editor-demo-client.mjs
           node --check migration/cloudflare/editor-demo-style.mjs
           node --check migration/cloudflare/editor-demo-preparation-page.mjs
+          node --check migration/cloudflare/editor-celebration-themes.mjs
           node --check scripts/test-editor-seven-stages-browser.mjs
           node --check migration/cloudflare/editor-trial-site-page.mjs
           node --check migration/cloudflare/editor-trial-site-client.mjs
           node --check scripts/test-editor-trial-site-browser.mjs
           node --check migration/cloudflare/staging-worker.mjs
-          node --test tests/test-editor-demo.mjs tests/test-editor-demo-preparation.mjs tests/test-editor-trial-site.mjs
+          node --test tests/test-editor-demo.mjs tests/test-editor-demo-preparation.mjs tests/test-editor-trial-site.mjs tests/test-editor-celebration-themes.mjs
       - name: Prepare staging assets and Wrangler
         run: |
           python scripts/build_staging_assets.py
@@ -84,3 +85,5 @@ jobs:
 # Trial-site preview + Voir le site QA: retry after 404 handler regression fixed; staging only.
 
 # Fix mobile PDF chooser width while retaining responsive Voir le site previews; staging only.
+
+# Four archangels / five coordinated colourways each: staging editor and trial-site palette QA only.
