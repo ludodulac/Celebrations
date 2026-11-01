@@ -61,13 +61,13 @@ async function convert(file,kbps){
  async function load(frame){
   if(frame>=cacheStart&&frame<cacheEnd)return;
   cacheStart=Math.max(0,Math.min(info.frames-1,Math.floor(frame/CHUNK_FRAMES)*CHUNK_FRAMES));
-  cacheEnd=Math.min(info.frames,cacheStart+CHUNK_FRAMES+1);
+  cacheEnd=Math.min(info.frames,cacheStart+CHUNK_FRAMES+8192);
   const offset=info.start+cacheStart*info.align;
   cache=new DataView(await file.slice(offset,offset+(cacheEnd-cacheStart)*info.align).arrayBuffer());
  }
- async function mono(frame){
+ function mono(frame){
   const i=Math.max(0,Math.min(info.frames-1,frame));
-  await load(i);
+  if(i<cacheStart||i>=cacheEnd)fail('Erreur de lecture du WAV : fragment manquant.');
   let result=0;
   const off=(i-cacheStart)*info.align;
   for(let channel=0;channel<info.channels;channel++)
@@ -78,11 +78,12 @@ async function convert(file,kbps){
  let lastPercent=-1;
  for(let start=0;start<count;start+=1152){
   const length=Math.min(1152,count-start);
+  await load(Math.floor(start*info.rate/rate));
   for(let j=0;j<length;j++){
    const at=(start+j)*info.rate/rate,idx=Math.floor(at),frac=at-idx;
    // Fast path for common 44.1/48 kHz PCM: no interpolation or extra chunk reads.
-   const left=await mono(idx);
-   const result=frac>0?left*(1-frac)+(await mono(Math.min(info.frames-1,idx+1)))*frac:left;
+   const left=mono(idx);
+   const result=frac>0?left*(1-frac)+mono(Math.min(info.frames-1,idx+1))*frac:left;
    target[j]=Math.max(-32768,Math.min(32767,Math.round(result*32767)));
   }
   const encoded=encoder.encodeBuffer(length===1152?target:target.subarray(0,length));
