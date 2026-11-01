@@ -37,6 +37,7 @@ jobs:
           node --check migration/cloudflare/editor-trial-site-page.mjs
           node --check migration/cloudflare/editor-trial-site-client.mjs
           node --check scripts/test-editor-trial-site-browser.mjs
+          node --check scripts/test-editor-extra-neutral-pages-browser.mjs
           node --check migration/cloudflare/staging-worker.mjs
           node --test tests/test-editor-demo.mjs tests/test-editor-demo-preparation.mjs tests/test-editor-trial-site.mjs tests/test-editor-celebration-themes.mjs
       - name: Prepare staging assets and Wrangler
@@ -52,6 +53,8 @@ jobs:
         run: npx wrangler deploy --config wrangler.toml
       - name: Verify seven real programme pages on desktop and phone
         run: node scripts/test-editor-seven-stages-browser.mjs
+      - name: Verify custom celebration pages and general neutral hamburger
+        run: node scripts/test-editor-extra-neutral-pages-browser.mjs
       - name: Verify Voir le site button, edited preview, and mobile/desktop widths
         run: node scripts/test-editor-trial-site-browser.mjs
       - name: Verify browser demo on desktop and phone
@@ -91,3 +94,5 @@ jobs:
 # Archangel palette browser QA: verify saved draft and site preview after reload; staging only.
 
 # Final palette UX fix: save selected colourway immediately before changing the editing page.
+
+# Bright red/green/indigo/yellow palettes; celebration frames, eight fixed pages, optional pages, neutral hamburger, staging only.
