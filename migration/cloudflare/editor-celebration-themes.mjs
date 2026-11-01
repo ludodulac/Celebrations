@@ -2,32 +2,32 @@
 // No change to typography: foreground text always stays charcoal or dark grey.
 const PALETTES={
  michael:[
-  {name:'Rubis délicat',shades:['#fff8f7','#f9e1de','#e3aaa4','#be5557','#8c3036']},
-  {name:'Carmin classique',shades:['#fdf4f4','#f1d5d7','#d69ba0','#ae414a','#81232e']},
-  {name:'Grenat profond',shades:['#fcf6f7','#e8d9dc','#c598a3','#984252','#6c2637']},
-  {name:'Rose ancien',shades:['#fff8f8','#f4e5e7','#ddb5bd','#c16b7a','#90434f']},
-  {name:'Rouge velours',shades:['#fdf6f4','#f3deda','#dca6a1','#ad514e','#783633']}
+  {name:'Rouge franc',shades:['#fff5f4','#ffe0df','#f59891','#ea342f','#c71d1a']},
+  {name:'Rouge vif',shades:['#fff7f5','#ffd8d5','#ffaba4','#ed3734','#d21d1d']},
+  {name:'Rouge coquelicot',shades:['#fff7f2','#ffdfd5','#ffad94','#f34d32','#ce2b21']},
+  {name:'Rouge éclatant',shades:['#fff3f2','#ffdbd8','#fa9995','#e82d36','#c71d29']},
+  {name:'Rouge vermillon',shades:['#fff7f0','#ffe0d1','#ffae95','#f04930','#cb2d20']}
  ],
  raphael:[
-  {name:'Sauge tendre',shades:['#f7faf6','#e3eee2','#aecbb1','#639c73','#376c4c']},
-  {name:'Émeraude',shades:['#f5fbf8','#d8efe2','#98ceb1','#3d9874','#1d6650']},
-  {name:'Olive douce',shades:['#fafbf5','#ecefdb','#c8d09d','#8b9c4d','#596733']},
-  {name:'Forêt',shades:['#f5f9f6','#dce9df','#aac4b0','#5a866c','#315a45']},
-  {name:'Menthe',shades:['#f4fcf9','#daf4e9','#a0dcca','#52ac97','#2d7569']}
+  {name:'Vert clair',shades:['#f3fff5','#d9f5df','#8fdaa7','#32ba63','#138644']},
+  {name:'Vert émeraude',shades:['#f1fff7','#d4f6e3','#91e4b6','#21b36a','#078c50']},
+  {name:'Vert prairie',shades:['#f6fff4','#def5d9','#a9dea0','#57b94b','#2e943b']},
+  {name:'Vert feuille',shades:['#f6fff5','#dcf3dd','#9fd6a3','#38aa55','#208443']},
+  {name:'Vert jade',shades:['#f1fff8','#d7f7e8','#98e1bf','#35b887','#0d8862']}
  ],
  gabriel:[
-  {name:'Bleu ciel',shades:['#f5faff','#e0effc','#accfe9','#6b9ec7','#3b6e97']},
-  {name:'Azur',shades:['#f5faff','#d8ecff','#99c7e9','#428fca','#26608f']},
-  {name:'Bleu ardoise',shades:['#f5f8fa','#dfe8ef','#b3c8d9','#6c94b4','#446682']},
-  {name:'Bleu nuit doux',shades:['#f7f9fc','#dce5f2','#a6bedd','#6689bd','#395d94']},
-  {name:'Bleu lagon',shades:['#f4fbfc','#dbf0f3','#a0d0db','#4c9bab','#337787']}
+  {name:'Indigo lumineux',shades:['#f6f5ff','#e4e1ff','#b6aff9','#665ce4','#4134b9']},
+  {name:'Indigo profond',shades:['#f5f4ff','#e2dcff','#aca3ee','#5b4fd4','#382db1']},
+  {name:'Indigo violet',shades:['#f8f5ff','#ebe0ff','#c1a8fa','#7756e5','#5532bd']},
+  {name:'Indigo azur',shades:['#f5f6ff','#e0e6ff','#a7b5fb','#5a6de0','#3948b9']},
+  {name:'Indigo royal',shades:['#f6f5ff','#e2dfff','#aba5ee','#6256d5','#4037ae']}
  ],
  auriel:[
-  {name:'Or lumineux',shades:['#fffbef','#fbf0cd','#efd38c','#dca742','#a67b2d']},
-  {name:'Abricot',shades:['#fffaf4','#fce7d0','#f3c294','#e69b5b','#b66c35']},
-  {name:'Ambre',shades:['#fff9ec','#f8e6bd','#ebc379','#d69a3c','#9b6b25']},
-  {name:'Miel doux',shades:['#fffcf2','#f7edcf','#e9d29b','#cba253','#98763c']},
-  {name:'Safran',shades:['#fff9ef','#fbe8bd','#f1c774','#e5a544','#a87128']}
+  {name:'Jaune soleil',shades:['#fffef1','#fff6c3','#ffdf6f','#efbb1f','#c49209']},
+  {name:'Jaune citron',shades:['#fffff2','#fffbc4','#f1eb83','#e0ce2a','#af9e1b']},
+  {name:'Jaune doré',shades:['#fffcef','#fff2bb','#f9da70','#e8b52d','#b98c12']},
+  {name:'Jaune lumineux',shades:['#fffef4','#fff4d1','#f8db91','#eebc43','#bb8b24']},
+  {name:'Jaune orangé',shades:['#fffaf0','#ffedd0','#ffce81','#f2a82c','#c58613']}
  ]
 };
 const fold=value=>String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
