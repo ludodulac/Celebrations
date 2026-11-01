@@ -1,14 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Script} from 'node:vm';
-import {handlePreparationDemo} from '../migration/cloudflare/editor-demo-preparation-page.mjs';
+import {handlePreparationDemo,STAGES} from '../migration/cloudflare/editor-demo-preparation-page.mjs';
 const host='https://celebrations-exit-staging.rondes.workers.dev/__editor/demo-preparation';
 const data={
  celebrations:[{id:101,archangel:'Michaël',year:'2026',status:'active'},{id:202,archangel:'Gabriel',year:'2026'}],
- steps:[{id:42,celebration_id:101,label:'Préparation',step_key:'preparation-101',start_date:'2026-10-01',end_date:null,body_text:'Texte source exact <important> et accents'}],
- events:[{id:'event-1',title:'Temps de préparation',event_time:'19:00',description:'Description exacte',audience:'all',sort_order:1}],
+ steps:STAGES.map((stage,index)=>({id:42+index,celebration_id:101,label:stage.label,step_key:stage.slug+'-101',start_date:'2026-10-01',end_date:null,body_text:index===0?'Texte source exact <important> et accents':'Contenu historique '+stage.label})),
+ events:[{id:'event-1',step_key:'preparation-101',title:'Temps de préparation',event_time:'19:00',description:'Description exacte',audience:'all',sort_order:1},{id:'event-2',step_key:'mercredi-101',title:'Rencontre mercredi',event_time:'10:00',description:'Rendez-vous public du mercredi',audience:'all',sort_order:2},{id:'event-hidden',step_key:'samedi-101',title:'Rendez-vous privé NE_PAS_PUBLIER',audience:'angel',sort_order:1}],
  eventContents:[{event_id:'event-1',sort_order:1,id:'a',name:'Audio historique',description:'Description audio',content_type:'Audio',source_type:'file',storage_path:'media/son.mp3',audience:'all'}],
- stepContents:[{sort_order:1,id:'b',name:'Programme PDF',content_type:'PDF',source_type:'file',storage_path:'media/preparation.pdf',inline_text:'Texte du document',audience:'all'}],
+ stepContents:[{step_key:'preparation-101',sort_order:1,id:'b',name:'Programme PDF',content_type:'PDF',source_type:'file',storage_path:'media/preparation.pdf',inline_text:'Texte du document',audience:'all'},{step_key:'apres-celebration-101',sort_order:2,id:'finale',name:'PDF de clôture',content_type:'PDF',source_type:'file',storage_path:'media/cloture.pdf',audience:'all'}],
  links:[{id:7,celebration_id:101,step_key:'preparation-101',event_id:null,url:'https://example.org/source',label:'Lien source',sort_order:1}]
 };
 const sqls=[];
@@ -32,7 +32,18 @@ test('Preparation demo includes every public step/event/content/link without dat
  assert.ok(html.includes('media/son.mp3'));
  assert.ok(html.includes('media/preparation.pdf'));
  assert.ok(!html.includes('secret')&&!html.includes('committee/'));
- assert.ok(sqls.every(x=>x.trim().startsWith('SELECT ')));
+ const seedMatch=html.match(/window\.__PREPARATION_SEED__=([\s\S]*?);document\.getElementById/);
+ assert.ok(seedMatch,'7-page public seed embedded');
+ const seed=JSON.parse(seedMatch[1]);
+ assert.equal(seed.pages.length,7);
+ assert.deepEqual(seed.pages.map(p=>p.name),STAGES.map(s=>s.label));
+ for(const page of seed.pages)assert.ok(page.blocks.length>0,'Missing '+page.name);
+ assert.ok(seed.pages[1].blocks.some(b=>b.text.includes('Rencontre mercredi')));
+ assert.ok(seed.pages[6].blocks.some(b=>b.text.includes('PDF de clôture')));
+ assert.ok(seed.pages[0].blocks.some(b=>b.text.includes('Programme PDF')));
+ assert.ok(!html.includes('NE_PAS_PUBLIER'));
+ assert.ok(html.includes("for(const archived of seed.pages"),'Older local edits preserved while other stages appear');
+  assert.ok(sqls.every(x=>x.trim().startsWith('SELECT ')));
  assert.equal(sqls.length,6);
  assert.match(r.headers.get('content-security-policy'),/connect-src 'none'/);
  const scripts=[...html.matchAll(/<script nonce="[0-9a-f]+">([\s\S]*?)<\/script>/g)].map(x=>x[1]);
