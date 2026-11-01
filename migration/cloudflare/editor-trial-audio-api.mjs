@@ -94,7 +94,7 @@ export async function handleTrialAudio(request,env){
    const key=url.searchParams.get('key'),uploadId=url.searchParams.get('uploadId'),partNumber=Number(url.searchParams.get('number'));
    if(!keyOk(key)||!uploadOk(uploadId)||!Number.isInteger(partNumber)||partNumber<1||partNumber>30)return fail('Partie invalide',400);
    const declared=Number(request.headers.get('content-length'));
-   if(!Number.isSafeInteger(declared)||declared<1||declared>PART||(partNumber<30&&partNumber!==1&&declared<5*1024*1024))return fail('Taille de partie invalide',413);
+   if(!Number.isSafeInteger(declared)||declared<1||declared>PART)return fail('Taille de partie invalide',413);
    const body=await request.arrayBuffer();
    if(body.byteLength!==declared)return fail('Partie incomplète',400);
    if(partNumber===1){
