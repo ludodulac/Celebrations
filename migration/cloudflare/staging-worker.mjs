@@ -16,7 +16,7 @@ import {setupPage,accessConfig,accessLogout} from "./editor-permanent-access.mjs
 import {handleEditorD4Access,handleEditorD4Login} from "./editor-d4-access.mjs";
 import {handleEditorE1} from "./editor-e1-api.mjs";
 import {handleEditorE1Page,handleEditorE1Client} from "./editor-e1-page.mjs";
-import {handleEditorDemo} from "./editor-demo-page.mjs";
+// The old disconnected demo redirects to the new visual editor; code remains available in GitHub.
 import {handlePreparationDemo} from "./editor-demo-preparation-page.mjs";
 import {handleTrialSite} from "./editor-trial-site-page.mjs";
 import {handleTrialAudio} from "./editor-trial-audio-api.mjs";
@@ -49,7 +49,7 @@ export default {
   if(path==="/__editor/access/logout")return accessLogout(request,env);
   if(path==="/api/editor-e1")return handleEditorE1(request,env);
   if(path==="/api/editor-trial-audio")return handleTrialAudio(request,env);
-  if(path==="/__editor/demo")return handleEditorDemo(request);
+  if(path==="/__editor/demo")return Response.redirect(new URL("/__editor/demo-preparation",url).toString(),302);
   if(path==="/__editor/demo-preparation")return handlePreparationDemo(request,env);
   if(path==="/__editor/voir-le-site")return handleTrialSite(request,env);
   if(path==="/__editor/edit")return handleEditorE1Page(request,env);
