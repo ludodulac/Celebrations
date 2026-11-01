@@ -5,13 +5,15 @@ import {DEMO_CLIENT} from './editor-demo-client.mjs';
 import {fiveColourways} from './editor-celebration-themes.mjs';
 const HOST='celebrations-exit-staging.rondes.workers.dev';
 export const STAGES=[
+ {label:'Accueil de la célébration',slug:'accueil-celebration'},
  {label:'Préparation',slug:'preparation'},
  {label:'Mercredi',slug:'mercredi'},
  {label:'Jeudi',slug:'jeudi'},
  {label:'Vendredi',slug:'vendredi'},
  {label:'Samedi',slug:'samedi'},
  {label:'Dimanche',slug:'dimanche'},
- {label:'Après célébration',slug:'apres-celebration'}
+ // Retain historical slug and its local edits; the requested visible name changes.
+ {label:'Après préparation',slug:'apres-celebration',legacyLabel:'Après célébration'}
 ];
 const clean=x=>String(x??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 const sort=(a,b)=>Number(a.sort_order??999)-Number(b.sort_order??999)||String(a.event_time??'').localeCompare(String(b.event_time??''),'fr')||String(a.id??'').localeCompare(String(b.id??''),'fr');
@@ -81,9 +83,9 @@ export async function loadSevenStageContent(env,selectedId){
    rows(env.DB,"SELECT * FROM celebrations_links WHERE celebration_id=? OR event_id IN (SELECT id FROM celebrations_events WHERE celebration_id=? AND audience='all') ORDER BY sort_order,id",celebration.id,celebration.id)
   ]);
   const pages=STAGES.map(stage=>{
-   const record=steps.find(s=>clean(s.label)===clean(stage.label)||clean(s.step_key)===stage.slug+'-'+celebration.id);
+   const record=steps.find(s=>clean(s.label)===clean(stage.label)||(stage.legacyLabel&&clean(s.label)===clean(stage.legacyLabel))||clean(s.step_key)===stage.slug+'-'+celebration.id);
    const id=stage.slug+'-'+celebration.id;
-   if(!record)return {id,name:stage.label,group:'celebration',blocks:[{id:1,kind:'heading',text:stage.label,align:'center'},{id:2,kind:'text',text:'Aucun contenu historique enregistré pour cette étape.',align:'left'}]};
+   if(!record)return {id,name:stage.label,group:'celebration',blocks:[{id:1,kind:'heading',text:stage.label,align:'center'}]};
    const key=record.step_key;
    const dayEvents=events.filter(e=>e.step_key===key).sort(sort);
    const allowedIds=new Set(dayEvents.map(e=>String(e.id)));
@@ -92,6 +94,8 @@ export async function loadSevenStageContent(env,selectedId){
    const dayStepContents=stc.filter(c=>c.step_key===key);
    return {id,name:stage.label,group:'celebration',blocks:toBlocks(celebration,record,dayEvents,dayEventContents,dayStepContents,dayLinks)};
   });
+  // Neutral pages are intentionally separate from the celebration's colour identity.
+  pages.push({id:'neutral-accueil-general',name:'Accueil général',group:'page',blocks:[{id:1,kind:'heading',text:'Accueil général',align:'center'}]});
   const seed={celebrationId:celebration.id,archangel:celebration.archangel,palettes:fiveColourways(celebration.archangel),pages};
   return {celebrations,celebration,seed};
 }
@@ -108,7 +112,7 @@ export async function handlePreparationDemo(request,env){
    .replace("const clone=o=>JSON.parse(JSON.stringify(o));","seed.pages=window.__PREPARATION_SEED__.pages;\nconst clone=o=>JSON.parse(JSON.stringify(o));")
    // Preserve earlier local edits to Préparation, while inserting the six other historical pages.
    .replace("if(!db||!Array.isArray(db.pages))db=clone(seed);",
-            "if(!db||!Array.isArray(db.pages))db=clone(seed);\nfor(const archived of seed.pages){if(!db.pages.some(p=>p.id===archived.id))db.pages.push(clone(archived));}")
+            "if(!db||!Array.isArray(db.pages))db=clone(seed);\nfor(const archived of seed.pages){if(!db.pages.some(p=>p.id===archived.id))db.pages.push(clone(archived));}\nfor(const official of seed.pages){const previous=db.pages.find(p=>p.id===official.id);if(previous&&official.id.startsWith('apres-celebration-'))previous.name='Après préparation';}")
    .replace("let tab='pages',id='home',dirty=false,preview=false,target=null,selectedBlockId=null;","let tab='pages',id=(seed.pages.find(p=>p.id===String(new URLSearchParams(location.search).get('page'))+'-'+window.__PREPARATION_SEED__.celebrationId)||seed.pages[0]).id,dirty=false,preview=false,target=null,selectedBlockId=null;")
    .replace("Choisir une page d’exemple","Les sept étapes de la célébration")
    .replace("function render(){","function render(){const see=document.getElementById('view-site-btn');if(see){const current=page();const stage=String(current.id).slice(0,String(current.id).lastIndexOf('-'));see.href='/__editor/voir-le-site?celebration='+encodeURIComponent(window.__PREPARATION_SEED__.celebrationId)+'&page='+encodeURIComponent(stage);}")
@@ -117,9 +121,9 @@ export async function handlePreparationDemo(request,env){
   if(!client.includes("window.__PREPARATION_SEED__.pages")||!client.includes("for(const archived of seed.pages)"))throw Error('Demo client adapter failed');
   const nonce=Array.from(crypto.getRandomValues(new Uint8Array(16)),v=>v.toString(16).padStart(2,'0')).join('');
   const choices=celebrations.map(c=>'<option value="'+escapeHtml(c.id)+'"'+(String(c.id)===String(celebration.id)?' selected':'')+'>'+escapeHtml(c.archangel+' '+(c.year||''))+'</option>').join('');
-  const html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Les sept étapes — atelier Célébrations</title><style nonce="'+nonce+'">'+DEMO_CSS+'</style></head><body>'+
-  '<div class="shell stage-editor"><aside class="rail"><div class="brand"><div class="mark">✦</div><div><strong>Célébrations</strong><small>Atelier visuel</small></div></div><nav aria-label="Navigation"><a class="navbtn active" style="text-decoration:none" href="/__editor/demo">← Atelier principal</a><button class="navbtn active" data-tab="pages">▤ Les sept étapes</button><button class="navbtn" data-tab="media">▧ Fichiers</button></nav><div class="bottom"><b>Copie de démonstration</b><br>Lecture uniquement des données publiques présentes dans la base de test. Aucun changement sur le site officiel.</div></aside>'+
-  '<div class="content"><header class="topbar"><div><h1 id="section-title">Les sept étapes — '+escapeHtml(celebration.archangel)+' '+escapeHtml(celebration.year||'')+'</h1><p>Les sept pages reprennent les textes, rendez-vous, documents et liens publics de la base de test.</p></div><div class="actions"><span class="badge">DÉMONSTRATION</span><button id="theme-toggle" type="button" class="btn theme-toggle" aria-expanded="false" aria-controls="theme-picker">🎨 Couleurs</button><button id="preview-btn" class="btn sm">Aperçu</button><button id="save-btn" class="btn primary">Enregistrer</button><a id="view-site-btn" class="btn view-site-btn" href="/__editor/voir-le-site" target="_blank" rel="noopener noreferrer">Voir le site ↗</a></div></header>'+
+  const html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Pages de la célébration — atelier Célébrations</title><style nonce="'+nonce+'">'+DEMO_CSS+'</style></head><body>'+
+  '<div class="shell stage-editor"><aside class="rail"><div class="brand"><div class="mark">✦</div><div><strong>Célébrations</strong><small>Atelier visuel</small></div></div><nav aria-label="Navigation"><a class="navbtn active" style="text-decoration:none" href="/__editor/demo">← Atelier principal</a><button class="navbtn active" data-tab="pages">▤ Pages de la célébration</button><button class="navbtn" data-tab="media">▧ Fichiers</button></nav><div class="bottom"><b>Copie de démonstration</b><br>Lecture uniquement des données publiques présentes dans la base de test. Aucun changement sur le site officiel.</div></aside>'+
+  '<div class="content"><header class="topbar"><div><h1 id="section-title">Pages de la célébration — '+escapeHtml(celebration.archangel)+' '+escapeHtml(celebration.year||'')+'</h1><p>Pages de la célébration et pages générales, avec les contenus publics de la base de test.</p></div><div class="actions"><span class="badge">DÉMONSTRATION</span><button id="theme-toggle" type="button" class="btn theme-toggle" aria-expanded="false" aria-controls="theme-picker">🎨 Couleurs</button><button id="preview-btn" class="btn sm">Aperçu</button><button id="save-btn" class="btn primary">Enregistrer</button><a id="view-site-btn" class="btn view-site-btn" href="/__editor/voir-le-site" target="_blank" rel="noopener noreferrer">Voir le site ↗</a></div></header>'+
   '<section id="theme-picker" class="theme-picker" hidden><h2>Choisir un camaïeu pour cette célébration</h2><p>Cinq ambiances de la même famille. Les textes restent noirs ou gris foncé.</p><div id="theme-grid" class="theme-grid"></div></section>'+ 
   '<main class="main"><div class="notice"><b>ⓘ Contenus historiques de test, sans modification du serveur.</b> Les contenus publics sont repris depuis la copie de test du site. Les contenus réservés et les changements plus récents du site officiel ne sont pas inclus. Vos modifications restent sur cet appareil, sans toucher au site officiel ni aux 47 pages historiques.</div><label for="celebration-choice"><b>Choisir la célébration :</b></label> <select id="celebration-choice" class="btn" style="max-width:350px;margin-bottom:20px">'+choices+'</select><div id="workspace"></div><p class="status" id="status" role="status" aria-live="polite"></p></main></div></div>'+
   '<input id="image-input" type="file" accept="image/jpeg,image/png,image/webp" hidden>'+
