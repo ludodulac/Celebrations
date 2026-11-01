@@ -60,3 +60,14 @@ test('only the selected block shows editing controls, simplifying the page',()=>
  assert.ok(DEMO_CLIENT.includes("box.onclick=()=>selectBlock(box)"));
  assert.ok(DEMO_CLIENT.includes('z.onfocus=()=>selectBlock(box)'));
 });
+
+test('Partial formatting preserves a selected range and keeps whole paragraph font size',()=>{
+ assert.ok(DEMO_CLIENT.includes('rememberedSelection'));
+ assert.ok(DEMO_CLIENT.includes('range.extractContents()'));
+ assert.ok(DEMO_CLIENT.includes("selected.selectNodeContents(span)"));
+ assert.ok(DEMO_CLIENT.includes("sizes.title='Taille du paragraphe entier'"));
+ assert.ok(DEMO_CLIENT.includes("make('G','Gras (sélection ou bloc)'"));
+ assert.ok(DEMO_CLIENT.includes('function inlineColor('));
+ assert.ok(DEMO_CLIENT.includes("tag==='span'||tag==='font'"));
+ assert.ok(!DEMO_CLIENT.includes('eval('));
+});
