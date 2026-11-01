@@ -110,3 +110,5 @@ jobs:
 # Browser test updated: check only --frame-color and white neutral surfaces; final staging QA rerun.
 
 # Navigation fix: new editor's Accueil general stays within demo-preparation (no old /__editor/demo), staging only.
+
+# Inline rich-text QA: selected bold and colour, whole-paragraph font size, local drafts and test-site rendering (staging only).
