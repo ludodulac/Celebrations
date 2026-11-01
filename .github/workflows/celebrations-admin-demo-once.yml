@@ -124,3 +124,5 @@ jobs:
 # CSP-safe text colour persistence QA after reload; staging preview only.
 
 # Image library staging QA: local media reuse, orphan grey state, exact page usages, confirmation and selective cleanup.
+
+# Second/final image library staging CI campaign after stylesheet string escaping correction.
