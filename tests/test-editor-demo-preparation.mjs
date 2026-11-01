@@ -77,7 +77,7 @@ test('Créer une célébration Gabriel depuis mercredi : huit étapes et dimanch
  const response=await handlePreparationDemo(new Request(host+'?celebration='+id),env);
  assert.equal(response.status,200);
  const html=await response.text();
- const match=html.match(/window\\.__PREPARATION_SEED__=([\\s\\S]*?);document\\.getElementById/);
+ const match=html.match(/window\.__PREPARATION_SEED__=([\s\S]*?);document\.getElementById/);
  const seed=JSON.parse(match[1]);
  assert.equal(seed.archangel,'Gabriel');
  assert.equal(seed.start_date,'2026-11-04');
