@@ -122,3 +122,5 @@ jobs:
 # Targeted colour-on-selected-words and preview verification after safe extraction of inline style attributes. Staging only.
 
 # CSP-safe text colour persistence QA after reload; staging preview only.
+
+# Image library staging QA: local media reuse, orphan grey state, exact page usages, confirmation and selective cleanup.
