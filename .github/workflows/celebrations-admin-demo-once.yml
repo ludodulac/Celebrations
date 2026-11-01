@@ -126,3 +126,5 @@ jobs:
 # Image library staging QA: local media reuse, orphan grey state, exact page usages, confirmation and selective cleanup.
 
 # Second/final image library staging CI campaign after stylesheet string escaping correction.
+
+# Image library QA rerun: actual picker button now triggered before uploading fixture.
