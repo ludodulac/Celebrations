@@ -148,3 +148,5 @@ jobs:
 # WAV conversion staging: locally vendored lamejs 1.2.1, Web Worker; no third-party runtime and no production changes.
 
 # WAV conversion browser failure diagnostics, staging only; no merge or production change.
+
+# WAV PCM streaming test: fix cache boundary when one MP3 granule crosses the current WAV read window.
