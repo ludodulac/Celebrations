@@ -165,3 +165,5 @@ jobs:
 # Final historical-audio insertion QA counts all existing Wednesday readers and verifies exactly one newly added MP3.
 
 # Only UI text simplification and bottom-only Administration link; 2026-11-02 staging-only QA.
+
+# QA: palette name hint intentionally absent from reader site; compare actual frame colour instead.
