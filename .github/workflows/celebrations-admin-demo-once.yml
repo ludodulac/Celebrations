@@ -82,3 +82,5 @@ jobs:
 # Seven historical programme pages: corrected fixture labels; staging-only verification.
 
 # Trial-site preview + Voir le site QA: retry after 404 handler regression fixed; staging only.
+
+# Fix mobile PDF chooser width while retaining responsive Voir le site previews; staging only.
