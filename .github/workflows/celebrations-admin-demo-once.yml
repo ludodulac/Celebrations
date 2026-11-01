@@ -120,3 +120,5 @@ jobs:
 # Check persistence after normalising both legacy and modern rgb() colour syntax; staging only.
 
 # Targeted colour-on-selected-words and preview verification after safe extraction of inline style attributes. Staging only.
+
+# CSP-safe text colour persistence QA after reload; staging preview only.
