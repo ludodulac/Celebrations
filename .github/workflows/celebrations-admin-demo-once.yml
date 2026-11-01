@@ -87,3 +87,5 @@ jobs:
 # Fix mobile PDF chooser width while retaining responsive Voir le site previews; staging only.
 
 # Four archangels / five coordinated colourways each: staging editor and trial-site palette QA only.
+
+# Archangel palette browser QA: verify saved draft and site preview after reload; staging only.
