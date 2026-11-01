@@ -161,3 +161,5 @@ jobs:
 # Legacy disconnected demo route now redirects to new editor; run site-cycle browser QA instead of obsolete upload-picker test.
 
 # Historical public MP3 inserted into a real Michael page and verified in the site preview on desktop/mobile.
+
+# Final historical-audio insertion QA counts all existing Wednesday readers and verifies exactly one newly added MP3.
