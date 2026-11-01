@@ -19,10 +19,25 @@ try{
   await page.locator('#workspace .list .item').first().waitFor();
   assert.equal(await page.locator('#workspace .list .item').count(),7);
   await checkWidth(page,'editor '+width);
+  // Five palettes with five shades; change one without affecting text colours.
+  await page.locator('#theme-toggle').click();
+  assert.equal(await page.locator('#theme-grid .theme-option').count(),5);
+  assert.equal(await page.locator('#theme-grid .theme-option .theme-swatch').count(),25);
+  const palette=page.locator('#theme-grid .theme-option[data-palette="3"]');
+  const paletteName=await palette.locator('strong').innerText();
+  await palette.click();
+  const chosenDeep=await page.locator('.stage-editor').evaluate(e=>e.style.getPropertyValue('--tone-deep'));
+  assert.match(chosenDeep,/^#[0-9a-f]{6}$/i);
+  assert.equal(await page.locator('.stage-editor .heading').first().evaluate(e=>getComputedStyle(e).color),'rgb(41, 46, 50)');
   await page.locator('#workspace .list .item').filter({hasText:'Mercredi'}).click();
   const marker='VISUAL-CHANGE-MERCREDI-'+width;
   await page.locator('#workspace .block .ed').first().fill(marker);
   await page.locator('#save-btn').click();
+  await page.reload();
+  await page.locator('#workspace .list .item').filter({hasText:'Mercredi'}).click();
+  await page.locator('#theme-toggle').click();
+  assert.equal(await page.locator('#theme-grid .theme-option[data-palette="3"]').getAttribute('aria-pressed'),'true');
+  await page.locator('#theme-toggle').click();
   const link=page.locator('#view-site-btn');
   await link.waitFor();
   assert.match(await link.getAttribute('href'),/page=mercredi/);
@@ -30,6 +45,9 @@ try{
   await trial.waitForLoadState('domcontentloaded');
   assert.match(trial.url(),/\/__editor\/voir-le-site/);
   await trial.getByText(marker).waitFor();
+  assert.equal(await trial.locator('#palette-label').innerText(),paletteName);
+  assert.equal(await trial.evaluate(()=>document.documentElement.style.getPropertyValue('--tone-deep')),chosenDeep);
+  assert.equal(await trial.locator('#page-heading').evaluate(e=>getComputedStyle(e).color),'rgb(41, 46, 50)');
   assert.equal(await trial.locator('.stage-tab').count(),7);
   assert.equal(await trial.locator('#page-heading').innerText(),'Mercredi');
   await checkWidth(trial,'trial site '+width);
@@ -37,7 +55,7 @@ try{
   assert.equal(await trial.locator('#page-heading').innerText(),'Dimanche');
   assert.match(await trial.locator('#back-admin').getAttribute('href'),/page=dimanche/);
   assert.deepEqual(jsErrors,[]);
-  console.log('EDITOR_TRIAL_SITE_PASS width='+width+' page_changes_visible=true pages=7 no_horizontal_scroll=true local_storage=true');
+  console.log('EDITOR_TRIAL_SITE_PASS width='+width+' page_changes_visible=true pages=7 palettes=5 monochrome=true text_dark=true no_horizontal_scroll=true local_storage=true');
   await trial.close();await context.close();
  }
 }finally{await browser.close();}
