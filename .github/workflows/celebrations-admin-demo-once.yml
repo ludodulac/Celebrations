@@ -98,3 +98,5 @@ jobs:
 # Bright red/green/indigo/yellow palettes; celebration frames, eight fixed pages, optional pages, neutral hamburger, staging only.
 
 # Eight celebration stage tabs and neutral hamburger: retry after test selector syntax correction; staging only.
+
+# Fixed browser test file truncation; verify only staging page hierarchy and palettes.
