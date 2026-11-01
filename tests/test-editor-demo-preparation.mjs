@@ -27,11 +27,12 @@ test('Preparation demo includes every public step/event/content/link without dat
  const r=await handlePreparationDemo(new Request(host),env);
  assert.equal(r.status,200);
  const html=await r.text();
- for(const required of ['Texte source exact','Temps de préparation','Description exacte','Audio historique','Description audio','Programme PDF','Texte du document','Lien source','preparation-101','Pages de la célébration']){
+ for(const required of ['Texte source exact','Temps de préparation','Description exacte','Audio historique','Description audio','Programme PDF','Texte du document','Lien source','preparation-101','data-tab="pages"']){
   assert.ok(html.includes(required),required);
  }
  assert.ok(html.includes('media/son.mp3'));
- assert.ok(html.includes('href="/__editor/demo-preparation?celebration=101&page=neutral-accueil-general">← Accueil général</a>'),'Back navigation must stay in the new editor');
+ assert.ok(html.includes('id="view-site-btn"'),'The site preview remains available');
+ assert.ok(!html.includes('Copie de démonstration')&&!html.includes('Tout le reste reste blanc'),'Explanatory clutter removed');
  assert.ok(!html.includes('href="/__editor/demo">← Atelier principal</a>'),'Old disconnected mockup must not be reachable from the new editor');
  assert.ok(html.includes('media/preparation.pdf'));
  assert.ok(!html.includes('secret')&&!html.includes('committee/'));
@@ -55,7 +56,7 @@ test('Preparation demo includes every public step/event/content/link without dat
   assert.ok(sqls.every(x=>x.trim().startsWith('SELECT ')));
  assert.equal(sqls.length,7);
  assert.match(r.headers.get('content-security-policy'),/connect-src 'self'/);
- assert.ok(html.includes('MP3 et stockage R2'));
+ assert.ok(html.includes('data-tab="audio"'));
  assert.ok(html.includes('window.__STAGING_AUDIO__'));
  const scripts=[...html.matchAll(/<script nonce="[0-9a-f]+">([\s\S]*?)<\/script>/g)].map(x=>x[1]);
  assert.equal(scripts.length,2);
