@@ -99,6 +99,7 @@ try {
   assert.equal(await page.locator('.library-select input:checked').count(),1);
   page.once('dialog',d=>{assert.ok(d.message().includes('Êtes-vous bien sûr'));d.accept()});
   await page.locator('[data-action="delete-selected"]').click();
+  await page.waitForFunction(()=>document.querySelectorAll('[data-file-id]').length===1);
   assert.equal(await card().count(),1);
   assert.equal(await page.locator('[data-file-id]').count(),1);
   console.log('IMAGE_LIBRARY_PASS mobile='+mobile+' image_persisted=true reused_on_two_pages=true usage_warning=true grey_unused=true bulk_select_and_uncheck=true');
