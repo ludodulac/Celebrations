@@ -11,7 +11,7 @@ export async function handleTrialSite(request,env){
  if(request.method!=='GET'&&request.method!=='HEAD')return new Response('Method not allowed',{status:405});
  if(!env.DB)return new Response('Site d’essai momentanément indisponible',{status:503});
  const slug=url.searchParams.get('page');
- if(slug&&!STAGES.some(p=>p.slug===slug)&&slug!=='neutral-accueil-general'&&!/^neutral-[0-9a-f-]{30,45}$/.test(slug)&&!/^extra-[0-9a-f-]{30,45}$/.test(slug))return new Response('Étape introuvable',{status:404});
+ if(slug&&slug!=='celebrations'&&!STAGES.some(p=>p.slug===slug)&&slug!=='neutral-accueil-general'&&!/^neutral-[0-9a-f-]{30,45}$/.test(slug)&&!/^extra-[0-9a-f-]{30,45}$/.test(slug))return new Response('Étape introuvable',{status:404});
  let result;
  try{result=await loadSevenStageContent(env,url.searchParams.get('celebration'))}
  catch{return new Response('Célébration introuvable',{status:404,headers:{'cache-control':'no-store'}})}
@@ -19,9 +19,9 @@ export async function handleTrialSite(request,env){
  const name=esc(result.celebration.archangel+' '+(result.celebration.year||''));
  const html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Site d’essai — Célébrations</title>'+
  '<style nonce="'+nonce+'">'+TRIAL_SITE_STYLE+'</style></head><body>'+
- '<header class="trial-banner"><div><strong>✦ Célébrations — Site d’essai</strong><small>Vous voyez les modifications enregistrées dans ce navigateur. Le site officiel ne change pas.</small></div><a id="back-admin" class="back-admin" href="/__editor/demo-preparation?celebration='+encodeURIComponent(result.celebration.id)+'">← Retour à l’administration</a></header>'+
+ '<header class="trial-banner"><div><strong>✦ Ronde des Archanges Universelle</strong><small>Aperçu privé — non publié</small></div><a id="back-admin" class="back-admin" href="/__editor/demo-preparation?celebration='+encodeURIComponent(result.celebration.id)+'">← Retour à l’administration</a></header>'+
  '<section class="hero"><span class="tag">Ronde des Archanges Universelle</span><h1 id="site-hero-title">Célébration '+name+'</h1><p>Prévisualisation du programme — environnement de test</p><p class="palette-description">Couleur du cadre : <strong id="palette-label">—</strong></p></section>'+
- '<div class="site-menu-bar"><span class="site-menu-title">Navigation</span><button type="button" class="menu-toggle" id="menu-toggle" aria-expanded="false" aria-controls="general-navigation">☰ Pages générales</button><button type="button" class="return-celebration" id="return-celebration" hidden>↩ Retour à la célébration</button></div>'+
+ '<div class="site-menu-bar"><span class="site-menu-title">Ronde des Archanges Universelle</span><button type="button" class="menu-toggle" id="menu-toggle" aria-expanded="false" aria-controls="general-navigation">☰ Menu</button><button type="button" class="return-celebration" id="return-celebration" hidden>↩ Retour à la célébration</button></div>'+
  '<nav id="general-navigation" class="general-navigation" aria-label="Pages hors célébration" hidden></nav>'+
  '<nav class="steps" id="stage-navigation" aria-label="Pages de la célébration"></nav>'+
  '<main class="site-paper" id="site-paper"><h2 id="page-heading">Accueil de la célébration</h2><div id="stage-main"></div></main>'+
