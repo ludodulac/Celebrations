@@ -14,6 +14,7 @@ const data={
 const sqls=[];
 const env={DB:{prepare(sql){sqls.push(sql);return {bind(...params){return {async all(){
   if(sql.includes('FROM celebrations_celebrations'))return {results:data.celebrations};
+  if(sql.includes('SELECT DISTINCT c.name,c.file_name,c.storage_path'))return {results:[{name:'Audio historique',file_name:'son.mp3',storage_path:'media/son.mp3',content_type:'Audio'}]};
   if(sql.includes('FROM celebrations_steps'))return {results:data.steps};
   if(sql.includes('FROM celebrations_links'))return {results:data.links};
   if(sql.includes('FROM celebrations_events WHERE'))return {results:data.events.filter(e=>e.audience==='all')};
@@ -45,10 +46,14 @@ test('Preparation demo includes every public step/event/content/link without dat
  assert.ok(seed.pages.find(p=>p.name==='Préparation').blocks.some(b=>b.text.includes('Programme PDF')));
  assert.ok(!html.includes('NE_PAS_PUBLIER'));
  assert.equal(seed.pages.filter(p=>p.group==='page').length,1);
- assert.equal(seed.pages[0].name,'Accueil de la célébration');
+ assert.equal(seed.pages[0].name,'Accueil général');
+ assert.equal(seed.pages[0].blocks[0].text,'Ronde des Archanges Universelle');
+ assert.ok(seed.media.some(m=>m.src.endsWith('/son.mp3')));
+ assert.ok(seed.pages.find(p=>p.name==='Préparation').blocks.some(b=>b.kind==='audio'));
+ assert.equal(seed.celebrations.length,2);
  assert.ok(html.includes("for(const archived of seed.pages"),'Older local edits preserved while other stages appear');
   assert.ok(sqls.every(x=>x.trim().startsWith('SELECT ')));
- assert.equal(sqls.length,6);
+ assert.equal(sqls.length,7);
  assert.match(r.headers.get('content-security-policy'),/connect-src 'self'/);
  assert.ok(html.includes('MP3 et stockage R2'));
  assert.ok(html.includes('window.__STAGING_AUDIO__'));
@@ -65,4 +70,20 @@ test('No other host, unsafe methods or arbitrary celebration',async()=>{
  assert.equal(post.status,405);
  const fake=await handlePreparationDemo(new Request(host+'?celebration=999'),env);
  assert.equal(fake.status,404);
+});
+
+test('Créer une célébration Gabriel depuis mercredi : huit étapes et dimanche à J+4, sans DB write',async()=>{
+ const id='plan-gabriel-2026-11-04';
+ const response=await handlePreparationDemo(new Request(host+'?celebration='+id),env);
+ assert.equal(response.status,200);
+ const html=await response.text();
+ const match=html.match(/window\\.__PREPARATION_SEED__=([\\s\\S]*?);document\\.getElementById/);
+ const seed=JSON.parse(match[1]);
+ assert.equal(seed.archangel,'Gabriel');
+ assert.equal(seed.start_date,'2026-11-04');
+ assert.equal(seed.end_date,'2026-11-08');
+ assert.equal(seed.pages.filter(p=>p.group==='celebration').length,8);
+ assert.equal(seed.pages.find(p=>p.name==='Mercredi').blocks[1].text,'Date : 2026-11-04');
+ assert.equal(seed.pages.find(p=>p.name==='Dimanche').blocks[1].text,'Date : 2026-11-08');
+ assert.equal((await handlePreparationDemo(new Request(host+'?celebration=plan-raphael-2026-11-05'),env)).status,404);
 });
