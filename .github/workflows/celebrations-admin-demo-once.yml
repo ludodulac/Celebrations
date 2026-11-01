@@ -150,3 +150,5 @@ jobs:
 # WAV conversion browser failure diagnostics, staging only; no merge or production change.
 
 # WAV PCM streaming test: fix cache boundary when one MP3 granule crosses the current WAV read window.
+
+# QA now validates the downloaded encoded MP3 bytes without loosening the existing CSP.
