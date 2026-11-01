@@ -70,8 +70,6 @@ jobs:
         run: node scripts/test-editor-wav-to-mp3-browser.mjs
       - name: Verify real site home, future Gabriel and switch to/from editor
         run: node scripts/test-editor-site-cycle-browser.mjs
-      - name: Verify browser demo on desktop and phone
-        run: node scripts/test-editor-demo-browser.mjs
       - name: Check historical content is untouched
         run: |
           node --input-type=module <<'NODE'
@@ -159,3 +157,5 @@ jobs:
 # Staging-only site/editor switching: Michaël historical pages, future Gabriel date, global homepage and accessible menu; no production.
 
 # Preview overhaul QA: public MP3 regex fixed, planned Gabriel fixtures and site navigation (staging only).
+
+# Legacy disconnected demo route now redirects to new editor; run site-cycle browser QA instead of obsolete upload-picker test.
