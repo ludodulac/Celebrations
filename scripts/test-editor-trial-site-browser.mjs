@@ -74,6 +74,46 @@ try{
   assert.equal(await trial.locator('#page-heading').innerText(),'Accueil de la célébration');
   assert.deepEqual(jsErrors,[]);
   console.log('EDITOR_TRIAL_SITE_PASS width='+width+' page_changes_visible=true pages=9 palettes=5 monochrome=true text_dark=true no_horizontal_scroll=true local_storage=true');
-  await trial.close();await context.close();
+  await trial.close();
+  // A paragraph has a global font size, but individual words may be bold or coloured.
+  await page.locator('#workspace .list .item').filter({hasText:'Mercredi'}).click();
+  await page.getByRole('button',{name:'Paragraphe'}).click();
+  const inlineBlock=page.locator('#workspace .block').last();
+  const inlineText=inlineBlock.locator('.ed.text');
+  await inlineText.fill('Début important fin');
+  await inlineText.evaluate(z=>{
+   const t=z.firstChild,offset=t.textContent.indexOf('important');
+   const r=document.createRange();r.setStart(t,offset);r.setEnd(t,offset+'important'.length);
+   const s=window.getSelection();s.removeAllRanges();s.addRange(r);
+  });
+  await inlineBlock.getByLabel('Gras (sélection ou bloc)').click();
+  assert.equal(await inlineText.locator('strong').innerText(),'important');
+  await inlineText.evaluate(z=>{
+   const t=z.firstChild,offset=t.textContent.indexOf('Début');
+   const r=document.createRange();r.setStart(t,offset);r.setEnd(t,offset+'Début'.length);
+   const s=window.getSelection();s.removeAllRanges();s.addRange(r);
+  });
+  await inlineBlock.getByLabel('Couleur du texte').fill('#e3342f');
+  assert.equal(await inlineText.locator('span').first().innerText(),'Début','Only the selected text gets a coloured span');
+  assert.equal(await inlineText.locator('span').first().evaluate(e=>getComputedStyle(e).color),'rgb(227, 52, 47)');
+  await inlineBlock.getByLabel('Taille du texte').selectOption('20');
+  assert.equal(await inlineText.evaluate(e=>getComputedStyle(e).fontSize),'20px','Font size applies to the paragraph');
+  assert.equal(await inlineText.locator('strong').evaluate(e=>getComputedStyle(e).fontSize),'20px','Bold words inherit the global size');
+  await page.locator('#save-btn').click();
+  await page.reload();
+  await page.locator('#workspace .list .item').filter({hasText:'Mercredi'}).click();
+  const savedInline=page.locator('.ed.text').filter({hasText:'Début important fin'});
+  assert.equal(await savedInline.locator('strong').innerText(),'important','Saved partial bold must survive reload');
+  assert.equal(await savedInline.locator('span').first().evaluate(e=>getComputedStyle(e).color),'rgb(227, 52, 47)','Saved partial colour must survive reload');
+  const [colourPreview]=await Promise.all([page.waitForEvent('popup'),page.locator('#view-site-btn').click()]);
+  const publishedSample=colourPreview.locator('.trial-paragraph').filter({hasText:'Début important fin'});
+  await publishedSample.waitFor();
+  assert.equal(await publishedSample.locator('strong').innerText(),'important');
+  assert.equal(await publishedSample.locator('span').first().evaluate(e=>getComputedStyle(e).color),'rgb(227, 52, 47)');
+  assert.equal(await publishedSample.evaluate(e=>getComputedStyle(e).fontSize),'20px');
+  assert.notEqual(await publishedSample.locator('strong').evaluate(e=>getComputedStyle(e).color),'rgb(227, 52, 47)','Unselected words should not inherit the selected colour');
+  console.log('EDITOR_INLINE_FORMAT_PASS width='+width+' bold_fragment=true color_fragment=true font_size_global=true saved=true site_preview=true');
+  await colourPreview.close();
+  await context.close();
  }
 }finally{await browser.close();}
