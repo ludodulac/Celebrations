@@ -20,7 +20,7 @@ try {
   await sidebar.first().waitFor();
   assert.equal(await sidebar.count(),9,'Eight celebration pages and neutral home');
   for (const name of names) {
-    const button=sidebar.filter({hasText:new RegExp('^(?:✧|▤)\\s+'+name+';
+    const button=sidebar.getByRole('button',{name:(name==='Accueil général'?'▤ ':'✧ ')+name,exact:true});
     assert.equal(await button.count(),1,'Stage navigation '+name);
     await button.click();
     assert.equal((await page.locator('.editor-head h2').innerText()).trim(),name);
