@@ -55,7 +55,8 @@ async function convert(file,kbps){
  const rate=info.rate===44100?44100:info.rate===48000?48000:info.rate<44100?44100:48000;
  const count=Math.ceil(info.frames*rate/info.rate);
  if(!Number.isSafeInteger(count)||count<=0)fail('WAV sans échantillons.');
- const encoder=new self.lamejs.Mp3Encoder(1,rate,kbps);
+ const stereo=kbps>=160&&info.channels>=2;
+ const encoder=new self.lamejs.Mp3Encoder(stereo?2:1,rate,kbps);
  const audioParts=[];
  let cache=null,cacheStart=-1,cacheEnd=0;
  async function load(frame){
@@ -65,16 +66,20 @@ async function convert(file,kbps){
   const offset=info.start+cacheStart*info.align;
   cache=new DataView(await file.slice(offset,offset+(cacheEnd-cacheStart)*info.align).arrayBuffer());
  }
- function mono(frame){
+ function getChannels(frame){
   const i=Math.max(0,Math.min(info.frames-1,frame));
   if(i<cacheStart||i>=cacheEnd)fail('Erreur de lecture du WAV : fragment manquant.');
-  let result=0;
   const off=(i-cacheStart)*info.align;
+  if(stereo)return [
+   sample(cache,off,info.bits,info.encoding),
+   sample(cache,off+info.bits/8,info.bits,info.encoding)
+  ];
+  let result=0;
   for(let channel=0;channel<info.channels;channel++)
    result+=sample(cache,off+channel*(info.bits/8),info.bits,info.encoding);
-  return result/info.channels;
+  return [result/info.channels];
  }
- const target=new Int16Array(1152);
+ const target=new Int16Array(1152),right=new Int16Array(1152);
  let lastPercent=-1;
  for(let start=0;start<count;start+=1152){
   const length=Math.min(1152,count-start);
@@ -82,11 +87,17 @@ async function convert(file,kbps){
   for(let j=0;j<length;j++){
    const at=(start+j)*info.rate/rate,idx=Math.floor(at),frac=at-idx;
    // Fast path for common 44.1/48 kHz PCM: no interpolation or extra chunk reads.
-   const left=mono(idx);
-   const result=frac>0?left*(1-frac)+mono(Math.min(info.frames-1,idx+1))*frac:left;
-   target[j]=Math.max(-32768,Math.min(32767,Math.round(result*32767)));
+   const a=getChannels(idx),b=frac>0?getChannels(Math.min(info.frames-1,idx+1)):a;
+   const v0=a[0]*(1-frac)+b[0]*frac;
+   target[j]=Math.max(-32768,Math.min(32767,Math.round(v0*32767)));
+   if(stereo){
+    const v1=a[1]*(1-frac)+b[1]*frac;
+    right[j]=Math.max(-32768,Math.min(32767,Math.round(v1*32767)));
+   }
   }
-  const encoded=encoder.encodeBuffer(length===1152?target:target.subarray(0,length));
+  const leftBlock=length===1152?target:target.subarray(0,length);
+  const rightBlock=length===1152?right:right.subarray(0,length);
+  const encoded=stereo?encoder.encodeBuffer(leftBlock,rightBlock):encoder.encodeBuffer(leftBlock);
   if(encoded?.length)audioParts.push(new Uint8Array(encoded));
   const percent=Math.min(99,Math.floor((start+length)*100/count));
   if(percent!==lastPercent&&(percent%2===0||percent===99)){postMessage({type:'progress',percent});lastPercent=percent}
@@ -95,7 +106,7 @@ async function convert(file,kbps){
  if(tail?.length)audioParts.push(new Uint8Array(tail));
  const blob=new Blob(audioParts,{type:'audio/mpeg'});
  if(blob.size<128)fail('Le fichier MP3 généré est incomplet.');
- postMessage({type:'done',blob,rate,kbps,seconds:info.frames/info.rate,bytes:blob.size});
+ postMessage({type:'done',blob,rate,kbps,channels:stereo?2:1,seconds:info.frames/info.rate,bytes:blob.size});
 }
 self.onmessage=async e=>{
  if(e.data?.action!=='convert')return;
