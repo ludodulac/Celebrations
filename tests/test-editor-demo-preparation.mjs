@@ -30,6 +30,8 @@ test('Preparation demo includes every public step/event/content/link without dat
   assert.ok(html.includes(required),required);
  }
  assert.ok(html.includes('media/son.mp3'));
+ assert.ok(html.includes('href="/__editor/demo-preparation?celebration=101&page=neutral-accueil-general">← Accueil général</a>'),'Back navigation must stay in the new editor');
+ assert.ok(!html.includes('href="/__editor/demo">← Atelier principal</a>'),'Old disconnected mockup must not be reachable from the new editor');
  assert.ok(html.includes('media/preparation.pdf'));
  assert.ok(!html.includes('secret')&&!html.includes('committee/'));
  const seedMatch=html.match(/window\.__PREPARATION_SEED__=([\s\S]*?);document\.getElementById/);
