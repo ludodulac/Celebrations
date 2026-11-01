@@ -104,3 +104,5 @@ jobs:
 # Responsive hierarchy QA: corrected self-button selector; staging-only, no production edits.
 
 # Exact-match Preparation menu link; preserves both Preparation and After Preparation names. Test staging.
+
+# Neutral white/grey pages; only archangel celebration frames retain their colour. Staging-only deployment + browser QA.
