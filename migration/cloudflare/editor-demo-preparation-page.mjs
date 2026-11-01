@@ -92,7 +92,7 @@ export async function loadSevenStageContent(env,selectedId){
    const dayLinks=links.filter(l=>l.event_id?allowedIds.has(String(l.event_id)):(String(l.celebration_id)===String(celebration.id)&&l.step_key===key));
    const dayEventContents=evc.filter(c=>allowedIds.has(String(c.event_id)));
    const dayStepContents=stc.filter(c=>c.step_key===key);
-   return {id,name:stage.label,group:'celebration',blocks:toBlocks(celebration,record,dayEvents,dayEventContents,dayStepContents,dayLinks)};
+   const blocks=toBlocks(celebration,record,dayEvents,dayEventContents,dayStepContents,dayLinks);if(blocks[0]?.kind==='heading'&&stage.legacyLabel)blocks[0].text=stage.label;return {id,name:stage.label,group:'celebration',blocks};
   });
   // Neutral pages are intentionally separate from the celebration's colour identity.
   pages.push({id:'neutral-accueil-general',name:'Accueil général',group:'page',blocks:[{id:1,kind:'heading',text:'Accueil général',align:'center'}]});
