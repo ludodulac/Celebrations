@@ -65,7 +65,7 @@ try{
   assert.equal(await trial.locator('#page-heading').innerText(),'Dimanche');
   assert.match(await trial.locator('#back-admin').getAttribute('href'),/page=dimanche/);
   await trial.locator('#menu-toggle').click();
-  assert.equal(await trial.locator('.general-tab').count(),1);
+  assert.equal(await trial.locator('.general-tab').count(),3);
   await trial.getByRole('button',{name:'Accueil général'}).click();
   assert.equal(await trial.locator('#page-heading').innerText(),'Accueil général');
   assert.ok(await trial.locator('body').evaluate(e=>e.classList.contains('is-neutral-preview')));
