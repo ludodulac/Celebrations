@@ -20,7 +20,26 @@ try {
   await sidebar.first().waitFor();
   assert.equal(await sidebar.count(),9,'Eight celebration pages and neutral home');
   for (const name of names) {
-    const button=sidebar.filter({hasText:name});
+    const button=sidebar.filter({hasText:new RegExp('^(?:✧|▤)\\s+'+name+';
+    assert.equal(await button.count(),1,'Stage navigation '+name);
+    await button.click();
+    assert.equal((await page.locator('.editor-head h2').innerText()).trim(),name);
+    assert.ok(await page.locator('#workspace .canvas .block').count()>=1,'Stage content blocks '+name);
+  }
+  await sidebar.filter({hasText:'Mercredi'}).click();
+  await page.locator('.block .ed').first().fill('Essai local mercredi');
+  await page.locator('#save-btn').click();
+  await page.reload();
+  await page.locator('#workspace .list .item').filter({hasText:'Mercredi'}).click();
+  await page.getByText('Essai local mercredi').waitFor();
+  await page.locator('#workspace .list .item').filter({hasText:'Préparation'}).click();
+  assert.ok(await page.locator('#workspace .canvas .block').count()>=1);
+  assert.deepEqual(errors,[],'No browser JavaScript errors');
+  console.log('CELEBRATION_PAGES_PASS mobile='+mobile+' pages=9 public_only=true browser_local_edit=true');
+  await context.close();
+ }
+} finally {await browser.close();}
+,'i')});
     assert.equal(await button.count(),1,'Stage navigation '+name);
     await button.click();
     assert.equal((await page.locator('.editor-head h2').innerText()).trim(),name);
