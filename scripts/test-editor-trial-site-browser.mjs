@@ -17,7 +17,7 @@ try{
   const response=await page.goto(base+'/__editor/demo-preparation');
   assert.equal(response.status(),200);
   await page.locator('#workspace .list .item').first().waitFor();
-  assert.equal(await page.locator('#workspace .list .item').count(),7);
+  assert.equal(await page.locator('#workspace .list .item').count(),9);
   await checkWidth(page,'editor '+width);
   // Five palettes with five shades; change one without affecting text colours.
   await page.locator('#theme-toggle').click();
@@ -55,14 +55,23 @@ try{
   assert.equal(await trial.locator('#palette-label').innerText(),paletteName);
   assert.equal(await trial.evaluate(()=>document.documentElement.style.getPropertyValue('--tone-deep')),chosenDeep);
   assert.equal(await trial.locator('#page-heading').evaluate(e=>getComputedStyle(e).color),'rgb(41, 46, 50)');
-  assert.equal(await trial.locator('.stage-tab').count(),7);
+  assert.equal(await trial.locator('.stage-tab').count(),8);
+  assert.ok(await trial.locator('#site-paper').evaluate(e=>getComputedStyle(e).borderTopColor)!=='rgb(216, 218, 222)');
   assert.equal(await trial.locator('#page-heading').innerText(),'Mercredi');
   await checkWidth(trial,'trial site '+width);
   await trial.getByRole('button',{name:'Dimanche'}).click();
   assert.equal(await trial.locator('#page-heading').innerText(),'Dimanche');
   assert.match(await trial.locator('#back-admin').getAttribute('href'),/page=dimanche/);
+  await trial.locator('#menu-toggle').click();
+  assert.equal(await trial.locator('.general-tab').count(),1);
+  await trial.getByRole('button',{name:'Accueil général'}).click();
+  assert.equal(await trial.locator('#page-heading').innerText(),'Accueil général');
+  assert.ok(await trial.locator('body').evaluate(e=>e.classList.contains('is-neutral-preview')));
+  assert.equal(await trial.locator('#stage-navigation').isVisible(),false);
+  await trial.locator('#return-celebration').click();
+  assert.equal(await trial.locator('#page-heading').innerText(),'Accueil de la célébration');
   assert.deepEqual(jsErrors,[]);
-  console.log('EDITOR_TRIAL_SITE_PASS width='+width+' page_changes_visible=true pages=7 palettes=5 monochrome=true text_dark=true no_horizontal_scroll=true local_storage=true');
+  console.log('EDITOR_TRIAL_SITE_PASS width='+width+' page_changes_visible=true pages=9 palettes=5 monochrome=true text_dark=true no_horizontal_scroll=true local_storage=true');
   await trial.close();await context.close();
  }
 }finally{await browser.close();}
