@@ -45,7 +45,7 @@ function toBlocks(celebration,step,events,eventContents,stepContents,links){
   if(kind==='image'&&source==='file'&&asset(c.storage_path))add('image',c.name||c.file_name||'Image',{src:asset(c.storage_path)});
   if(c.has_cover&&asset(c.cover_storage_path))add('image',c.cover_file_name||c.name||'Illustration',{src:asset(c.cover_storage_path)});
   const href=source==='file'?asset(c.storage_path):safeLink(c.external_url);
-  if(href&&(kind==='audio'||/\\.mp3$/i.test(c.storage_path||''))&&source==='file')add('audio',c.name||c.file_name||'Enregistrement MP3',{src:href});
+  if(href&&(kind==='audio'||/\.mp3$/i.test(c.storage_path||''))&&source==='file')add('audio',c.name||c.file_name||'Enregistrement MP3',{src:href});
   else if(href&&kind!=='image')add('button',kind.includes('vid')?'Voir : '+(c.name||'Vidéo'):kind==='pdf'?'Ouvrir le PDF : '+(c.name||'Document'):'Ouvrir : '+(c.name||'Document'),{href});
   else if(href&&kind==='image'&&source!=='file')add('button','Voir l’image : '+(c.name||'Image'),{href});
   if(!href&&c.external_url&&safeLink(c.external_url))add('button','Lien : '+(c.name||'Document'),{href:safeLink(c.external_url)});
@@ -143,7 +143,7 @@ export async function loadSevenStageContent(env,selectedId){
    AND (LOWER(c.content_type)='audio' OR LOWER(c.storage_path) LIKE '%.mp3')
    AND (EXISTS(SELECT 1 FROM celebrations_step_contents sc WHERE sc.content_id=c.id)
     OR EXISTS(SELECT 1 FROM celebrations_event_contents ec JOIN celebrations_events e ON e.id=ec.event_id WHERE ec.content_id=c.id AND e.audience='all'))`);
-  const publicAudio=media.filter(m=>/\\.mp3$/i.test(String(m.storage_path||''))&&asset(m.storage_path))
+  const publicAudio=media.filter(m=>/\.mp3$/i.test(String(m.storage_path||''))&&asset(m.storage_path))
     .map(m=>({name:m.name||m.file_name||'Enregistrement MP3',src:asset(m.storage_path)}));
   const seed={celebrationId:celebration.id,archangel:celebration.archangel,year:celebration.year||'',
    palettes:fiveColourways(celebration.archangel),pages,media:publicAudio,celebrations};
