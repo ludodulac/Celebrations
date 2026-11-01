@@ -20,7 +20,7 @@ export async function handleTrialSite(request,env){
  const html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Site d’essai — Célébrations</title>'+
  '<style nonce="'+nonce+'">'+TRIAL_SITE_STYLE+'</style></head><body>'+
  '<header class="trial-banner"><div><strong>✦ Célébrations — Site d’essai</strong><small>Vous voyez les modifications enregistrées dans ce navigateur. Le site officiel ne change pas.</small></div><a id="back-admin" class="back-admin" href="/__editor/demo-preparation?celebration='+encodeURIComponent(result.celebration.id)+'">← Retour à l’administration</a></header>'+
- '<section class="hero"><span class="tag">Ronde des Archanges Universelle</span><h1>Célébration '+name+'</h1><p>Prévisualisation du programme — environnement de test</p></section>'+
+ '<section class="hero"><span class="tag">Ronde des Archanges Universelle</span><h1>Célébration '+name+'</h1><p>Prévisualisation du programme — environnement de test</p><p class="palette-description">Camaïeu : <strong id="palette-label">—</strong></p></section>'+
  '<nav class="steps" id="stage-navigation" aria-label="Les sept étapes"></nav>'+
  '<main class="site-paper" id="site-paper"><h2 id="page-heading">Préparation</h2><div id="stage-main"></div></main>'+
  '<footer class="footer">Aperçu de démonstration · Les modifications ne sont visibles que sur cet appareil tant qu’elles ne sont pas publiées.</footer>'+
