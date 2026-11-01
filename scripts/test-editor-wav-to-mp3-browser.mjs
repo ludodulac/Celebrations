@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
 import {chromium} from 'playwright';
 const BASE='https://celebrations-exit-staging.rondes.workers.dev';
 const generateWav=()=>{
@@ -32,7 +33,12 @@ try{
   assert.ok(status.includes('Conversion terminée'),status);
   const href=await page.getByRole('link',{name:'Télécharger le MP3 converti'}).getAttribute('href');
   assert.ok(href.startsWith('blob:'));
-  const converted=await page.evaluate(async()=>{const a=document.querySelector('.audio-converted audio');const x=await fetch(a.src);const blob=await x.blob();const magic=[...new Uint8Array(await blob.slice(0,4).arrayBuffer())];return {size:blob.size,magic,duration:a.duration||null}});
+  const downloadEvent=page.waitForEvent('download');
+  await page.getByRole('link',{name:'Télécharger le MP3 converti'}).click();
+  const saved=await downloadEvent;
+  assert.equal(saved.suggestedFilename(),'essai-3-minutes.mp3');
+  const file=await readFile(await saved.path());
+  const converted={size:file.length,magic:[...file.subarray(0,4)]};
   assert.ok(converted.size>1000&&converted.size<400000,JSON.stringify(converted));
   // ID3 header or MPEG frame sync.
   assert.ok((converted.magic[0]===73&&converted.magic[1]===68&&converted.magic[2]===51)||(converted.magic[0]===255&&(converted.magic[1]&224)===224),'MP3 signature '+JSON.stringify(converted.magic));
