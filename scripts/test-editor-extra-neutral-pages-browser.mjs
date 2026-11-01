@@ -46,7 +46,9 @@ try {
   }),'base64');
   await page.getByRole('button',{name:'Image',exact:true}).click();
   await page.locator('.block').last().locator('.picture').click();
-  await page.locator('#image-input').setInputFiles({name:'camp.png',mimeType:'image/png',buffer:sample});
+  const photoChooser=page.waitForEvent('filechooser');
+  await page.locator('.block').last().getByRole('button',{name:'Ajouter une photographie'}).click();
+  await (await photoChooser).setFiles({name:'camp.png',mimeType:'image/png',buffer:sample});
   await page.locator('.block').last().locator('.picture img').waitFor();
   await page.locator('#save-btn').click();
   const assetId=await page.evaluate(()=>{
