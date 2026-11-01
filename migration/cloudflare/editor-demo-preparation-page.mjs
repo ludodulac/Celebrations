@@ -124,5 +124,5 @@ export async function handlePreparationDemo(request,env){
   '<script nonce="'+nonce+'">window.__PREPARATION_SEED__='+jsSafe(seed)+';document.getElementById("celebration-choice").addEventListener("change",e=>location.assign("/__editor/demo-preparation?celebration="+encodeURIComponent(e.target.value)));</script>'+
   '<script nonce="'+nonce+'">'+client+'</script></body></html>';
   return new Response(request.method==='HEAD'?null:html,{headers:{...noCache,'content-security-policy':"default-src 'none'; script-src 'nonce-"+nonce+"'; style-src 'nonce-"+nonce+"'; img-src 'self' data: blob:; connect-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"}});
- }catch{return new Response('Données de préparation indisponibles',{status:503,headers:{'cache-control':'no-store'}});}
+ }catch(e){const notFound=e?.message==='Unknown celebration'||e?.message==='No celebration';return new Response(notFound?'Célébration introuvable':'Données de préparation indisponibles',{status:notFound?404:503,headers:{'cache-control':'no-store'}});}
 }
