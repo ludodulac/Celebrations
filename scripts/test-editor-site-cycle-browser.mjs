@@ -43,17 +43,18 @@ try{
   // Reuse one of the MP3 files already present in the historical public site.
   await page.goto(base+'/__editor/demo-preparation?celebration=101&page=mercredi');
   await page.locator('#workspace .list .item').filter({hasText:'Mercredi'}).click();
+  const before=await page.locator('.audio-block audio').count();
   await page.locator('[data-tab="audio"]').click();
   const historic=page.locator('[data-action="use-historical-mp3"]').first();
   await historic.waitFor();
   await historic.click();
-  assert.equal(await page.locator('.audio-block audio').count(),1);
-  const source=await page.locator('.audio-block audio').first().getAttribute('src');
+  assert.equal(await page.locator('.audio-block audio').count(),before+1);
+  const source=await page.locator('.audio-block audio').last().getAttribute('src');
   assert.match(source,/^\/media\/.+\.mp3$/i);
   await page.locator('#save-btn').click();
   const [audioSite]=await Promise.all([page.waitForEvent('popup'),page.locator('#view-site-btn').click()]);
-  await audioSite.locator('.trial-audio-player').first().waitFor();
-  assert.equal(await audioSite.locator('.trial-audio-player').first().getAttribute('src'),source);
+  await audioSite.locator('.trial-audio-player').last().waitFor();
+  assert.equal(await audioSite.locator('.trial-audio-player').last().getAttribute('src'),source);
   await audioSite.close();
   assert.deepEqual(errors,[]);
   console.log('SITE_CYCLE_PASS mobile='+(width===390)+' next_gabriel=true planned_date=true menu_home=true menu_celebrations=true admin_return=true historic_mp3_in_page=true');
