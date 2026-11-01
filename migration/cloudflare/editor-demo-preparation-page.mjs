@@ -2,6 +2,7 @@
 // All modifications by the demo client stay in this browser; D1 is never written.
 import {DEMO_CSS} from './editor-demo-style.mjs';
 import {DEMO_CLIENT} from './editor-demo-client.mjs';
+import {fiveColourways} from './editor-celebration-themes.mjs';
 const HOST='celebrations-exit-staging.rondes.workers.dev';
 export const STAGES=[
  {label:'Préparation',slug:'preparation'},
@@ -91,7 +92,7 @@ export async function loadSevenStageContent(env,selectedId){
    const dayStepContents=stc.filter(c=>c.step_key===key);
    return {id,name:stage.label,group:'celebration',blocks:toBlocks(celebration,record,dayEvents,dayEventContents,dayStepContents,dayLinks)};
   });
-  const seed={celebrationId:celebration.id,pages};
+  const seed={celebrationId:celebration.id,archangel:celebration.archangel,palettes:fiveColourways(celebration.archangel),pages};
   return {celebrations,celebration,seed};
 }
 export async function handlePreparationDemo(request,env){
