@@ -7,8 +7,12 @@ try{
   const ctx=await browser.newContext({viewport:{width,height:850},isMobile:width===390,hasTouch:width===390});
   const page=await ctx.newPage();page.setDefaultTimeout(18000);
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.goto(base+'/__editor/demo');
+  assert.ok(page.url().endsWith('/__editor/demo-preparation'),'The old design must redirect to the new editor');
   await page.goto(base+'/__editor/demo-preparation?celebration=101');
   await page.locator('#workspace .list .item').first().waitFor();
+  const publicAudio=await page.evaluate(()=>window.__PREPARATION_SEED__?.media?.map(x=>x.name)||[]);
+  console.log('SITE_HISTORICAL_AUDIO_CATALOGUE count='+publicAudio.length+' examples='+publicAudio.slice(0,4).join(', '));
   assert.equal(await page.locator('#workspace .list .item').count(),9);
   assert.equal(await page.locator('.editor-head h2').innerText(),'Accueil de la célébration');
   await page.locator('[data-tab="celebrations"]').click();
