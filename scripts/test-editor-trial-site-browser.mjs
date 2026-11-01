@@ -100,15 +100,8 @@ try{
   assert.equal(await inlineText.evaluate(e=>getComputedStyle(e).fontSize),'20px','Font size applies to the paragraph');
   assert.equal(await inlineText.locator('strong').evaluate(e=>getComputedStyle(e).fontSize),'20px','Bold words inherit the global size');
   await page.locator('#save-btn').click();
-  const debugDraft=await page.evaluate(()=>{
-   const saved=JSON.parse(localStorage.getItem('celebrations-demo-preparation-'+window.__PREPARATION_SEED__.celebrationId)||'null');
-   const block=saved?.pages?.find(p=>p.id.startsWith('mercredi-'))?.blocks?.find(b=>b.text==='Début important fin');
-   return {rich:block?.rich,colour:block?.color,size:block?.size,html:[...document.querySelectorAll('.ed.text')].find(x=>x.textContent==='Début important fin')?.innerHTML};
-  });
-  console.log('DEBUG_INLINE_DRAFT '+JSON.stringify(debugDraft));
   await page.reload();
   await page.locator('#workspace .list .item').filter({hasText:'Mercredi'}).click();
-  console.log('DEBUG_INLINE_RELOAD '+JSON.stringify(await page.locator('.ed.text').filter({hasText:'Début important fin'}).evaluate(e=>({html:e.innerHTML,outer:e.outerHTML}))));
   const savedInline=page.locator('.ed.text').filter({hasText:'Début important fin'});
   assert.equal(await savedInline.locator('strong').innerText(),'important','Saved partial bold must survive reload');
   assert.equal(await savedInline.locator('span').first().evaluate(e=>getComputedStyle(e).color),'rgb(227, 52, 47)','Saved partial colour must survive reload');
