@@ -80,3 +80,5 @@ jobs:
 # Mobile clean-editor dock QA: retry after first browser-run touch overlay failure; staging only.
 
 # Seven historical programme pages: corrected fixture labels; staging-only verification.
+
+# Trial-site preview + Voir le site QA: retry after 404 handler regression fixed; staging only.
