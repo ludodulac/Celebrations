@@ -118,3 +118,5 @@ jobs:
 # Targeted diagnostics of inline-colour draft persistence, isolated staging only.
 
 # Check persistence after normalising both legacy and modern rgb() colour syntax; staging only.
+
+# Targeted colour-on-selected-words and preview verification after safe extraction of inline style attributes. Staging only.
