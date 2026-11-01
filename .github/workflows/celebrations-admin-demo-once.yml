@@ -157,3 +157,5 @@ jobs:
 # QA now validates the downloaded encoded MP3 bytes without loosening the existing CSP.
 
 # Staging-only site/editor switching: Michaël historical pages, future Gabriel date, global homepage and accessible menu; no production.
+
+# Preview overhaul QA: public MP3 regex fixed, planned Gabriel fixtures and site navigation (staging only).
