@@ -96,3 +96,5 @@ jobs:
 # Final palette UX fix: save selected colourway immediately before changing the editing page.
 
 # Bright red/green/indigo/yellow palettes; celebration frames, eight fixed pages, optional pages, neutral hamburger, staging only.
+
+# Eight celebration stage tabs and neutral hamburger: retry after test selector syntax correction; staging only.
