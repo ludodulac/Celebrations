@@ -71,3 +71,17 @@ test('Partial formatting preserves a selected range and keeps whole paragraph fo
  assert.ok(DEMO_CLIENT.includes("tag==='span'||tag==='font'"));
  assert.ok(!DEMO_CLIENT.includes('eval('));
 });
+
+test('RGB normalisation accepts browser variations and rejects unsafe inline colours',()=>{
+ const start=DEMO_CLIENT.indexOf('function inlineColor(');
+ const end=DEMO_CLIENT.indexOf('\\nfunction htmlSafe(',start);
+ // Decode the embedded client first: newline exists in DEMO_CLIENT.
+ const ending=end<0?DEMO_CLIENT.indexOf('\nfunction htmlSafe(',start):end;
+ assert.ok(start>=0&&ending>start);
+ const scope={};
+ vm.runInNewContext(DEMO_CLIENT.slice(start,ending)+';this.color=inlineColor',scope);
+ assert.equal(scope.color('rgb(227, 52, 47)'),'#e3342f');
+ assert.equal(scope.color('rgb(227 52 47)'),'#e3342f');
+ assert.equal(scope.color('#e3342f'),'#e3342f');
+ assert.equal(scope.color('url(javascript:evil)'), '');
+});
