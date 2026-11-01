@@ -34,7 +34,7 @@ try{
   const href=await page.getByRole('link',{name:'Télécharger MP3'}).getAttribute('href');
   assert.ok(href.startsWith('blob:'));
   const downloadEvent=page.waitForEvent('download');
-  await page.getByRole('link',{name:'Télécharger le MP3 converti'}).click();
+  await page.getByRole('link',{name:'Télécharger MP3'}).click();
   const saved=await downloadEvent;
   assert.equal(saved.suggestedFilename(),'essai-3-minutes.mp3');
   const file=await readFile(await saved.path());
