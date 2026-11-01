@@ -102,3 +102,5 @@ jobs:
 # Fixed browser test file truncation; verify only staging page hierarchy and palettes.
 
 # Responsive hierarchy QA: corrected self-button selector; staging-only, no production edits.
+
+# Exact-match Preparation menu link; preserves both Preparation and After Preparation names. Test staging.
