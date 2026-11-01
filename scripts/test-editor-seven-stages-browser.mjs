@@ -32,7 +32,7 @@ try {
   await page.reload();
   await page.locator('#workspace .list .item').filter({hasText:'Mercredi'}).click();
   await page.getByText('Essai local mercredi').waitFor();
-  await page.locator('#workspace .list .item').filter({hasText:'Préparation'}).click();
+  await page.getByRole('button',{name:'✧ Préparation',exact:true}).click();
   assert.ok(await page.locator('#workspace .canvas .block').count()>=1);
   assert.deepEqual(errors,[],'No browser JavaScript errors');
   console.log('CELEBRATION_PAGES_PASS mobile='+mobile+' pages=9 public_only=true browser_local_edit=true');
