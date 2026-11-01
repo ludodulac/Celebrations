@@ -62,18 +62,14 @@ function toBlocks(celebration,step,events,eventContents,stepContents,links){
  for(const c of stepContents.sort(sort))resource(c);
  return blocks;
 }
-export async function handlePreparationDemo(request,env){
- const url=new URL(request.url);
- if(url.hostname!==HOST)return new Response('Not found',{status:404});
- if(request.method!=='GET'&&request.method!=='HEAD')return new Response('Method not allowed',{status:405});
- if(!env.DB)return new Response('Démonstration momentanément indisponible',{status:503});
- try{
+// Public staging rows only. Shared with the site-shaped preview; never writes D1.
+export async function loadSevenStageContent(env,selectedId){
   const celebrations=await rows(env.DB,'SELECT id,archangel,year,status FROM celebrations_celebrations ORDER BY id');
   const allowedIds=new Set(celebrations.map(c=>String(c.id)));
-  const selected=url.searchParams.get('celebration');
-  if(selected&&!allowedIds.has(selected))return new Response('Célébration introuvable',{status:404});
+  const selected=selectedId;
+  if(selected&&!allowedIds.has(selected))throw new Error('Unknown celebration');
   const celebration=celebrations.find(c=>String(c.id)===(selected||'101'))||celebrations[0];
-  if(!celebration)return new Response('Aucune célébration disponible',{status:404});
+  if(!celebration)throw new Error('No celebration');
   const steps=await rows(env.DB,'SELECT * FROM celebrations_steps WHERE celebration_id=? ORDER BY sort_order,id',celebration.id);
   // One bulk, read-only fetch per public content table, then exact step-key grouping.
   // No private audience, committee resources, D1 writes, publication or production calls.
@@ -96,6 +92,15 @@ export async function handlePreparationDemo(request,env){
    return {id,name:stage.label,group:'celebration',blocks:toBlocks(celebration,record,dayEvents,dayEventContents,dayStepContents,dayLinks)};
   });
   const seed={celebrationId:celebration.id,pages};
+  return {celebrations,celebration,seed};
+}
+export async function handlePreparationDemo(request,env){
+ const url=new URL(request.url);
+ if(url.hostname!==HOST)return new Response('Not found',{status:404});
+ if(request.method!=='GET'&&request.method!=='HEAD')return new Response('Method not allowed',{status:405});
+ if(!env.DB)return new Response('Démonstration momentanément indisponible',{status:503});
+ try{
+  const {celebrations,celebration,seed}=await loadSevenStageContent(env,url.searchParams.get('celebration'));
   // Reuse the proven editor, but isolate its localStorage key from the fictional demo.
   const client=DEMO_CLIENT
    .replace("const KEY='celebrations-demo-editor-v1'","const KEY='celebrations-demo-preparation-'+String(window.__PREPARATION_SEED__.celebrationId)")
