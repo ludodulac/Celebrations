@@ -128,3 +128,5 @@ jobs:
 # Second/final image library staging CI campaign after stylesheet string escaping correction.
 
 # Image library QA rerun: actual picker button now triggered before uploading fixture.
+
+# Image reference QA after saving first page before switching to the second.
