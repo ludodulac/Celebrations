@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 
 const origin='https://celebrations-exit-staging.rondes.workers.dev';
-const names=['Préparation','Mercredi','Jeudi','Vendredi','Samedi','Dimanche','Après célébration'];
+const names=['Accueil de la célébration','Préparation','Mercredi','Jeudi','Vendredi','Samedi','Dimanche','Après préparation','Accueil général'];
 const browser=await chromium.launch();
 try {
  for(const mobile of [false,true]) {
@@ -18,7 +18,7 @@ try {
   assert.equal(res.status(),200,'Seven-page stage editor must be available');
   const sidebar=page.locator('#workspace .list .item');
   await sidebar.first().waitFor();
-  assert.equal(await sidebar.count(),7,'Each stage has a navigation button');
+  assert.equal(await sidebar.count(),9,'Eight celebration pages and neutral home');
   for (const name of names) {
     const button=sidebar.filter({hasText:name});
     assert.equal(await button.count(),1,'Stage navigation '+name);
@@ -35,7 +35,7 @@ try {
   await page.locator('#workspace .list .item').filter({hasText:'Préparation'}).click();
   assert.ok(await page.locator('#workspace .canvas .block').count()>=1);
   assert.deepEqual(errors,[],'No browser JavaScript errors');
-  console.log('SEVEN_HISTORIC_PAGES_PASS mobile='+mobile+' pages=7 public_only=true browser_local_edit=true');
+  console.log('CELEBRATION_PAGES_PASS mobile='+mobile+' pages=9 public_only=true browser_local_edit=true');
   await context.close();
  }
 } finally {await browser.close();}
