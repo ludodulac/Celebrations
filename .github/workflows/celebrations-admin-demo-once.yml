@@ -130,3 +130,5 @@ jobs:
 # Image library QA rerun: actual picker button now triggered before uploading fixture.
 
 # Image reference QA after saving first page before switching to the second.
+
+# Media-library browser QA waits for asynchronous IndexedDB deletion completion before assertions.
