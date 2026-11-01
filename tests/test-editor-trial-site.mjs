@@ -21,7 +21,7 @@ const env={DB:{prepare(sql){sqls.push(sql);return {bind(...args){return {async a
  if(sql.includes('FROM celebrations_links'))return {results:data.links};
  throw Error('Unexpected read query '+sql);
  }}}}}}};
-test('Site trial response contains seven public steps, a return button, no write queries',async()=>{
+test('Site trial response contains eight programme pages plus neutral home, a return button, no write queries',async()=>{
  const r=await handleTrialSite(new Request(site+'?celebration=101&page=mercredi'),env);
  assert.equal(r.status,200);
  const html=await r.text();
@@ -33,9 +33,11 @@ test('Site trial response contains seven public steps, a return button, no write
  const s=html.match(/window\.__TRIAL_SITE_SEED__=([\s\S]*?);<\/script>/);
  assert.ok(s,'embedded public seed');
  const seed=JSON.parse(s[1]);
- assert.equal(seed.pages.length,7);
+ assert.equal(seed.pages.length,9);
  assert.ok(seed.pages.every(p=>p.blocks.length>0));
- assert.equal(seed.pages[6].name,'Après célébration');
+ assert.equal(seed.pages.find(p=>p.id==='apres-celebration-101').name,'Après préparation');
+ assert.ok(html.includes('id="menu-toggle"'));
+ assert.equal(seed.pages.find(p=>p.group==='page').name,'Accueil général');
  assert.equal(sqls.length,6);
  assert.ok(sqls.every(q=>q.startsWith('SELECT ')),'read only');
  assert.match(r.headers.get('content-security-policy'),/connect-src 'none'/);
