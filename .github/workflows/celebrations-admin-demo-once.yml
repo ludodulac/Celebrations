@@ -146,3 +146,5 @@ jobs:
 # New R2 audio staging only: 300 MiB multipart test, all-prefix inventory, private stream via admin cookie. No production.
 
 # WAV conversion staging: locally vendored lamejs 1.2.1, Web Worker; no third-party runtime and no production changes.
+
+# WAV conversion browser failure diagnostics, staging only; no merge or production change.
