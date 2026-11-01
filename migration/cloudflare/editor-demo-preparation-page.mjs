@@ -96,7 +96,7 @@ export async function loadSevenStageContent(env,selectedId){
   });
   // Neutral pages are intentionally separate from the celebration's colour identity.
   pages.push({id:'neutral-accueil-general',name:'Accueil général',group:'page',blocks:[{id:1,kind:'heading',text:'Accueil général',align:'center'}]});
-  const seed={celebrationId:celebration.id,archangel:celebration.archangel,palettes:fiveColourways(celebration.archangel),pages};
+  const seed={celebrationId:celebration.id,archangel:celebration.archangel,year:celebration.year||'',palettes:fiveColourways(celebration.archangel),pages};
   return {celebrations,celebration,seed};
 }
 export async function handlePreparationDemo(request,env){
