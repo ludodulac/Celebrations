@@ -36,10 +36,12 @@ jobs:
           node --check scripts/test-editor-seven-stages-browser.mjs
           node --check migration/cloudflare/editor-trial-site-page.mjs
           node --check migration/cloudflare/editor-trial-site-client.mjs
+          node --check migration/cloudflare/editor-trial-audio-api.mjs
+          node --check migration/cloudflare/editor-trial-audio-client.mjs
           node --check scripts/test-editor-trial-site-browser.mjs
           node --check scripts/test-editor-extra-neutral-pages-browser.mjs
           node --check migration/cloudflare/staging-worker.mjs
-          node --test tests/test-editor-demo.mjs tests/test-editor-demo-preparation.mjs tests/test-editor-trial-site.mjs tests/test-editor-celebration-themes.mjs
+          node --test tests/test-editor-demo.mjs tests/test-editor-demo-preparation.mjs tests/test-editor-trial-site.mjs tests/test-editor-celebration-themes.mjs tests/test-editor-trial-audio.mjs
       - name: Prepare staging assets and Wrangler
         run: |
           python scripts/build_staging_assets.py
@@ -132,3 +134,5 @@ jobs:
 # Image reference QA after saving first page before switching to the second.
 
 # Media-library browser QA waits for asynchronous IndexedDB deletion completion before assertions.
+
+# New R2 audio staging only: 300 MiB multipart test, all-prefix inventory, private stream via admin cookie. No production.
