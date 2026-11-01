@@ -49,7 +49,9 @@ test('Preparation demo includes every public step/event/content/link without dat
  assert.ok(html.includes("for(const archived of seed.pages"),'Older local edits preserved while other stages appear');
   assert.ok(sqls.every(x=>x.trim().startsWith('SELECT ')));
  assert.equal(sqls.length,6);
- assert.match(r.headers.get('content-security-policy'),/connect-src 'none'/);
+ assert.match(r.headers.get('content-security-policy'),/connect-src 'self'/);
+ assert.ok(html.includes('MP3 et stockage R2'));
+ assert.ok(html.includes('window.__STAGING_AUDIO__'));
  const scripts=[...html.matchAll(/<script nonce="[0-9a-f]+">([\s\S]*?)<\/script>/g)].map(x=>x[1]);
  assert.equal(scripts.length,2);
  for(const s of scripts)new Script(s);
