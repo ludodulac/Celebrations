@@ -106,3 +106,5 @@ jobs:
 # Exact-match Preparation menu link; preserves both Preparation and After Preparation names. Test staging.
 
 # Neutral white/grey pages; only archangel celebration frames retain their colour. Staging-only deployment + browser QA.
+
+# Browser test updated: check only --frame-color and white neutral surfaces; final staging QA rerun.
