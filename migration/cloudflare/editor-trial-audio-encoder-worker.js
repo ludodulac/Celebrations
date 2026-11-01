@@ -59,8 +59,8 @@ async function convert(file,kbps){
  const encoder=new self.lamejs.Mp3Encoder(stereo?2:1,rate,kbps);
  const audioParts=[];
  let cache=null,cacheStart=-1,cacheEnd=0;
- async function load(frame){
-  if(frame>=cacheStart&&frame<cacheEnd)return;
+ async function load(frame,last){
+  if(frame>=cacheStart&&last<cacheEnd)return;
   cacheStart=Math.max(0,Math.min(info.frames-1,Math.floor(frame/CHUNK_FRAMES)*CHUNK_FRAMES));
   cacheEnd=Math.min(info.frames,cacheStart+CHUNK_FRAMES+8192);
   const offset=info.start+cacheStart*info.align;
@@ -83,7 +83,7 @@ async function convert(file,kbps){
  let lastPercent=-1;
  for(let start=0;start<count;start+=1152){
   const length=Math.min(1152,count-start);
-  await load(Math.floor(start*info.rate/rate));
+  await load(Math.floor(start*info.rate/rate),Math.min(info.frames-1,Math.ceil((start+length-1)*info.rate/rate)+1));
   for(let j=0;j<length;j++){
    const at=(start+j)*info.rate/rate,idx=Math.floor(at),frac=at-idx;
    // Fast path for common 44.1/48 kHz PCM: no interpolation or extra chunk reads.
