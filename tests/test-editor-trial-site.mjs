@@ -15,6 +15,7 @@ const data={
 const sqls=[];
 const env={DB:{prepare(sql){sqls.push(sql);return {bind(...args){return {async all(){
  if(sql.includes('FROM celebrations_celebrations'))return {results:data.celebrations};
+  if(sql.includes('SELECT DISTINCT c.name,c.file_name,c.storage_path'))return {results:[]};
  if(sql.includes('FROM celebrations_steps'))return {results:data.steps};
  if(sql.includes('FROM celebrations_events WHERE'))return {results:data.events};
  if(sql.includes('FROM celebrations_event_contents'))return {results:data.eventContents};
@@ -39,7 +40,7 @@ test('Site trial response contains eight programme pages plus neutral home, a re
  assert.equal(seed.pages.find(p=>p.id==='apres-celebration-101').name,'Après préparation');
  assert.ok(html.includes('id="menu-toggle"'));
  assert.equal(seed.pages.find(p=>p.group==='page').name,'Accueil général');
- assert.equal(sqls.length,6);
+ assert.equal(sqls.length,7);
  assert.ok(sqls.every(q=>q.startsWith('SELECT ')),'read only');
  assert.match(r.headers.get('content-security-policy'),/connect-src 'none'/);
  const scripts=[...html.matchAll(/<script nonce="[0-9a-f]+">([\s\S]*?)<\/script>/g)];
@@ -58,4 +59,17 @@ test('Site preview sanitises saved rich text while retaining only selected colou
  assert.ok(TRIAL_SITE_CLIENT.includes("tag==='SPAN'||tag==='FONT'"));
  assert.ok(TRIAL_SITE_CLIENT.includes("wrapper.style.color=color"));
  assert.ok(TRIAL_SITE_CLIENT.includes("['SCRIPT','STYLE','SVG','IFRAME','OBJECT','TEMPLATE']"));
+});
+
+test('Nouvel aperçu : accueil neutre, menu Célébrations et URL Gabriel planifiée',async()=>{
+ const home=await handleTrialSite(new Request(site+'?celebration=101'),env);
+ assert.equal(home.status,200);
+ const html=await home.text();
+ assert.ok(html.includes('☰ Menu'));
+ assert.ok(html.includes('Ronde des Archanges Universelle'));
+ const planned=await handleTrialSite(new Request(site+'?celebration=plan-gabriel-2026-11-04&page=mercredi'),env);
+ assert.equal(planned.status,200);
+ const txt=await planned.text();
+ assert.ok(txt.includes('Date : 2026-11-04'));
+ assert.equal((await handleTrialSite(new Request(site+'?celebration=101&page=celebrations'),env)).status,200);
 });
