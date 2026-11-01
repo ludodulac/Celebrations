@@ -29,7 +29,9 @@ try{
   const chosenDeep=await page.locator('.stage-editor').evaluate(e=>e.style.getPropertyValue('--tone-deep'));
   assert.match(chosenDeep,/^#[0-9a-f]{6}$/i);
   assert.equal(await page.locator('.stage-editor .heading').first().evaluate(e=>getComputedStyle(e).color),'rgb(41, 46, 50)');
+  assert.equal(await page.locator('#save-btn').innerText(),'Enregistrer','Palette should autosave locally');
   await page.locator('#workspace .list .item').filter({hasText:'Mercredi'}).click();
+  assert.equal((await page.locator('.editor-head h2').innerText()).trim(),'Mercredi','Changing colour must not block day navigation');
   const marker='VISUAL-CHANGE-MERCREDI-'+width;
   await page.locator('#workspace .block .ed').first().fill(marker);
   await page.locator('#save-btn').click();
