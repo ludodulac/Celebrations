@@ -1,0 +1,31 @@
+// Test-only, site-shaped preview of the already-public seven-stage programme.
+// This is not publication: reads server public records and overlays browser-local saved edits.
+import {loadSevenStageContent,STAGES} from './editor-demo-preparation-page.mjs';
+import {TRIAL_SITE_CLIENT,TRIAL_SITE_STYLE} from './editor-trial-site-client.mjs';
+const HOST='celebrations-exit-staging.rondes.workers.dev';
+const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const safeJson=x=>JSON.stringify(x).replace(/</g,'\\u003c').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029');
+export async function handleTrialSite(request,env){
+ const url=new URL(request.url);
+ if(url.hostname!==HOST)return new Response('Not found',{status:404});
+ if(request.method!=='GET'&&request.method!=='HEAD')return new Response('Method not allowed',{status:405});
+ if(!env.DB)return new Response('Site d’essai momentanément indisponible',{status:503});
+ const slug=url.searchParams.get('page');
+ if(slug&&!STAGES.some(p=>p.slug===slug))return new Response('Étape introuvable',{status:404});
+ let result;
+ try{result=await loadSevenStageContent(env,url.searchParams.get('celebration'))}
+ catch{return new Response('Célébration introuvable',{status:404,headers:{'cache-control':'no-store'}})}
+ const nonce=Array.from(crypto.getRandomValues(new Uint8Array(16)),v=>v.toString(16).padStart(2,'0')).join('');
+ const name=esc(result.celebration.archangel+' '+(result.celebration.year||''));
+ const html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Site d’essai — Célébrations</title>'+
+ '<style nonce="'+nonce+'">'+TRIAL_SITE_STYLE+'</style></head><body>'+
+ '<header class="trial-banner"><div><strong>✦ Célébrations — Site d’essai</strong><small>Vous voyez les modifications enregistrées dans ce navigateur. Le site officiel ne change pas.</small></div><a id="back-admin" class="back-admin" href="/__editor/demo-preparation?celebration='+encodeURIComponent(result.celebration.id)+'">← Retour à l’administration</a></header>'+
+ '<section class="hero"><span class="tag">Ronde des Archanges Universelle</span><h1>Célébration '+name+'</h1><p>Prévisualisation du programme — environnement de test</p></section>'+
+ '<nav class="steps" id="stage-navigation" aria-label="Les sept étapes"></nav>'+
+ '<main class="site-paper" id="site-paper"><h2 id="page-heading">Préparation</h2><div id="stage-main"></div></main>'+
+ '<footer class="footer">Aperçu de démonstration · Les modifications ne sont visibles que sur cet appareil tant qu’elles ne sont pas publiées.</footer>'+
+ '<script nonce="'+nonce+'">window.__TRIAL_SITE_SEED__='+safeJson(result.seed)+';</script>'+
+ '<script nonce="'+nonce+'">'+TRIAL_SITE_CLIENT+'</script></body></html>';
+ const h={'content-type':'text/html; charset=utf-8','cache-control':'no-store','x-robots-tag':'noindex,nofollow,noarchive','x-content-type-options':'nosniff','referrer-policy':'no-referrer','content-security-policy':"default-src 'none'; script-src 'nonce-"+nonce+"'; style-src 'nonce-"+nonce+"'; img-src 'self' blob: data: https:; media-src 'self' blob: https:; connect-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"};
+ return new Response(request.method==='HEAD'?null:html,{headers:h});
+}
