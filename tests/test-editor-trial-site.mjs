@@ -28,7 +28,11 @@ test('Site trial response contains eight programme pages plus neutral home, a re
  assert.equal(r.status,200);
  const html=await r.text();
  assert.ok(html.includes('Site d’essai'));
- assert.ok(html.includes('Retour à l’administration'));
+ assert.ok(html.includes('<footer class="footer"><a id="back-admin"'));
+ assert.ok(html.includes('>Administration</a></footer>'));
+ assert.ok(!html.includes('← Retour à l’administration'));
+ assert.ok(!html.includes('Prévisualisation du programme'));
+ assert.ok(!html.includes('Aperçu de démonstration'));
  assert.ok(html.includes('Texte public du Mercredi'));
  assert.ok(html.includes('Célébration Michaël'));
  assert.ok(html.includes("celebrations-demo-preparation-"));
