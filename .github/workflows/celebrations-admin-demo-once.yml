@@ -38,6 +38,9 @@ jobs:
           node --check migration/cloudflare/editor-trial-site-client.mjs
           node --check migration/cloudflare/editor-trial-audio-api.mjs
           node --check migration/cloudflare/editor-trial-audio-client.mjs
+          node --check migration/cloudflare/editor-trial-audio-encoder-worker.js
+          node --check scripts/bundle_staging_audio_encoder.mjs
+          node --check scripts/test-editor-wav-to-mp3-browser.mjs
           node --check scripts/test-editor-trial-site-browser.mjs
           node --check scripts/test-editor-extra-neutral-pages-browser.mjs
           node --check migration/cloudflare/staging-worker.mjs
@@ -48,7 +51,10 @@ jobs:
           test -s staging-public/index.html
           test -s staging-public/admin.html
           python scripts/configure_staging_wrangler.py
-          npm install --no-save --no-package-lock wrangler@4 playwright@1.58.2
+          npm install --no-save --no-package-lock wrangler@4 playwright@1.58.2 lamejs@1.2.1
+          node scripts/bundle_staging_audio_encoder.mjs
+          node --check staging-public/migration/cloudflare/lame.all.min.js
+          test -s staging-public/migration/cloudflare/editor-trial-audio-encoder-worker.js
           npx playwright install --with-deps chromium
       - name: Deploy isolated staging only
         working-directory: migration/cloudflare
@@ -59,6 +65,8 @@ jobs:
         run: node scripts/test-editor-extra-neutral-pages-browser.mjs
       - name: Verify Voir le site button, edited preview, and mobile/desktop widths
         run: node scripts/test-editor-trial-site-browser.mjs
+      - name: Verify isolated WAV-to-MP3 conversion on desktop and phone
+        run: node scripts/test-editor-wav-to-mp3-browser.mjs
       - name: Verify browser demo on desktop and phone
         run: node scripts/test-editor-demo-browser.mjs
       - name: Check historical content is untouched
@@ -136,3 +144,5 @@ jobs:
 # Media-library browser QA waits for asynchronous IndexedDB deletion completion before assertions.
 
 # New R2 audio staging only: 300 MiB multipart test, all-prefix inventory, private stream via admin cookie. No production.
+
+# WAV conversion staging: locally vendored lamejs 1.2.1, Web Worker; no third-party runtime and no production changes.
