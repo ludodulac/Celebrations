@@ -1,8 +1,17 @@
-// PREPARATION DEMO: read-only staging import of already-public historical records.
+// SEVEN PROGRAMME PAGES DEMO: read-only staging import of already-public historical records.
 // All modifications by the demo client stay in this browser; D1 is never written.
 import {DEMO_CSS} from './editor-demo-style.mjs';
 import {DEMO_CLIENT} from './editor-demo-client.mjs';
 const HOST='celebrations-exit-staging.rondes.workers.dev';
+export const STAGES=[
+ {label:'Préparation',slug:'preparation'},
+ {label:'Mercredi',slug:'mercredi'},
+ {label:'Jeudi',slug:'jeudi'},
+ {label:'Vendredi',slug:'vendredi'},
+ {label:'Samedi',slug:'samedi'},
+ {label:'Dimanche',slug:'dimanche'},
+ {label:'Après célébration',slug:'apres-celebration'}
+];
 const clean=x=>String(x??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 const sort=(a,b)=>Number(a.sort_order??999)-Number(b.sort_order??999)||String(a.event_time??'').localeCompare(String(b.event_time??''),'fr')||String(a.id??'').localeCompare(String(b.id??''),'fr');
 const asText=x=>String(x??'');
@@ -66,32 +75,45 @@ export async function handlePreparationDemo(request,env){
   const celebration=celebrations.find(c=>String(c.id)===(selected||'101'))||celebrations[0];
   if(!celebration)return new Response('Aucune célébration disponible',{status:404});
   const steps=await rows(env.DB,'SELECT * FROM celebrations_steps WHERE celebration_id=? ORDER BY sort_order,id',celebration.id);
-  const step=steps.find(s=>clean(s.label)==='preparation'||clean(s.step_key)==='preparation-'+celebration.id);
-  if(!step)return new Response('Étape Préparation absente de cet import',{status:404});
-  const key=step.step_key;
+  // One bulk, read-only fetch per public content table, then exact step-key grouping.
+  // No private audience, committee resources, D1 writes, publication or production calls.
   const [events,evc,stc,links]=await Promise.all([
-   rows(env.DB,"SELECT * FROM celebrations_events WHERE celebration_id=? AND step_key=? AND audience='all' ORDER BY sort_order,event_time,id",celebration.id,key),
-   rows(env.DB,"SELECT ec.event_id,ec.sort_order,c.* FROM celebrations_event_contents ec JOIN celebrations_events e ON e.id=ec.event_id JOIN celebrations_contents c ON c.id=ec.content_id WHERE e.celebration_id=? AND e.step_key=? AND e.audience='all' AND c.audience='all' ORDER BY e.sort_order,ec.sort_order,c.id",celebration.id,key),
-   rows(env.DB,"SELECT sc.sort_order,c.* FROM celebrations_step_contents sc JOIN celebrations_contents c ON c.id=sc.content_id WHERE sc.celebration_id=? AND sc.step_key=? AND c.audience='all' ORDER BY sc.sort_order,c.id",celebration.id,key),
-   rows(env.DB,"SELECT * FROM celebrations_links WHERE (celebration_id=? AND step_key=?) OR event_id IN (SELECT id FROM celebrations_events WHERE celebration_id=? AND step_key=? AND audience='all') ORDER BY sort_order,id",celebration.id,key,celebration.id,key)
+   rows(env.DB,"SELECT * FROM celebrations_events WHERE celebration_id=? AND audience='all' ORDER BY sort_order,event_time,id",celebration.id),
+   rows(env.DB,"SELECT ec.event_id,ec.sort_order,c.* FROM celebrations_event_contents ec JOIN celebrations_events e ON e.id=ec.event_id JOIN celebrations_contents c ON c.id=ec.content_id WHERE e.celebration_id=? AND e.audience='all' AND c.audience='all' ORDER BY e.sort_order,ec.sort_order,c.id",celebration.id),
+   rows(env.DB,"SELECT sc.step_key,sc.sort_order,c.* FROM celebrations_step_contents sc JOIN celebrations_contents c ON c.id=sc.content_id WHERE sc.celebration_id=? AND c.audience='all' ORDER BY sc.step_key,sc.sort_order,c.id",celebration.id),
+   rows(env.DB,"SELECT * FROM celebrations_links WHERE celebration_id=? OR event_id IN (SELECT id FROM celebrations_events WHERE celebration_id=? AND audience='all') ORDER BY sort_order,id",celebration.id,celebration.id)
   ]);
-  const safeEventIds=new Set(events.map(e=>String(e.id)));
-  const publicLinks=links.filter(l=>!l.event_id||safeEventIds.has(String(l.event_id)));
-  const blocks=toBlocks(celebration,step,events,evc,stc,publicLinks);
-  const seed={celebrationId:celebration.id,pages:[{id:'preparation-'+celebration.id,name:step.label||'Préparation',group:'celebration',blocks}]};
+  const pages=STAGES.map(stage=>{
+   const record=steps.find(s=>clean(s.label)===clean(stage.label)||clean(s.step_key)===stage.slug+'-'+celebration.id);
+   const id=stage.slug+'-'+celebration.id;
+   if(!record)return {id,name:stage.label,group:'celebration',blocks:[{id:1,kind:'heading',text:stage.label,align:'center'},{id:2,kind:'text',text:'Aucun contenu historique enregistré pour cette étape.',align:'left'}]};
+   const key=record.step_key;
+   const dayEvents=events.filter(e=>e.step_key===key).sort(sort);
+   const allowedIds=new Set(dayEvents.map(e=>String(e.id)));
+   const dayLinks=links.filter(l=>l.event_id?allowedIds.has(String(l.event_id)):(String(l.celebration_id)===String(celebration.id)&&l.step_key===key));
+   const dayEventContents=evc.filter(c=>allowedIds.has(String(c.event_id)));
+   const dayStepContents=stc.filter(c=>c.step_key===key);
+   return {id,name:stage.label,group:'celebration',blocks:toBlocks(celebration,record,dayEvents,dayEventContents,dayStepContents,dayLinks)};
+  });
+  const seed={celebrationId:celebration.id,pages};
   // Reuse the proven editor, but isolate its localStorage key from the fictional demo.
   const client=DEMO_CLIENT
    .replace("const KEY='celebrations-demo-editor-v1'","const KEY='celebrations-demo-preparation-'+String(window.__PREPARATION_SEED__.celebrationId)")
    .replace("const clone=o=>JSON.parse(JSON.stringify(o));","seed.pages=window.__PREPARATION_SEED__.pages;\nconst clone=o=>JSON.parse(JSON.stringify(o));")
+   // Preserve earlier local edits to Préparation, while inserting the six other historical pages.
+   .replace("if(!db||!Array.isArray(db.pages))db=clone(seed);",
+            "if(!db||!Array.isArray(db.pages))db=clone(seed);\nfor(const archived of seed.pages){if(!db.pages.some(p=>p.id===archived.id))db.pages.push(clone(archived));}")
+   .replace("Choisir une page d’exemple","Les sept étapes de la célébration")
    .replace('z.innerText.slice(0,5000)','z.innerText.slice(0,50000)');
-  if(!client.includes("window.__PREPARATION_SEED__.pages"))throw Error('Demo client adapter failed');
+  if(!client.includes("window.__PREPARATION_SEED__.pages")||!client.includes("for(const archived of seed.pages)"))throw Error('Demo client adapter failed');
   const nonce=Array.from(crypto.getRandomValues(new Uint8Array(16)),v=>v.toString(16).padStart(2,'0')).join('');
   const choices=celebrations.map(c=>'<option value="'+escapeHtml(c.id)+'"'+(String(c.id)===String(celebration.id)?' selected':'')+'>'+escapeHtml(c.archangel+' '+(c.year||''))+'</option>').join('');
-  const html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Préparation réelle — atelier Célébrations</title><style nonce="'+nonce+'">'+DEMO_CSS+'</style></head><body>'+
-  '<div class="shell"><aside class="rail"><div class="brand"><div class="mark">✦</div><div><strong>Célébrations</strong><small>Atelier visuel</small></div></div><nav aria-label="Navigation"><a class="navbtn active" style="text-decoration:none" href="/__editor/demo">← Atelier principal</a><button class="navbtn active" data-tab="pages">▤ Préparation existante</button><button class="navbtn" data-tab="media">▧ Fichiers</button></nav><div class="bottom"><b>Copie de démonstration</b><br>Lecture uniquement des données publiques présentes dans la base de test. Aucun changement sur le site officiel.</div></aside>'+
-  '<div class="content"><header class="topbar"><div><h1 id="section-title">Préparation — '+escapeHtml(celebration.archangel)+' '+escapeHtml(celebration.year||'')+'</h1><p>Les blocs reprennent les textes, rendez-vous, documents et liens publics de la base de test.</p></div><div class="actions"><span class="badge">DÉMONSTRATION</span><button id="preview-btn" class="btn sm">Aperçu</button><button id="save-btn" class="btn primary">Enregistrer</button></div></header>'+
-  '<main class="main"><div class="notice"><b>ⓘ Exemple réel en lecture seule du serveur.</b> Seuls les contenus accessibles au public sont repris. Les contenus réservés nécessitent un accès authentifié. Vos modifications restent sur cet appareil, sans toucher au site officiel ni aux 47 pages historiques.</div><label for="celebration-choice"><b>Choisir la célébration :</b></label> <select id="celebration-choice" class="btn" style="max-width:350px;margin-bottom:20px">'+choices+'</select><div id="workspace"></div><p class="status" id="status" role="status" aria-live="polite"></p></main></div></div>'+
+  const html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Les sept étapes — atelier Célébrations</title><style nonce="'+nonce+'">'+DEMO_CSS+'</style></head><body>'+
+  '<div class="shell stage-editor"><aside class="rail"><div class="brand"><div class="mark">✦</div><div><strong>Célébrations</strong><small>Atelier visuel</small></div></div><nav aria-label="Navigation"><a class="navbtn active" style="text-decoration:none" href="/__editor/demo">← Atelier principal</a><button class="navbtn active" data-tab="pages">▤ Les sept étapes</button><button class="navbtn" data-tab="media">▧ Fichiers</button></nav><div class="bottom"><b>Copie de démonstration</b><br>Lecture uniquement des données publiques présentes dans la base de test. Aucun changement sur le site officiel.</div></aside>'+
+  '<div class="content"><header class="topbar"><div><h1 id="section-title">Les sept étapes — '+escapeHtml(celebration.archangel)+' '+escapeHtml(celebration.year||'')+'</h1><p>Les sept pages reprennent les textes, rendez-vous, documents et liens publics de la base de test.</p></div><div class="actions"><span class="badge">DÉMONSTRATION</span><button id="preview-btn" class="btn sm">Aperçu</button><button id="save-btn" class="btn primary">Enregistrer</button></div></header>'+
+  '<main class="main"><div class="notice"><b>ⓘ Contenus historiques de test, sans modification du serveur.</b> Les contenus publics sont repris depuis la copie de test du site. Les contenus réservés et les changements plus récents du site officiel ne sont pas inclus. Vos modifications restent sur cet appareil, sans toucher au site officiel ni aux 47 pages historiques.</div><label for="celebration-choice"><b>Choisir la célébration :</b></label> <select id="celebration-choice" class="btn" style="max-width:350px;margin-bottom:20px">'+choices+'</select><div id="workspace"></div><p class="status" id="status" role="status" aria-live="polite"></p></main></div></div>'+
   '<input id="image-input" type="file" accept="image/jpeg,image/png,image/webp" hidden>'+
+  '<style nonce="'+nonce+'">.stage-editor .list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;overflow:visible}.stage-editor .list .item{white-space:normal;min-height:44px}.stage-editor .layout{grid-template-columns:minmax(210px,260px) minmax(0,1fr)}@media(max-width:850px){.stage-editor .layout{grid-template-columns:1fr}.stage-editor .list{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}}</style>'+
   '<script nonce="'+nonce+'">window.__PREPARATION_SEED__='+jsSafe(seed)+';document.getElementById("celebration-choice").addEventListener("change",e=>location.assign("/__editor/demo-preparation?celebration="+encodeURIComponent(e.target.value)));</script>'+
   '<script nonce="'+nonce+'">'+client+'</script></body></html>';
   return new Response(request.method==='HEAD'?null:html,{headers:{...noCache,'content-security-policy':"default-src 'none'; script-src 'nonce-"+nonce+"'; style-src 'nonce-"+nonce+"'; img-src 'self' data: blob:; connect-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"}});
