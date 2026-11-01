@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Script} from 'node:vm';
 import {handleTrialSite} from '../migration/cloudflare/editor-trial-site-page.mjs';
+import {TRIAL_SITE_CLIENT} from '../migration/cloudflare/editor-trial-site-client.mjs';
 const site='https://celebrations-exit-staging.rondes.workers.dev/__editor/voir-le-site';
 const data={
  celebrations:[{id:101,archangel:'Michaël',year:'2026'}],
@@ -50,4 +51,11 @@ test('Trial site denies unknown stages, production host, and POST writes',async(
  assert.equal((await handleTrialSite(new Request('https://www.ronde-des-archanges-universelle.eu/__editor/voir-le-site'),env)).status,404);
  assert.equal((await handleTrialSite(new Request(site,{method:'POST'}),env)).status,405);
  assert.equal((await handleTrialSite(new Request(site+'?celebration=999'),env)).status,404);
+});
+
+test('Site preview sanitises saved rich text while retaining only selected colour and bold',()=>{
+ assert.ok(TRIAL_SITE_CLIENT.includes("function inlineTextColor("));
+ assert.ok(TRIAL_SITE_CLIENT.includes("tag==='SPAN'||tag==='FONT'"));
+ assert.ok(TRIAL_SITE_CLIENT.includes("wrapper.style.color=color"));
+ assert.ok(TRIAL_SITE_CLIENT.includes("['SCRIPT','STYLE','SVG','IFRAME','OBJECT','TEMPLATE']"));
 });
