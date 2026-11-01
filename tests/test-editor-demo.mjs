@@ -85,3 +85,9 @@ test('RGB normalisation accepts browser variations and rejects unsafe inline col
  assert.equal(scope.color('#e3342f'),'#e3342f');
  assert.equal(scope.color('url(javascript:evil)'), '');
 });
+
+test('CSP-safe rich colour restoration uses DOM assignments after sanitising HTML',()=>{
+ assert.ok(DEMO_CLIENT.includes('function restoreInlineColours('));
+ assert.ok(DEMO_CLIENT.includes('restoreInlineColours(z)'));
+ assert.ok(DEMO_CLIENT.includes("span.removeAttribute('style');span.style.color=value"));
+});
