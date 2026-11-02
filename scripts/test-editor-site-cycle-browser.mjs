@@ -25,7 +25,7 @@ try{
   }),'Small shortcuts must come AFTER day tabs');
   await trial.locator('.celebration-shortcut').filter({hasText:'Médiathèque'}).click();
   assert.equal(await trial.locator('.media-tabs button').count(),4);
-  assert.equal(await trial.locator('.media-card audio').count(),0,'Audio players remain closed until clicked');
+  assert.equal(await trial.locator('.media-inline-player audio:visible').count(),0,'Audio players remain closed until clicked');
   const first=trial.locator('.media-item-link[href]').first();
   await first.waitFor();
   assert.ok(await first.getAttribute('href'),'Each media title must be a usable link');
