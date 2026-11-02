@@ -214,3 +214,5 @@ jobs:
 # Final staging conversion stability: do not rerender an open MP3 converter when a cross-celebration media manifest finishes. All published production remains untouched.
 
 # 2026-11-02: Staging-only QA of one Administration (Pages / Célébrations / Fichiers), global media reference insertion and compact public médiathèque.
+
+# 2026-11-02 unused-file policy staging only: grey when no saved page uses; delete local orphan only; no hide button or destructive action on linked archives.
