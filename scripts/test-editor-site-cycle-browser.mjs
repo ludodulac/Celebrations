@@ -23,14 +23,14 @@ try{
   assert.equal((await page.locator('[data-role="celebration-date"]').innerText()).trim(),'08/11/2026');
   // Preparation can have several distinct dates, not merely a fixed start/end range.
   await page.locator('#workspace .list .item').filter({hasText:'Préparation',exact:true}).first().click();
-  await page.getByLabel('Date de préparation 1').fill('2026-10-21');
+  await page.getByLabel('Date de préparation 1',{exact:true}).fill('2026-10-21');
   await page.getByRole('button',{name:'＋ Date'}).click();
-  await page.getByLabel('Date de préparation 2').fill('2026-10-28');
+  await page.getByLabel('Date de préparation 2',{exact:true}).fill('2026-10-28');
   assert.equal((await page.locator('[data-role="celebration-date"]').innerText()).trim(),'21/10/2026 · 28/10/2026');
   await page.reload();
   await page.locator('#workspace .list .item').filter({hasText:'Préparation',exact:true}).first().click();
-  assert.equal(await page.getByLabel('Date de préparation 1').inputValue(),'2026-10-21');
-  assert.equal(await page.getByLabel('Date de préparation 2').inputValue(),'2026-10-28');
+  assert.equal(await page.getByLabel('Date de préparation 1',{exact:true}).inputValue(),'2026-10-21');
+  assert.equal(await page.getByLabel('Date de préparation 2',{exact:true}).inputValue(),'2026-10-28');
   const [datedSite]=await Promise.all([page.waitForEvent('popup'),page.locator('#view-site-btn').click()]);
   assert.equal((await datedSite.locator('[data-role="celebration-date"]').innerText()).trim(),'21/10/2026 · 28/10/2026');
   await datedSite.getByRole('button',{name:'Mercredi',exact:false}).click();
