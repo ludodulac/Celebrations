@@ -22,32 +22,32 @@ try{
   await page.locator('[data-tab="media"]').click();
   assert.equal(await page.locator('.file-category-tabs [data-file-category]').count(),4);
   for(const key of ['images','pdf','audios','autres']){
-   await page.locator('[data-file-category="'+key+'"]').click();
+   await page.locator('.file-category-tabs [data-file-category="'+key+'"]').click();
    assert.equal(await page.locator('.historic-file').count(),counts[key],key);
   }
   // Reuse a real image in the page, not by copying the R2 object.
-  await page.locator('[data-file-category="images"]').click();
+  await page.locator('.file-category-tabs [data-file-category="images"]').click();
   const image=page.locator('.historic-file').first();
   const firstImage=await image.locator('.library-thumb').getAttribute('src');
   await image.locator('[data-action="insert-historical-file"]').click();
   assert.equal(await page.locator('.picture img[src="'+firstImage+'"]').count(),1);
   await page.locator('#save-btn').click();
   await page.locator('[data-tab="media"]').click();
-  await page.locator('[data-file-category="pdf"]').click();
+  await page.locator('.file-category-tabs [data-file-category="pdf"]').click();
   const pdf=page.locator('.historic-file').first(),pdfLink=await pdf.locator('a').getAttribute('href');
   assert.ok(pdfLink.endsWith('.pdf'));
   await pdf.locator('[data-action="insert-historical-file"]').click();
   assert.ok((await page.locator('.link-input').last().inputValue())===pdfLink);
   await page.locator('#save-btn').click();
   await page.locator('[data-tab="media"]').click();
-  await page.locator('[data-file-category="autres"]').click();
+  await page.locator('.file-category-tabs [data-file-category="autres"]').click();
   const textFile=page.locator('.historic-file').filter({has:page.locator('.text-file-preview')}).first();
   await textFile.waitFor();
   await textFile.locator('[data-action="insert-historical-file"]').click();
   assert.ok(await page.locator('.ed.text').count()>0);
   await page.locator('#save-btn').click();
   await page.locator('[data-tab="media"]').click();
-  await page.locator('[data-file-category="audios"]').click();
+  await page.locator('.file-category-tabs [data-file-category="audios"]').click();
   const sound=page.locator('.historic-file').first(),audioLink=await sound.locator('audio').getAttribute('src');
   await sound.locator('[data-action="insert-historical-file"]').click();
   assert.equal(await page.locator('.audio-block audio[src="'+audioLink+'"]').count(),1);
