@@ -29,11 +29,12 @@ test('Five coordinated monochrome colourways are generated for each of the four 
  assert.equal(colourFamily('Ouriel'),'auriel');
  assert.equal(colourFamily('Uriel'),'auriel');
 });
-test('Theme selection is kept in local drafts and preview without changing text colours',()=>{
- assert.ok(DEMO_CLIENT.includes('db.themeIndex=i'));
- assert.ok(DEMO_CLIENT.includes('theme-option'));
- assert.ok(DEMO_CLIENT.includes('aria-pressed'));
- assert.ok(TRIAL_SITE_CLIENT.includes('saved.themeIndex'));
+test('Palette choice removed, archangel colour fixed and editable text colours preserved',()=>{
+ assert.ok(!DEMO_CLIENT.includes('theme-option'));
+ assert.ok(!DEMO_CLIENT.includes('db.themeIndex=i'));
+ assert.ok(!TRIAL_SITE_CLIENT.includes('saved.themeIndex'));
+ assert.ok(DEMO_CLIENT.includes('return options[0]'));
+ assert.ok(TRIAL_SITE_CLIENT.includes('const variant=set[0]'));
  assert.ok(TRIAL_SITE_CLIENT.includes('applyCelebrationPalette()'));
  assert.match(DEMO_CSS,/\.stage-editor \.text\{color:#494f54\}/);
  assert.match(TRIAL_SITE_STYLE,/\.trial-paragraph\{color:#484f55\}/);
