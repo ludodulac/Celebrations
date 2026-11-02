@@ -188,3 +188,5 @@ jobs:
 # File-library browser QA: tab buttons and historical media cards have distinct data-file-category locators.
 
 # Final UI verification: narrow category selectors to tab buttons; avoid matching tagged file cards.
+
+# Staging fix: adapted DEMO_CLIENT init replacement after adding mediaCategory, keep first selected celebration page intact.
