@@ -14,7 +14,7 @@ export const STAGES=[
  {label:'Samedi',slug:'samedi'},
  {label:'Dimanche',slug:'dimanche'},
  // Retain historical slug and its local edits; the requested visible name changes.
- {label:'Après préparation',slug:'apres-celebration',legacyLabel:'Après célébration'}
+ {label:'Après célébration',slug:'apres-celebration',legacyLabel:'Après préparation'}
 ];
 const clean=x=>String(x??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 const sort=(a,b)=>Number(a.sort_order??999)-Number(b.sort_order??999)||String(a.event_time??'').localeCompare(String(b.event_time??''),'fr')||String(a.id??'').localeCompare(String(b.id??''),'fr');
@@ -89,10 +89,7 @@ function plannedCelebration(id){
    ...(details?[{id:2,kind:'text',text:details,align:'left'}]:[])
   ]};
  });
- pages.unshift({id:'neutral-accueil-general',name:'Accueil général',group:'page',blocks:[
-  {id:1,kind:'heading',text:'Ronde des Archanges Universelle',align:'center'},
-  {id:2,kind:'text',text:'Bienvenue sur notre site. Cette présentation est personnalisable dans l’administration de test.',align:'center'}
- ]});
+ pages.unshift(generalHome());
  return {celebration:{id,archangel,year:String(year),status:'draft',start_date:iso(date),end_date:iso(sunday)},pages};
 }
 
@@ -145,6 +142,79 @@ function publicFileCatalogue(steps,events,eventContents,stepContents){
  return [...entries.values()];
 }
 
+// The original site's large welcome illustration, copied to Cloudflare R2.
+const HOME_IMAGE=asset('media/1791723108110/file-1791723109615-1000040461.jpg');
+function generalHome(){
+ return {id:'neutral-accueil-general',name:'Accueil général',group:'page',blocks:[
+  {id:1,kind:'heading',text:'Bienvenue sur le site de la Ronde des Archanges Universelle',align:'center'},
+  {id:2,kind:'text',text:'Retrouvez les célébrations, les psaumes et les ressources partagées.',align:'center'},
+  {id:3,kind:'image',text:'Ronde des Archanges Universelle',src:HOME_IMAGE,align:'center'}
+ ]};
+}
+function michaelHomeBlocks(contents){
+ const ordered=[...contents].sort((a,b)=>{
+  const rank=id=>String(id)==='home-intro-2026'?0:String(id)==='home-reliance-2026'?1:10;
+  return rank(a.id)-rank(b.id)||String(a.name||'').localeCompare(String(b.name||''),'fr');
+ });
+ const blocks=[];let id=100000;
+ const add=(kind,text,props={})=>{
+  if(!String(text||'').trim())return;
+  blocks.push({id:++id,kind,text:String(text),align:kind==='heading'?'center':'left',...props});
+ };
+ for(const c of ordered){
+  if(clean(c.category)!=='accueil'||c.audience!=='all')continue;
+  add('heading',c.name||'Accueil');
+  add('text',c.inline_text||c.description||c.text||'');
+  if(c.has_cover&&asset(c.cover_storage_path))add('image',c.cover_file_name||c.name||'Illustration',{src:asset(c.cover_storage_path)});
+  if(clean(c.content_type)==='image'&&asset(c.storage_path))add('image',c.name||'Image',{src:asset(c.storage_path)});
+  if(clean(c.source_type)==='file'&&clean(c.content_type)!=='image'&&asset(c.storage_path))
+   add('button','Ouvrir : '+String(c.name||'Document'),{href:asset(c.storage_path)});
+  else if(safeLink(c.external_url))add('button',String(c.name||'Lien'),{href:safeLink(c.external_url)});
+ }
+ return blocks;
+}
+function celebrationLibrary(events,eventContents,stepContents,steps){
+ const labels=new Map(steps.map(st=>{
+  const stage=STAGES.find(t=>clean(st.label)===clean(t.label)||clean(st.label)===clean(t.legacyLabel||'')||String(st.step_key).startsWith(t.slug+'-'));
+  return [String(st.step_key),stage?.label||st.label];
+ }));
+ const eventPages=new Map(events.map(e=>[String(e.id),labels.get(String(e.step_key))]));
+ const library=new Map();
+ function add(c,page){
+  if(!page||clean(c.category)==='accueil')return;
+  const t=clean(c.content_type);
+  const path=asset(c.storage_path),cover=asset(c.cover_storage_path);
+  const external=safeLink(c.external_url);
+  let type='';
+  if(t.includes('video')||/\.(?:mp4|webm|mov)$/i.test(path))type='video';
+  else if(t==='audio'||/\.(?:mp3|wav|m4a|ogg|opus|flac)$/i.test(path))type='audio';
+  else if(t==='image'||/\.(?:png|jpe?g|webp|gif|svg)$/i.test(path))type='image';
+  else if(t==='pdf'||/\.pdf$/i.test(path))type='pdf';
+  else if(t==='texte'||t==='text'||String(c.inline_text||'').trim())type='text';
+  if(!type)return;
+  const id=String(c.id);
+  if(library.has(id)){const old=library.get(id);if(!old.pages.includes(page))old.pages.push(page);return}
+  if(['audio','video','image','pdf'].includes(type)&&!path&&!external&&!cover)return;
+  library.set(id,{id,name:String(c.name||c.file_name||'Document').slice(0,280),
+   description:String(c.description||'').slice(0,3000),
+   type,src:path,cover,external,
+   text:type==='text'?String(c.inline_text||c.description||''):'',
+   chant:clean(c.audio_kind||c.audioKind||c.category).includes('chant')||/^\s*chant\b/i.test(String(c.name||'')),
+   pages:[page]});
+ }
+ for(const c of stepContents)add(c,labels.get(String(c.step_key)));
+ for(const c of eventContents)add(c,eventPages.get(String(c.event_id)));
+ for(const c of [...stepContents,...eventContents]){
+  const page=c.event_id!=null?eventPages.get(String(c.event_id)):labels.get(String(c.step_key));
+  if(!page||!c.has_cover||!asset(c.cover_storage_path)||clean(c.category)==='accueil')continue;
+  const id='cover:'+String(c.cover_storage_path);
+  if(library.has(id)){const entry=library.get(id);if(!entry.pages.includes(page))entry.pages.push(page);continue}
+  library.set(id,{id,name:String(c.name||c.cover_file_name||'Illustration'),type:'image',
+   description:'',src:asset(c.cover_storage_path),cover:'',external:'',text:'',chant:false,pages:[page]});
+ }
+ return [...library.values()];
+}
+
 // Public staging rows only. Shared with the site-shaped preview; never writes D1.
 export async function loadSevenStageContent(env,selectedId){
   const celebrations=await rows(env.DB,'SELECT id,archangel,year,status FROM celebrations_celebrations ORDER BY id');
@@ -157,17 +227,19 @@ export async function loadSevenStageContent(env,selectedId){
   if(planned){
    const seed={celebrationId:celebration.id,archangel:celebration.archangel,year:celebration.year,
     start_date:celebration.start_date,end_date:celebration.end_date,
-    palettes:fiveColourways(celebration.archangel),pages:planned.pages,media:[],files:[],celebrations};
+    palettes:fiveColourways(celebration.archangel),pages:planned.pages,media:[],files:[],library:[],celebrations};
    return {celebrations,celebration,seed};
   }
   const steps=await rows(env.DB,'SELECT * FROM celebrations_steps WHERE celebration_id=? ORDER BY sort_order,id',celebration.id);
   // One bulk, read-only fetch per public content table, then exact step-key grouping.
   // No private audience, committee resources, D1 writes, publication or production calls.
-  const [events,evc,stc,links]=await Promise.all([
+  const hasMichaelHome=clean(celebration.archangel)==='michael'&&String(celebration.year||'').includes('2026');
+  const [events,evc,stc,links,homeContent]=await Promise.all([
    rows(env.DB,"SELECT * FROM celebrations_events WHERE celebration_id=? AND audience='all' ORDER BY sort_order,event_time,id",celebration.id),
    rows(env.DB,"SELECT ec.event_id,ec.sort_order,c.* FROM celebrations_event_contents ec JOIN celebrations_events e ON e.id=ec.event_id JOIN celebrations_contents c ON c.id=ec.content_id WHERE e.celebration_id=? AND e.audience='all' AND c.audience='all' ORDER BY e.sort_order,ec.sort_order,c.id",celebration.id),
    rows(env.DB,"SELECT sc.step_key,sc.sort_order,c.* FROM celebrations_step_contents sc JOIN celebrations_contents c ON c.id=sc.content_id WHERE sc.celebration_id=? AND c.audience='all' ORDER BY sc.step_key,sc.sort_order,c.id",celebration.id),
-   rows(env.DB,"SELECT * FROM celebrations_links WHERE celebration_id=? OR event_id IN (SELECT id FROM celebrations_events WHERE celebration_id=? AND audience='all') ORDER BY sort_order,id",celebration.id,celebration.id)
+   rows(env.DB,"SELECT * FROM celebrations_links WHERE celebration_id=? OR event_id IN (SELECT id FROM celebrations_events WHERE celebration_id=? AND audience='all') ORDER BY sort_order,id",celebration.id,celebration.id),
+   hasMichaelHome?rows(env.DB,"SELECT * FROM celebrations_contents WHERE audience='all' AND LOWER(category)='accueil' ORDER BY id") : Promise.resolve([])
   ]);
   const pages=STAGES.map(stage=>{
    const record=steps.find(s=>clean(s.label)===clean(stage.label)||(stage.legacyLabel&&clean(s.label)===clean(stage.legacyLabel))||clean(s.step_key)===stage.slug+'-'+celebration.id);
@@ -181,18 +253,20 @@ export async function loadSevenStageContent(env,selectedId){
    const dayStepContents=stc.filter(c=>c.step_key===key);
    const blocks=toBlocks(celebration,record,dayEvents,dayEventContents,dayStepContents,dayLinks);if(blocks[0]?.kind==='heading'&&stage.legacyLabel)blocks[0].text=stage.label;return {id,name:stage.label,group:'celebration',blocks};
   });
+  if(hasMichaelHome&&homeContent.length){
+   const welcome=pages.find(p=>p.id==='accueil-celebration-'+celebration.id);
+   if(welcome)welcome.blocks.push(...michaelHomeBlocks(homeContent));
+  }
   // Neutral pages are intentionally separate from the celebration's colour identity.
-  pages.unshift({id:'neutral-accueil-general',name:'Accueil général',group:'page',blocks:[
-   {id:1,kind:'heading',text:'Ronde des Archanges Universelle',align:'center'},
-   {id:2,kind:'text',text:'Bienvenue sur notre site. Vous pouvez personnaliser cette présentation dans l’administration.',align:'center'}
-  ]});
+  pages.unshift(generalHome());
   // All and only the public resources attached to this celebration.
   // Text is already public content of the fetched pages, not a new file in R2.
   const files=publicFileCatalogue(steps,events,evc,stc);
+  const library=celebrationLibrary(events,evc,stc,steps);
   const publicAudio=files.filter(f=>f.category==='audios'&&/\.mp3$/i.test(f.src||''))
     .map(f=>({name:f.name,src:f.src,pages:f.pages}));
   const seed={celebrationId:celebration.id,archangel:celebration.archangel,year:celebration.year||'',
-   palettes:fiveColourways(celebration.archangel),pages,media:publicAudio,files,celebrations};
+   palettes:fiveColourways(celebration.archangel),pages,media:publicAudio,files,library,celebrations};
   return {celebrations,celebration,seed};
 }
 export async function handlePreparationDemo(request,env){
