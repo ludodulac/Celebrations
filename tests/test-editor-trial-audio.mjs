@@ -74,10 +74,15 @@ test('admin session creates HttpOnly SameSite cookie for range audio, no token i
  assert.equal(playback.headers.get('content-type'),'audio/mpeg');
  assert.equal(playback.headers.get('accept-ranges'),'bytes');
 });
-test('cannot use arbitrary R2 path or delete any existing object through trial audio API',async()=>{
- const {env}=context();
+test('delete is limited to authenticated editor-trials MP3, never historical or committee media',async()=>{
+ const {env,key,state}=context();
  const r=await call(new Request(BASE+'?action=stream&key=committee%2Fsecret.pdf',{headers:{cookie:'staging_audio_token='+adminToken}}),env);
  assert.equal(r.status,404);
- const remove=await call(body('delete',{key:'media/old.mp3'}),env);
- assert.equal(remove.status,405);
+ assert.equal((await call(body('delete',{key:'media/old.mp3'}),env)).status,400);
+ assert.equal((await call(body('delete',{key:'committee/secret.pdf'}),env)).status,400);
+ assert.equal((await call(new Request(BASE+'?action=delete',{method:'POST',body:JSON.stringify({key})}),env)).status,401);
+ state.current={key,size:128};
+ const del=await call(body('delete',{key}),env);
+ assert.equal(del.status,200);
+ assert.deepEqual(state.actions,['delete:'+key]);
 });
