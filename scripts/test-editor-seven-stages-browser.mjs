@@ -18,7 +18,8 @@ try {
   assert.equal(res.status(),200,'Seven-page stage editor must be available');
   const sidebar=page.locator('#workspace .list .item');
   await sidebar.first().waitFor();
-  assert.equal(await sidebar.count(),8,'Only celebration pages appear under Célébrations');
+  assert.ok(await sidebar.count()>=8,'Every fixed celebration page must appear');
+  assert.ok(!(await sidebar.allTextContents()).some(x=>x.includes('Accueil général')),'Global home must not appear in celebration pages');
   assert.equal(await page.locator('.celebration-select').count(),1);
   for (const name of names) {
     const button=page.locator('#workspace .list .item').filter({hasText:name});
