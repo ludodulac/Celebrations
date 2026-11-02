@@ -283,6 +283,11 @@ export async function handlePreparationDemo(request,env){
  if(!env.DB)return new Response('Démonstration momentanément indisponible',{status:503});
  try{
   const {celebrations,celebration,seed}=await loadSevenStageContent(env,url.searchParams.get('celebration'));
+  // A staging-only public-data manifest allows assigning a library file to the
+  // correct local draft without navigating away from the global Files tab.
+  if(url.searchParams.get('format')==='json'){
+   return Response.json({ok:true,seed},{headers:{...noCache,'x-robots-tag':'noindex,nofollow,noarchive'}});
+  }
   // Reuse the proven editor, but isolate its localStorage key from the fictional demo.
   const client=DEMO_CLIENT
    .replace("const KEY='celebrations-demo-editor-v1'","const KEY='celebrations-demo-preparation-'+String(window.__PREPARATION_SEED__.celebrationId)")
@@ -310,12 +315,12 @@ for(const official of seed.pages){
   const nonce=Array.from(crypto.getRandomValues(new Uint8Array(16)),v=>v.toString(16).padStart(2,'0')).join('');
   const choices=celebrations.map(c=>'<option value="'+escapeHtml(c.id)+'"'+(String(c.id)===String(celebration.id)?' selected':'')+'>'+escapeHtml(c.archangel+' '+(c.year||''))+'</option>').join('')+(plannedCelebration(String(celebration.id))?'<option value="'+escapeHtml(celebration.id)+'" selected>'+escapeHtml(celebration.archangel+' · '+celebration.start_date+' (brouillon)')+'</option>':'');
   const html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Pages de la célébration — atelier Célébrations</title><style nonce="'+nonce+'">'+DEMO_CSS+'</style></head><body>'+
-  '<div class="shell stage-editor"><aside class="rail"><div class="brand"><div class="mark">✦</div><div><strong>Célébrations</strong></div></div><nav aria-label="Navigation"><button class="navbtn active" data-tab="pages">▤ Pages</button><button class="navbtn" data-tab="celebrations">✧ Célébrations</button><button class="navbtn" data-tab="media">▧ Fichiers</button><button class="navbtn" data-tab="audio">♫ MP3</button></nav></aside>'+
+  '<div class="shell stage-editor"><aside class="rail"><div class="brand"><div class="mark">✦</div><div><strong>Administration</strong></div></div><nav aria-label="Navigation"><button class="navbtn" data-tab="pages">▤ Pages</button><button class="navbtn active" data-tab="celebrations">✧ Célébrations</button><button class="navbtn" data-tab="media">▧ Fichiers</button></nav></aside>'+
   '<div class="content"><header class="topbar"><div></div><div class="actions"><button id="preview-btn" class="btn sm">Aperçu</button><button id="save-btn" class="btn primary">Enregistrer</button><a id="view-site-btn" class="btn view-site-btn" href="/__editor/voir-le-site" target="_blank" rel="noopener noreferrer">Voir le site</a></div></header>'+
-  '<main class="main"><select id="celebration-choice" class="btn" aria-label="Choisir la célébration" style="max-width:350px;margin-bottom:20px">'+choices+'</select><div id="workspace"></div><p class="status" id="status" role="status" aria-live="polite"></p></main></div></div>'+
+  '<main class="main"><div id="workspace"></div><p class="status" id="status" role="status" aria-live="polite"></p></main></div></div>'+
   '<input id="image-input" type="file" accept="image/jpeg,image/png,image/webp" hidden>'+
   '<style nonce="'+nonce+'">.stage-editor .list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;overflow:visible}.stage-editor .list .item{white-space:normal;min-height:44px}.stage-editor .layout{grid-template-columns:minmax(210px,260px) minmax(0,1fr)}@media(max-width:850px){.stage-editor .layout{grid-template-columns:1fr}.stage-editor .list{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}}</style>'+
-  '<script nonce="'+nonce+'">window.__PREPARATION_SEED__='+jsSafe(seed)+';document.getElementById("celebration-choice").addEventListener("change",e=>location.assign("/__editor/demo-preparation?celebration="+encodeURIComponent(e.target.value)));</script>'+
+  '<script nonce="'+nonce+'">window.__PREPARATION_SEED__='+jsSafe(seed)+';</script>'+
   '<script nonce="'+nonce+'">'+TRIAL_AUDIO_CLIENT+'\n'+client+'</script></body></html>';
   return new Response(request.method==='HEAD'?null:html,{headers:{...noCache,'content-security-policy':"default-src 'none'; script-src 'nonce-"+nonce+"'; style-src 'nonce-"+nonce+"'; img-src 'self' data: blob:; media-src 'self' blob:; worker-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"}});
  }catch(e){const notFound=e?.message==='Unknown celebration'||e?.message==='No celebration';return new Response(notFound?'Célébration introuvable':'Données de préparation indisponibles',{status:notFound?404:503,headers:{'cache-control':'no-store'}});}
