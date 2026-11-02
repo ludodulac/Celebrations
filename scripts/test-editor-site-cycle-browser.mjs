@@ -32,7 +32,7 @@ try{
   assert.ok(await preview.locator('.celebration-choice').count()>=2);
   await preview.locator('#menu-toggle').click();
   await preview.getByRole('button',{name:'⌂ Accueil'}).click();
-  await preview.locator('.general-tab.current').getByText('Accueil général').waitFor();
+  await preview.locator('.general-tab.current').getByText('⌂ Accueil').waitFor();
   assert.ok(await preview.locator('body').evaluate(e=>e.classList.contains('is-neutral-preview')));
   assert.equal(await preview.locator('.footer a').innerText(),'Administration');
   assert.equal(await preview.locator('header a').count(),0,'No administration link in top of public preview');
