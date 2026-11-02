@@ -306,7 +306,7 @@ for(const official of seed.pages){
   }
  }
 }`)
-   .replace("let tab='pages',id='home',dirty=false,preview=false,target=null,selectedBlockId=null,mediaCategory='images';","let tab='pages',id=(seed.pages.find(p=>p.id===String(new URLSearchParams(location.search).get('page'))+'-'+window.__PREPARATION_SEED__.celebrationId||p.id===String(new URLSearchParams(location.search).get('page')))||seed.pages.find(p=>p.group==='celebration')||seed.pages[0]).id,dirty=false,preview=false,target=null,selectedBlockId=null,mediaCategory='images';")
+   .replace("let tab='celebrations',id='home',dirty=false,preview=false,target=null,selectedBlockId=null,mediaCategory='images';","let tab=(new URLSearchParams(location.search).get('tab')==='pages'?'pages':'celebrations'),id=(seed.pages.find(p=>p.id===String(new URLSearchParams(location.search).get('page'))+'-'+window.__PREPARATION_SEED__.celebrationId||p.id===String(new URLSearchParams(location.search).get('page')))||seed.pages.find(p=>p.group==='celebration')||seed.pages[0]).id,dirty=false,preview=false,target=null,selectedBlockId=null,mediaCategory='images';")
    .replace("Choisir une page d’exemple","Les sept étapes de la célébration")
    .replace("function render(){","function render(){const see=document.getElementById('view-site-btn');if(see){const current=page();const stage=pageSlug(current);see.href='/__editor/voir-le-site?celebration='+encodeURIComponent(window.__PREPARATION_SEED__.celebrationId)+'&page='+encodeURIComponent(stage);}")
    .replace("el('save-btn').onclick=save;","el('save-btn').onclick=save;const see=document.getElementById('view-site-btn');if(see)see.onclick=()=>{if(dirty)save()};")
