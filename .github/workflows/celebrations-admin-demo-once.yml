@@ -169,3 +169,5 @@ jobs:
 # QA: palette name hint intentionally absent from reader site; compare actual frame colour instead.
 
 # Test update: WAV MP3 download uses the shortened button name in both Playwright selectors.
+
+# Remove palette selection and duplicate uneditable page titles while keeping real editorial headings, data and fixed archangel colours. Staging only.
