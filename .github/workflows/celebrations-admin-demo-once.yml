@@ -198,3 +198,5 @@ jobs:
 # QA: no visible standalone celebration return shortcut on global pages; all navigation through the menu.
 
 # Homepage original image: reuse the SHA-matched public JPEG already stored and approved under staging-specific key, no Supabase or production access.
+
+# Browser tests navigate at DOMContentLoaded because the restored image and gallery may download asynchronously; verify decoded images explicitly.
