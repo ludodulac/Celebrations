@@ -192,3 +192,5 @@ jobs:
 # Staging fix: adapted DEMO_CLIENT init replacement after adding mediaCategory, keep first selected celebration page intact.
 
 # New private staging visitor preview: original Michaël Accueil, own mediathèque and public-only media filters, French full dates, real homepage image, no redundant celebration shortcut.
+
+# Fix script literal on local draft migration: preserves the current working text and home visuals.
