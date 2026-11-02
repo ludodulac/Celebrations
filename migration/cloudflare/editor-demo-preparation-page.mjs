@@ -282,7 +282,16 @@ export async function handlePreparationDemo(request,env){
    .replace("const clone=o=>JSON.parse(JSON.stringify(o));","seed.pages=window.__PREPARATION_SEED__.pages;\nconst clone=o=>JSON.parse(JSON.stringify(o));")
    // Preserve earlier local edits to Préparation, while inserting the six other historical pages.
    .replace("if(!db||!Array.isArray(db.pages))db=clone(seed);",
-            "if(!db||!Array.isArray(db.pages))db=clone(seed);\nfor(const archived of seed.pages){if(!db.pages.some(p=>p.id===archived.id))db.pages.push(clone(archived));}\nfor(const official of seed.pages){const previous=db.pages.find(p=>p.id===official.id);if(previous&&official.id.startsWith('apres-celebration-'))previous.name='Après préparation';}")
+            "if(!db||!Array.isArray(db.pages))db=clone(seed);\nfor(const archived of seed.pages){if(!db.pages.some(p=>p.id===archived.id))db.pages.push(clone(archived));}\nfor(const official of seed.pages){
+ const previous=db.pages.find(p=>p.id===official.id);
+ if(!previous)continue;
+ if(official.id.startsWith('apres-celebration-')&&previous.name==='Après préparation')previous.name='Après célébration';
+ if(official.id.startsWith('accueil-celebration-')){
+  for(const extra of official.blocks.filter(b=>Number(b.id)>100000)){
+   if(!previous.blocks.some(b=>b.id===extra.id))previous.blocks.push(clone(extra));
+  }
+ }
+}")
    .replace("let tab='pages',id='home',dirty=false,preview=false,target=null,selectedBlockId=null,mediaCategory='images';","let tab='pages',id=(seed.pages.find(p=>p.id===String(new URLSearchParams(location.search).get('page'))+'-'+window.__PREPARATION_SEED__.celebrationId||p.id===String(new URLSearchParams(location.search).get('page')))||seed.pages.find(p=>p.group==='celebration')||seed.pages[0]).id,dirty=false,preview=false,target=null,selectedBlockId=null,mediaCategory='images';")
    .replace("Choisir une page d’exemple","Les sept étapes de la célébration")
    .replace("function render(){","function render(){const see=document.getElementById('view-site-btn');if(see){const current=page();const stage=pageSlug(current);see.href='/__editor/voir-le-site?celebration='+encodeURIComponent(window.__PREPARATION_SEED__.celebrationId)+'&page='+encodeURIComponent(stage);}")
