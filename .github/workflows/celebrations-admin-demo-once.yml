@@ -190,3 +190,5 @@ jobs:
 # Final UI verification: narrow category selectors to tab buttons; avoid matching tagged file cards.
 
 # Staging fix: adapted DEMO_CLIENT init replacement after adding mediaCategory, keep first selected celebration page intact.
+
+# New private staging visitor preview: original Michaël Accueil, own mediathèque and public-only media filters, French full dates, real homepage image, no redundant celebration shortcut.
