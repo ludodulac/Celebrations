@@ -50,7 +50,7 @@ test('Preparation demo includes every public step/event/content/link without dat
  assert.equal(seed.pages.filter(p=>p.group==='page').length,1);
  assert.equal(seed.pages[0].name,'Accueil général');
  assert.equal(seed.pages[0].blocks[0].text,'Bienvenue sur le site de la Ronde des Archanges Universelle');
- assert.ok(seed.pages[0].blocks.some(b=>b.kind==='image'&&b.src.includes('1791723108110')));
+ assert.ok(seed.pages[0].blocks.some(b=>b.kind==='image'&&b.src.includes('celebrations-staging-welcome-autumn-2026.jpg')));
  assert.ok(seed.pages.find(p=>p.id==='accueil-celebration-101').blocks.some(b=>b.text==='Le texte authentique de l’accueil'));
  assert.ok(seed.library.some(x=>x.type==='audio')&&seed.library.some(x=>x.type==='pdf'));
  assert.ok(seed.media.some(m=>m.src.endsWith('/son.mp3')));
