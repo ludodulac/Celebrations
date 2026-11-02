@@ -8,7 +8,7 @@ try{
   const ctx=await browser.newContext({viewport:{width,height:850},isMobile:width===390,hasTouch:width===390});
   const page=await ctx.newPage();page.setDefaultTimeout(20000);
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
-  await page.goto(origin+'/__editor/demo-preparation?celebration=101');
+  await page.goto(origin+'/__editor/demo-preparation?celebration=101',{waitUntil:'domcontentloaded',timeout:30000});
   const catalogue=await page.evaluate(()=>window.__PREPARATION_SEED__?.files||[]);
   const counts=Object.fromEntries(['images','pdf','audios','autres'].map(k=>[k,catalogue.filter(f=>f.category===k).length]));
   console.log('MICHAEL_PUBLIC_FILE_LIBRARY '+JSON.stringify(counts));
@@ -57,7 +57,7 @@ try{
   assert.ok(await preview.locator('a[href="'+pdfLink+'"]').count()>=1);
   assert.ok(await preview.locator('audio[src="'+audioLink+'"]').count()>=1);
   // The visitor sees the SAME public resources within Michaël only.
-  await preview.goto(origin+'/__editor/voir-le-site?celebration=101&page=mediatheque');
+  await preview.goto(origin+'/__editor/voir-le-site?celebration=101&page=mediatheque',{waitUntil:'domcontentloaded',timeout:30000});
   await preview.locator('.media-tabs').waitFor();
   assert.equal(await preview.locator('.media-tabs button').count(),4);
   assert.equal((await preview.locator('.celebration-shortcut.current').innerText()).trim(),'Médiathèque');
