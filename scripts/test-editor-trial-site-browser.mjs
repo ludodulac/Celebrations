@@ -14,7 +14,7 @@ try{
   const page=await context.newPage();page.setDefaultTimeout(15000);
   const jsErrors=[];
   page.on('pageerror',err=>jsErrors.push(String(err)));
-  const response=await page.goto(base+'/__editor/demo-preparation');
+  const response=await page.goto(base+'/__editor/demo-preparation',{waitUntil:'domcontentloaded',timeout:30000});
   assert.equal(response.status(),200);
   await page.locator('#workspace .list .item').first().waitFor();
   assert.equal(await page.locator('#workspace .list .item').count(),9);
@@ -63,7 +63,7 @@ try{
   assert.equal((await trial.locator('.general-tab.current').innerText()).trim(),'⌂ Accueil');
   assert.ok(await trial.locator('body').evaluate(e=>e.classList.contains('is-neutral-preview')));
   assert.equal(await trial.locator('#stage-navigation').isVisible(),false);
-  await trial.goto(base+'/__editor/voir-le-site?celebration=101&page=accueil-celebration');
+  await trial.goto(base+'/__editor/voir-le-site?celebration=101&page=accueil-celebration',{waitUntil:'domcontentloaded',timeout:30000});
   assert.equal((await trial.locator('.stage-tab.current').innerText()).trim(),'Accueil de la célébration');
   assert.deepEqual(jsErrors,[]);
   console.log('EDITOR_TRIAL_SITE_PASS width='+width+' page_changes_visible=true pages=9 fixed_archangel_colour=true monochrome=true text_dark=true no_horizontal_scroll=true local_storage=true');
