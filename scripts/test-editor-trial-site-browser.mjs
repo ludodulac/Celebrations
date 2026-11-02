@@ -17,7 +17,7 @@ try{
   const response=await page.goto(base+'/__editor/demo-preparation',{waitUntil:'domcontentloaded',timeout:30000});
   assert.equal(response.status(),200);
   await page.locator('#workspace .list .item').first().waitFor();
-  assert.equal(await page.locator('#workspace .list .item').count(),9);
+  assert.equal(await page.locator('#workspace .list .item').count(),8);
   await checkWidth(page,'editor '+width);
   // No manual palette control. Michaël keeps its fixed border colour.
   assert.equal(await page.locator('#theme-toggle, #theme-grid, #theme-picker').count(),0);
@@ -66,7 +66,7 @@ try{
   await trial.goto(base+'/__editor/voir-le-site?celebration=101&page=accueil-celebration',{waitUntil:'domcontentloaded',timeout:30000});
   assert.equal((await trial.locator('.stage-tab.current').innerText()).trim(),'Accueil de la célébration');
   assert.deepEqual(jsErrors,[]);
-  console.log('EDITOR_TRIAL_SITE_PASS width='+width+' page_changes_visible=true pages=9 fixed_archangel_colour=true monochrome=true text_dark=true no_horizontal_scroll=true local_storage=true');
+  console.log('EDITOR_TRIAL_SITE_PASS width='+width+' page_changes_visible=true pages=8 fixed_archangel_colour=true monochrome=true text_dark=true no_horizontal_scroll=true local_storage=true');
   await trial.close();
   // A paragraph has a global font size, but individual words may be bold or coloured.
   await page.locator('#workspace .list .item').filter({hasText:'Mercredi'}).click();
