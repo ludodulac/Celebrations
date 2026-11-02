@@ -186,3 +186,5 @@ jobs:
 # Public-only Michaël media index, image/PDF/audio/other tabs, reuse via /media, browser QA on phone and desktop. No production deployment.
 
 # File-library browser QA: tab buttons and historical media cards have distinct data-file-category locators.
+
+# Final UI verification: narrow category selectors to tab buttons; avoid matching tagged file cards.
