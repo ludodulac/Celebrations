@@ -184,3 +184,5 @@ jobs:
 # Preparation dates mobile QA: exact labels for inputs and distinct remove buttons, staging only.
 
 # Public-only Michaël media index, image/PDF/audio/other tabs, reuse via /media, browser QA on phone and desktop. No production deployment.
+
+# File-library browser QA: tab buttons and historical media cards have distinct data-file-category locators.
