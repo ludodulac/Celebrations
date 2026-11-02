@@ -51,11 +51,16 @@ test('Preparation demo includes every public step/event/content/link without dat
  assert.equal(seed.pages[0].name,'Accueil général');
  assert.equal(seed.pages[0].blocks[0].text,'Ronde des Archanges Universelle');
  assert.ok(seed.media.some(m=>m.src.endsWith('/son.mp3')));
+ assert.ok(seed.files.some(f=>f.category==='audios'&&f.pages.includes('Préparation')));
+ assert.ok(seed.files.some(f=>f.category==='pdf'&&f.pages.includes('Préparation')));
+ assert.ok(seed.files.some(f=>f.category==='autres'&&f.text.includes('Texte source exact')));
+ assert.ok(!seed.files.some(f=>f.src?.includes('committee/')));
+ assert.ok(!html.includes('NE_PAS_PUBLIER'));
  assert.ok(seed.pages.find(p=>p.name==='Préparation').blocks.some(b=>b.kind==='audio'));
  assert.equal(seed.celebrations.length,2);
  assert.ok(html.includes("for(const archived of seed.pages"),'Older local edits preserved while other stages appear');
   assert.ok(sqls.every(x=>x.trim().startsWith('SELECT ')));
- assert.equal(sqls.length,7);
+ assert.equal(sqls.length,6);
  assert.match(r.headers.get('content-security-policy'),/connect-src 'self'/);
  assert.ok(html.includes('data-tab="audio"'));
  assert.ok(html.includes('window.__STAGING_AUDIO__'));
