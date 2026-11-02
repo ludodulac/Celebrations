@@ -52,7 +52,7 @@ try{
   const [datedSite]=await Promise.all([page.waitForEvent('popup'),page.locator('#view-site-btn').click()]);
   assert.equal((await datedSite.locator('[data-role="celebration-date"]').innerText()).trim(),'21 octobre 2026 · 28 octobre 2026');
   await datedSite.getByRole('button',{name:'Mercredi',exact:false}).click();
-  assert.equal((await datedSite.locator('[data-role="celebration-date"]').innerText()).trim(),'4 novembre 2026');
+  assert.equal((await datedSite.locator('[data-role="celebration-date"]').innerText()).trim(),'4 novembre 2026 · 09:30');
   await datedSite.close();
   await page.locator('[data-tab="celebrations"]').click();
   await page.getByText('Nouvelle célébration : Gabriel').waitFor();
