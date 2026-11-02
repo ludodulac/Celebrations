@@ -18,23 +18,23 @@ try{
   // Existing Michaël celebration: one Wednesday controls five consecutive days.
   await page.getByLabel('Mercredi de la célébration').fill('2026-11-04');
   await page.locator('#workspace .list .item').filter({hasText:'Vendredi'}).click();
-  assert.equal((await page.locator('[data-role="celebration-date"]').innerText()).trim(),'06/11/2026');
+  assert.equal((await page.locator('[data-role="celebration-date"]').innerText()).trim(),'6 novembre 2026');
   await page.locator('#workspace .list .item').filter({hasText:'Dimanche'}).click();
-  assert.equal((await page.locator('[data-role="celebration-date"]').innerText()).trim(),'08/11/2026');
+  assert.equal((await page.locator('[data-role="celebration-date"]').innerText()).trim(),'8 novembre 2026');
   // Preparation can have several distinct dates, not merely a fixed start/end range.
   await page.locator('#workspace .list .item').filter({hasText:'Préparation',exact:true}).first().click();
   await page.getByLabel('Date de préparation 1',{exact:true}).fill('2026-10-21');
   await page.getByRole('button',{name:'＋ Date'}).click();
   await page.getByLabel('Date de préparation 2',{exact:true}).fill('2026-10-28');
-  assert.equal((await page.locator('[data-role="celebration-date"]').innerText()).trim(),'21/10/2026 · 28/10/2026');
+  assert.equal((await page.locator('[data-role="celebration-date"]').innerText()).trim(),'21 octobre 2026 · 28 octobre 2026');
   await page.reload();
   await page.locator('#workspace .list .item').filter({hasText:'Préparation',exact:true}).first().click();
   assert.equal(await page.getByLabel('Date de préparation 1',{exact:true}).inputValue(),'2026-10-21');
   assert.equal(await page.getByLabel('Date de préparation 2',{exact:true}).inputValue(),'2026-10-28');
   const [datedSite]=await Promise.all([page.waitForEvent('popup'),page.locator('#view-site-btn').click()]);
-  assert.equal((await datedSite.locator('[data-role="celebration-date"]').innerText()).trim(),'21/10/2026 · 28/10/2026');
+  assert.equal((await datedSite.locator('[data-role="celebration-date"]').innerText()).trim(),'21 octobre 2026 · 28 octobre 2026');
   await datedSite.getByRole('button',{name:'Mercredi',exact:false}).click();
-  assert.equal((await datedSite.locator('[data-role="celebration-date"]').innerText()).trim(),'04/11/2026');
+  assert.equal((await datedSite.locator('[data-role="celebration-date"]').innerText()).trim(),'4 novembre 2026');
   await datedSite.close();
   await page.locator('[data-tab="celebrations"]').click();
   await page.getByText('Nouvelle célébration : Gabriel').waitFor();
@@ -44,12 +44,12 @@ try{
   assert.ok((await page.locator('#workspace .list .item.active').innerText()).includes('Accueil de la célébration'));
   assert.equal(await page.locator('#workspace .list .item').count(),9);
   await page.locator('#workspace .list .item').filter({hasText:'Dimanche'}).click();
-  assert.equal((await page.locator('[data-role="celebration-date"]').innerText()).trim(),'08/11/2026');
+  assert.equal((await page.locator('[data-role="celebration-date"]').innerText()).trim(),'8 novembre 2026');
   await page.getByLabel('Mercredi de la célébration').fill('2026-12-30');
-  assert.equal((await page.locator('[data-role="celebration-date"]').innerText()).trim(),'03/01/2027');
+  assert.equal((await page.locator('[data-role="celebration-date"]').innerText()).trim(),'3 janvier 2027');
   await page.reload();
   await page.locator('#workspace .list .item').filter({hasText:'Dimanche'}).click();
-  assert.equal((await page.locator('[data-role="celebration-date"]').innerText()).trim(),'03/01/2027');
+  assert.equal((await page.locator('[data-role="celebration-date"]').innerText()).trim(),'3 janvier 2027');
   const [preview]=await Promise.all([page.waitForEvent('popup'),page.locator('#view-site-btn').click()]);
   await preview.locator('.stage-tab.current').getByText('Dimanche').waitFor();
   await preview.locator('#menu-toggle').click();
