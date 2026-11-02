@@ -18,13 +18,14 @@ const generateWav=()=>{
 const browser=await chromium.launch();
 try{
  for(const width of [390,1280]){
-  const context=await browser.newContext({viewport:{width,height:850},isMobile:width===390,hasTouch:width===390});
+  const context=await browser.newContext({viewport:{width,height:850},isMobile:width===390,hasTouch:width===390,acceptDownloads:true});
   const page=await context.newPage();page.setDefaultTimeout(45000);
   page.on('pageerror',e=>console.log('WAV_PAGE_ERROR '+e.message));
   page.on('console',m=>{if(m.type()==='error')console.log('WAV_BROWSER_CONSOLE '+m.text())});
   page.on('requestfailed',r=>console.log('WAV_NETWORK_FAILED '+r.url()+' '+r.failure()?.errorText));
   await page.goto(BASE+'/__editor/demo-preparation');
   await page.locator('[data-tab="media"]').click();
+  await page.waitForFunction(()=>!document.querySelector('.file-loading'));
   await page.locator('.file-category-tabs [data-file-category="audios"]').click();
   await page.locator('.audio-import-section summary').click();
   await page.getByLabel('Choisir un MP3 ou WAV').waitFor();
