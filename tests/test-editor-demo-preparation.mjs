@@ -37,7 +37,7 @@ test('Preparation demo includes every public step/event/content/link without dat
  assert.ok(!html.includes('href="/__editor/demo">← Atelier principal</a>'),'Old disconnected mockup must not be reachable from the new editor');
  assert.ok(html.includes('media/preparation.pdf'));
  assert.ok(!html.includes('secret')&&!html.includes('committee/'));
- const seedMatch=html.match(/window\.__PREPARATION_SEED__=([\s\S]*?);document\.getElementById/);
+ const seedMatch=html.match(/window\.__PREPARATION_SEED__=([\s\S]*?);<\/script>/);
  assert.ok(seedMatch,'8 celebration pages plus neutral home embedded');
  const seed=JSON.parse(seedMatch[1]);
  assert.equal(seed.pages.length,9);
@@ -55,6 +55,12 @@ test('Preparation demo includes every public step/event/content/link without dat
  assert.ok(seed.library.some(x=>x.type==='audio')&&seed.library.some(x=>x.type==='pdf'));
  assert.ok(seed.media.some(m=>m.src.endsWith('/son.mp3')));
  assert.ok(seed.files.some(f=>f.category==='audios'&&f.pages.includes('Préparation')));
+ const jsonResponse=await handlePreparationDemo(new Request(host+'?celebration=101&format=json'),env);
+ assert.equal(jsonResponse.status,200);
+ const manifest=await jsonResponse.json();
+ assert.equal(manifest.seed.celebrationId,101);
+ assert.ok(manifest.seed.files.some(f=>f.src?.endsWith('/son.mp3')));
+ assert.equal(jsonResponse.headers.get('x-robots-tag'),'noindex,nofollow,noarchive');
  assert.ok(seed.files.some(f=>f.category==='pdf'&&f.pages.includes('Préparation')));
  assert.ok(seed.files.some(f=>f.category==='autres'&&f.text.includes('Texte source exact')));
  assert.ok(!seed.files.some(f=>f.src?.includes('committee/')));
@@ -63,7 +69,7 @@ test('Preparation demo includes every public step/event/content/link without dat
  assert.equal(seed.celebrations.length,2);
  assert.ok(html.includes("for(const archived of seed.pages"),'Older local edits preserved while other stages appear');
   assert.ok(sqls.every(x=>x.trim().startsWith('SELECT ')));
- assert.equal(sqls.length,7);
+ assert.equal(sqls.length,14);
  assert.match(r.headers.get('content-security-policy'),/connect-src 'self'/);
  assert.ok(!html.includes('data-tab="audio"'));
  assert.ok(html.includes('<strong>Administration</strong>'));
@@ -90,7 +96,7 @@ test('Créer une célébration Gabriel depuis mercredi : huit étapes et dimanch
  const response=await handlePreparationDemo(new Request(host+'?celebration='+id),env);
  assert.equal(response.status,200);
  const html=await response.text();
- const match=html.match(/window\.__PREPARATION_SEED__=([\s\S]*?);document\.getElementById/);
+ const match=html.match(/window\.__PREPARATION_SEED__=([\s\S]*?);<\/script>/);
  const seed=JSON.parse(match[1]);
  assert.equal(seed.archangel,'Gabriel');
  assert.equal(seed.start_date,'2026-11-04');
