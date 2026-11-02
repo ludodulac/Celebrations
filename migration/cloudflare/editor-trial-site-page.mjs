@@ -16,15 +16,14 @@ export async function handleTrialSite(request,env){
  try{result=await loadSevenStageContent(env,url.searchParams.get('celebration'))}
  catch{return new Response('Célébration introuvable',{status:404,headers:{'cache-control':'no-store'}})}
  const nonce=Array.from(crypto.getRandomValues(new Uint8Array(16)),v=>v.toString(16).padStart(2,'0')).join('');
- const name=esc(result.celebration.archangel+' '+(result.celebration.year||''));
  const html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Site d’essai — Célébrations</title>'+
  '<style nonce="'+nonce+'">'+TRIAL_SITE_STYLE+'</style></head><body>'+
 
- '<section class="hero"><h1 id="site-hero-title">Célébration '+name+'</h1></section>'+
- '<div class="site-menu-bar"><span class="site-menu-title">Ronde des Archanges Universelle</span><button type="button" class="menu-toggle" id="menu-toggle" aria-expanded="false" aria-controls="general-navigation">☰ Menu</button><button type="button" class="return-celebration" id="return-celebration" hidden>↩ Célébration</button></div>'+
+
+ '<div class="site-menu-bar"><button type="button" class="menu-toggle" id="menu-toggle" aria-expanded="false" aria-controls="general-navigation">☰ Menu</button><button type="button" class="return-celebration" id="return-celebration" hidden>↩ Célébration</button></div>'+
  '<nav id="general-navigation" class="general-navigation" aria-label="Pages hors célébration" hidden></nav>'+
  '<nav class="steps" id="stage-navigation" aria-label="Pages de la célébration"></nav>'+
- '<main class="site-paper" id="site-paper"><h2 id="page-heading">Accueil de la célébration</h2><div id="stage-main"></div></main>'+
+ '<main class="site-paper" id="site-paper"><div id="stage-main"></div></main>'+
  '<footer class="footer"><a id="back-admin" href="/__editor/demo-preparation?celebration='+encodeURIComponent(result.celebration.id)+'">Administration</a></footer>'+
  '<script nonce="'+nonce+'">window.__TRIAL_SITE_SEED__='+safeJson(result.seed)+';</script>'+
  '<script nonce="'+nonce+'">'+TRIAL_SITE_CLIENT+'</script></body></html>';
