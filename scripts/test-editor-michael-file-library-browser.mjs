@@ -22,6 +22,29 @@ try{
    assert.ok(await page.locator('.historic-file').count()>=min,key+' missing historical resources');
   }
   await page.locator('.file-category-tabs [data-file-category="images"]').click();
+  // No "Masquer" workaround: a file with a known page/event stays normal.
+  assert.equal(await page.getByRole('button',{name:'Masquer'}).count(),0);
+  assert.equal(await page.locator('.historic-file[data-usage="used"] [data-action="delete-unused-file"]').count(),0);
+  // A newly imported, unreferenced file is grey and can be permanently deleted.
+  const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9p0jQxgAAAAASUVORK5CYII=','base64');
+  await page.locator('#asset-file-picker').setInputFiles({name:'suppression-test.png',mimeType:'image/png',buffer:png});
+  const orphan=page.locator('.card[data-usage="unused"]').filter({hasText:'suppression-test.png'});
+  await orphan.waitFor();
+  assert.ok(await orphan.locator('[data-action="delete-unused-file"]').isVisible());
+  page.once('dialog',d=>d.accept());
+  await orphan.locator('[data-action="delete-unused-file"]').click();
+  await orphan.waitFor({state:'detached'});
+  // Once inserted into a page, a local asset is no longer grey or deleteable.
+  await page.locator('#asset-file-picker').setInputFiles({name:'fichier-utilise.png',mimeType:'image/png',buffer:png});
+  await page.locator('.card[data-usage="unused"]').filter({hasText:'fichier-utilise.png'}).waitFor();
+  await page.locator('.card[data-usage="unused"]').filter({hasText:'fichier-utilise.png'}).locator('[data-action="use-asset"]').click();
+  const usedDialog=page.locator('.insert-file-dialog');
+  await usedDialog.getByLabel('Jour').selectOption('mercredi-101');
+  await usedDialog.getByRole('button',{name:'Insérer',exact:true}).click();
+  await usedDialog.waitFor({state:'hidden'});
+  const nowUsed=page.locator('.card[data-usage="used"]').filter({hasText:'fichier-utilise.png'});
+  await nowUsed.waitFor();
+  assert.equal(await nowUsed.locator('[data-action="delete-unused-file"]').count(),0);
   const first=page.locator('.historic-file').first();
   const imageSrc=await first.locator('.library-thumb').getAttribute('src');
   await first.locator('[data-action="insert-historical-file"]').click();
