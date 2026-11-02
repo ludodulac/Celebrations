@@ -11,7 +11,7 @@ export async function handleTrialSite(request,env){
  if(request.method!=='GET'&&request.method!=='HEAD')return new Response('Method not allowed',{status:405});
  if(!env.DB)return new Response('Site d’essai momentanément indisponible',{status:503});
  const slug=url.searchParams.get('page');
- if(slug&&slug!=='celebrations'&&!STAGES.some(p=>p.slug===slug)&&slug!=='neutral-accueil-general'&&!/^neutral-[0-9a-f-]{30,45}$/.test(slug)&&!/^extra-[0-9a-f-]{30,45}$/.test(slug))return new Response('Étape introuvable',{status:404});
+ if(slug&&slug!=='celebrations'&&slug!=='mediatheque'&&!STAGES.some(p=>p.slug===slug)&&slug!=='neutral-accueil-general'&&!/^neutral-[0-9a-f-]{30,45}$/.test(slug)&&!/^extra-[0-9a-f-]{30,45}$/.test(slug))return new Response('Étape introuvable',{status:404});
  let result;
  try{result=await loadSevenStageContent(env,url.searchParams.get('celebration'))}
  catch{return new Response('Célébration introuvable',{status:404,headers:{'cache-control':'no-store'}})}
@@ -20,8 +20,9 @@ export async function handleTrialSite(request,env){
  '<style nonce="'+nonce+'">'+TRIAL_SITE_STYLE+'</style></head><body>'+
 
 
- '<div class="site-menu-bar"><button type="button" class="menu-toggle" id="menu-toggle" aria-expanded="false" aria-controls="general-navigation">☰ Menu</button><button type="button" class="return-celebration" id="return-celebration" hidden>↩ Célébration</button></div>'+
+ '<div class="site-menu-bar"><button type="button" class="menu-toggle" id="menu-toggle" aria-expanded="false" aria-controls="general-navigation">☰ Menu</button></div>'+
  '<nav id="general-navigation" class="general-navigation" aria-label="Pages hors célébration" hidden></nav>'+
+ '<nav class="celebration-shortcuts" id="celebration-shortcuts" aria-label="Célébration"></nav>'+
  '<nav class="steps" id="stage-navigation" aria-label="Pages de la célébration"></nav>'+
  '<main class="site-paper" id="site-paper"><div id="stage-main"></div></main>'+
  '<footer class="footer"><a id="back-admin" href="/__editor/demo-preparation?celebration='+encodeURIComponent(result.celebration.id)+'">Administration</a></footer>'+
