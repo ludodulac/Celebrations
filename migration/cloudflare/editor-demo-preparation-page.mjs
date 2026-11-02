@@ -50,7 +50,13 @@ function toBlocks(celebration,step,events,eventContents,stepContents,links){
   else if(href&&kind==='image'&&source!=='file')add('button','Voir l’image : '+(c.name||'Image'),{href});
   if(!href&&c.external_url&&safeLink(c.external_url))add('button','Lien : '+(c.name||'Document'),{href:safeLink(c.external_url)});
  }
- function date(x){return x?asText(x):'';}
+ function date(x){
+  const value=asText(x);
+  if(!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(value))return value;
+  const [y,m,d]=value.split('-').map(Number),check=new Date(Date.UTC(y,m-1,d));
+  return check.getUTCFullYear()===y&&check.getUTCMonth()===m-1&&check.getUTCDate()===d
+   ?new Intl.DateTimeFormat('fr-FR',{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'}).format(check):value;
+ }
  add('heading',step.label||'Préparation');
  if((step.start_date||step.end_date)&&!String(step.step_key||'').startsWith('apres-celebration-'))add('text','Dates : '+date(step.start_date)+(step.end_date&&step.end_date!==step.start_date?' → '+date(step.end_date):''));
  if(step.body_text)add('text',step.body_text);
