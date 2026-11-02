@@ -65,7 +65,10 @@ test('Preparation demo includes every public step/event/content/link without dat
   assert.ok(sqls.every(x=>x.trim().startsWith('SELECT ')));
  assert.equal(sqls.length,7);
  assert.match(r.headers.get('content-security-policy'),/connect-src 'self'/);
- assert.ok(html.includes('data-tab="audio"'));
+ assert.ok(!html.includes('data-tab="audio"'));
+ assert.ok(html.includes('<strong>Administration</strong>'));
+ assert.ok(!html.includes('id="celebration-choice"'));
+ assert.ok(html.includes('data-tab="media"'));
  assert.ok(html.includes('window.__STAGING_AUDIO__'));
  const scripts=[...html.matchAll(/<script nonce="[0-9a-f]+">([\s\S]*?)<\/script>/g)].map(x=>x[1]);
  assert.equal(scripts.length,2);
