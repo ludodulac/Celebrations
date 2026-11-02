@@ -34,7 +34,7 @@ test('Site trial response contains eight programme pages plus neutral home, a re
  assert.ok(!html.includes('Prévisualisation du programme'));
  assert.ok(!html.includes('Aperçu de démonstration'));
  assert.ok(html.includes('Texte public du Mercredi'));
- assert.ok(html.includes('Célébration Michaël'));
+ assert.ok(!html.includes('id="page-heading"')&&!html.includes('id="site-hero-title"'),'Fixed, uneditable page headings are removed');
  assert.ok(html.includes("celebrations-demo-preparation-"));
  const s=html.match(/window\.__TRIAL_SITE_SEED__=([\s\S]*?);<\/script>/);
  assert.ok(s,'embedded public seed');
