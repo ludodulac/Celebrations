@@ -17,6 +17,24 @@ try{
   assert.ok((await page.locator('#workspace .list .item.active').innerText()).includes('Accueil de la célébration'));
   // Existing Michaël celebration: one Wednesday controls five consecutive days.
   await page.getByLabel('Mercredi de la célébration').fill('2026-11-04');
+  assert.equal(await page.locator('label[for="celebration-choice"]').count(),0,'No redundant Célébration heading by name');
+  await page.locator('#workspace .list .item').filter({hasText:'Mercredi'}).click();
+  await page.getByLabel('Heure du mercredi').fill('09:30');
+  assert.equal((await page.locator('[data-role="celebration-date"]').innerText()).trim(),'4 novembre 2026 · 09:30');
+  await page.locator('#workspace .list .item').filter({hasText:'Jeudi'}).click();
+  assert.equal(await page.getByLabel('Heure du jeudi').inputValue(),'','Hours independent for each day');
+  await page.getByLabel('Heure du jeudi').fill('11:15');
+  await page.locator('#workspace .list .item').filter({hasText:'Mercredi'}).click();
+  assert.equal(await page.getByLabel('Heure du mercredi').inputValue(),'09:30');
+  const [timeSite]=await Promise.all([page.waitForEvent('popup'),page.locator('#view-site-btn').click()]);
+  assert.equal((await timeSite.locator('[data-role="celebration-date"]').innerText()).trim(),'4 novembre 2026 · 09:30');
+  await timeSite.locator('.stage-tab').filter({hasText:'Jeudi'}).click();
+  assert.equal((await timeSite.locator('[data-role="celebration-date"]').innerText()).trim(),'5 novembre 2026 · 11:15');
+  const pills=await timeSite.locator('.celebration-shortcut').evaluateAll(nodes=>nodes.map(e=>({text:e.textContent,scroll:e.scrollWidth,client:e.clientWidth})));
+  assert.ok(pills.every(x=>x.scroll<=x.client+1),'Celebration shortcuts must fit, including Médiathèque: '+JSON.stringify(pills));
+  const computed=await timeSite.locator('.trial-heading').evaluateAll(nodes=>nodes.map(e=>Number.parseFloat(getComputedStyle(e).fontSize)));
+  assert.ok(computed.length>1&&computed[0]<=32&&computed.slice(1).every(size=>size<=26),'Secondary headings must be smaller than the page heading: '+computed.join(','));
+  await timeSite.close();
   await page.locator('#workspace .list .item').filter({hasText:'Vendredi'}).click();
   assert.equal((await page.locator('[data-role="celebration-date"]').innerText()).trim(),'6 novembre 2026');
   await page.locator('#workspace .list .item').filter({hasText:'Dimanche'}).click();
@@ -85,7 +103,7 @@ try{
   assert.equal(await audioSite.locator('.trial-audio-player').last().getAttribute('src'),source);
   await audioSite.close();
   assert.deepEqual(errors,[]);
-  console.log('SITE_CYCLE_PASS mobile='+(width===390)+' next_gabriel=true planned_date=true menu_home=true menu_celebrations=true admin_return=true historic_mp3_in_page=true dated_week=true multi_preparation_dates=true persisted=true');
+  console.log('SITE_CYCLE_PASS mobile='+(width===390)+' next_gabriel=true planned_date=true menu_home=true menu_celebrations=true admin_return=true historic_mp3_in_page=true dated_week=true multi_preparation_dates=true persisted=true time_per_day=true text_hierarchy=true no_overflow=true');
   await ctx.close();
  }
 }finally{await browser.close()}
