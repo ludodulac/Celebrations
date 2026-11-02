@@ -15,7 +15,7 @@ const data={
 const sqls=[];
 const env={DB:{prepare(sql){sqls.push(sql);return {bind(...args){return {async all(){
  if(sql.includes('FROM celebrations_celebrations'))return {results:data.celebrations};
-  if(sql.includes('SELECT DISTINCT c.name,c.file_name,c.storage_path'))return {results:[]};
+  if(sql.includes("FROM celebrations_contents WHERE audience='all'"))return {results:[]};
  if(sql.includes('FROM celebrations_steps'))return {results:data.steps};
  if(sql.includes('FROM celebrations_events WHERE'))return {results:data.events};
  if(sql.includes('FROM celebrations_event_contents'))return {results:data.eventContents};
@@ -41,10 +41,10 @@ test('Site trial response contains eight programme pages plus neutral home, a re
  const seed=JSON.parse(s[1]);
  assert.equal(seed.pages.length,9);
  assert.ok(seed.pages.every(p=>p.blocks.length>0));
- assert.equal(seed.pages.find(p=>p.id==='apres-celebration-101').name,'Après préparation');
+ assert.equal(seed.pages.find(p=>p.id==='apres-celebration-101').name,'Après célébration');
  assert.ok(html.includes('id="menu-toggle"'));
  assert.equal(seed.pages.find(p=>p.group==='page').name,'Accueil général');
- assert.equal(sqls.length,6);
+ assert.equal(sqls.length,7);
  assert.ok(sqls.every(q=>q.startsWith('SELECT ')),'read only');
  assert.match(r.headers.get('content-security-policy'),/connect-src 'none'/);
  const scripts=[...html.matchAll(/<script nonce="[0-9a-f]+">([\s\S]*?)<\/script>/g)];
@@ -76,4 +76,7 @@ test('Nouvel aperçu : accueil neutre, menu Célébrations et URL Gabriel planif
  const txt=await planned.text();
  assert.ok(txt.includes('Date : 2026-11-04'));
  assert.equal((await handleTrialSite(new Request(site+'?celebration=101&page=celebrations'),env)).status,200);
+ assert.equal((await handleTrialSite(new Request(site+'?celebration=101&page=mediatheque'),env)).status,200);
+ assert.ok(html.includes('celebration-shortcuts'));
+ assert.ok(!html.includes('id="return-celebration"'));
 });
