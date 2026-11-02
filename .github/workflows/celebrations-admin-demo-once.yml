@@ -204,3 +204,5 @@ jobs:
 # Typography and daily-hour staging QA: visible font hierarchy, responsive Médiathèque button, remove duplicated 'Célébration' label; different hours per weekday, no production deploy.
 
 # Recheck changed hour-aware Wednesday expectation and run all staging-only end-to-end scenarios.
+
+# Staging-only QA: visitor lists, image grid, independent Pages/Célébrations, global Files, per-file insert modal and safe test-audio deletion. No production merge.
