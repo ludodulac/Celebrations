@@ -200,3 +200,5 @@ jobs:
 # Homepage original image: reuse the SHA-matched public JPEG already stored and approved under staging-specific key, no Supabase or production access.
 
 # Browser tests navigate at DOMContentLoaded because the restored image and gallery may download asynchronously; verify decoded images explicitly.
+
+# Typography and daily-hour staging QA: visible font hierarchy, responsive Médiathèque button, remove duplicated 'Célébration' label; different hours per weekday, no production deploy.
