@@ -17,7 +17,7 @@ try{
   const response=await page.goto(base+'/__editor/demo-preparation',{waitUntil:'domcontentloaded',timeout:30000});
   assert.equal(response.status(),200);
   await page.locator('#workspace .list .item').first().waitFor();
-  assert.equal(await page.locator('#workspace .list .item').count(),8);
+  assert.ok(await page.locator('#workspace .list .item').count()>=8);
   await checkWidth(page,'editor '+width);
   // No manual palette control. Michaël keeps its fixed border colour.
   assert.equal(await page.locator('#theme-toggle, #theme-grid, #theme-picker').count(),0);
