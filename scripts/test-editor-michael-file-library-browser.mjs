@@ -77,7 +77,7 @@ try{
   assert.equal(await preview.locator('#celebration-shortcuts').isVisible(),false,'No celebration shortcut on global home');
   const large=preview.locator('#stage-main img').filter({hasNot:preview.locator('span')}).last();
   await large.waitFor();
-  assert.ok((await large.getAttribute('src')).includes('1791723108110'),'Original home photo is used, not a new placeholder');
+  assert.ok((await large.getAttribute('src')).includes('celebrations-staging-welcome-autumn-2026.jpg'),'Original home photo is used, not a new placeholder');
   await large.evaluate(img=>img.decode().catch(()=>null));
   assert.ok(await large.evaluate(img=>img.naturalWidth>0),'Original welcome image must load from staging R2');
   assert.deepEqual(errors,[]);
