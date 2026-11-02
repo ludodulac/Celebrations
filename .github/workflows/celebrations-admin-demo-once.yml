@@ -173,3 +173,5 @@ jobs:
 # Remove palette selection and duplicate uneditable page titles while keeping real editorial headings, data and fixed archangel colours. Staging only.
 
 # Final staging QA: fixed archangel shade without a picker; auto page-name titles absent; authored headlines intact.
+
+# Final check of the minimal interface, deduplicated Accueil menu, fixed archangel frame colours and no uneditable headings. No publication.
