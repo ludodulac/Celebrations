@@ -208,3 +208,5 @@ jobs:
 # Staging-only QA: visitor lists, image grid, independent Pages/Célébrations, global Files, per-file insert modal and safe test-audio deletion. No production merge.
 
 # Regression campaign 2: tests adapted to new three-tab administration, public-only read manifest and intentionally collapsed media players. Staging only.
+
+# QA review: fixed celebration stage coverage is required, but genuine extra pages do not invalidate the count. No merge or production.
