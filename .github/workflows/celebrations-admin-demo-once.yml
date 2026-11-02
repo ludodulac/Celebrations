@@ -175,3 +175,5 @@ jobs:
 # Final staging QA: fixed archangel shade without a picker; auto page-name titles absent; authored headlines intact.
 
 # Final check of the minimal interface, deduplicated Accueil menu, fixed archangel frame colours and no uneditable headings. No publication.
+
+# Calendar staging QA: user-supplied Wednesday dates every day to Sunday, preparation's multiple dates, preview and browser-local persistence.
