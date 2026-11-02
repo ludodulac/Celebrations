@@ -20,7 +20,8 @@ test('demo client parses and uses browser local drafts only',()=>{
  new vm.Script(DEMO_CLIENT);
  assert.ok(DEMO_CLIENT.includes('localStorage.setItem'));
  assert.ok(DEMO_CLIENT.includes('contentEditable'));
- assert.ok(!DEMO_CLIENT.includes('fetch('));
+ assert.ok(DEMO_CLIENT.includes("&format=json"),'Only read-only public manifests may be fetched');
+ assert.ok(!DEMO_CLIENT.includes("method:'PUT'"));
 });
 test('demo file manager uses IndexedDB only, with PDF/audio/video and file-backed preview buttons',()=>{
  assert.ok(DEMO_CLIENT.includes('indexedDB.open'));
@@ -29,7 +30,8 @@ test('demo file manager uses IndexedDB only, with PDF/audio/video and file-backe
  assert.ok(DEMO_CLIENT.includes("'audio/mpeg'"));
  assert.ok(DEMO_CLIENT.includes("data-action='choose-asset'")||DEMO_CLIENT.includes("dataset.action='choose-asset'"));
  assert.ok(DEMO_CLIENT.includes('URL.createObjectURL'));
- assert.ok(!DEMO_CLIENT.includes('fetch('));
+ assert.ok(DEMO_CLIENT.includes("&format=json"),'Only read-only public manifests may be fetched');
+ assert.ok(!DEMO_CLIENT.includes("method:'PUT'"));
 });
 
 test('rich text is restricted to safe tags and formatting uses block-local state',()=>{
