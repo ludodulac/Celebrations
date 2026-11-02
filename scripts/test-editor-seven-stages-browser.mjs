@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 
 const origin='https://celebrations-exit-staging.rondes.workers.dev';
-const names=['Accueil de la célébration','Préparation','Mercredi','Jeudi','Vendredi','Samedi','Dimanche','Après préparation','Accueil général'];
+const names=['Accueil de la célébration','Préparation','Mercredi','Jeudi','Vendredi','Samedi','Dimanche','Après célébration','Accueil général'];
 const browser=await chromium.launch();
 try {
  for(const mobile of [false,true]) {
