@@ -9,7 +9,7 @@ try{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto(base+'/__editor/demo');
   assert.ok(page.url().endsWith('/__editor/demo-preparation'),'The old design must redirect to the new editor');
-  await page.goto(base+'/__editor/demo-preparation?celebration=101');
+  await page.goto(base+'/__editor/demo-preparation?celebration=101',{waitUntil:'domcontentloaded',timeout:30000});
   await page.locator('#workspace .list .item').first().waitFor();
   const publicAudio=await page.evaluate(()=>window.__PREPARATION_SEED__?.media?.map(x=>x.name)||[]);
   console.log('SITE_HISTORICAL_AUDIO_CATALOGUE count='+publicAudio.length+' examples='+publicAudio.slice(0,4).join(', '));
@@ -69,7 +69,7 @@ try{
   await page.locator('[data-action="back-to-editor"]').click();
   await page.locator('#workspace .list .item.active').waitFor();
   // Reuse one of the MP3 files already present in the historical public site.
-  await page.goto(base+'/__editor/demo-preparation?celebration=101&page=mercredi');
+  await page.goto(base+'/__editor/demo-preparation?celebration=101&page=mercredi',{waitUntil:'domcontentloaded',timeout:30000});
   await page.locator('#workspace .list .item').filter({hasText:'Mercredi'}).click();
   const before=await page.locator('.audio-block audio').count();
   await page.locator('[data-tab="audio"]').click();
