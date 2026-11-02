@@ -210,3 +210,5 @@ jobs:
 # Regression campaign 2: tests adapted to new three-tab administration, public-only read manifest and intentionally collapsed media players. Staging only.
 
 # QA review: fixed celebration stage coverage is required, but genuine extra pages do not invalidate the count. No merge or production.
+
+# Final staging conversion stability: do not rerender an open MP3 converter when a cross-celebration media manifest finishes. All published production remains untouched.
