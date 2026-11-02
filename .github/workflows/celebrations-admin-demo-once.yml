@@ -202,3 +202,5 @@ jobs:
 # Browser tests navigate at DOMContentLoaded because the restored image and gallery may download asynchronously; verify decoded images explicitly.
 
 # Typography and daily-hour staging QA: visible font hierarchy, responsive Médiathèque button, remove duplicated 'Célébration' label; different hours per weekday, no production deploy.
+
+# Recheck changed hour-aware Wednesday expectation and run all staging-only end-to-end scenarios.
