@@ -58,9 +58,9 @@ try{
   assert.equal((await trial.locator('.stage-tab.current').innerText()).trim(),'Dimanche');
   assert.match(await trial.locator('#back-admin').getAttribute('href'),/page=dimanche/);
   await trial.locator('#menu-toggle').click();
-  assert.equal(await trial.locator('.general-tab').count(),3);
-  await trial.getByRole('button',{name:'Accueil général'}).click();
-  assert.ok((await trial.locator('.general-tab.current').innerText()).includes('Accueil général'));
+  assert.equal(await trial.locator('.general-tab').count(),2);
+  await trial.getByRole('button',{name:'⌂ Accueil'}).click();
+  assert.equal((await trial.locator('.general-tab.current').innerText()).trim(),'⌂ Accueil');
   assert.ok(await trial.locator('body').evaluate(e=>e.classList.contains('is-neutral-preview')));
   assert.equal(await trial.locator('#stage-navigation').isVisible(),false);
   await trial.locator('#return-celebration').click();
