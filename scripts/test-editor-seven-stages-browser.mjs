@@ -23,8 +23,8 @@ try {
     const button=page.getByRole('button',{name:(name==='Accueil général'?'▤ ':'✧ ')+name,exact:true});
     assert.equal(await button.count(),1,'Stage navigation '+name);
     await button.click();
-    assert.equal((await page.locator('.editor-head h2').innerText()).trim(),name);
-    assert.ok(await page.locator('#workspace .canvas .block').count()>=1,'Stage content blocks '+name);
+    assert.equal((await page.locator('#workspace .list .item.active').innerText()).trim(),(name==='Accueil général'?'▤ ':'✧ ')+name);
+    assert.equal(await page.locator('.editor-head h2').count(),0,'No uneditable duplicate title above '+name);
   }
   await sidebar.filter({hasText:'Mercredi'}).click();
   await page.locator('.block .ed').first().fill('Essai local mercredi');
