@@ -78,5 +78,6 @@ test('Nouvel aperçu : accueil neutre, menu Célébrations et URL Gabriel planif
  assert.equal((await handleTrialSite(new Request(site+'?celebration=101&page=celebrations'),env)).status,200);
  assert.equal((await handleTrialSite(new Request(site+'?celebration=101&page=mediatheque'),env)).status,200);
  assert.ok(html.includes('celebration-shortcuts'));
+ assert.ok(!html.includes('id="celebration-choice"'));
  assert.ok(!html.includes('id="return-celebration"'));
 });
