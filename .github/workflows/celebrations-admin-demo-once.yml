@@ -194,3 +194,5 @@ jobs:
 # New private staging visitor preview: original Michaël Accueil, own mediathèque and public-only media filters, French full dates, real homepage image, no redundant celebration shortcut.
 
 # Fix script literal on local draft migration: preserves the current working text and home visuals.
+
+# QA: no visible standalone celebration return shortcut on global pages; all navigation through the menu.
