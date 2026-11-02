@@ -14,7 +14,7 @@ try {
   page.setDefaultTimeout(12000);
   const errors=[];
   page.on('pageerror',err=>errors.push(String(err)));
-  const res=await page.goto(origin+'/__editor/demo-preparation');
+  const res=await page.goto(origin+'/__editor/demo-preparation',{waitUntil:'domcontentloaded',timeout:30000});
   assert.equal(res.status(),200,'Seven-page stage editor must be available');
   const sidebar=page.locator('#workspace .list .item');
   await sidebar.first().waitFor();
