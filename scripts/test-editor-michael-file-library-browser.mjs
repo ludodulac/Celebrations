@@ -74,7 +74,7 @@ try{
   assert.ok(await preview.locator('img[src="'+imageSrc+'"]').count()>0);
   await preview.goto(origin+'/__editor/voir-le-site?celebration=101&page=mediatheque',{waitUntil:'domcontentloaded'});
   assert.equal(await preview.locator('.media-tabs button').count(),4);
-  assert.equal(await preview.locator('.media-card audio').count(),0,'Audio players are collapsed by default');
+  assert.equal(await preview.locator('.media-inline-player audio:visible').count(),0,'Audio players are collapsed by default');
   const source=preview.locator('.media-list .media-item-link[href]').first();
   assert.ok(await source.getAttribute('href'));
   assert.equal(await source.getAttribute('target'),'_blank','Right-click can open audio in new tab');
