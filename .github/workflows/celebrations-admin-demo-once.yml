@@ -196,3 +196,5 @@ jobs:
 # Fix script literal on local draft migration: preserves the current working text and home visuals.
 
 # QA: no visible standalone celebration return shortcut on global pages; all navigation through the menu.
+
+# Homepage original image: reuse the SHA-matched public JPEG already stored and approved under staging-specific key, no Supabase or production access.
