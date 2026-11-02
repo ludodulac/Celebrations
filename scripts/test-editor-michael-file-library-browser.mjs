@@ -20,7 +20,7 @@ try{
   assert.ok(catalogue.every(f=>!f.src?.includes('committee/')));
   // Real images, PDFs, MP3 and textual resources are independent categories.
   await page.locator('[data-tab="media"]').click();
-  assert.equal(await page.locator('[data-file-category]').count(),4);
+  assert.equal(await page.locator('.file-category-tabs [data-file-category]').count(),4);
   for(const key of ['images','pdf','audios','autres']){
    await page.locator('[data-file-category="'+key+'"]').click();
    assert.equal(await page.locator('.historic-file').count(),counts[key],key);
