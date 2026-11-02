@@ -52,7 +52,7 @@ function toBlocks(celebration,step,events,eventContents,stepContents,links){
  }
  function date(x){return x?asText(x):'';}
  add('heading',step.label||'Préparation');
- if(step.start_date||step.end_date)add('text','Dates : '+date(step.start_date)+(step.end_date&&step.end_date!==step.start_date?' → '+date(step.end_date):''));
+ if((step.start_date||step.end_date)&&!String(step.step_key||'').startsWith('apres-celebration-'))add('text','Dates : '+date(step.start_date)+(step.end_date&&step.end_date!==step.start_date?' → '+date(step.end_date):''));
  if(step.body_text)add('text',step.body_text);
  const attachedByEvent=new Map();
  for(const row of eventContents){const arr=attachedByEvent.get(String(row.event_id))||[];arr.push(row);attachedByEvent.set(String(row.event_id),arr);}
