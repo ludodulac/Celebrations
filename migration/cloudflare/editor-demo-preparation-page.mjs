@@ -96,6 +96,55 @@ function plannedCelebration(id){
  return {celebration:{id,archangel,year:String(year),status:'draft',start_date:iso(date),end_date:iso(sunday)},pages};
 }
 
+// Inventory of PUBLIC resources actually attached to the selected celebration.
+// R2 objects are never copied or promoted; committee/private content stays excluded.
+function publicFileCatalogue(steps,events,eventContents,stepContents){
+ const byKey=new Map();
+ for(const step of steps){
+  const stage=STAGES.find(t=>clean(t.label)===clean(step.label)||clean(t.legacyLabel||'')===clean(step.label)||String(step.step_key||'').startsWith(t.slug+'-'));
+  byKey.set(String(step.step_key),stage?.label||step.label||'Célébration');
+ }
+ const entries=new Map();
+ const add=(entry,page)=>{
+  if(!entry||!page)return;
+  const prev=entries.get(entry.id);
+  if(prev){if(!prev.pages.includes(page))prev.pages.push(page);return}
+  entries.set(entry.id,{...entry,pages:[page]});
+ };
+ const kind=(path,type)=>{
+  const lower=String(path||'').toLowerCase().split('?')[0];
+  const t=clean(type);
+  if(/\.(?:png|jpe?g|gif|webp|svg|avif|bmp)$/.test(lower)||t==='image')return 'images';
+  if(/\.pdf$/.test(lower)||t==='pdf')return 'pdf';
+  if(/\.(?:mp3|wav|ogg|m4a|aac|flac|opus|wma)$/.test(lower)||t==='audio')return 'audios';
+  return 'autres';
+ };
+ const addFile=(path,type,name,page)=>{
+  const src=asset(path);if(!src)return;
+  const category=kind(path,type);
+  add({id:'file:'+path,category,name:String(name||path.split('/').at(-1)||'Fichier').slice(0,300),src},page);
+ };
+ for(const step of steps){
+  const page=byKey.get(String(step.step_key));
+  if(step.body_text)add({id:'text:step:'+step.id,category:'autres',name:'Texte — '+page,text:asText(step.body_text)},page);
+ }
+ for(const e of events){
+  const page=byKey.get(String(e.step_key));if(!page)continue;
+  if(e.description)add({id:'text:event:'+e.id,category:'autres',name:String(e.title||'Texte de rendez-vous'),text:asText(e.description)},page);
+ }
+ const eventPage=new Map(events.map(e=>[String(e.id),byKey.get(String(e.step_key))]));
+ for(const c of [...eventContents,...stepContents]){
+  const page=c.event_id!=null?eventPage.get(String(c.event_id)):byKey.get(String(c.step_key));
+  if(!page)continue; // not in any public page of this celebration
+  if(clean(c.source_type)==='file')addFile(c.storage_path,c.content_type,c.name||c.file_name,page);
+  // A public file can have a separate public cover; it is a reusable image.
+  if(c.has_cover&&c.cover_storage_path)addFile(c.cover_storage_path,'image',c.cover_file_name||c.name||'Couverture',page);
+  if(c.inline_text)add({id:'text:content:'+c.id+':inline',category:'autres',name:String(c.name||'Texte'),text:asText(c.inline_text)},page);
+  if(c.description)add({id:'text:content:'+c.id+':description',category:'autres',name:'Description — '+String(c.name||'Document'),text:asText(c.description)},page);
+ }
+ return [...entries.values()];
+}
+
 // Public staging rows only. Shared with the site-shaped preview; never writes D1.
 export async function loadSevenStageContent(env,selectedId){
   const celebrations=await rows(env.DB,'SELECT id,archangel,year,status FROM celebrations_celebrations ORDER BY id');
@@ -108,7 +157,7 @@ export async function loadSevenStageContent(env,selectedId){
   if(planned){
    const seed={celebrationId:celebration.id,archangel:celebration.archangel,year:celebration.year,
     start_date:celebration.start_date,end_date:celebration.end_date,
-    palettes:fiveColourways(celebration.archangel),pages:planned.pages,media:[],celebrations};
+    palettes:fiveColourways(celebration.archangel),pages:planned.pages,media:[],files:[],celebrations};
    return {celebrations,celebration,seed};
   }
   const steps=await rows(env.DB,'SELECT * FROM celebrations_steps WHERE celebration_id=? ORDER BY sort_order,id',celebration.id);
@@ -137,16 +186,13 @@ export async function loadSevenStageContent(env,selectedId){
    {id:1,kind:'heading',text:'Ronde des Archanges Universelle',align:'center'},
    {id:2,kind:'text',text:'Bienvenue sur notre site. Vous pouvez personnaliser cette présentation dans l’administration.',align:'center'}
   ]});
-  // Only publicly linked files are offered. Nothing is copied from R2 or made public.
-  const media=await rows(env.DB,`SELECT DISTINCT c.name,c.file_name,c.storage_path,c.content_type
-   FROM celebrations_contents c WHERE c.audience='all' AND c.source_type='file'
-   AND (LOWER(c.content_type)='audio' OR LOWER(c.storage_path) LIKE '%.mp3')
-   AND (EXISTS(SELECT 1 FROM celebrations_step_contents sc WHERE sc.content_id=c.id)
-    OR EXISTS(SELECT 1 FROM celebrations_event_contents ec JOIN celebrations_events e ON e.id=ec.event_id WHERE ec.content_id=c.id AND e.audience='all'))`);
-  const publicAudio=media.filter(m=>/\.mp3$/i.test(String(m.storage_path||''))&&asset(m.storage_path))
-    .map(m=>({name:m.name||m.file_name||'Enregistrement MP3',src:asset(m.storage_path)}));
+  // All and only the public resources attached to this celebration.
+  // Text is already public content of the fetched pages, not a new file in R2.
+  const files=publicFileCatalogue(steps,events,evc,stc);
+  const publicAudio=files.filter(f=>f.category==='audios'&&/\.mp3$/i.test(f.src||''))
+    .map(f=>({name:f.name,src:f.src,pages:f.pages}));
   const seed={celebrationId:celebration.id,archangel:celebration.archangel,year:celebration.year||'',
-   palettes:fiveColourways(celebration.archangel),pages,media:publicAudio,celebrations};
+   palettes:fiveColourways(celebration.archangel),pages,media:publicAudio,files,celebrations};
   return {celebrations,celebration,seed};
 }
 export async function handlePreparationDemo(request,env){
