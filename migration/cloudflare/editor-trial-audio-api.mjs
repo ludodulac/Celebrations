@@ -80,6 +80,16 @@ export async function handleTrialAudio(request,env){
    const r=await env.MEDIA_BUCKET.list(opts);
    return json({ok:true,items:r.objects.map(x=>({key:x.key,size:x.size,type:x.httpMetadata?.contentType||'inconnu',restricted:x.key.startsWith('committee/'),testAudio:x.key.startsWith(ROOT)})),cursor:r.truncated?r.cursor:null,complete:!r.truncated});
   }
+  if(action==='delete'&&request.method==='POST'){
+   // Only MP3 that this staging workshop itself created. Never touch
+   // historical /media/, committee documents or a production bucket.
+   const body=await request.json().catch(()=>null);
+   if(!keyOk(body?.key))return fail('Fichier non autorisé',400);
+   const existed=await env.MEDIA_BUCKET.head(body.key);
+   if(!existed)return fail('Fichier absent',404);
+   await env.MEDIA_BUCKET.delete(body.key);
+   return json({ok:true,deleted:true});
+  }
   if(action==='begin'&&request.method==='POST'){
    const b=await request.json().catch(()=>null);
    if(!nameOk(b?.name)||!Number.isSafeInteger(b?.size)||b.size<128||b.size>MAX)return fail('MP3 invalide ou supérieur à 300 Mio',400);
