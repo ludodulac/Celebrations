@@ -29,7 +29,7 @@ try {
   assert.ok(await trial.locator('body').evaluate(e=>e.classList.contains('is-neutral-preview')));
   await trial.locator('#menu-toggle').click();
   assert.equal(await trial.locator('.general-tab').count(),3);
-  await trial.locator('#return-celebration').click();
+  await trial.goto(base+'/__editor/voir-le-site?celebration=101&page=accueil-celebration');
   assert.equal(await trial.locator('.stage-tab').count(),9);
   await trial.getByRole('button',{name:'Un moment particulier'}).click();
   assert.equal((await trial.locator('.stage-tab.current').innerText()).trim(),'Un moment particulier');
