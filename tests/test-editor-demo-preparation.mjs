@@ -32,6 +32,7 @@ test('Preparation demo includes every public step/event/content/link without dat
  }
  assert.ok(html.includes('media/son.mp3'));
  assert.ok(html.includes('id="view-site-btn"'),'The site preview remains available');
+ assert.ok(!html.includes('id="theme-toggle"')&&!html.includes('id="theme-picker"'),'Palette selection removed');
  assert.ok(!html.includes('Copie de démonstration')&&!html.includes('Tout le reste reste blanc'),'Explanatory clutter removed');
  assert.ok(!html.includes('href="/__editor/demo">← Atelier principal</a>'),'Old disconnected mockup must not be reachable from the new editor');
  assert.ok(html.includes('media/preparation.pdf'));
