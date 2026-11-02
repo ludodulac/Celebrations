@@ -24,7 +24,10 @@ try{
   page.on('console',m=>{if(m.type()==='error')console.log('WAV_BROWSER_CONSOLE '+m.text())});
   page.on('requestfailed',r=>console.log('WAV_NETWORK_FAILED '+r.url()+' '+r.failure()?.errorText));
   await page.goto(BASE+'/__editor/demo-preparation');
-  await page.locator('[data-tab="audio"]').click();
+  await page.locator('[data-tab="media"]').click();
+  await page.locator('.file-category-tabs [data-file-category="audios"]').click();
+  await page.locator('.audio-import-section summary').click();
+  await page.getByLabel('Choisir un MP3 ou WAV').waitFor();
   await page.getByLabel('Choisir un MP3 ou WAV').setInputFiles({name:'essai-3-minutes.wav',mimeType:'audio/wav',buffer:generateWav()});
   await page.getByRole('button',{name:'Convertir en MP3'}).click();
   await page.waitForFunction(()=>/Conversion terminée|Conversion non terminée|Conversion annulée/.test(document.querySelector('.audio-feedback')?.textContent||''),{timeout:30000});
