@@ -1,4 +1,5 @@
 name: CELEBRATIONS SERVER SAVE - isolated staging (drafts only)
+# Page deletion mobile: verify clean generated JavaScript before release.
 on:
   push:
     branches: [feat/celebrations-save-on-server-20261103]
