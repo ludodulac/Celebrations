@@ -109,7 +109,7 @@ try{
   await page.getByLabel('Titre de la célébration').blur();
   const [catalogue]=await Promise.all([page.waitForEvent('popup'),page.locator('#view-site-btn').click()]);
   await catalogue.locator('#menu-toggle').click();
-  await catalogue.getByRole('button',{name:'Célébrations',exact:true}).click();
+  await catalogue.getByRole('button',{name:'✧ Célébrations',exact:true}).click();
   assert.ok((await catalogue.locator('.celebration-choices').innerText()).includes('Ouriel 2027 — Célébration universelle'),'Custom celebration title must reach the visitor catalogue');
   await catalogue.close();
   assert.deepEqual(errors,[]);
