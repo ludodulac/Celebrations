@@ -227,3 +227,5 @@ jobs:
 # CSS stacking: the green menu has priority over neighbouring blue insertion controls during editing.
 
 # QA: open green + menu in the left column must overlap neither the blue insertion bar nor right-column controls.
+
+# UX fix: event time and video link changes do not rerender the active editor during the next click; thumbnail updates inline.
