@@ -20,7 +20,7 @@ export async function handleTrialSite(request,env){
  const siteClient=TRIAL_SITE_CLIENT
   .replace("(()=>{\'use strict\';","(async()=>{\'use strict\';")
   .replace("const KEY=\'celebrations-demo-preparation-\'+celebration;",SERVER_PREVIEW_PREFETCH+"\nconst KEY=\'celebrations-demo-preparation-\'+celebration;");
- const html=\'<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Site d’essai — Célébrations</title>'+
+ const html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Site d’essai — Célébrations</title>'+
  '<style nonce="'+nonce+'">'+TRIAL_SITE_STYLE+'</style></head><body>'+
 
 
