@@ -18,7 +18,7 @@ export async function handleTrialSite(request,env){
  catch{return new Response('Célébration introuvable',{status:404,headers:{'cache-control':'no-store'}})}
  const nonce=Array.from(crypto.getRandomValues(new Uint8Array(16)),v=>v.toString(16).padStart(2,'0')).join('');
  const allowSavedImages=String.raw`function urlOk(v){
-  if(typeof v==='string'&&v.length<1000000&&/^data:image\\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(v))return v;`;
+  if(typeof v==='string'&&v.length<1000000&&/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(v))return v;`;
  const siteClient=TRIAL_SITE_CLIENT
   .replace("function urlOk(v){",allowSavedImages)
   .replace("(()=>{\'use strict\';","(async()=>{\'use strict\';")
