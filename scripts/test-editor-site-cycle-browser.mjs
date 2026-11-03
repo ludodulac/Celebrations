@@ -29,6 +29,18 @@ try{
   const first=trial.locator('.media-item-link[href]').first();
   await first.waitFor();
   assert.ok(await first.getAttribute('href'),'Each media title must be a usable link');
+  const firstMedia=trial.locator('.media-card').first();
+  assert.equal(await firstMedia.evaluate(el=>el.querySelector('.media-item-link')?.nextElementSibling?.classList.contains('media-location')),true,'Page/day appears discreetly AFTER the media title');
+  await trial.getByRole('button',{name:'Vidéo',exact:true}).click();
+  const playable=trial.locator('.media-card:has(.media-inline-player)').first();
+  if(await playable.count()){
+   await playable.locator('.media-item-link').click();
+   assert.equal(await playable.locator('.media-inline-player').isVisible(),true,'Video opens from its title');
+   const close=playable.getByRole('button',{name:'Fermer la vidéo'});
+   await playable.hover();
+   await close.click();
+   assert.equal(await playable.locator('.media-inline-player').isVisible(),false,'Video can be closed with the X');
+  }
   await trial.getByRole('button',{name:'Images',exact:true}).click();
   const images=trial.locator('.media-image-grid .media-image-link');
   assert.ok(await images.count()>0);
