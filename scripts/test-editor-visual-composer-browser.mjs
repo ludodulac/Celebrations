@@ -19,6 +19,10 @@ try{
   let section=page.locator('.content-section').last();
   assert.equal(await section.getAttribute('data-layout'),'columns');
   assert.equal(await section.locator('.section-column').count(),2);
+  assert.equal(await section.locator('.section-settings').count(),1,'One single frame setting for the entire two-column zone');
+  assert.equal(await section.locator('.section-add-green').count(),2,'Each column can add items');
+  assert.equal(await section.locator('.section-column').first().locator('.section-settings').count(),1);
+  assert.equal(await section.locator('.section-column').nth(1).locator('.section-settings').count(),0);
   const green=(side)=>page.locator('.content-section').last().locator('.section-column').nth(side).locator('.section-add-green');
   await section.hover();await green(0).click();
   await page.locator('.content-section').last().locator('.section-column').first().getByRole('button',{name:'Image',exact:true}).click();
@@ -39,7 +43,11 @@ try{
   await section.locator('.section-column').nth(1).getByRole('button',{name:'Titre événement',exact:true}).click();
   const event=page.locator('.content-section').last().locator('.section-column').nth(1);
   await event.locator('.ed.heading').last().fill('Rituel de la Lumière');
-  await event.getByLabel('Heure de l’événement').fill('11:30');
+  assert.equal(await event.locator('input[type="time"]').count(),0,'No native minutes wheel');
+  await event.locator('.time-quarter-select').selectOption('11:30');
+  assert.equal(await page.locator('.content-section').last().getByLabel('Heure de l’événement').inputValue(),'11:30');
+  await page.locator('.content-section').last().getByLabel('Heure de l’événement').fill('11:32');
+  assert.equal(await page.locator('.content-section').last().getByLabel('Heure de l’événement').inputValue(),'11:32','Custom precise time retained');
   section=page.locator('.content-section').last();await section.hover();
   await green(1).click();
   await section.locator('.section-column').nth(1).getByRole('button',{name:'Vidéo',exact:true}).click();
@@ -49,6 +57,9 @@ try{
   await section.locator('.section-settings').first().locator('summary').click();
   await section.locator('.section-settings').first().getByLabel('Forme du cadre').selectOption('round');
   assert.equal(await page.locator('.content-section').last().getAttribute('data-frame'),'round');
+  const box=page.locator('.content-section').last();
+  assert.equal(await box.evaluate(e=>parseInt(getComputedStyle(e).borderTopWidth,10)),1,'Frame applies around whole zone');
+  assert.equal(await box.locator('.section-column').nth(1).evaluate(e=>getComputedStyle(e).borderTopStyle),'none','No frame around the right column');
   await page.locator('#save-btn').click();
   const [preview]=await Promise.all([page.waitForEvent('popup'),page.locator('#view-site-btn').click()]);
   await preview.locator('.trial-content-section[data-layout="columns"]').waitFor();
@@ -57,6 +68,7 @@ try{
   assert.equal(columnCount,width===390?1:2);
   assert.ok(await preview.getByText('Paragraphe sur deux colonnes').count()>0);
   assert.ok(await preview.getByText('Rituel de la Lumière').count()>0);
+  assert.ok(await preview.getByText('11:32',{exact:true}).count()>0,'Custom event time visible to readers');
   assert.ok(await preview.locator('.trial-video-trigger img[src*="ytimg.com"]').count()>0);
   assert.equal(await preview.locator('.trial-video-iframe').count(),0,'Click-to-play before iframe');
   await preview.locator('.trial-video-trigger').last().click();
