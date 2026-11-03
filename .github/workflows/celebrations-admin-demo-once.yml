@@ -221,3 +221,5 @@ jobs:
 # 2026-11-02 unused-file policy staging only: grey when no saved page uses; delete local orphan only; no hide button or destructive action on linked archives.
 
 # Staging-only visual page composition: blue insert, green content picker, single/double columns, editable video link thumbnails and configurable frame.
+
+# QA recheck: old inline-format test uses blue/green composer, historical video links display true players rather than buttons.
