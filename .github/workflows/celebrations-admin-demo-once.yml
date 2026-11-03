@@ -43,6 +43,7 @@ jobs:
           node --check scripts/test-editor-wav-to-mp3-browser.mjs
           node --check scripts/test-editor-trial-site-browser.mjs
           node --check scripts/test-editor-site-cycle-browser.mjs
+          node --check scripts/test-editor-visual-composer-browser.mjs
           node --check scripts/test-editor-extra-neutral-pages-browser.mjs
           node --check scripts/test-editor-michael-file-library-browser.mjs
           node --check migration/cloudflare/staging-worker.mjs
@@ -71,6 +72,8 @@ jobs:
         run: node scripts/test-editor-michael-file-library-browser.mjs
       - name: Verify isolated WAV-to-MP3 conversion on desktop and phone
         run: node scripts/test-editor-wav-to-mp3-browser.mjs
+      - name: Verify visual composition with single/two-column zones on mobile and desktop
+        run: node scripts/test-editor-visual-composer-browser.mjs
       - name: Verify real site home, future Gabriel and switch to/from editor
         run: node scripts/test-editor-site-cycle-browser.mjs
       - name: Check historical content is untouched
@@ -216,3 +219,5 @@ jobs:
 # 2026-11-02: Staging-only QA of one Administration (Pages / Célébrations / Fichiers), global media reference insertion and compact public médiathèque.
 
 # 2026-11-02 unused-file policy staging only: grey when no saved page uses; delete local orphan only; no hide button or destructive action on linked archives.
+
+# Staging-only visual page composition: blue insert, green content picker, single/double columns, editable video link thumbnails and configurable frame.
