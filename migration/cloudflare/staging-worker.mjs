@@ -20,6 +20,7 @@ import {handleEditorE1Page,handleEditorE1Client} from "./editor-e1-page.mjs";
 import {handlePreparationDemo} from "./editor-demo-preparation-page.mjs";
 import {handleTrialSite} from "./editor-trial-site-page.mjs";
 import {handleTrialAudio} from "./editor-trial-audio-api.mjs";
+import {handleServerDraft} from "./editor-server-draft-api.mjs";
 export default {
  async fetch(request,env){
   const url=new URL(request.url),path=url.pathname;
@@ -49,6 +50,7 @@ export default {
   if(path==="/__editor/access/logout")return accessLogout(request,env);
   if(path==="/api/editor-e1")return handleEditorE1(request,env);
   if(path==="/api/editor-trial-audio")return handleTrialAudio(request,env);
+  if(path==="/api/editor-server-draft")return handleServerDraft(request,env);
   if(path==="/__editor/demo")return Response.redirect(new URL("/__editor/demo-preparation",url).toString(),302);
   if(path==="/__editor/demo-preparation")return handlePreparationDemo(request,env);
   if(path==="/__editor/voir-le-site")return handleTrialSite(request,env);
