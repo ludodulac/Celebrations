@@ -48,6 +48,8 @@ try{
   assert.equal(await page.locator('.content-section').last().getByLabel('Heure de l’événement').inputValue(),'11:30');
   await page.locator('.content-section').last().getByLabel('Heure de l’événement').fill('11:32');
   assert.equal(await page.locator('.content-section').last().getByLabel('Heure de l’événement').inputValue(),'11:32','Custom precise time retained');
+  assert.match((await page.locator('.content-section').last().locator('.editor-event-display').innerText()).replace(/\s+/g,' '),/11:32\s*—\s*Rituel de la Lumière/,'Time must be inline with the title');
+  assert.equal(await page.locator('.content-section').last().locator('time.block-insert-time').count(),0,'Time is not duplicated above event title');
   section=page.locator('.content-section').last();await section.hover();
   await green(1).click();
   await section.locator('.section-column').nth(1).getByRole('button',{name:'Vidéo',exact:true}).click();
@@ -61,6 +63,9 @@ try{
   assert.equal(await box.evaluate(e=>parseInt(getComputedStyle(e).borderTopWidth,10)),1,'Frame applies around whole zone');
   assert.equal(await box.locator('.section-column').nth(1).evaluate(e=>getComputedStyle(e).borderTopStyle),'none','No frame around the right column');
   await page.locator('#save-btn').click();
+  assert.equal(await page.locator('#save-btn').innerText(),'✓ Enregistré','Saving must visibly confirm the action');
+  assert.equal(await page.locator('#editor-save-toast').isVisible(),true,'Visible green confirmation');
+  assert.equal(await page.locator('.canvas .rule').count(),0,'No decorative rule or large empty margin before content');
   const [preview]=await Promise.all([page.waitForEvent('popup'),page.locator('#view-site-btn').click()]);
   await preview.locator('.trial-content-section[data-layout="columns"]').waitFor();
   const col=preview.locator('.trial-content-section[data-layout="columns"] .trial-content-columns').last();
@@ -68,7 +73,7 @@ try{
   assert.equal(columnCount,width===390?1:2);
   assert.ok(await preview.getByText('Paragraphe sur deux colonnes').count()>0);
   assert.ok(await preview.getByText('Rituel de la Lumière').count()>0);
-  assert.ok(await preview.getByText('11:32',{exact:true}).count()>0,'Custom event time visible to readers');
+  assert.match((await preview.getByText('Rituel de la Lumière',{exact:false}).first().innerText()).replace(/\s+/g,' '),/11:32\s*—\s*Rituel de la Lumière/,'Visitor time is inline with heading');
   assert.ok(await preview.locator('.trial-video-trigger img[src*="ytimg.com"]').count()>0);
   assert.equal(await preview.locator('.trial-video-iframe').count(),0,'Click-to-play before iframe');
   await preview.locator('.trial-video-trigger').last().click();
