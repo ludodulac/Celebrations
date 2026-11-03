@@ -1,0 +1,103 @@
+name: CELEBRATIONS SERVER SAVE - isolated staging (drafts only)
+on:
+  push:
+    branches: [feat/celebrations-save-on-server-20261103]
+    paths:
+      - .github/workflows/celebrations-server-save-staging-once.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-staging-only
+  cancel-in-progress: false
+jobs:
+  server-save:
+    if: github.ref == 'refs/heads/feat/celebrations-save-on-server-20261103'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Validate staging isolation, imports and generated editor scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$STAGING_D1_ID" = 0f761662-241f-42cc-ac94-5c68b4aa7797
+          test "$STAGING_D1_ID" != 28736d2a-479b-472b-bf82-703ad0affe10
+          test "$STAGING_R2_BUCKET" = celebrations-exit-staging
+          node --check migration/cloudflare/staging-worker.mjs
+          node --check migration/cloudflare/editor-server-draft-api.mjs
+          node --check migration/cloudflare/editor-server-sync-client.mjs
+          node --check migration/cloudflare/editor-demo-preparation-page.mjs
+          node --check migration/cloudflare/editor-trial-site-page.mjs
+          node --check tests/test-editor-server-drafts.mjs
+      - name: Unit tests — fictitious R2, no staging writes
+        run: |
+          node --test tests/test-editor-server-drafts.mjs
+          node --test tests/test-editor-e1.mjs tests/test-editor-b-foundations.mjs tests/test-editor-d4-access.mjs
+      - name: Install isolated staging deploy CLI
+        run: npm install --no-save --no-package-lock wrangler@4
+      - name: Guard actual deployed staging bindings
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const u='https://api.cloudflare.com/client/v4/accounts/'+process.env.CLOUDFLARE_ACCOUNT_ID+'/workers/scripts/celebrations-exit-staging/settings';
+          const r=await fetch(u,{headers:{authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN}});
+          assert.equal(r.status,200);
+          const o=await r.json();assert.equal(o.success,true);
+          const bs=o.result.bindings,d1=bs.filter(x=>x.type==='d1'),r2=bs.filter(x=>x.type==='r2_bucket');
+          assert.deepEqual(d1.map(x=>x.name).sort(),['DB','MEDIA_ACL']);
+          assert.ok(d1.every(x=>(x.database_id||x.id)==='0f761662-241f-42cc-ac94-5c68b4aa7797'));
+          assert.equal(r2.length,1);assert.equal(r2[0].bucket_name,'celebrations-exit-staging');
+          assert.equal(bs.filter(x=>['service','dispatch_namespace'].includes(x.type)).length,0);
+          console.log('SERVER_SAVE_STAGING_BINDINGS_PASS');
+          NODE
+      - name: Free D1 safety quota before staging deployment
+        run: node scripts/check-staging-d1-free-budget.mjs pre
+      - name: Build isolated staging assets and guarded configuration
+        run: |
+          python scripts/build_staging_assets.py
+          python scripts/configure_staging_wrangler.py
+      - name: Deploy staging Worker only (no content publication or draft migration)
+        working-directory: migration/cloudflare
+        run: npx wrangler deploy --config wrangler.toml
+      - name: Staging smoke checks — authentication denied, editor/preview accessible
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const base='https://celebrations-exit-staging.rondes.workers.dev';
+          const anon=await fetch(base+'/api/editor-server-draft?celebration=101',{cache:'no-store'});
+          assert.equal(anon.status,401);
+          const denied=await fetch(base+'/api/editor-server-draft',{
+            method:'POST',headers:{'content-type':'application/json'},
+            body:JSON.stringify({celebration:'101',expectedRevision:0,record:{pages:[]},plans:[],shared:{pages:[],homeId:''}})
+          });assert.equal(denied.status,401);
+          const editor=await fetch(base+'/__editor/demo-preparation?celebration=101',{cache:'no-store'});
+          assert.equal(editor.status,200);
+          const html=await editor.text();assert.ok(html.includes('SERVER_ENDPOINT'));assert.ok(html.includes('Enregistré sur le serveur'));
+          const preview=await fetch(base+'/__editor/voir-le-site?celebration=101',{cache:'no-store'});
+          assert.equal(preview.status,200);assert.ok((await preview.text()).includes('fetchServerPreview'));
+          console.log('SERVER_SAVE_STAGING_SMOKE_PASS anonymous_401=true editor_200=true preview_200=true');
+          NODE
+      - name: Verify no historical content publication or import changes
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const u='https://api.cloudflare.com/client/v4/accounts/'+process.env.CLOUDFLARE_ACCOUNT_ID+'/d1/database/'+process.env.STAGING_D1_ID+'/query';
+          const sql="SELECT (SELECT COUNT(*) FROM editor_c_imports) AS pages, (SELECT COUNT(*) FROM editor_b_pages WHERE published_version IS NOT NULL) AS published, (SELECT COUNT(*) FROM editor_c_blocks b JOIN editor_b_pages p ON b.page_id=p.id AND b.version=p.draft_version) AS historical_blocks";
+          const r=await fetch(u,{method:'POST',headers:{authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN,'content-type':'application/json'},body:JSON.stringify({sql})});
+          assert.equal(r.status,200);const o=await r.json();assert.equal(o.success,true);
+          const d=o.result[0].results[0];assert.deepEqual([d.pages,d.published,d.historical_blocks],[47,0,327]);
+          console.log('SERVER_SAVE_PUBLICATION_GUARD_PASS');
+          NODE
+      - name: D1 safety quota after staging deployment
+        if: always()
+        run: node scripts/check-staging-d1-free-budget.mjs post
