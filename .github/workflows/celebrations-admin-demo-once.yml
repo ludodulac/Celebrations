@@ -233,3 +233,5 @@ jobs:
 # UX QA: labels des pages horizontaux avec options compactes, engrenage unique pour les deux colonnes et heures par quarts d'heure ou saisie HH:MM.
 
 # Corrections testées : liste Pages mono-colonne et champs date/heure en pleine largeur ; tests de la mise en page de l'éditeur.
+
+# Fix inline clock editing: changing an event time must not re-render the focused contenteditable element.
