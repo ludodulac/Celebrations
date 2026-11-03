@@ -3,6 +3,7 @@
 import {DEMO_CSS} from './editor-demo-style.mjs';
 import {DEMO_CLIENT} from './editor-demo-client.mjs';
 import {TRIAL_AUDIO_CLIENT} from './editor-trial-audio-client.mjs';
+import {SERVER_EDITOR_SYNC} from './editor-server-sync-client.mjs';
 import {fiveColourways} from './editor-celebration-themes.mjs';
 const HOST='celebrations-exit-staging.rondes.workers.dev';
 export const STAGES=[
@@ -290,6 +291,7 @@ export async function handlePreparationDemo(request,env){
   }
   // Reuse the proven editor, but isolate its localStorage key from the fictional demo.
   const client=DEMO_CLIENT
+   .replace("(()=>{'use strict';","(async()=>{'use strict';")
    .replace("const KEY='celebrations-demo-editor-v1'","const KEY='celebrations-demo-preparation-'+String(window.__PREPARATION_SEED__.celebrationId)")
    .replace("const clone=o=>JSON.parse(JSON.stringify(o));","seed.pages=window.__PREPARATION_SEED__.pages;\nconst clone=o=>JSON.parse(JSON.stringify(o));")
    // Preserve earlier local edits to Préparation, while inserting the six other historical pages.
@@ -310,6 +312,9 @@ for(const official of seed.pages){
    .replace("Choisir une page d’exemple","Les sept étapes de la célébration")
    .replace("function render(){","function render(){const see=document.getElementById('view-site-btn');if(see){const current=page();const stage=pageSlug(current);see.href='/__editor/voir-le-site?celebration='+encodeURIComponent(window.__PREPARATION_SEED__.celebrationId)+'&page='+encodeURIComponent(stage);}")
    .replace("el('save-btn').onclick=save;","el('save-btn').onclick=save;const see=document.getElementById('view-site-btn');if(see)see.onclick=()=>{if(dirty)save()};")
+   .replace("function mark(){dirty=true;",SERVER_EDITOR_SYNC+"\nfunction mark(){db._serverPending=true;dirty=true;")
+   .replace("el('save-btn').onclick=()=>save(true);","el('save-btn').onclick=()=>{save();void serverSave();};")
+   .replace("render();loadFiles();","await serverLoad();render();loadFiles();")
    .replace('z.innerText.slice(0,5000)','z.innerText.slice(0,50000)');
   if(!client.includes("window.__PREPARATION_SEED__.pages")||!client.includes("for(const archived of seed.pages)"))throw Error('Demo client adapter failed');
   const nonce=Array.from(crypto.getRandomValues(new Uint8Array(16)),v=>v.toString(16).padStart(2,'0')).join('');
