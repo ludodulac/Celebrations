@@ -1,0 +1,114 @@
+import assert from 'node:assert/strict';
+import {chromium} from 'playwright';
+const origin='https://celebrations-exit-staging.rondes.workers.dev';
+const browser=await chromium.launch();
+try{
+ for(const width of [390,1280]){
+  const ctx=await browser.newContext({viewport:{width,height:850},isMobile:width===390,hasTouch:width===390});
+  const page=await ctx.newPage();page.setDefaultTimeout(30000);
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.goto(origin+'/__editor/demo-preparation?celebration=101',{waitUntil:'domcontentloaded',timeout:30000});
+  assert.equal(await page.locator('.brand strong').innerText(),'Administration');
+  const catalogue=await page.evaluate(()=>window.__PREPARATION_SEED__?.files||[]);
+  const counts=Object.fromEntries(['images','pdf','audios','autres'].map(k=>[k,catalogue.filter(f=>f.category===k).length]));
+  assert.ok(Object.values(counts).every(v=>v>0),'Michaël contains all four file categories');
+  await page.locator('[data-tab="media"]').click();
+  await page.waitForFunction(()=>!document.querySelector('.file-loading'));
+  assert.equal(await page.locator('.file-category-tabs [data-file-category]').count(),4);
+  assert.equal(await page.locator('.celebration-select').count(),0,'Files are NOT scoped by the Michael dropdown');
+  assert.equal(await page.locator('[data-tab="audio"]').count(),0);
+  for(const [key,min] of Object.entries(counts)){
+   await page.locator('.file-category-tabs [data-file-category="'+key+'"]').click();
+   assert.ok(await page.locator('.historic-file').count()>=min,key+' missing historical resources');
+  }
+  await page.locator('.file-category-tabs [data-file-category="images"]').click();
+  // No "Masquer" workaround: a file with a known page/event stays normal.
+  assert.equal(await page.getByRole('button',{name:'Masquer'}).count(),0);
+  assert.equal(await page.locator('.historic-file[data-usage="used"] [data-action="delete-unused-file"]').count(),0);
+  // A newly imported, unreferenced file is grey and can be permanently deleted.
+  const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9p0jQxgAAAAASUVORK5CYII=','base64');
+  await page.locator('#asset-file-picker').setInputFiles({name:'suppression-test.png',mimeType:'image/png',buffer:png});
+  const orphan=page.locator('.card[data-usage="unused"]').filter({hasText:'suppression-test.png'});
+  await orphan.waitFor();
+  assert.ok(await orphan.locator('[data-action="delete-unused-file"]').isVisible());
+  page.once('dialog',d=>d.accept());
+  await orphan.locator('[data-action="delete-unused-file"]').click();
+  await orphan.waitFor({state:'detached'});
+  // Once inserted into a page, a local asset is no longer grey or deleteable.
+  await page.locator('#asset-file-picker').setInputFiles({name:'fichier-utilise.png',mimeType:'image/png',buffer:png});
+  await page.locator('.card[data-usage="unused"]').filter({hasText:'fichier-utilise.png'}).waitFor();
+  await page.locator('.card[data-usage="unused"]').filter({hasText:'fichier-utilise.png'}).locator('[data-action="use-asset"]').click();
+  const usedDialog=page.locator('.insert-file-dialog');
+  await usedDialog.getByLabel('Jour').selectOption('mercredi-101');
+  await usedDialog.getByRole('button',{name:'Insérer',exact:true}).click();
+  await usedDialog.waitFor({state:'hidden'});
+  const nowUsed=page.locator('.card[data-usage="used"]').filter({hasText:'fichier-utilise.png'});
+  await nowUsed.waitFor();
+  assert.equal(await nowUsed.locator('[data-action="delete-unused-file"]').count(),0);
+  const first=page.locator('.historic-file').first();
+  const imageSrc=await first.locator('.library-thumb').getAttribute('src');
+  await first.locator('[data-action="insert-historical-file"]').click();
+  const dialog=page.locator('.insert-file-dialog');await dialog.waitFor();
+  assert.equal(await dialog.getByLabel('Célébration').inputValue(),'101');
+  await dialog.getByLabel('Jour').selectOption('mercredi-101');
+  await dialog.getByLabel('Heure').fill('10:45');
+  await dialog.getByRole('button',{name:'Insérer',exact:true}).click();
+  await dialog.waitFor({state:'hidden'});
+  assert.equal(await page.locator('[data-tab="media"].active').count(),1,'Insertion must NOT switch to a celebration page');
+  const persisted=await page.evaluate(()=>JSON.parse(localStorage.getItem('celebrations-demo-preparation-101')));
+  assert.ok(persisted.pages.find(p=>p.id==='mercredi-101').blocks.some(b=>b.kind==='image'&&b.src===imageSrc&&b.atTime==='10:45'));
+  await page.locator('.file-category-tabs [data-file-category="pdf"]').click();
+  const pdf=page.locator('.historic-file').first();
+  const pdfHref=await pdf.locator('a.btn').first().getAttribute('href');
+  assert.ok(pdfHref.endsWith('.pdf'));
+  await pdf.locator('[data-action="insert-historical-file"]').click();
+  const pdfDialog=page.locator('.insert-file-dialog');
+  await pdfDialog.getByLabel('Jour').selectOption('jeudi-101');
+  await pdfDialog.getByLabel('Heure').fill('08:30');
+  await pdfDialog.getByRole('button',{name:'Insérer',exact:true}).click();
+  await pdfDialog.waitFor({state:'hidden'});
+  const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('celebrations-demo-preparation-101')));
+  assert.ok(saved.pages.find(p=>p.id==='jeudi-101').blocks.some(b=>b.href===pdfHref&&b.atTime==='08:30'));
+  const link=page.locator('.historic-file').first().locator('.file-location-link').first();
+  assert.ok((await link.getAttribute('href')).includes('/__editor/voir-le-site?celebration='));
+  assert.equal(await link.getAttribute('target'),'_blank');
+  // Simulate a second celebration and insert the SAME archive file there.
+  await page.locator('[data-tab="celebrations"]').click();
+  await page.locator('.new-celebration summary').click();
+  await page.getByLabel('Date du mercredi').fill('2026-11-04');
+  await page.getByRole('button',{name:'Créer Gabriel'}).click();
+  await page.waitForURL('**/demo-preparation?celebration=plan-gabriel-2026-11-04&tab=celebrations');
+  await page.locator('[data-tab="media"]').click();
+  await page.waitForFunction(()=>!document.querySelector('.file-loading'));
+  await page.locator('.file-category-tabs [data-file-category="images"]').click();
+  const same=page.locator('.historic-file').filter({has:page.locator('.library-thumb[src="'+imageSrc+'"]')}).first();
+  await same.waitFor();await same.locator('[data-action="insert-historical-file"]').click();
+  const cross=page.locator('.insert-file-dialog');
+  await cross.getByLabel('Jour').selectOption('samedi-plan-gabriel-2026-11-04');
+  await cross.getByLabel('Heure').fill('14:15');
+  await cross.getByRole('button',{name:'Insérer',exact:true}).click();
+  await cross.waitFor({state:'hidden'});
+  const crossDraft=await page.evaluate(()=>JSON.parse(localStorage.getItem('celebrations-demo-preparation-plan-gabriel-2026-11-04')));
+  assert.ok(crossDraft.pages.find(p=>p.id==='samedi-plan-gabriel-2026-11-04').blocks.some(b=>b.src===imageSrc&&b.atTime==='14:15'));
+  await page.waitForFunction((src)=>Array.from(document.querySelectorAll('.historic-file')).some(card=>card.querySelector('img')?.getAttribute('src')===src&&card.textContent.includes('Gabriel')),imageSrc);
+  const [preview]=await Promise.all([page.waitForEvent('popup'),page.locator('#view-site-btn').click()]);
+  await preview.goto(origin+'/__editor/voir-le-site?celebration=plan-gabriel-2026-11-04&page=samedi',{waitUntil:'domcontentloaded'});
+  await preview.locator('.media-at-time').getByText('14:15').waitFor();
+  assert.ok(await preview.locator('img[src="'+imageSrc+'"]').count()>0);
+  await preview.goto(origin+'/__editor/voir-le-site?celebration=101&page=mediatheque',{waitUntil:'domcontentloaded'});
+  assert.equal(await preview.locator('.media-tabs button').count(),4);
+  assert.equal(await preview.locator('.media-inline-player audio:visible').count(),0,'Audio players are collapsed by default');
+  const source=preview.locator('.media-list .media-item-link[href]').first();
+  assert.ok(await source.getAttribute('href'));
+  assert.equal(await source.getAttribute('target'),'_blank','Right-click can open audio in new tab');
+  await source.click();
+  assert.ok(await preview.locator('.media-inline-player audio').count()>0);
+  await preview.getByRole('button',{name:'Images',exact:true}).click();
+  assert.ok(await preview.locator('.media-image-grid a[target="_blank"] img').count()>0);
+  const columns=await preview.locator('.media-image-grid').evaluate(e=>getComputedStyle(e).gridTemplateColumns.split(' ').length);
+  assert.equal(columns,width===390?2:4);
+  assert.deepEqual(errors,[]);
+  console.log('GLOBAL_FILES_PASS mobile='+(width===390)+' global=true modal=true cross_celebration=true hour=true image_grid=true collapsible_audio=true');
+  await preview.close();await ctx.close();
+ }
+}finally{await browser.close()}

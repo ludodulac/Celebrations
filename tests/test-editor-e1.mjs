@@ -126,3 +126,26 @@ test('E2A adds exactly one home paragraph in immutable B/C draft; reload and con
   assert.equal(x.db.prepare('SELECT COUNT(*) AS n FROM editor_b_blocks WHERE page_id=? AND version=2').get(pid[0]).n,1,'History kept');
  }finally{x.close()}
 });
+
+test('E2B newly added home paragraph remains editable after reload, historical data untouched',async()=>{
+ const x=fixture();
+ try{
+  const legacy=x.db.prepare('SELECT data_json FROM editor_c_blocks WHERE page_id=? AND version=1').get(pid[0]).data_json;
+  const other=x.db.prepare('SELECT data_json FROM editor_c_blocks WHERE page_id=? AND version=1').get(pid[1]).data_json;
+  const added=await send(x.DB,{action:'save',key:'home',expected_version:1,changes:[],paragraph_text:'Texte fictif E2B'});
+  assert.equal(added.status,200);
+  const loaded=await(await get(x.DB,'home')).json();
+  const para=loaded.editable.find(e=>e.kind==='text');
+  assert.ok(para,'Saved paragraph must be editable after reload');
+  assert.equal(para.values.text,'Texte fictif E2B');
+  assert.equal((await send(x.DB,{action:'save',key:'celebration:101:step:Mercredi',expected_version:1,changes:[{id:para.id,values:{text:'Interdit'}}]})).status,400);
+  assert.equal((await send(x.DB,{action:'save',key:'home',expected_version:2,changes:[{id:para.id,values:{text:'Texte fictif corrigé'}}]})).status,200);
+  const reloaded=await(await get(x.DB,'home')).json();
+  assert.equal(reloaded.editable.find(e=>e.id===para.id).values.text,'Texte fictif corrigé');
+  const stored=x.db.prepare('SELECT data_json FROM editor_b_blocks WHERE page_id=? AND version=3').get(pid[0]);
+  assert.equal(JSON.parse(stored.data_json).e1.text,'Texte fictif corrigé');
+  assert.equal(x.db.prepare('SELECT data_json FROM editor_c_blocks WHERE page_id=? AND version=3').get(pid[0]).data_json,legacy);
+  assert.equal(x.db.prepare('SELECT data_json FROM editor_c_blocks WHERE page_id=? AND version=1').get(pid[1]).data_json,other);
+  assert.equal(x.db.prepare('SELECT COUNT(*) AS n FROM editor_b_pages WHERE published_version IS NOT NULL').get().n,0);
+ }finally{x.close()}
+});

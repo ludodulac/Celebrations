@@ -1,0 +1,243 @@
+name: CELEBRATIONS DEMO - visual playground staging only
+on:
+  push:
+    branches: [feat/celebrations-admin-visual-mission-e2a-access]
+    paths: [.github/workflows/celebrations-admin-demo-once.yml]
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-staging-only
+  cancel-in-progress: false
+jobs:
+  demo:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Verify isolated demo code and no production binding
+        run: |
+          set -euo pipefail
+          test "$STAGING_D1_ID" = 0f761662-241f-42cc-ac94-5c68b4aa7797
+          test "$STAGING_R2_BUCKET" = celebrations-exit-staging
+          node --check migration/cloudflare/editor-demo-page.mjs
+          node --check migration/cloudflare/editor-demo-client.mjs
+          node --check migration/cloudflare/editor-demo-style.mjs
+          node --check migration/cloudflare/editor-demo-preparation-page.mjs
+          node --check migration/cloudflare/editor-celebration-themes.mjs
+          node --check scripts/test-editor-seven-stages-browser.mjs
+          node --check migration/cloudflare/editor-trial-site-page.mjs
+          node --check migration/cloudflare/editor-trial-site-client.mjs
+          node --check migration/cloudflare/editor-trial-audio-api.mjs
+          node --check migration/cloudflare/editor-trial-audio-client.mjs
+          node --check migration/cloudflare/editor-trial-audio-encoder-worker.js
+          node --check scripts/bundle_staging_audio_encoder.mjs
+          node --check scripts/test-editor-wav-to-mp3-browser.mjs
+          node --check scripts/test-editor-trial-site-browser.mjs
+          node --check scripts/test-editor-site-cycle-browser.mjs
+          node --check scripts/test-editor-visual-composer-browser.mjs
+          node --check scripts/test-editor-extra-neutral-pages-browser.mjs
+          node --check scripts/test-editor-michael-file-library-browser.mjs
+          node --check migration/cloudflare/staging-worker.mjs
+          node --test tests/test-editor-demo.mjs tests/test-editor-demo-preparation.mjs tests/test-editor-trial-site.mjs tests/test-editor-celebration-themes.mjs tests/test-editor-trial-audio.mjs
+      - name: Prepare staging assets and Wrangler
+        run: |
+          python scripts/build_staging_assets.py
+          test -s staging-public/index.html
+          test -s staging-public/admin.html
+          python scripts/configure_staging_wrangler.py
+          npm install --no-save --no-package-lock wrangler@4 playwright@1.58.2 lamejs@1.2.1
+          node scripts/bundle_staging_audio_encoder.mjs
+          node --check staging-public/migration/cloudflare/lame.all.min.js
+          test -s staging-public/migration/cloudflare/editor-trial-audio-encoder-worker.js
+          npx playwright install --with-deps chromium
+      - name: Deploy isolated staging only
+        working-directory: migration/cloudflare
+        run: npx wrangler deploy --config wrangler.toml
+      - name: Verify seven real programme pages on desktop and phone
+        run: node scripts/test-editor-seven-stages-browser.mjs
+      - name: Verify custom celebration pages and general neutral hamburger
+        run: node scripts/test-editor-extra-neutral-pages-browser.mjs
+      - name: Verify Voir le site button, edited preview, and mobile/desktop widths
+        run: node scripts/test-editor-trial-site-browser.mjs
+      - name: Verify public Michaël library by type and insert historic media
+        run: node scripts/test-editor-michael-file-library-browser.mjs
+      - name: Verify isolated WAV-to-MP3 conversion on desktop and phone
+        run: node scripts/test-editor-wav-to-mp3-browser.mjs
+      - name: Verify visual composition with single/two-column zones on mobile and desktop
+        run: node scripts/test-editor-visual-composer-browser.mjs
+      - name: Verify real site home, future Gabriel and switch to/from editor
+        run: node scripts/test-editor-site-cycle-browser.mjs
+      - name: Check historical content is untouched
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const url='https://api.cloudflare.com/client/v4/accounts/'+process.env.CLOUDFLARE_ACCOUNT_ID+'/d1/database/'+process.env.STAGING_D1_ID+'/query';
+          const sql="SELECT (SELECT COUNT(*) FROM editor_c_imports) AS pages, (SELECT COUNT(*) FROM editor_b_pages WHERE published_version IS NOT NULL) AS published, (SELECT COUNT(*) FROM editor_c_blocks b JOIN editor_b_pages p ON b.page_id=p.id AND b.version=p.draft_version) AS blocks";
+          const r=await fetch(url,{method:'POST',headers:{Authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN,'content-type':'application/json'},body:JSON.stringify({sql})});
+          assert.equal(r.status,200);
+          const result=await r.json();
+          const q=result.result[0].results[0];
+          assert.deepEqual([q.pages,q.published,q.blocks],[47,0,327]);
+          console.log('DEMO_HISTORICAL_PASS pages=47 published=0 blocks=327');
+          NODE
+
+# Text styles and block duplication: staging-only, second/final CI campaign after contextual control QA fix.
+
+# Accessible static block controls fix for stages 3 and 4; staged demo only.
+
+# Stage 3+4 block control mobile touch correction: CI campaign 2/2; no production modifications.
+
+# Simplified contextual block tools: first staging deployment and mobile/desktop QA.
+
+# Mobile clean-editor dock QA: retry after first browser-run touch overlay failure; staging only.
+
+# Seven historical programme pages: corrected fixture labels; staging-only verification.
+
+# Trial-site preview + Voir le site QA: retry after 404 handler regression fixed; staging only.
+
+# Fix mobile PDF chooser width while retaining responsive Voir le site previews; staging only.
+
+# Four archangels / five coordinated colourways each: staging editor and trial-site palette QA only.
+
+# Archangel palette browser QA: verify saved draft and site preview after reload; staging only.
+
+# Final palette UX fix: save selected colourway immediately before changing the editing page.
+
+# Bright red/green/indigo/yellow palettes; celebration frames, eight fixed pages, optional pages, neutral hamburger, staging only.
+
+# Eight celebration stage tabs and neutral hamburger: retry after test selector syntax correction; staging only.
+
+# Fixed browser test file truncation; verify only staging page hierarchy and palettes.
+
+# Responsive hierarchy QA: corrected self-button selector; staging-only, no production edits.
+
+# Exact-match Preparation menu link; preserves both Preparation and After Preparation names. Test staging.
+
+# Neutral white/grey pages; only archangel celebration frames retain their colour. Staging-only deployment + browser QA.
+
+# Browser test updated: check only --frame-color and white neutral surfaces; final staging QA rerun.
+
+# Navigation fix: new editor's Accueil general stays within demo-preparation (no old /__editor/demo), staging only.
+
+# Inline rich-text QA: selected bold and colour, whole-paragraph font size, local drafts and test-site rendering (staging only).
+
+# Retry visual selection QA with native Range-based bold/italic wrapping on touchscreens; staging only.
+
+# Targeted diagnostics of inline-colour draft persistence, isolated staging only.
+
+# Check persistence after normalising both legacy and modern rgb() colour syntax; staging only.
+
+# Targeted colour-on-selected-words and preview verification after safe extraction of inline style attributes. Staging only.
+
+# CSP-safe text colour persistence QA after reload; staging preview only.
+
+# Image library staging QA: local media reuse, orphan grey state, exact page usages, confirmation and selective cleanup.
+
+# Second/final image library staging CI campaign after stylesheet string escaping correction.
+
+# Image library QA rerun: actual picker button now triggered before uploading fixture.
+
+# Image reference QA after saving first page before switching to the second.
+
+# Media-library browser QA waits for asynchronous IndexedDB deletion completion before assertions.
+
+# New R2 audio staging only: 300 MiB multipart test, all-prefix inventory, private stream via admin cookie. No production.
+
+# WAV conversion staging: locally vendored lamejs 1.2.1, Web Worker; no third-party runtime and no production changes.
+
+# WAV conversion browser failure diagnostics, staging only; no merge or production change.
+
+# WAV PCM streaming test: fix cache boundary when one MP3 granule crosses the current WAV read window.
+
+# QA now validates the downloaded encoded MP3 bytes without loosening the existing CSP.
+
+# Staging-only site/editor switching: Michaël historical pages, future Gabriel date, global homepage and accessible menu; no production.
+
+# Preview overhaul QA: public MP3 regex fixed, planned Gabriel fixtures and site navigation (staging only).
+
+# Legacy disconnected demo route now redirects to new editor; run site-cycle browser QA instead of obsolete upload-picker test.
+
+# Historical public MP3 inserted into a real Michael page and verified in the site preview on desktop/mobile.
+
+# Final historical-audio insertion QA counts all existing Wednesday readers and verifies exactly one newly added MP3.
+
+# Only UI text simplification and bottom-only Administration link; 2026-11-02 staging-only QA.
+
+# QA: palette name hint intentionally absent from reader site; compare actual frame colour instead.
+
+# Test update: WAV MP3 download uses the shortened button name in both Playwright selectors.
+
+# Remove palette selection and duplicate uneditable page titles while keeping real editorial headings, data and fixed archangel colours. Staging only.
+
+# Final staging QA: fixed archangel shade without a picker; auto page-name titles absent; authored headlines intact.
+
+# Final check of the minimal interface, deduplicated Accueil menu, fixed archangel frame colours and no uneditable headings. No publication.
+
+# Calendar staging QA: user-supplied Wednesday dates every day to Sunday, preparation's multiple dates, preview and browser-local persistence.
+
+# Preparation dates mobile QA: exact labels for inputs and distinct remove buttons, staging only.
+
+# Public-only Michaël media index, image/PDF/audio/other tabs, reuse via /media, browser QA on phone and desktop. No production deployment.
+
+# File-library browser QA: tab buttons and historical media cards have distinct data-file-category locators.
+
+# Final UI verification: narrow category selectors to tab buttons; avoid matching tagged file cards.
+
+# Staging fix: adapted DEMO_CLIENT init replacement after adding mediaCategory, keep first selected celebration page intact.
+
+# New private staging visitor preview: original Michaël Accueil, own mediathèque and public-only media filters, French full dates, real homepage image, no redundant celebration shortcut.
+
+# Fix script literal on local draft migration: preserves the current working text and home visuals.
+
+# QA: no visible standalone celebration return shortcut on global pages; all navigation through the menu.
+
+# Homepage original image: reuse the SHA-matched public JPEG already stored and approved under staging-specific key, no Supabase or production access.
+
+# Browser tests navigate at DOMContentLoaded because the restored image and gallery may download asynchronously; verify decoded images explicitly.
+
+# Typography and daily-hour staging QA: visible font hierarchy, responsive Médiathèque button, remove duplicated 'Célébration' label; different hours per weekday, no production deploy.
+
+# Recheck changed hour-aware Wednesday expectation and run all staging-only end-to-end scenarios.
+
+# Staging-only QA: visitor lists, image grid, independent Pages/Célébrations, global Files, per-file insert modal and safe test-audio deletion. No production merge.
+
+# Regression campaign 2: tests adapted to new three-tab administration, public-only read manifest and intentionally collapsed media players. Staging only.
+
+# QA review: fixed celebration stage coverage is required, but genuine extra pages do not invalidate the count. No merge or production.
+
+# Final staging conversion stability: do not rerender an open MP3 converter when a cross-celebration media manifest finishes. All published production remains untouched.
+
+# 2026-11-02: Staging-only QA of one Administration (Pages / Célébrations / Fichiers), global media reference insertion and compact public médiathèque.
+
+# 2026-11-02 unused-file policy staging only: grey when no saved page uses; delete local orphan only; no hide button or destructive action on linked archives.
+
+# Staging-only visual page composition: blue insert, green content picker, single/double columns, editable video link thumbnails and configurable frame.
+
+# QA recheck: old inline-format test uses blue/green composer, historical video links display true players rather than buttons.
+
+# CSS stacking: the green menu has priority over neighbouring blue insertion controls during editing.
+
+# QA: open green + menu in the left column must overlap neither the blue insertion bar nor right-column controls.
+
+# UX fix: event time and video link changes do not rerender the active editor during the next click; thumbnail updates inline.
+
+# UX QA: labels des pages horizontaux avec options compactes, engrenage unique pour les deux colonnes et heures par quarts d'heure ou saisie HH:MM.
+
+# Corrections testées : liste Pages mono-colonne et champs date/heure en pleine largeur ; tests de la mise en page de l'éditeur.
+
+# Fix inline clock editing: changing an event time must not re-render the focused contenteditable element.
+
+# 2026-11-03 UX staging QA: editable titles and correct 2027–2029 archangel cycle, explicit green save confirmation, inline event times, hover-only controls and closable videos.
+
+# Fix browser test Unicode slug normalization; validate Ouriel 2027, Michael 2027, Gabriel 2027-2028 and the save/video UX.
+
+# End-to-end staging QA: menu uses the actual Célébrations label; all seven successors through 2029 and custom titles verified.

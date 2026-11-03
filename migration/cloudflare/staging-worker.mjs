@@ -12,9 +12,14 @@ import {handleStats} from "./stats-api.mjs";
 import {handleEditorB} from "./editor-b-api.mjs";
 import {handleEditorD,handleEditorDSession,handleEditorDEntry} from "./editor-d-preview.mjs";
 import {handleEditorDMedia} from "./editor-d2-media.mjs";
+import {setupPage,accessConfig,accessLogout} from "./editor-permanent-access.mjs";
 import {handleEditorD4Access,handleEditorD4Login} from "./editor-d4-access.mjs";
 import {handleEditorE1} from "./editor-e1-api.mjs";
 import {handleEditorE1Page,handleEditorE1Client} from "./editor-e1-page.mjs";
+// The old disconnected demo redirects to the new visual editor; code remains available in GitHub.
+import {handlePreparationDemo} from "./editor-demo-preparation-page.mjs";
+import {handleTrialSite} from "./editor-trial-site-page.mjs";
+import {handleTrialAudio} from "./editor-trial-audio-api.mjs";
 export default {
  async fetch(request,env){
   const url=new URL(request.url),path=url.pathname;
@@ -38,8 +43,15 @@ export default {
   if(path==="/__editor/entry")return handleEditorDEntry(request,env);
   if(path==="/__editor/media")return handleEditorDMedia(request,env);
   if(path==="/__editor/access")return handleEditorD4Access(request);
+  if(path==="/__editor/access/setup")return setupPage(request);
+  if(path==="/__editor/access/config")return accessConfig(request,env);
   if(path==="/__editor/access/session")return handleEditorD4Login(request,env);
+  if(path==="/__editor/access/logout")return accessLogout(request,env);
   if(path==="/api/editor-e1")return handleEditorE1(request,env);
+  if(path==="/api/editor-trial-audio")return handleTrialAudio(request,env);
+  if(path==="/__editor/demo")return Response.redirect(new URL("/__editor/demo-preparation",url).toString(),302);
+  if(path==="/__editor/demo-preparation")return handlePreparationDemo(request,env);
+  if(path==="/__editor/voir-le-site")return handleTrialSite(request,env);
   if(path==="/__editor/edit")return handleEditorE1Page(request,env);
   if(path==="/__editor/e1-client.js")return handleEditorE1Client(request,env);
   if((request.method==="GET"||request.method==="HEAD")&&env.ASSETS)return env.ASSETS.fetch(request);

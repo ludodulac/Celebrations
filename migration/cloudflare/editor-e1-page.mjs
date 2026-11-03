@@ -3,6 +3,7 @@
 // controls a small editable overlay. Editing API requires a live admin token.
 import {handleEditorD,canPreview} from './editor-d-preview.mjs';
 import {E1_CLIENT} from './editor-e1-client.mjs';
+import {handleEditorRecovery} from './editor-e2a-access-recovery.mjs';
 const HOST='celebrations-exit-staging.rondes.workers.dev';
 const pilot=new Set(['home','celebration:101:step:Mercredi']);
 const css=`
@@ -21,9 +22,13 @@ const css=`
 .e1-active .d-event,.e1-active .d-day{border-color:#edc686}
 .e1-active .d-welcome-actions a{outline:2px dashed #d28b37;outline-offset:4px}
 .e1-empty-hint{font-size:.8rem;color:#666}
-.e2a-new{padding:12px;border:2px dashed #c4802b;border-radius:10px;background:#fffaf1;margin:12px 0}
-.e2a-new p{min-height:44px;margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
-.e2a-new p:empty:before{content:"Saisissez votre paragraphe…";color:#7a736b;pointer-events:none}
+/* E2B: plain home paragraphs, existing or newly inserted. No card in any mode. */
+.d-home .d-content > .d-block[data-kind="text"],.d-home .d-content > .d-block.e2a-new{margin:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;min-width:0}
+.d-home .d-content > .d-block[data-kind="text"] > p,.d-home .d-content > .d-block.e2a-new > p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.e2a-new p{min-height:1.5em}
+.e1-active .e2a-new p:empty:before{content:"Saisissez votre paragraphe…";color:#7a736b;pointer-events:none}
+.e1-active .d-home .d-content > .d-block[data-kind="text"] > p.e1-touch,.e1-active .d-home .d-content > .d-block.e2a-new > p.e1-touch{outline:1px dashed #c4802b!important;outline-offset:3px}
+.e1-active .d-home .d-content > .d-block[data-kind="text"] > p.e1-touch:focus,.e1-active .d-home .d-content > .d-block.e2a-new > p.e1-touch:focus{outline:2px solid #a64c23!important}
 #e1-page-menu a{display:block;padding:8px;border-radius:8px;border:1px solid #dfd6c6;margin:3px;text-decoration:none}
 @media(max-width:560px){.e1-toolbar{justify-content:stretch;gap:5px;padding:7px}.e1-toolbar button,.e1-toolbar a{flex:1;font-size:.78rem;padding:8px 5px;text-align:center}
  .e1-panel{margin:8px;padding:11px}.e1-toolbar #e1-status{font-size:.77rem}}
@@ -68,6 +73,7 @@ export async function handleEditorE1Page(request,env){
  const key=url.searchParams.get('key')||'home';
  if(!pilot.has(key))return new Response('Page encore en lecture seule',{status:404,headers:{'cache-control':'no-store'}});
  const base=await handleEditorD(request,env);
+ if(base.status===401)return handleEditorRecovery(request,key);
  if(!base.ok)return base;
  const html=await base.text();
  if(!html.includes('<main class="d-shell">'))return new Response('Indisponible',{status:503});

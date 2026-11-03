@@ -33,6 +33,12 @@ def main():
  bridge=OUT/"migration/cloudflare/preview-client.js"
  bridge.parent.mkdir(parents=True,exist_ok=True)
  shutil.copy2(ROOT/"migration/cloudflare/preview-client.js",bridge)
+ # Same-origin Web Worker for WAV-to-MP3; encoder library is added separately
+ # by scripts/bundle_staging_audio_encoder.mjs after npm installation.
+ audio=OUT/"migration/cloudflare/editor-trial-audio-encoder-worker.js"
+ audio.parent.mkdir(parents=True,exist_ok=True)
+ shutil.copy2(ROOT/"migration/cloudflare/editor-trial-audio-encoder-worker.js",audio)
+
  assert (OUT/"index.html").exists() and (OUT/"admin.html").exists()
  print(f"Prepared {count+1} staging assets in {OUT}")
 if __name__=="__main__":main()

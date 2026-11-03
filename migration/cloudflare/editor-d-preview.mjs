@@ -112,7 +112,7 @@ async function item(block,db,context){
  const d=block.data||{}, r=d.record||{};
  switch(block.kind){
  case 'title':return '<h2>'+text(d.text)+'</h2>';
- case 'text':return '<p>'+text(d.text)+'</p>';
+ case 'text':return '<p>'+text(d.e1?.text??d.text)+'</p>';
  case 'banner':return '<aside class="d-banner">'+text(d.text)+'</aside>';
  case 'button':return link(d.url,d.text,'d-btn');
  case 'static_html_snapshot':

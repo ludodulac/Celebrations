@@ -39,7 +39,8 @@ const sourceValues=(b)=>{
  }
 };
 function editable(b,key){
- if(key==='home')return b.kind==='static_html_snapshot'&&b.source_table==='static';
+ if(key==='home')return (b.kind==='static_html_snapshot'&&b.source_table==='static')||
+  (b.kind==='text'&&!b.source_table&&!b.source_id); // B draft only: never an imported historical text.
  if(key==='celebration:101:step:Mercredi')return ['legacy_event','legacy_day','title','text','button'].includes(b.kind);
  return false;
 }
