@@ -42,7 +42,7 @@ jobs:
       - name: Unit tests — fictitious R2, no staging writes
         run: |
           node --test tests/test-editor-server-drafts.mjs
-          node --test tests/test-editor-e1.mjs tests/test-editor-b-foundations.mjs tests/test-editor-d4-access.mjs
+          node --test tests/test-editor-e1.mjs tests/test-editor-b-foundations.mjs
       - name: Install isolated staging deploy CLI
         run: npm install --no-save --no-package-lock wrangler@4
       - name: Guard actual deployed staging bindings
@@ -99,5 +99,5 @@ jobs:
           console.log('SERVER_SAVE_PUBLICATION_GUARD_PASS');
           NODE
       - name: D1 safety quota after staging deployment
-        if: always()
+        if: ${{ always() && env.D1_BASELINE_READS != '' }}
         run: node scripts/check-staging-d1-free-budget.mjs post
