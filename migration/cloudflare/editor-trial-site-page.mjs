@@ -17,7 +17,10 @@ export async function handleTrialSite(request,env){
  try{result=await loadSevenStageContent(env,url.searchParams.get('celebration'))}
  catch{return new Response('Célébration introuvable',{status:404,headers:{'cache-control':'no-store'}})}
  const nonce=Array.from(crypto.getRandomValues(new Uint8Array(16)),v=>v.toString(16).padStart(2,'0')).join('');
+ const allowSavedImages=String.raw`function urlOk(v){
+  if(typeof v==='string'&&v.length<1000000&&/^data:image\\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(v))return v;`;
  const siteClient=TRIAL_SITE_CLIENT
+  .replace("function urlOk(v){",allowSavedImages)
   .replace("(()=>{\'use strict\';","(async()=>{\'use strict\';")
   .replace("const KEY=\'celebrations-demo-preparation-\'+celebration;",SERVER_PREVIEW_PREFETCH+"\nconst KEY=\'celebrations-demo-preparation-\'+celebration;");
  const html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Site d’essai — Célébrations</title>'+
