@@ -39,12 +39,15 @@ jobs:
           node --check migration/cloudflare/editor-demo-preparation-page.mjs
           node --check migration/cloudflare/editor-trial-site-page.mjs
           node --check tests/test-editor-server-drafts.mjs
+          node --check scripts/test-editor-page-delete-browser.mjs
       - name: Unit tests — fictitious R2, no staging writes
         run: |
           node --test tests/test-editor-server-drafts.mjs
           node --test tests/test-editor-e1.mjs tests/test-editor-b-foundations.mjs
       - name: Install isolated staging deploy CLI
-        run: npm install --no-save --no-package-lock wrangler@4
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2 wrangler@4
+          npx playwright install --with-deps chromium
       - name: Guard actual deployed staging bindings
         run: |
           node --input-type=module <<'NODE'
@@ -95,6 +98,8 @@ jobs:
           }
           console.log('SERVER_SAVE_STAGING_SMOKE_PASS anonymous_401=true editor_200=true preview_200=true client_syntax=true');
           NODE
+      - name: Mobile and desktop deletion menus — simulated anonymous drafts, no server mutation
+        run: node scripts/test-editor-page-delete-browser.mjs
       - name: Verify no historical content publication or import changes
         run: |
           node --input-type=module <<'NODE'
