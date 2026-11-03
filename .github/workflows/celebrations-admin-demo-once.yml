@@ -223,3 +223,5 @@ jobs:
 # Staging-only visual page composition: blue insert, green content picker, single/double columns, editable video link thumbnails and configurable frame.
 
 # QA recheck: old inline-format test uses blue/green composer, historical video links display true players rather than buttons.
+
+# CSS stacking: the green menu has priority over neighbouring blue insertion controls during editing.
