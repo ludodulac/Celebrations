@@ -13,6 +13,11 @@ try{
   const response=await page.goto(origin+'/__editor/demo-preparation?celebration=101',{waitUntil:'domcontentloaded'});
   assert.equal(response.status(),200);
   await page.locator('[data-tab="pages"]').click();
+  console.log('PAGE_DELETE_DIAGNOSTIC',JSON.stringify({
+   viewport:width,buttons:await page.locator('button').allTextContents(),
+   preview:(await page.locator('#workspace').innerText()).slice(0,1000),
+   errors
+  }));
   title='Suppression test page '+width;
   await page.getByRole('button',{name:'＋ Page'}).click();
   const row=page.locator('.general-page-row').filter({hasText:title});
