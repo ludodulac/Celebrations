@@ -19,6 +19,17 @@ try{
   await page.getByRole('button',{name:'＋ Page',exact:true}).click();
   await page.locator('#workspace .list .item.active').getByText('Informations pratiques').waitFor();
   assert.equal(await page.locator('#workspace .list .item').count(),2);
+  assert.equal(await page.locator('.general-page-row').count(),2);
+  assert.equal(await page.locator('.general-page-row .page-options').count(),2);
+  assert.equal(await page.locator('.general-page-row [aria-label^="Remonter"]').count(),0,'No cramped arrow buttons beside page names');
+  const labels=page.locator('.general-page-row .item.page-name');
+  for(const label of await labels.all()){
+   const box=await label.boundingBox();
+   assert.ok(box&&box.width>115&&box.height<110,'Page title must be readable horizontally: '+(await label.innerText()));
+  }
+  await page.getByLabel('Options de la page Informations pratiques').click();
+  assert.equal(await page.getByRole('button',{name:'Monter',exact:true}).count(),1);
+  assert.equal(await page.getByRole('button',{name:'Descendre',exact:true}).count(),1);
   const [preview]=await Promise.all([page.waitForEvent('popup'),page.locator('#view-site-btn').click()]);
   assert.ok((await preview.locator('body').evaluate(el=>el.classList.contains('is-neutral-preview'))));
   await preview.locator('#menu-toggle').click();
