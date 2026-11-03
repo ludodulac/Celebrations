@@ -225,3 +225,5 @@ jobs:
 # QA recheck: old inline-format test uses blue/green composer, historical video links display true players rather than buttons.
 
 # CSS stacking: the green menu has priority over neighbouring blue insertion controls during editing.
+
+# QA: open green + menu in the left column must overlap neither the blue insertion bar nor right-column controls.
