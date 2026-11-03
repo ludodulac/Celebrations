@@ -18,7 +18,9 @@ const goodPlans=x=>Array.isArray(x)&&x.length<=100&&x.every(p=>object(p)&&goodId
  typeof p.title==='string'&&p.title.length<=100&&typeof p.archangel==='string'&&p.archangel.length<=25&&
  typeof p.date==='string'&&/^20[0-9]{2}-[0-9]{2}-[0-9]{2}$/.test(p.date));
 const goodShared=x=>object(x)&&Array.isArray(x.pages)&&x.pages.length<=60&&x.pages.every(p=>goodPage(p,'unused')&&p.group==='page')&&
- typeof x.homeId==='string'&&x.homeId.length<=80;
+ typeof x.homeId==='string'&&x.homeId.length<=80&&
+ (x.deletedPageIds===undefined||(Array.isArray(x.deletedPageIds)&&x.deletedPageIds.length<=100&&
+ x.deletedPageIds.every(id=>typeof id==='string'&&/^neutral-[0-9a-f-]{30,45}$/.test(id))));
 function sanitizeRecord(record,id){
  if(!object(record)||!Array.isArray(record.pages)||record.pages.length>75||
  !record.pages.every(p=>goodPage(p,id))||
