@@ -1,0 +1,68 @@
+import assert from 'node:assert/strict';
+import {chromium} from 'playwright';
+
+const base='https://celebrations-exit-staging.rondes.workers.dev';
+const browser=await chromium.launch();
+try{
+ for(const width of [390,1280]){
+  const context=await browser.newContext({viewport:{width,height:850},isMobile:width===390,hasTouch:width===390});
+  const page=await context.newPage();page.setDefaultTimeout(18000);
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.goto(base+'/__editor/demo-preparation?celebration=101',{waitUntil:'domcontentloaded'});
+  await page.locator('.canvas .block').first().waitFor();
+  const firstBlockCount=await page.locator('.canvas >.block').count();
+  assert.ok(firstBlockCount>0,'Historical blocks preserved');
+  const afterLast=page.locator('.canvas>.section-insert').last();
+  await afterLast.hover();
+  await afterLast.locator('.section-add-blue').click();
+  await afterLast.getByRole('button',{name:'Deux colonnes'}).click();
+  let section=page.locator('.content-section').last();
+  assert.equal(await section.getAttribute('data-layout'),'columns');
+  assert.equal(await section.locator('.section-column').count(),2);
+  const green=(side)=>page.locator('.content-section').last().locator('.section-column').nth(side).locator('.section-add-green');
+  await section.hover();await green(0).click();
+  await page.locator('.content-section').last().locator('.section-column').first().getByRole('button',{name:'Image',exact:true}).click();
+  const empty=page.locator('.content-section').last().locator('.section-column').first().locator('.picture');
+  await empty.click();
+  const picker=page.locator('.image-picker-dialog');await picker.waitFor();
+  await picker.locator('.image-picker-card').first().waitFor();
+  const chosenSource=await picker.locator('.image-picker-card img').first().getAttribute('src');
+  await picker.locator('.image-picker-card').first().click();
+  assert.equal(await page.locator('.content-section').last().locator('.section-column').first().locator('.picture img').first().getAttribute('src'),chosenSource);
+  section=page.locator('.content-section').last();await section.hover();
+  await green(0).click();
+  await section.locator('.section-column').first().getByRole('button',{name:'Texte',exact:true}).click();
+  const texts=page.locator('.content-section').last().locator('.section-column').first().locator('.ed.text');
+  await texts.last().fill('Paragraphe sur deux colonnes');
+  section=page.locator('.content-section').last();await section.hover();
+  await green(1).click();
+  await section.locator('.section-column').nth(1).getByRole('button',{name:'Titre événement',exact:true}).click();
+  const event=page.locator('.content-section').last().locator('.section-column').nth(1);
+  await event.locator('.ed.heading').last().fill('Rituel de la Lumière');
+  await event.getByLabel('Heure de l’événement').fill('11:30');
+  section=page.locator('.content-section').last();await section.hover();
+  await green(1).click();
+  await section.locator('.section-column').nth(1).getByRole('button',{name:'Vidéo',exact:true}).click();
+  await page.locator('.content-section').last().getByLabel('Lien de la vidéo').last().fill('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+  assert.ok((await page.locator('.content-section').last().locator('.editor-video-preview img').last().getAttribute('src')).includes('i.ytimg.com'));
+  section=page.locator('.content-section').last();await section.hover();
+  await section.locator('.section-settings').first().locator('summary').click();
+  await section.locator('.section-settings').first().getByLabel('Forme du cadre').selectOption('round');
+  assert.equal(await page.locator('.content-section').last().getAttribute('data-frame'),'round');
+  await page.locator('#save-btn').click();
+  const [preview]=await Promise.all([page.waitForEvent('popup'),page.locator('#view-site-btn').click()]);
+  await preview.locator('.trial-content-section[data-layout="columns"]').waitFor();
+  const col=preview.locator('.trial-content-section[data-layout="columns"] .trial-content-columns').last();
+  const columnCount=await col.evaluate(e=>getComputedStyle(e).gridTemplateColumns.split(' ').length);
+  assert.equal(columnCount,width===390?1:2);
+  assert.ok(await preview.getByText('Paragraphe sur deux colonnes').count()>0);
+  assert.ok(await preview.getByText('Rituel de la Lumière').count()>0);
+  assert.ok(await preview.locator('.trial-video-trigger img[src*="ytimg.com"]').count()>0);
+  assert.equal(await preview.locator('.trial-video-iframe').count(),0,'Click-to-play before iframe');
+  await preview.locator('.trial-video-trigger').last().click();
+  assert.match(await preview.locator('.trial-video-iframe').last().getAttribute('src'),/youtube-nocookie\.com/);
+  assert.deepEqual(errors,[]);
+  console.log('VISUAL_COMPOSER_PASS mobile='+(width===390)+' columns='+columnCount+' uploadPicker=true linkedVideo=true eventTime=true style=true');
+  await preview.close();await context.close();
+ }
+}finally{await browser.close()}
