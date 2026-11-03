@@ -70,7 +70,13 @@ try{
   await trial.close();
   // A paragraph has a global font size, but individual words may be bold or coloured.
   await page.locator('#workspace .list .item').filter({hasText:'Mercredi'}).click();
-  await page.getByRole('button',{name:'Paragraphe'}).click();
+  const addZone=page.locator('.canvas>.section-insert').last();
+  await addZone.hover();await addZone.locator('.section-add-blue').click();
+  await addZone.getByRole('button',{name:'Bloc seul'}).click();
+  const newZone=page.locator('.content-section').last();
+  await newZone.hover();
+  await newZone.locator('.section-add-green').first().click();
+  await newZone.getByRole('button',{name:'Texte',exact:true}).click();
   const inlineBlock=page.locator('#workspace .block').last();
   const inlineText=inlineBlock.locator('.ed.text');
   await inlineText.fill('Début important fin');
