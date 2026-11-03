@@ -239,3 +239,5 @@ jobs:
 # 2026-11-03 UX staging QA: editable titles and correct 2027–2029 archangel cycle, explicit green save confirmation, inline event times, hover-only controls and closable videos.
 
 # Fix browser test Unicode slug normalization; validate Ouriel 2027, Michael 2027, Gabriel 2027-2028 and the save/video UX.
+
+# End-to-end staging QA: menu uses the actual Célébrations label; all seven successors through 2029 and custom titles verified.
