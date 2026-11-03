@@ -52,6 +52,10 @@ try{
   await page.getByRole('button',{name:'Créer Gabriel'}).click();
   await page.waitForURL('**/demo-preparation?celebration=plan-gabriel-2026-11-04&tab=celebrations');
   assert.equal(await page.locator('.celebration-select').inputValue(),'plan-gabriel-2026-11-04');
+  assert.equal(await page.getByLabel('Titre de la célébration').inputValue(),'Gabriel 2026-2027');
+  await page.getByLabel('Titre de la célébration').fill('Gabriel — Retraite de novembre');
+  await page.getByLabel('Titre de la célébration').blur();
+  assert.equal(await page.locator('.celebration-select option:checked').innerText(),'Gabriel — Retraite de novembre');
   assert.ok(await page.locator('#workspace .list .item').count()>=8);
   await page.locator('#workspace .list .item').filter({hasText:'Dimanche'}).click();
   assert.equal((await page.locator('[data-role="celebration-date"]').innerText()).trim(),'8 novembre 2026');
@@ -62,6 +66,40 @@ try{
   await page.locator('[data-tab="celebrations"]').click();
   assert.ok(await page.locator('#workspace .list .item').count()>=8);
   assert.equal(await page.locator('.celebration-select').inputValue(),'plan-gabriel-2026-11-04');
+  assert.equal(await page.getByLabel('Titre de la célébration').inputValue(),'Gabriel — Retraite de novembre','Custom title survives page/tab changes');
+  const samplePlans=[
+   ['Raphaël','2027','2027-04-07'],
+   ['Ouriel','2028','2028-07-05'],
+   ['Michaël','2027','2027-09-01'],
+   ['Gabriel','2027','2027-12-01'],
+   ['Raphaël','2028','2028-04-05'],
+   ['Ouriel','2028','2028-07-05'],
+   ['Michaël','2028','2028-09-06'],
+   ['Gabriel','2028','2028-12-06']
+  ];
+  await page.evaluate(samples=>{
+   const slug=s=>s.normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase();
+   const entries=samples.map(([archangel,year,date])=>({id:'plan-'+slug(archangel)+'-'+date,archangel,year,date,kind:'planned'}));
+   localStorage.setItem('celebrations-demo-planned-v1',JSON.stringify(entries));
+  },samplePlans);
+  await page.reload({waitUntil:'domcontentloaded'});
+  const names=await page.locator('.celebration-select option').allTextContents();
+  for(const expected of ['Raphaël 2027','Ouriel 2027','Michaël 2027','Gabriel 2027-2028','Raphaël 2028','Ouriel 2028','Michaël 2028','Gabriel 2028-2029']){
+   assert.ok(names.includes(expected),'Missing correct archangel cycle: '+expected+' in '+JSON.stringify(names));
+  }
+  // Correct an older Ouriel 2028 draft title without inventing the Wednesday date.
+  await page.locator('.celebration-select').selectOption('plan-ouriel-2028-07-05');
+  await page.waitForURL('**/demo-preparation?celebration=plan-ouriel-2028-07-05&tab=celebrations');
+  assert.equal(await page.getByLabel('Titre de la célébration').inputValue(),'Ouriel 2027');
+  assert.ok(await page.locator('.celebration-date-warning').count()>0,'A mismatched 2028 Wednesday must remain visible for correction');
+  await page.getByLabel('Mercredi de la célébration').fill('2027-07-07');
+  await page.getByLabel('Titre de la célébration').fill('Ouriel 2027 — Célébration universelle');
+  await page.getByLabel('Titre de la célébration').blur();
+  const [catalogue]=await Promise.all([page.waitForEvent('popup'),page.locator('#view-site-btn').click()]);
+  await catalogue.locator('#menu-toggle').click();
+  await catalogue.getByRole('button',{name:'Célébrations',exact:true}).click();
+  assert.ok((await catalogue.locator('.celebration-choices').innerText()).includes('Ouriel 2027 — Célébration universelle'),'Custom celebration title must reach the visitor catalogue');
+  await catalogue.close();
   assert.deepEqual(errors,[]);
   console.log('SITE_CYCLE_PASS mobile='+(width===390)+' date_hour=true prepared_dates=true next_gabriel=true separate_pages=true media_links=true image_grid=true');
   await ctx.close();
