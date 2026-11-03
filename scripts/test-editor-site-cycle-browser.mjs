@@ -90,7 +90,7 @@ try{
    ['Gabriel','2028','2028-12-06']
   ];
   await page.evaluate(samples=>{
-   const slug=s=>s.normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase();
+   const slug=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
    const entries=samples.map(([archangel,year,date])=>({id:'plan-'+slug(archangel)+'-'+date,archangel,year,date,kind:'planned'}));
    localStorage.setItem('celebrations-demo-planned-v1',JSON.stringify(entries));
   },samplePlans);
