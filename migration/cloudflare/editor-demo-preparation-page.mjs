@@ -315,6 +315,7 @@ for(const official of seed.pages){
    .replace("function mark(){dirty=true;",SERVER_EDITOR_SYNC+"\nfunction mark(){db._serverPending=true;dirty=true;")
    .replace("el('save-btn').onclick=()=>save(true);","el('save-btn').onclick=()=>{save();void serverSave();};")
    .replace("render();loadFiles();","await serverLoad();render();loadFiles();")
+   .replace("status.textContent='✓ Titre enregistré dans ce navigateur';","db._serverPending=true;localStorage.setItem(KEY,JSON.stringify(db));status.textContent='Titre modifié : cliquez sur Enregistrer pour le serveur';")
    .replace('z.innerText.slice(0,5000)','z.innerText.slice(0,50000)');
   if(!client.includes("window.__PREPARATION_SEED__.pages")||!client.includes("for(const archived of seed.pages)"))throw Error('Demo client adapter failed');
   const nonce=Array.from(crypto.getRandomValues(new Uint8Array(16)),v=>v.toString(16).padStart(2,'0')).join('');
