@@ -84,8 +84,16 @@ jobs:
           assert.equal(editor.status,200);
           const html=await editor.text();assert.ok(html.includes('SERVER_ENDPOINT'));assert.ok(html.includes('Enregistré sur le serveur'));
           const preview=await fetch(base+'/__editor/voir-le-site?celebration=101',{cache:'no-store'});
-          assert.equal(preview.status,200);assert.ok((await preview.text()).includes('fetchServerPreview'));
-          console.log('SERVER_SAVE_STAGING_SMOKE_PASS anonymous_401=true editor_200=true preview_200=true');
+          assert.equal(preview.status,200);
+          const previewHtml=await preview.text();assert.ok(previewHtml.includes('fetchServerPreview'));
+          const {Script}=await import('node:vm');
+          const scriptPattern=new RegExp('<script nonce="[^"]+">([\\s\\S]*?)<\\/script>','g');
+          for(const page of [html,previewHtml]){
+            const sources=[...page.matchAll(scriptPattern)].map(hit=>hit[1]);
+            assert.ok(sources.length>=2,'expected inline editor and seed scripts');
+            for(const source of sources)new Script(source);
+          }
+          console.log('SERVER_SAVE_STAGING_SMOKE_PASS anonymous_401=true editor_200=true preview_200=true client_syntax=true');
           NODE
       - name: Verify no historical content publication or import changes
         run: |
