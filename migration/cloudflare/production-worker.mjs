@@ -11,6 +11,9 @@ import {handlePublicData} from "./public-data-api.mjs";
 import {handleFooterAdmin} from "./footer-admin-api.mjs";
 import {handleParticipantsAdmin} from "./participants-admin-api.mjs";
 import {handleStats} from "./stats-api.mjs";
+import {handlePreparationDemo} from "./editor-demo-preparation-page.mjs";
+import {handleTrialSite} from "./editor-trial-site-page.mjs";
+import {handleServerDraft} from "./editor-server-draft-api.mjs";
 export default {
  async fetch(request,env){
   const url=new URL(request.url),path=url.pathname;
@@ -33,6 +36,31 @@ export default {
   const legacy=isPreparationPage?null:await handleLegacyLink(request,env);
   if(legacy)return legacy;
   if(path.startsWith("/media/")||path.startsWith("/letter/"))return handleMedia(request,env);
+  // The two official domains now use the same visual visitor/editor interface.
+  // All media, old emailed PDF, existing static assets and historic redirects
+  // stay on their original production routes and production D1/R2 bindings.
+  const official=url.hostname==="ronde-des-archanges-universelle.eu"||
+   url.hostname==="www.ronde-des-archanges-universelle.eu";
+  if(official){
+   if(path==="/api/editor-open-draft")return handleServerDraft(request,env);
+   if(path==="/__editor/demo-preparation"||path==="/admin"||path==="/admin.html")
+    return handlePreparationDemo(request,env);
+   if(path==="/__editor/voir-le-site")return handleTrialSite(request,env);
+   const directPages=new Map([
+    ["/programme","preparation"],["/preparation","preparation"],
+    ["/mercredi","mercredi"],["/jeudi","jeudi"],["/vendredi","vendredi"],
+    ["/samedi","samedi"],["/dimanche","dimanche"],
+    ["/apres-celebration","apres-celebration"],
+    ["/bibliotheque","mediatheque"],["/mediatheque","mediatheque"]
+   ]);
+   const normalized=path.length>1?path.replace(/\/$/,""):path;
+   if(path==="/"||path==="/index.html"||directPages.has(normalized)){
+    const page=directPages.get(normalized);
+    if(!page)return handleTrialSite(request,env);
+    const viewUrl=new URL(request.url);viewUrl.searchParams.set("page",page);
+    return handleTrialSite(new Request(viewUrl,request),env);
+   }
+  }
   if(path==="/api/auth")return handleAuth(request,env);
   if(path==="/api/audience")return handleAudience(request,env);
   if(path==="/api/media-admin")return handleMediaAdmin(request,env);
