@@ -35,6 +35,14 @@ export default {
   const isPreparationPage=path==="/preparation"||path==="/preparation/";
   const legacy=isPreparationPage?null:await handleLegacyLink(request,env);
   if(legacy)return legacy;
+  // The homepage editor draft used a staging-only nickname for the original
+  // publicly approved welcome photograph. Serve that exact historic image
+  // under the nickname too, without changing either URL, D1, or R2 objects.
+  if(path==="/media/media/celebrations-staging-welcome-autumn-2026.jpg"){
+   const imageUrl=new URL(request.url);
+   imageUrl.pathname="/media/media/1791723108110/file-1791723109615-1000040461.jpg";
+   return handleMedia(new Request(imageUrl,request),env);
+  }
   if(path.startsWith("/media/")||path.startsWith("/letter/"))return handleMedia(request,env);
   // The two official domains now use the same visual visitor/editor interface.
   // All media, old emailed PDF, existing static assets and historic redirects
