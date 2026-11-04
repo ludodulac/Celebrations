@@ -17,7 +17,6 @@ jobs:
     env:
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
-      CELEBRATIONS_ADMIN_PASSWORD: ${{ secrets.CELEBRATIONS_ADMIN_PASSWORD }}
       STAGING_D1_ID: 0f761662-241f-42cc-ac94-5c68b4aa7797
       STAGING_R2_BUCKET: celebrations-exit-staging
       STAGING_R2_ACCESS_KEY_ID: ${{ secrets.CELEBRATIONS_STAGING_R2_ACCESS_KEY_ID }}
@@ -51,7 +50,6 @@ jobs:
           test -n "$STAGING_R2_ACCESS_KEY_ID"
           test -n "$STAGING_R2_SECRET_ACCESS_KEY"
           test -n "$R2_ENDPOINT"
-          test "${#CELEBRATIONS_ADMIN_PASSWORD}" -ge 14
           node --input-type=module <<'NODE'
           import assert from 'node:assert/strict';
           const base='https://api.cloudflare.com/client/v4',account=process.env.CLOUDFLARE_ACCOUNT_ID;
@@ -162,11 +160,9 @@ jobs:
         working-directory: migration/cloudflare
         run: |
           set -euo pipefail
-          secret_file="$(mktemp)"
-          chmod 600 "$secret_file"
-          trap 'rm -f "$secret_file"' EXIT
-          python ../../scripts/make_admin_worker_secrets.py "$secret_file"
-          npx wrangler deploy --config wrangler.production.toml --secrets-file "$secret_file"
+          # Preserve the existing production secrets and dashboard variables.
+          # The owner requested no new admin password during this cutover.
+          npx wrangler deploy --config wrangler.production.toml --keep-vars
       - name: Check mobile/desktop official site, open admin and all original emailed/media links
         env:
           VISUAL_ORIGIN: https://ronde-des-archanges-universelle.eu
@@ -192,11 +188,8 @@ jobs:
         working-directory: migration/cloudflare
         run: |
           set -euo pipefail
-          secret_file="$(mktemp)"
-          chmod 600 "$secret_file"
-          trap 'rm -f "$secret_file"' EXIT
-          python ../../scripts/make_admin_worker_secrets.py "$secret_file"
-          npx wrangler deploy --config wrangler.rollback.toml --secrets-file "$secret_file"
+          # Restore the prior Worker without rotating or deleting its secrets.
+          npx wrangler deploy --config wrangler.rollback.toml --keep-vars
           echo 'CELEBRATIONS_ROLLBACK_OLD_PUBLIC_SITE_DEPLOYED'
       - name: Final Cloudflare D1 reserve
         if: always()
