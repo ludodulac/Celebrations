@@ -40,10 +40,16 @@ async function stored(bucket){
 }
 export async function handleServerDraft(request,env){
  const url=new URL(request.url);
- if(url.hostname!==HOST||url.pathname!=='/api/editor-server-draft')return error('Introuvable',404);
+ const open=url.pathname==='/api/editor-open-draft';
+ if(url.hostname!==HOST&&open)return error('Introuvable',404);
+ if(url.hostname!==HOST||(!open&&url.pathname!=='/api/editor-server-draft'))return error('Introuvable',404);
  if(!['GET','POST'].includes(request.method))return error('Méthode interdite',405);
  if(!env.DB||!env.MEDIA_BUCKET)return error('Sauvegarde serveur indisponible',503);
- if(!await authorize(request,env,true))return error('Connexion administrateur nécessaire',401);
+ // The owner explicitly allows open editing during this temporary publishing phase.
+ // The original authenticated route is intentionally unchanged for compatibility.
+ if(!open&&!await authorize(request,env,true))return error('Connexion administrateur nécessaire',401);
+ if(open&&request.method==='POST'&&request.headers.get('origin')!=='https://'+HOST)
+  return error('Écriture autorisée seulement depuis cet éditeur',403);
  try{
   if(request.method==='GET'){
    const id=url.searchParams.get('celebration');
