@@ -8,7 +8,7 @@ const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const safeJson=x=>JSON.stringify(x).replace(/</g,'\\u003c').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029');
 export async function handleTrialSite(request,env){
  const url=new URL(request.url);
- if(url.hostname!==HOST)return new Response('Not found',{status:404});
+ if(url.hostname!==HOST&&!['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu'].includes(url.hostname))return new Response('Not found',{status:404});
  if(request.method!=='GET'&&request.method!=='HEAD')return new Response('Method not allowed',{status:405});
  if(!env.DB)return new Response('Site d’essai momentanément indisponible',{status:503});
  const slug=url.searchParams.get('page');
@@ -19,11 +19,12 @@ export async function handleTrialSite(request,env){
  const nonce=Array.from(crypto.getRandomValues(new Uint8Array(16)),v=>v.toString(16).padStart(2,'0')).join('');
  const allowSavedImages=String.raw`function urlOk(v){
   if(typeof v==='string'&&v.length<1000000&&/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(v))return v;`;
+ const isOfficial=url.hostname!==HOST;
  const siteClient=TRIAL_SITE_CLIENT
   .replace("function urlOk(v){",allowSavedImages)
   .replace("(()=>{\'use strict\';","(async()=>{\'use strict\';")
   .replace("const KEY=\'celebrations-demo-preparation-\'+celebration;",SERVER_PREVIEW_PREFETCH+"\nconst KEY=\'celebrations-demo-preparation-\'+celebration;");
- const html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Site d’essai — Célébrations</title>'+
+ const html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'+(isOfficial?'<title>Célébrations des Archanges</title>':'<meta name="robots" content="noindex,nofollow"><title>Site d’essai — Célébrations</title>')+
  '<style nonce="'+nonce+'">'+TRIAL_SITE_STYLE+'</style></head><body>'+
 
 
@@ -35,6 +36,6 @@ export async function handleTrialSite(request,env){
  '<footer class="footer"><a id="back-admin" href="/__editor/demo-preparation?celebration='+encodeURIComponent(result.celebration.id)+'">Administration</a></footer>'+
  '<script nonce="'+nonce+'">window.__TRIAL_SITE_SEED__='+safeJson(result.seed)+';</script>'+
  '<script nonce="'+nonce+'">'+siteClient+'</script></body></html>';
- const h={'content-type':'text/html; charset=utf-8','cache-control':'no-store','x-robots-tag':'noindex,nofollow,noarchive','x-content-type-options':'nosniff','referrer-policy':'no-referrer','content-security-policy':"default-src 'none'; script-src 'nonce-"+nonce+"'; style-src 'nonce-"+nonce+"'; img-src 'self' blob: data: https:; media-src 'self' blob: https:; connect-src 'self'; base-uri 'none'; frame-src https://www.youtube-nocookie.com https://player.vimeo.com; frame-ancestors 'none'; form-action 'none'"};
+ const h={'content-type':'text/html; charset=utf-8','cache-control':'no-store',...(isOfficial?{}:{'x-robots-tag':'noindex,nofollow,noarchive'}),'x-content-type-options':'nosniff','referrer-policy':'no-referrer','content-security-policy':"default-src 'none'; script-src 'nonce-"+nonce+"'; style-src 'nonce-"+nonce+"'; img-src 'self' blob: data: https:; media-src 'self' blob: https:; connect-src 'self'; base-uri 'none'; frame-src https://www.youtube-nocookie.com https://player.vimeo.com; frame-ancestors 'none'; form-action 'none'"};
  return new Response(request.method==='HEAD'?null:html,{headers:h});
 }
