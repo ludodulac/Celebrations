@@ -24,7 +24,7 @@ function cookie(request){
 async function signature(env,payload){
  const key=secret(env);
  if(!key)return '';
- const hmac=await crypto.subtle.importKey('raw',encoder.encode(key),'HMAC',false,['sign']);
+ const hmac=await crypto.subtle.importKey('raw',encoder.encode(key),{name:'HMAC',hash:'SHA-256'},false,['sign']);
  const sig=await crypto.subtle.sign('HMAC',hmac,encoder.encode('site-editor-v1:'+payload));
  return hex(sig);
 }
