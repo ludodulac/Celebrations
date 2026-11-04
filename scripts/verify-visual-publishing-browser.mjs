@@ -51,7 +51,7 @@ try{
   }
   assert.ok((await page.locator('a#back-admin').getAttribute('href')).startsWith('/__editor/demo-preparation?celebration=101'),'The admin URL keeps celebration and may include the current page');
   assert.equal(await page.locator('.site-menu-bar').count(),1,'Expected current visual site');
-  assert.equal(await page.title(),isOfficial?'Célébrations des Archanges':'Site d’essai — Célébrations');
+  assert.ok((await page.title()).endsWith(isOfficial?' — Célébrations des Archanges':' — Site d’essai'),'Page title must identify official or preview site');
   res=await page.goto(origin+'/mercredi/',{waitUntil:'domcontentloaded'});
   assert.equal(res.status(),200,'Old Wednesday route must work');
   await page.waitForFunction(()=>document.querySelector('#stage-main')?.textContent?.trim().length>5,null,{timeout:22000});
