@@ -48,6 +48,7 @@ jobs:
           node --check scripts/test-editor-page-delete-browser.mjs
           node --check scripts/test-editor-image-width-browser.mjs
           node --check scripts/test-editor-add-inside-existing-block-browser.mjs
+          node --check scripts/test-editor-publication-media-browser.mjs
       - name: Unit tests — fictitious R2, no staging writes
         run: |
           node --test tests/test-editor-server-drafts.mjs
@@ -124,6 +125,8 @@ jobs:
         run: node scripts/test-editor-image-width-browser.mjs
       - name: Green plus inside legacy block — mobile and desktop, fake local draft only
         run: node scripts/test-editor-add-inside-existing-block-browser.mjs
+      - name: Draft, publish, hide and global media controls on phone/desktop — no live writes
+        run: node scripts/test-editor-publication-media-browser.mjs
       - name: Verify no historical content publication or import changes
         run: |
           node --input-type=module <<'NODE'
