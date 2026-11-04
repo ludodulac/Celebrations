@@ -31,8 +31,14 @@ try{
   const page=await context.newPage();page.setDefaultTimeout(22000);
   const errors=[];page.on('pageerror',e=>errors.push(String(e)));
   const mutations=[];await page.route('**/*',async route=>{
-   if(!['GET','HEAD'].includes(route.request().method())){
-    mutations.push(route.request().method());
+   const r=route.request(),method=r.method();
+   if(!['GET','HEAD'].includes(method)){
+    mutations.push(method);
+    // An oversized, invalid code never reaches DB verification and creates
+    // no session. This checks a real mobile form navigation without mutation.
+    const safeLogin=r.url().endsWith('/api/editor-access')&&method==='POST'&&
+     (r.postData()||'').includes('code='+('x'.repeat(40)));
+    if(safeLogin)return route.continue();
     return route.fulfill({status:405,contentType:'application/json',body:'{"error":"readonly-test"}'});
    }
    return route.continue();
@@ -71,6 +77,18 @@ try{
   if(isOfficial){
    await page.locator('form[action="/api/editor-access"]').waitFor({timeout:20000});
    assert.equal(await page.locator('#workspace').count(),0,'Editor is invisible without the access code');
+   const signed=await page.locator('input[name="_csrf"]').inputValue();
+   assert.match(signed,/^[0-9]{13}\.[a-f0-9]{32}\.[a-f0-9]{64}$/,'A signed form challenge is present');
+   // Browser submits a form without a preliminary CSRF cookie.
+   // 40 invalid characters stop before password checks and never write to D1.
+   await page.locator('#code').evaluate(input=>input.removeAttribute('maxlength'));
+   await page.locator('#code').fill('x'.repeat(40));
+   await Promise.all([
+    page.waitForURL(/\/admin\.html\?erreur=1/, {timeout:16000}),
+    page.getByRole('button',{name:'Ouvrir l’administration'}).click()
+   ]);
+   assert.equal(await page.getByText(/Code incorrect ou trop de tentatives/).count(),1,
+    'Mobile native POST must return to login instead of Origine interdite');
    const forbidden=await page.request.post(origin+'/api/editor-open-draft',{
     data:{celebration:'101',expectedRevision:saved.revision,record:{pages:[]},plans:[],shared:{pages:[],homeId:''}},
     headers:{origin}
