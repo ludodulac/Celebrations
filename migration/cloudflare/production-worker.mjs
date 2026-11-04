@@ -14,6 +14,7 @@ import {handleStats} from "./stats-api.mjs";
 import {handlePreparationDemo} from "./editor-demo-preparation-page.mjs";
 import {handleTrialSite} from "./editor-trial-site-page.mjs";
 import {handleServerDraft} from "./editor-server-draft-api.mjs";
+import {hasEditorAccess,editorAccessAction,editorLoginPage,editorLogout} from "./editor-site-access.mjs";
 export default {
  async fetch(request,env){
   const url=new URL(request.url),path=url.pathname;
@@ -28,6 +29,26 @@ export default {
   if(isolated && path==="/robots.txt")
    return new Response("User-agent: *\nDisallow: /\n",{
     headers:{"content-type":"text/plain; charset=utf-8","x-robots-tag":"noindex,nofollow,noarchive","cache-control":"no-store"}});
+  // Gate the administration itself AND every server write. Public viewing and
+  // old mailed PDF/media addresses remain accessible without signing in.
+  const officialHost=url.hostname==="ronde-des-archanges-universelle.eu"||
+   url.hostname==="www.ronde-des-archanges-universelle.eu";
+  if(officialHost){
+   if(path==="/api/editor-access")return editorAccessAction(request,env);
+   if(path==="/api/editor-logout"){
+    if(request.method!=="POST")return new Response("Méthode interdite",{status:405});
+    if(request.headers.get("origin")!=="https://"+url.hostname)return new Response("Origine interdite",{status:403});
+    return editorLogout();
+   }
+   const editorPage=path==="/admin"||path==="/admin.html"||
+    path==="/__editor/demo-preparation";
+   if(editorPage&&!(await hasEditorAccess(request,env)))
+    return editorLoginPage(request,url.searchParams.has("erreur"));
+   if(path==="/api/editor-open-draft"&&request.method!=="GET"&&request.method!=="HEAD"&&
+      !(await hasEditorAccess(request,env)))
+    return Response.json({ok:false,error:"Code administrateur nécessaire."},{status:401,
+     headers:{"cache-control":"no-store"}});
+  }
   const handleRoute=async()=>{
 
   // The displayed Préparation day links to /preparation via client routing.
