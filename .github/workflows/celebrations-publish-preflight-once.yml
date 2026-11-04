@@ -19,7 +19,7 @@ jobs:
       STAGING_R2_SECRET_ACCESS_KEY: ${{ secrets.CELEBRATIONS_STAGING_R2_SECRET_ACCESS_KEY }}
       R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
     steps:
-      - name: Read only: inspect domain, DNS, workers, and existing pages
+      - name: "Read only - inspect domain, DNS, workers, and existing pages"
         shell: bash
         run: |
           node --input-type=module <<'NODE'
@@ -76,7 +76,7 @@ jobs:
           }
           console.log('CELEBRATIONS_PUBLISH_PREFLIGHT_PUBLIC '+JSON.stringify(result));
           NODE
-      - name: Read only: verify whether latest edits exist on the staging server
+      - name: "Read only - verify whether latest edits exist on the staging server"
         env:
           AWS_EC2_METADATA_DISABLED: 'true'
         shell: bash
