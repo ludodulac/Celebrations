@@ -119,6 +119,6 @@ jobs:
       - name: Verify all existing public media and emailed PDF URLs (read-only)
         env:
           PROD_D1_ID: 28736d2a-479b-472b-bf82-703ad0affe10
-        run: node scripts/mission14_official_public_media_pdfs.mjs
+        run: node scripts/verify-public-media-before-visual-publish.mjs
       - name: Guarantee this workflow performs no changes
         run: echo CELEBRATIONS_PREFLIGHT_NO_MUTATIONS_NO_DNS_CHANGE_NO_DEPLOYMENT
