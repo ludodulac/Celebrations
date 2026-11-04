@@ -3,6 +3,7 @@
 import {DEMO_CSS} from './editor-demo-style.mjs';
 import {DEMO_CLIENT} from './editor-demo-client.mjs';
 import {TRIAL_AUDIO_CLIENT} from './editor-trial-audio-client.mjs';
+import {SERVER_EDITOR_SYNC} from './editor-server-sync-client.mjs';
 import {fiveColourways} from './editor-celebration-themes.mjs';
 const HOST='celebrations-exit-staging.rondes.workers.dev';
 export const STAGES=[
@@ -150,7 +151,7 @@ function publicFileCatalogue(steps,events,eventContents,stepContents){
 
 // The original site's large welcome illustration, copied to Cloudflare R2.
 // This existing staging key contains the same verified original homepage JPG.
-const HOME_IMAGE=asset('media/celebrations-staging-welcome-autumn-2026.jpg');
+const HOME_IMAGE=asset('media/1791723108110/file-1791723109615-1000040461.jpg');
 function generalHome(){
  return {id:'neutral-accueil-general',name:'Accueil général',group:'page',blocks:[
   {id:1,kind:'heading',text:'Bienvenue sur le site de la Ronde des Archanges Universelle',align:'center'},
@@ -278,7 +279,7 @@ export async function loadSevenStageContent(env,selectedId){
 }
 export async function handlePreparationDemo(request,env){
  const url=new URL(request.url);
- if(url.hostname!==HOST)return new Response('Not found',{status:404});
+ if(url.hostname!==HOST&&!['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu','celebrations-visual-candidate.rondes.workers.dev'].includes(url.hostname))return new Response('Not found',{status:404});
  if(request.method!=='GET'&&request.method!=='HEAD')return new Response('Method not allowed',{status:405});
  if(!env.DB)return new Response('Démonstration momentanément indisponible',{status:503});
  try{
@@ -290,6 +291,7 @@ export async function handlePreparationDemo(request,env){
   }
   // Reuse the proven editor, but isolate its localStorage key from the fictional demo.
   const client=DEMO_CLIENT
+   .replace("(()=>{'use strict';","(async()=>{'use strict';")
    .replace("const KEY='celebrations-demo-editor-v1'","const KEY='celebrations-demo-preparation-'+String(window.__PREPARATION_SEED__.celebrationId)")
    .replace("const clone=o=>JSON.parse(JSON.stringify(o));","seed.pages=window.__PREPARATION_SEED__.pages;\nconst clone=o=>JSON.parse(JSON.stringify(o));")
    // Preserve earlier local edits to Préparation, while inserting the six other historical pages.
@@ -310,12 +312,20 @@ for(const official of seed.pages){
    .replace("Choisir une page d’exemple","Les sept étapes de la célébration")
    .replace("function render(){","function render(){const see=document.getElementById('view-site-btn');if(see){const current=page();const stage=pageSlug(current);see.href='/__editor/voir-le-site?celebration='+encodeURIComponent(window.__PREPARATION_SEED__.celebrationId)+'&page='+encodeURIComponent(stage);}")
    .replace("el('save-btn').onclick=save;","el('save-btn').onclick=save;const see=document.getElementById('view-site-btn');if(see)see.onclick=()=>{if(dirty)save()};")
+   .replace("localStorage.setItem(SHARED_KEY,JSON.stringify({pages,homeId:db.siteHomeId||'neutral-accueil-general'}));","let previous={};try{previous=JSON.parse(localStorage.getItem(SHARED_KEY)||'{}')}catch{};localStorage.setItem(SHARED_KEY,JSON.stringify({pages,homeId:db.siteHomeId||'neutral-accueil-general',deletedPageIds:Array.isArray(previous.deletedPageIds)?previous.deletedPageIds:[]}));")
+   .replace("options.append(commands);row.append(options);","if(/^neutral-[0-9a-f-]{30,45}$/.test(q.id)){const del=b('Supprimer la page',()=>removeCustomPage(q),'sm');del.classList.add('danger');commands.append(del);}\n     options.append(commands);row.append(options);")
+   .replace("choose.className='item'+(q.id===p.id?' active':'');list.append(choose);","choose.className='item'+(q.id===p.id?' active':'');if(IS_STAGE&&!preview&&/^extra-[0-9a-f-]{30,45}-/.test(q.id)&&q.id.endsWith('-'+String(window.__PREPARATION_SEED__.celebrationId))){\n     const opts=n('details','page-options'),summary=n('summary','','⋯');\n     summary.setAttribute('aria-label','Options de la page '+q.name);\n     opts.append(summary);const menu=n('div','page-options-menu');\n     const remove=b('Supprimer la page',()=>removeCustomPage(q),'sm');remove.classList.add('danger');menu.append(remove);\n     opts.append(menu);const row=n('div','general-page-row');row.append(choose,opts);list.append(row);\n    }else list.append(choose);")
+   .replace("function moveGeneralPage(p,dir){","async function removeCustomPage(q){\n if(!IS_STAGE||!q||!db.pages.some(p=>p.id===q.id))return;\n const suffix='-'+String(window.__PREPARATION_SEED__?.celebrationId||'');\n const general=q.group==='page'&&/^neutral-[0-9a-f-]{30,45}$/.test(q.id);\n const extra=q.group==='celebration'&&/^extra-[0-9a-f-]{30,45}-/.test(q.id)&&q.id.endsWith(suffix);\n if(!general&&!extra)return;\n if(!confirm('Supprimer la page « '+q.name+' » ? Cette suppression sera enregistrée sur le serveur.'))return;\n const siblings=db.pages.filter(p=>p.group===q.group&&p.id!==q.id);\n if(!siblings.length){alert('Impossible de supprimer la dernière page de cette section.');return}\n if(stateOfPage(q)==='published'){\n  const hidden=await serverPublish({kind:'page',pageId:q.id,visibility:'hidden'});\n  if(!hidden){alert('La page est encore publique. Suppression annulée.');return}\n }\n if(general){\n  let original={};try{original=JSON.parse(localStorage.getItem(SHARED_KEY)||'{}')}catch{}\n  const deleted=[...new Set([...(Array.isArray(original.deletedPageIds)?original.deletedPageIds:[]),q.id])].slice(-100);\n  localStorage.setItem(SHARED_KEY,JSON.stringify({...original,deletedPageIds:deleted}));\n  if(db.siteHomeId===q.id)db.siteHomeId=siblings.find(p=>p.id==='neutral-accueil-general')?.id||siblings[0].id;\n }\n db.pages=db.pages.filter(p=>p.id!==q.id);\n if(id===q.id)id=siblings[0].id;\n selectedBlockId=null;mark();save();render();\n void serverSave();\n}\n"+"\nfunction moveGeneralPage(p,dir){")
+   .replace("function mark(){dirty=true;",SERVER_EDITOR_SYNC+"\nfunction mark(){db._serverPending=true;dirty=true;")
+   .replace("el('save-btn').onclick=()=>save(true);","el('save-btn').onclick=()=>{save();void serverSave();};")
+   .replace("render();loadFiles();","await serverLoad();render();loadFiles();")
+   .replace("status.textContent='✓ Titre enregistré dans ce navigateur';","db._serverPending=true;localStorage.setItem(KEY,JSON.stringify(db));status.textContent='Titre modifié : cliquez sur Enregistrer pour le serveur';")
    .replace('z.innerText.slice(0,5000)','z.innerText.slice(0,50000)');
   if(!client.includes("window.__PREPARATION_SEED__.pages")||!client.includes("for(const archived of seed.pages)"))throw Error('Demo client adapter failed');
   const nonce=Array.from(crypto.getRandomValues(new Uint8Array(16)),v=>v.toString(16).padStart(2,'0')).join('');
   const choices=celebrations.map(c=>'<option value="'+escapeHtml(c.id)+'"'+(String(c.id)===String(celebration.id)?' selected':'')+'>'+escapeHtml(c.archangel+' '+(c.year||''))+'</option>').join('')+(plannedCelebration(String(celebration.id))?'<option value="'+escapeHtml(celebration.id)+'" selected>'+escapeHtml(celebration.archangel+' · '+celebration.start_date+' (brouillon)')+'</option>':'');
   const html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Pages de la célébration — atelier Célébrations</title><style nonce="'+nonce+'">'+DEMO_CSS+'</style></head><body>'+
-  '<div class="shell stage-editor"><aside class="rail"><div class="brand"><div class="mark">✦</div><div><strong>Administration</strong></div></div><nav aria-label="Navigation"><button class="navbtn" data-tab="pages">▤ Pages</button><button class="navbtn active" data-tab="celebrations">✧ Célébrations</button><button class="navbtn" data-tab="media">▧ Fichiers</button></nav></aside>'+
+  '<div class="shell stage-editor"><aside class="rail"><div class="brand"><div class="mark">✦</div><div><strong>Administration</strong></div></div><nav aria-label="Navigation"><button class="navbtn" data-tab="pages">▤ Pages</button><button class="navbtn active" data-tab="celebrations">✧ Célébrations</button><button class="navbtn" data-tab="media">▧ Médiathèque globale</button></nav></aside>'+
   '<div class="content"><header class="topbar"><div></div><div class="actions"><button id="preview-btn" class="btn sm">Aperçu</button><button id="save-btn" class="btn primary">Enregistrer</button><a id="view-site-btn" class="btn view-site-btn" href="/__editor/voir-le-site" target="_blank" rel="noopener noreferrer">Voir le site</a></div></header>'+
   '<main class="main"><div id="workspace"></div><p class="status" id="status" role="status" aria-live="polite"></p></main></div></div>'+
   '<div id="editor-save-toast" class="editor-save-toast" role="status" aria-live="polite" hidden></div>'+ 

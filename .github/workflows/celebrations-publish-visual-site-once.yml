@@ -1,0 +1,245 @@
+name: CÉLÉBRATIONS — publier interface visuelle sans changer domaine et liens historiques
+# Owner explicitly authorized official replacement on 2026-11-04; all prior read-only checks passed.
+# Approved editor UX fix: add green plus within existing filled blocks; verify candidate first.
+# Owner-approved lifecycle release: private drafts, explicit publication, hidden pages,
+# safe global media and public general library. Full staging browser checks passed.
+# User-approved in-admin guide: all editor controls, mobile search, no data changes.
+on:
+  push:
+    branches: [feat/celebrations-save-on-server-20261103]
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-visual-official-publish
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: ${{ contains(github.event.head_commit.message, '[PUBLISH_VISUAL_SITE_ONCE]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      STAGING_D1_ID: 0f761662-241f-42cc-ac94-5c68b4aa7797
+      STAGING_R2_BUCKET: celebrations-exit-staging
+      STAGING_R2_ACCESS_KEY_ID: ${{ secrets.CELEBRATIONS_STAGING_R2_ACCESS_KEY_ID }}
+      STAGING_R2_SECRET_ACCESS_KEY: ${{ secrets.CELEBRATIONS_STAGING_R2_SECRET_ACCESS_KEY }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      CELEBRATIONS_PROD_D1_ID: 28736d2a-479b-472b-bf82-703ad0affe10
+      PROD_D1_ID: 28736d2a-479b-472b-bf82-703ad0affe10
+      CELEBRATIONS_PROD_R2_BUCKET: celebrations-exit-production
+      CELEBRATIONS_STAGING_D1_ID: 0f761662-241f-42cc-ac94-5c68b4aa7797
+      CELEBRATIONS_STAGING_R2_BUCKET: celebrations-exit-staging
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Refuse unexpected account, production resources and custom-domain mapping
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/feat/celebrations-save-on-server-20261103'
+          test "$STAGING_R2_BUCKET" = 'celebrations-exit-staging'
+          test "$CELEBRATIONS_PROD_R2_BUCKET" = 'celebrations-exit-production'
+          test "$CELEBRATIONS_PROD_D1_ID" = '28736d2a-479b-472b-bf82-703ad0affe10'
+          test "$STAGING_D1_ID" != "$CELEBRATIONS_PROD_D1_ID"
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          test -n "$STAGING_R2_ACCESS_KEY_ID"
+          test -n "$STAGING_R2_SECRET_ACCESS_KEY"
+          test -n "$R2_ENDPOINT"
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const base='https://api.cloudflare.com/client/v4',account=process.env.CLOUDFLARE_ACCOUNT_ID;
+          const h={authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN};
+          const domains=await (await fetch(base+'/accounts/'+account+'/workers/domains',{headers:h})).json();
+          assert.equal(domains.success,true);
+          const wanted=['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu'];
+          for(const name of wanted){
+           const item=domains.result.find(d=>d.hostname===name);
+           assert.equal(item?.service,'celebrations-exit-production','Do not publish on a new DNS/Worker target');
+          }
+          const conf=await (await fetch(base+'/accounts/'+account+'/workers/scripts/celebrations-exit-production/settings',{headers:h})).json();
+          assert.equal(conf.success,true);
+          const binds=conf.result.bindings;
+          assert.ok(binds.some(x=>x.name==='ADMIN_PASSWORD_HASH'&&x.type==='secret_text'),'Existing private signing secret must remain configured');
+          assert.equal(binds.find(x=>x.type==='r2_bucket'&&x.name==='MEDIA_BUCKET')?.bucket_name,'celebrations-exit-production');
+          const db=(binds.find(x=>x.type==='d1'&&x.name==='DB')||{});
+          assert.equal(db.database_id||db.id,'28736d2a-479b-472b-bf82-703ad0affe10');
+          console.log('CELEBRATIONS_PUBLISH_TARGET_PASS two_existing_domains=true old_prod_media_binding_intact=true');
+          NODE
+      - name: Validate code syntax and shared server roundtrip, no live changes
+        run: |
+          node --check migration/cloudflare/production-worker.mjs
+          node --check migration/cloudflare/editor-demo-preparation-page.mjs
+          node --check migration/cloudflare/editor-trial-site-page.mjs
+          node --check migration/cloudflare/editor-server-draft-api.mjs
+          node --check migration/cloudflare/editor-publication-api.mjs
+          node --check migration/cloudflare/editor-site-access.mjs
+          node --test tests/test-editor-access-gate.mjs
+          node --check migration/cloudflare/editor-server-sync-client.mjs
+          node --check scripts/verify-visual-publishing-browser.mjs
+          node --check scripts/test-editor-add-inside-existing-block-browser.mjs
+          node --check scripts/test-editor-publication-media-browser.mjs
+          node --test tests/test-editor-server-drafts.mjs
+          node --test tests/test-editor-publication-media.mjs
+          node scripts/check-staging-d1-free-budget.mjs pre
+      - name: Archive exact latest editor snapshot in private R2 (never overwrite)
+        shell: bash
+        run: |
+          python -m pip -q install 'boto3==1.40.57'
+          python - <<'PY'
+          import os,json,hashlib,boto3
+          from botocore.config import Config
+          e=os.environ
+          assert e['STAGING_R2_BUCKET']=='celebrations-exit-staging'
+          s=boto3.client('s3',region_name='auto',endpoint_url=e['R2_ENDPOINT'],
+             aws_access_key_id=e['STAGING_R2_ACCESS_KEY_ID'],
+             aws_secret_access_key=e['STAGING_R2_SECRET_ACCESS_KEY'],
+             config=Config(retries={'max_attempts':2,'mode':'standard'}))
+          original='editor-trials/server-drafts-v1.json'
+          blob=s.get_object(Bucket=e['STAGING_R2_BUCKET'],Key=original)['Body'].read()
+          j=json.loads(blob)
+          assert j.get('version',0)>=1
+          assert len(j.get('drafts',{}).get('101',{}).get('pages',[]))>=8
+          assert len(j.get('shared',{}).get('pages',[]))>=1
+          digest=hashlib.sha256(blob).hexdigest()
+          archive='editor-trials/prepublish-backups/visual-'+digest[:24]+'.json'
+          try:
+            s.put_object(Bucket=e['STAGING_R2_BUCKET'],Key=archive,Body=blob,
+              ContentType='application/json',IfNoneMatch='*')
+          except Exception as ex:
+            if getattr(ex,'response',{}).get('ResponseMetadata',{}).get('HTTPStatusCode')!=412:
+              raise
+          test=s.get_object(Bucket=e['STAGING_R2_BUCKET'],Key=archive)['Body'].read()
+          assert hashlib.sha256(test).hexdigest()==digest
+          print('CELEBRATIONS_EDITOR_SNAPSHOT_BACKUP_PASS version='+str(j['version'])+
+            ' celebration_pages='+str(len(j['drafts']['101']['pages']))+
+            ' global_pages='+str(len(j['shared']['pages']))+' verified_sha256_prefix='+digest[:16])
+          PY
+      - name: Verify every original URL before deployment
+        run: node scripts/verify-public-media-before-visual-publish.mjs
+      - name: Build same production media assets and two controlled worker configs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/build_production_assets.py
+          python scripts/audit_production_supabase_paths.py
+          python scripts/prepare_production_wrangler.py
+          cat >> migration/cloudflare/wrangler.production.toml <<'TOML'
+
+          # Single common editor state; production MEDIA_BUCKET and production D1 stay separate.
+          [[r2_buckets]]
+          binding = "EDITOR_BUCKET"
+          bucket_name = "celebrations-exit-staging"
+          TOML
+          sed 's/^name = "celebrations-exit-production"/name = "celebrations-visual-candidate"/' \
+            migration/cloudflare/wrangler.production.toml > migration/cloudflare/wrangler.visual.toml
+          git show f42a4566b9fcae0976d2496a199e9934bd405869:migration/cloudflare/production-worker.mjs \
+            > migration/cloudflare/production-worker-rollback.mjs
+          sed 's/^main = "production-worker.mjs"/main = "production-worker-rollback.mjs"/' \
+            migration/cloudflare/wrangler.production.toml > migration/cloudflare/wrangler.rollback.toml
+          grep -Fx 'name = "celebrations-exit-production"' migration/cloudflare/wrangler.production.toml
+          grep -Fx 'name = "celebrations-visual-candidate"' migration/cloudflare/wrangler.visual.toml
+          grep -Fx 'binding = "MEDIA_BUCKET"' migration/cloudflare/wrangler.production.toml
+          grep -Fx 'bucket_name = "celebrations-exit-production"' migration/cloudflare/wrangler.production.toml
+          grep -Fx 'binding = "EDITOR_BUCKET"' migration/cloudflare/wrangler.production.toml
+          grep -Fx 'bucket_name = "celebrations-exit-staging"' migration/cloudflare/wrangler.production.toml
+          test "$(grep -c 'binding = "EDITOR_BUCKET"' migration/cloudflare/wrangler.production.toml)" = 1
+          if grep -Eq '(^|[[:space:]])(route|routes|zone_id|custom_domain)[[:space:]]*=' migration/cloudflare/wrangler.production.toml; then exit 1; fi
+          echo CELEBRATIONS_ROLLBACK_SCRIPT_AND_PRODUCTION_CONFIG_PREPARED
+      - name: Install Cloudflare Wrangler and Chromium
+        run: |
+          npm install --no-save --no-package-lock wrangler@4 playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Deploy visual candidate ONLY at independent workers.dev hostname
+        working-directory: migration/cloudflare
+        run: npx wrangler deploy --config wrangler.visual.toml
+      - name: Verify candidate on Android and desktop before touching official domains
+        env:
+          VISUAL_ORIGIN: https://celebrations-visual-candidate.rondes.workers.dev
+        run: node scripts/verify-visual-publishing-browser.mjs
+      - name: Confirm old titles, texts and photos accept multiple items inside same block
+        env:
+          EDITOR_BASE: https://celebrations-visual-candidate.rondes.workers.dev
+        run: node scripts/test-editor-add-inside-existing-block-browser.mjs
+      - name: Verify draft, publication, masking and global media admin UI on phone and desktop
+        env:
+          EDITOR_BASE: https://celebrations-visual-candidate.rondes.workers.dev
+        run: node scripts/test-editor-publication-media-browser.mjs
+      - name: Publish visual site to EXISTING production Worker, preserving custom domains
+        id: production_deploy
+        shell: bash
+        working-directory: migration/cloudflare
+        run: |
+          set -euo pipefail
+          # Preserve the existing production secrets and dashboard variables.
+          # The owner requested no new admin password during this cutover.
+          npx wrangler deploy --config wrangler.production.toml --keep-vars
+      - name: Check mobile/desktop official site, open admin and all original emailed/media links
+        env:
+          VISUAL_ORIGIN: https://ronde-des-archanges-universelle.eu
+        run: |
+          node scripts/verify-visual-publishing-browser.mjs
+          node scripts/verify-public-media-before-visual-publish.mjs
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const host='https://www.ronde-des-archanges-universelle.eu';
+          const root=await fetch(host+'/',{cache:'no-store'});
+          assert.equal(root.status,200);
+          const html=await root.text();
+          assert.ok(html.includes('<title>Célébrations des Archanges</title>'));
+          assert.ok(html.includes('site-menu-bar'));
+          const editor=await fetch(host+'/admin.html',{cache:'no-store'});
+          assert.equal(editor.status,200);
+          const loginPage=await editor.text();
+          assert.ok(loginPage.includes('Code d’accès'));
+          const token=loginPage.match(/name="_csrf" value="([0-9]{13}\.[a-f0-9]{32}\.[a-f0-9]{64})"/)?.[1];
+          assert.ok(token,'Mobile-friendly login form must be server-signed');
+          assert.equal(editor.headers.get('set-cookie'),null,'Login form does not depend on preliminary cookie');
+          // Probe the complete signed form on the live server with an oversized
+          // invalid value: it reaches the code-length branch without D1 writes.
+          const codeProbe=await fetch(host+'/api/editor-access',{
+            method:'POST',redirect:'manual',
+            headers:{'content-type':'application/x-www-form-urlencoded'},
+            body:new URLSearchParams({_csrf:token,code:'x'.repeat(40)})
+          });
+          assert.equal(codeProbe.status,303,'Valid signed form should not report Origine interdite');
+          assert.match(codeProbe.headers.get('location')||'',/erreur=1/);
+          // Now run the real Workers PBKDF code path with an intentionally wrong
+          // value. This used to return 503 even for wrong values due to the 180k
+          // PBKDF2 iteration cap. A 303 proves that D1, KDF and validation work.
+          const realWrong=await fetch(host+'/api/editor-access',{
+            method:'POST',redirect:'manual',
+            headers:{'content-type':'application/x-www-form-urlencoded'},
+            body:new URLSearchParams({_csrf:token,code:'fictional-invalid-verify'})
+          });
+          assert.equal(realWrong.status,303,'Live Worker must reject a wrong PIN normally, not with Connexion indisponible');
+          assert.match(realWrong.headers.get('location')||'',/erreur=1/);
+          assert.equal(realWrong.headers.get('set-cookie'),null,'Wrong code must not grant an admin session');
+          console.log('CELEBRATIONS_REAL_LOGIN_HANDLER_PASS no_origin=true server_pbkdf=true wrong_code_rejected=true');
+          const posted=await fetch(host+'/api/editor-open-draft',{method:'POST',headers:{origin:host,'content-type':'application/json'},body:'{}'});
+          assert.equal(posted.status,401,'Unauthenticated official save must be forbidden');
+          console.log('CELEBRATIONS_WWW_VISUAL_LIVE_PASS');
+          NODE
+      - name: Restore original production Worker automatically if a post-publish test fails
+        if: ${{ failure() && steps.production_deploy.outcome == 'success' }}
+        shell: bash
+        working-directory: migration/cloudflare
+        run: |
+          set -euo pipefail
+          # Restore the prior Worker without rotating or deleting its secrets.
+          npx wrangler deploy --config wrangler.rollback.toml --keep-vars
+          echo 'CELEBRATIONS_ROLLBACK_OLD_PUBLIC_SITE_DEPLOYED'
+      - name: Final Cloudflare D1 reserve
+        if: always()
+        # Other public workflows share Cloudflare account-wide reads. A race in
+        # this informational quota probe must not roll back a healthy live site.
+        continue-on-error: true
+        run: node scripts/check-staging-d1-free-budget.mjs post

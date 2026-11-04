@@ -1,0 +1,23 @@
+name: CÉLÉBRATIONS — diagnostic candidat visuel (sans écriture)
+on:
+  push:
+    branches: [feat/celebrations-save-on-server-20261103]
+permissions: {contents: read}
+jobs:
+  probe:
+    if: ${{ contains(github.event.head_commit.message, '[VISUAL_CANDIDATE_DIAG]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Recheck propagated candidate script with HTTP GET
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          const hosts=['celebrations-visual-candidate.rondes.workers.dev','celebrations-exit-staging.rondes.workers.dev'];
+          for(const host of hosts)for(const p of ['/api/editor-open-draft?celebration=101','/','/admin.html']){
+            try{
+              const r=await fetch('https://'+host+p,{cache:'no-store',signal:AbortSignal.timeout(16000)});
+              const body=(await r.text()).slice(0,280).replace(/\s+/g,' ');
+              console.log('VISUAL_CANDIDATE_PROBE '+JSON.stringify({host,path:p,status:r.status,type:r.headers.get('content-type'),server:r.headers.get('server'),brief:body.replace(/["'<>]/g,'')}));
+            }catch(e){console.log('VISUAL_CANDIDATE_PROBE_ERROR '+JSON.stringify({host,path:p,error:e.name,cause:e.cause?.code}))}
+          }
+          NODE

@@ -1,0 +1,145 @@
+name: CÉLÉBRATIONS — audit avant publication du nouvel éditeur (lecture seule)
+# Explicit publication preflight, read-only, 2026-11-04.
+on:
+  push:
+    branches: [feat/celebrations-save-on-server-20261103]
+permissions:
+  contents: read
+jobs:
+  check:
+    if: ${{ contains(github.event.head_commit.message, '[PUBLISH_PREFLIGHT_READONLY]') }}
+    runs-on: ubuntu-latest
+    environment: celebrations-staging
+    timeout-minutes: 10
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      STAGING_R2_BUCKET: ${{ vars.CELEBRATIONS_STAGING_R2_BUCKET }}
+      STAGING_R2_ACCESS_KEY_ID: ${{ secrets.CELEBRATIONS_STAGING_R2_ACCESS_KEY_ID }}
+      STAGING_R2_SECRET_ACCESS_KEY: ${{ secrets.CELEBRATIONS_STAGING_R2_SECRET_ACCESS_KEY }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - name: "Read-only Cloudflare mapping for the official hostname"
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          const account=process.env.CLOUDFLARE_ACCOUNT_ID,token=process.env.CLOUDFLARE_API_TOKEN;
+          const base='https://api.cloudflare.com/client/v4';
+          const headers={authorization:'Bearer '+token};
+          const zones=await (await fetch(base+'/zones?name=ronde-des-archanges-universelle.eu',{headers})).json();
+          for(const zone of zones.result||[]){
+            const routes=await (await fetch(base+'/zones/'+zone.id+'/workers/routes',{headers})).json();
+            const domains=await (await fetch(base+'/accounts/'+account+'/workers/domains',{headers})).json();
+            const dns=await (await fetch(base+'/zones/'+zone.id+'/dns_records?per_page=100',{headers})).json();
+            const filtered=(dns.result||[]).filter(r=>['A','AAAA','CNAME'].includes(r.type)).map(r=>({type:r.type,name:r.name,proxied:r.proxied}));
+            console.log('CELEBRATIONS_OFFICIAL_ROUTING '+JSON.stringify({zoneStatus:zone.status,zoneId:zone.id,
+              routes:(routes.result||[]).map(r=>({pattern:r.pattern,script:r.script})),
+              domains:(domains.result||[]).filter(d=>String(d.hostname||'').includes('ronde-des-archanges-universelle.eu')).map(d=>({hostname:d.hostname,service:d.service,environment:d.environment})),
+              dns:filtered}));
+          }
+          NODE
+      - name: "Read only - inspect domain, DNS, workers, and existing pages"
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import dns from 'node:dns/promises';
+          import crypto from 'node:crypto';
+          const host='ronde-des-archanges-universelle.eu';
+          const endpoints=[
+            ['public_root','https://'+host+'/'],
+            ['public_www','https://www.'+host+'/'],
+            ['public_admin','https://'+host+'/admin'],
+            ['candidate','https://celebrations-exit-production.rondes.workers.dev/'],
+            ['staging_editor','https://celebrations-exit-staging.rondes.workers.dev/__editor/demo-preparation?celebration=101'],
+            ['staging_preview','https://celebrations-exit-staging.rondes.workers.dev/__editor/voir-le-site?celebration=101'],
+            ['public_media_sample','https://'+host+'/media/media/1791723108110/file-1791723109615-1000040461.jpg'],
+          ];
+          const pages={};
+          for(const [name,url] of endpoints){
+            try{
+              const response=await fetch(url,{signal:AbortSignal.timeout(17000),headers:{'Cache-Control':'no-cache'}});
+              const body=await response.arrayBuffer();
+              const ascii=Buffer.from(body).toString('utf8').slice(0,10000);
+              pages[name]={code:response.status,finalHost:new URL(response.url).hostname,
+                title:(ascii.match(/<title[^>]*>([^<]*)<\/title>/i)||[])[1]||null,
+                sha256:crypto.createHash('sha256').update(Buffer.from(body)).digest('hex').slice(0,16),
+                bytes:body.byteLength,
+                newEditor:ascii.includes('window.__PREPARATION_SEED__'),
+                newPreview:ascii.includes('window.__TRIAL_SITE_SEED__'),
+                legacyClient:ascii.includes('public-v3.js')||ascii.includes('public-home.js'),
+                linkBridge:response.headers.get('x-celebrations-legacy-pdf-bridge')||null};
+            }catch(e){pages[name]={error:e.cause?.code||e.name||'error'}}
+          }
+          const result={at:new Date().toISOString(),pages};
+          for(const [name,fn] of [['ns',()=>dns.resolveNs(host)],['www_cname',()=>dns.resolveCname('www.'+host)],['mx',()=>dns.resolveMx(host)],['ipv4',()=>dns.resolve4(host)],['txt',()=>dns.resolveTxt(host)]]){
+            try{const r=await fn();result[name]=name==='mx'?{count:r.length}:name==='txt'?{count:r.length}:r}
+            catch(e){result[name]={error:e.code}}
+          }
+          const account=process.env.CLOUDFLARE_ACCOUNT_ID,token=process.env.CLOUDFLARE_API_TOKEN;
+          result.cloudflare={};
+          if(account&&token){
+            for(const script of ['celebrations','celebrations-exit-production','celebrations-exit-staging']){
+              try{
+                const response=await fetch('https://api.cloudflare.com/client/v4/accounts/'+account+'/workers/scripts/'+script,{
+                  headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(13000)});
+                result.cloudflare[script]={status:response.status};
+              }catch(e){result.cloudflare[script]={error:e.name}}
+            }
+            try{
+              const response=await fetch('https://api.cloudflare.com/client/v4/zones?name='+host,{
+                headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(13000)});
+              const data=await response.json();
+              result.cloudflare.official_zone={status:response.status,count:Array.isArray(data.result)?data.result.length:null,
+               statuses:(data.result||[]).map(z=>z.status)};
+            }catch(e){result.cloudflare.official_zone={error:e.name}}
+          }
+          console.log('CELEBRATIONS_PUBLISH_PREFLIGHT_PUBLIC '+JSON.stringify(result));
+          NODE
+      - name: "Read only - verify whether latest edits exist on the staging server"
+        env:
+          AWS_EC2_METADATA_DISABLED: 'true'
+        shell: bash
+        run: |
+          python -m pip -q install 'boto3==1.40.57'
+          python - <<'PY'
+          import json,os,hashlib
+          from urllib.parse import urlsplit
+          import boto3
+          from botocore.config import Config
+          result={'server_drafts_exists':False}
+          env=os.environ
+          try:
+              account=env['CLOUDFLARE_ACCOUNT_ID']
+              endpoint=env['R2_ENDPOINT'].rstrip('/')
+              parsed=urlsplit(endpoint)
+              assert parsed.scheme=='https' and parsed.hostname==account+'.r2.cloudflarestorage.com'
+              assert env['STAGING_R2_BUCKET']=='celebrations-exit-staging'
+              s=boto3.client('s3',endpoint_url=endpoint,region_name='auto',
+                  aws_access_key_id=env['STAGING_R2_ACCESS_KEY_ID'],
+                  aws_secret_access_key=env['STAGING_R2_SECRET_ACCESS_KEY'],
+                  config=Config(retries={'max_attempts':2,'mode':'standard'}))
+              try:
+                  data=s.get_object(Bucket=env['STAGING_R2_BUCKET'],Key='editor-trials/server-drafts-v1.json')['Body'].read()
+              except s.exceptions.NoSuchKey:
+                  data=b''
+              if data:
+                  payload=json.loads(data)
+                  result={'server_drafts_exists':True,'version':payload.get('version'),
+                      'updatedAt':payload.get('updatedAt'),
+                      'celebrations_with_saved_edits':len(payload.get('drafts') or {}),
+                      'saved_celebration_page_counts':{str(k):len(v.get('pages') or []) for k,v in (payload.get('drafts') or {}).items()},
+                      'global_pages':len((payload.get('shared') or {}).get('pages') or []),
+                      'planned_celebrations':len(payload.get('plans') or []),
+                      'sha256_prefix':hashlib.sha256(data).hexdigest()[:16]}
+          except Exception as e:
+              result={'error':type(e).__name__}
+          print('CELEBRATIONS_PUBLISH_PREFLIGHT_SERVER_SOURCE '+json.dumps(result))
+          PY
+      - name: Verify all existing public media and emailed PDF URLs (read-only)
+        env:
+          PROD_D1_ID: 28736d2a-479b-472b-bf82-703ad0affe10
+        run: node scripts/verify-public-media-before-visual-publish.mjs
+      - name: Guarantee this workflow performs no changes
+        run: echo CELEBRATIONS_PREFLIGHT_NO_MUTATIONS_NO_DNS_CHANGE_NO_DEPLOYMENT
