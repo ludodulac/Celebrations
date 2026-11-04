@@ -83,7 +83,8 @@ export function publicSnapshot(state,celebration){
  const published=state.published||initialPublication(state);
  const visibility=published.celebrationVisibility||{};
  const original=published.drafts?.[celebration]||null;
- const celebrationVisible=visibility[celebration]!=='hidden'&&visibility[celebration]!=='draft';
+ const plan=published.plans?.find(p=>p.id===celebration);
+ const celebrationVisible=celebrationVisibleFor(celebration,visibility,plan?.visibility);
  const record=celebrationVisible&&original?{
   ...original,pages:(original.pages||[]).filter(publiclyVisible)
  }:null;
@@ -94,6 +95,7 @@ export function publicSnapshot(state,celebration){
  delete shared.celebrationVisibility;
  const plans=(published.plans||[]).filter(p=>celebrationVisibleFor(p.id,visibility,p.visibility));
  return {ok:true,record,shared,plans,
+  celebrationVisible,celebrationVisibility:visibility,
   media:discoverMedia(state).filter(r=>r.general===true),
   updatedAt:state.publishedAt||state.updatedAt||null};
 }
