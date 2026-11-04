@@ -21,6 +21,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: {persist-credentials: false}
+      - name: "Read-only Cloudflare mapping for the official hostname"
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          const account=process.env.CLOUDFLARE_ACCOUNT_ID,token=process.env.CLOUDFLARE_API_TOKEN;
+          const base='https://api.cloudflare.com/client/v4';
+          const headers={authorization:'Bearer '+token};
+          const zones=await (await fetch(base+'/zones?name=ronde-des-archanges-universelle.eu',{headers})).json();
+          for(const zone of zones.result||[]){
+            const routes=await (await fetch(base+'/zones/'+zone.id+'/workers/routes',{headers})).json();
+            const domains=await (await fetch(base+'/accounts/'+account+'/workers/domains',{headers})).json();
+            const dns=await (await fetch(base+'/zones/'+zone.id+'/dns_records?per_page=100',{headers})).json();
+            const filtered=(dns.result||[]).filter(r=>['A','AAAA','CNAME'].includes(r.type)).map(r=>({type:r.type,name:r.name,proxied:r.proxied}));
+            console.log('CELEBRATIONS_OFFICIAL_ROUTING '+JSON.stringify({zoneStatus:zone.status,zoneId:zone.id,
+              routes:(routes.result||[]).map(r=>({pattern:r.pattern,script:r.script})),
+              domains:(domains.result||[]).filter(d=>String(d.hostname||'').includes('ronde-des-archanges-universelle.eu')).map(d=>({hostname:d.hostname,service:d.service,environment:d.environment})),
+              dns:filtered}));
+          }
+          NODE
       - name: "Read only - inspect domain, DNS, workers, and existing pages"
         shell: bash
         run: |
