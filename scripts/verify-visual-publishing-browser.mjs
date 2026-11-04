@@ -31,6 +31,16 @@ try{
   await page.waitForFunction(()=>document.querySelector('#stage-main')?.textContent?.trim().length>5,null,{timeout:22000});
   const home=await page.locator('#stage-main').innerText();
   assert.ok(home.length>5,'Home content should be visible');
+  // A real saved homepage paragraph, not a local placeholder, must be visible.
+  const homeData=saved.shared.pages.find(p=>p.id===saved.shared.homeId)||saved.shared.pages[0];
+  const allBlocks=(blocks)=>blocks.flatMap(b=>b.kind==='section'?[...allBlocks(b.columns?.[0]||[]),...allBlocks(b.columns?.[1]||[])]:[b]);
+  const phrases=allBlocks(homeData.blocks||[]).filter(b=>['heading','text','event'].includes(b.kind))
+   .map(b=>String(b.text||'').replace(/\s+/g,' ').trim()).filter(x=>x.length>=18);
+  if(phrases.length){
+   const compact=home.replace(/\s+/g,' ').trim();
+   assert.ok(phrases.some(p=>compact.includes(p.slice(0,25))),
+    'Homepage must contain content from the real saved server snapshot');
+  }
   assert.equal(await page.locator('a#back-admin').getAttribute('href'),'/__editor/demo-preparation?celebration=101');
   assert.equal(await page.locator('.site-menu-bar').count(),1,'Expected current visual site');
   assert.equal(await page.title(),isOfficial?'Célébrations des Archanges':'Site d’essai — Célébrations');
@@ -41,6 +51,7 @@ try{
   res=await page.goto(origin+'/admin.html',{waitUntil:'domcontentloaded'});
   assert.equal(res.status(),200,'Public admin is accessible');
   await page.locator('#workspace').waitFor({timeout:20000});
+  await page.waitForFunction(()=>document.querySelector('#status')?.textContent?.includes('Version commune chargée'),null,{timeout:18000});
   await page.locator('[data-tab="pages"]').click();
   await page.waitForFunction(()=>document.querySelector('#workspace')?.textContent?.includes('Accueil'),null,{timeout:15000});
   assert.equal(await page.locator('#server-login-link').count(),0,'No admin password prompt');
