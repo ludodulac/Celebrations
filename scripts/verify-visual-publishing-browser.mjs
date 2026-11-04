@@ -1,5 +1,6 @@
 // Read-only browser launch test. Does not submit forms, edit drafts, or write content.
 // Nav is intentionally hidden before the visitor opens it; check attachment, not visibility.
+// Admin deep links preserve the current page slug and the server-saved celebration.
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 
