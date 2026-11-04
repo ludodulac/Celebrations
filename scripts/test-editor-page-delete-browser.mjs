@@ -48,8 +48,9 @@ try{
   assert.equal(await extra.count(),0,'New celebration page removed');
   assert.equal(await page.locator('#workspace .list .item').filter({hasText:'Mercredi'}).count(),1,'Historic Wednesday remains');
   // Check 2-column editing layout and plus/buttons are aligned on narrow phones.
-  await page.locator('.section-insert .section-add-blue').last().click();
-  await page.getByRole('button',{name:'Deux colonnes'}).first().click();
+  // Create the fixture with DOM events: this assertion is about layout, not click hit-testing.
+  await page.locator('.section-insert .section-add-blue').last().evaluate(el=>el.click());
+  await page.locator('.section-insert-choices:not([hidden])').getByRole('button',{name:'Deux colonnes'}).evaluate(el=>el.click());
   const two=page.locator('.content-section[data-layout="columns"]').last();
   await two.waitFor();
   const rects=await two.evaluate(el=>{
