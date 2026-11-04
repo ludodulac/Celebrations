@@ -84,6 +84,7 @@ jobs:
           node --check migration/cloudflare/editor-server-sync-client.mjs
           node --check scripts/verify-visual-publishing-browser.mjs
           node --check scripts/test-editor-add-inside-existing-block-browser.mjs
+          node --check scripts/test-editor-publication-media-browser.mjs
           node --test tests/test-editor-server-drafts.mjs
           node --test tests/test-editor-publication-media.mjs
           node scripts/check-staging-d1-free-budget.mjs pre
@@ -166,6 +167,10 @@ jobs:
         env:
           EDITOR_BASE: https://celebrations-visual-candidate.rondes.workers.dev
         run: node scripts/test-editor-add-inside-existing-block-browser.mjs
+      - name: Verify draft, publication, masking and global media admin UI on phone and desktop
+        env:
+          EDITOR_BASE: https://celebrations-visual-candidate.rondes.workers.dev
+        run: node scripts/test-editor-publication-media-browser.mjs
       - name: Publish visual site to EXISTING production Worker, preserving custom domains
         id: production_deploy
         shell: bash
