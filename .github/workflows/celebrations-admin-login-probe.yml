@@ -1,4 +1,5 @@
 name: CELEBRATIONS - live admin login diagnosis, no site changes
+# Probe after file registration without changing public site.
 on:
   push:
     branches: [feat/celebrations-save-on-server-20261103]
