@@ -43,7 +43,7 @@ export default {
    const editorPage=path==="/admin"||path==="/admin.html"||
     path==="/__editor/demo-preparation";
    if(editorPage&&!(await hasEditorAccess(request,env)))
-    return editorLoginPage(request,url.searchParams.has("erreur"));
+    return editorLoginPage(request,env,url.searchParams.has("erreur"));
    if(path==="/api/editor-open-draft"&&request.method!=="GET"&&request.method!=="HEAD"&&
       !(await hasEditorAccess(request,env)))
     return Response.json({ok:false,error:"Code administrateur nécessaire."},{status:401,
