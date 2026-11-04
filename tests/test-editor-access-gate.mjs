@@ -55,8 +55,14 @@ test('login endpoint does not accept cross-origin PIN submissions',async()=>{
 
 test('wrong code produces generic error and does not create an editor cookie',async()=>{
  const e=fakeEnv();
+ const page=editorLoginPage(req('/admin.html'));
+ const html=await page.text();
+ const code=html.match(/name="_csrf" value="([a-f0-9]{64})"/)?.[1];
+ assert.ok(code);
  const r=await editorAccessAction(req('/api/editor-access',{
-  method:'POST',headers:{origin,'content-type':'application/x-www-form-urlencoded'},body:'code=invalid'
+  method:'POST',headers:{origin,'content-type':'application/x-www-form-urlencoded',
+    cookie:'celebrations_editor_form='+code},
+  body:new URLSearchParams({_csrf:code,code:'invalid'})
  }),e);
  assert.equal(r.status,303);
  assert.equal(r.headers.get('set-cookie'),null);
