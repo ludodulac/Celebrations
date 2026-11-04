@@ -48,7 +48,7 @@ try{
    assert.ok(phrases.some(p=>compact.includes(p.slice(0,25))),
     'Homepage must contain content from the real saved server snapshot');
   }
-  assert.equal(await page.locator('a#back-admin').getAttribute('href'),'/__editor/demo-preparation?celebration=101');
+  assert.ok((await page.locator('a#back-admin').getAttribute('href')).startsWith('/__editor/demo-preparation?celebration=101'),'The admin URL keeps celebration and may include the current page');
   assert.equal(await page.locator('.site-menu-bar').count(),1,'Expected current visual site');
   assert.equal(await page.title(),isOfficial?'Célébrations des Archanges':'Site d’essai — Célébrations');
   res=await page.goto(origin+'/mercredi/',{waitUntil:'domcontentloaded'});
