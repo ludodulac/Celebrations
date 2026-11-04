@@ -6,6 +6,7 @@ const KEY='editor-trials/server-drafts-v1.json';
 const PREFIX='editor-trials/uploads/';
 const SITE=new Set(['www.ronde-des-archanges-universelle.eu','ronde-des-archanges-universelle.eu']);
 const PREVIEW='celebrations-visual-candidate.rondes.workers.dev';
+const STAGING='celebrations-exit-staging.rondes.workers.dev';
 const err=(message,status=400)=>Response.json({ok:false,error:message},{status,headers:{'cache-control':'no-store','x-content-type-options':'nosniff'}});
 const json=value=>Response.json(value,{headers:{'cache-control':'no-store','x-content-type-options':'nosniff'}});
 const copy=x=>JSON.parse(JSON.stringify(x));
@@ -104,11 +105,11 @@ function celebrationVisibleFor(id,map,planState){
 }
 function hostCheck(request){
  const u=new URL(request.url);
- return SITE.has(u.hostname)||u.hostname===PREVIEW;
+ return SITE.has(u.hostname)||u.hostname===PREVIEW||u.hostname===STAGING;
 }
 async function protectedWrite(request,env){
  const url=new URL(request.url);
- if(url.hostname===PREVIEW)return err('Prévisualisation en lecture seule',405);
+ if(url.hostname===PREVIEW||url.hostname===STAGING)return err('Prévisualisation en lecture seule',405);
  if(!SITE.has(url.hostname))return err('Domaine non autorisé',404);
  if(!await hasEditorAccess(request,env))return err('Code administrateur nécessaire',401);
  if(request.headers.get('origin')!=='https://'+url.hostname)return err('Origine interdite',403);
