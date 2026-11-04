@@ -2,6 +2,7 @@ name: CELEBRATIONS SERVER SAVE - isolated staging (drafts only)
 # Open sync requested by owner: old protected endpoint intact, no production cutover.
 # Mobile two-column controls: test responsive geometry of the two stacked editing areas.
 # Security rollout: staging stays readable but cannot overwrite the official shared editor.
+# Editor UX: add in-place green plus to old blocks; verify photo preserved on reload.
 on:
   push:
     branches: [feat/celebrations-save-on-server-20261103]
