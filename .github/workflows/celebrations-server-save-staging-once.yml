@@ -1,7 +1,7 @@
 name: CELEBRATIONS SERVER SAVE - isolated staging (drafts only)
 # Stage fix: hydrate public page allowlist after server GET, validate publication and media.
 # Diagnose nested add-menu click behavior and verify latest published-only server isolation.
-# Debug native click and direct click for the existing filled-block green plus.
+# Require native touch click for green plus and verify full publication tests.
 # Open sync requested by owner: old protected endpoint intact, no production cutover.
 # Mobile two-column controls: test responsive geometry of the two stacked editing areas.
 # Security rollout: staging stays readable but cannot overwrite the official shared editor.
