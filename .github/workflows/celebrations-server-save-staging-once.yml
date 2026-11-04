@@ -1,6 +1,7 @@
 name: CELEBRATIONS SERVER SAVE - isolated staging (drafts only)
 # Open sync requested by owner: old protected endpoint intact, no production cutover.
 # Mobile two-column controls: test responsive geometry of the two stacked editing areas.
+# Security rollout: staging stays readable but cannot overwrite the official shared editor.
 on:
   push:
     branches: [feat/celebrations-save-on-server-20261103]
@@ -94,6 +95,9 @@ jobs:
             body:JSON.stringify({celebration:'101',expectedRevision:0,record:{pages:[]},plans:[],shared:{pages:[],homeId:''}})
           });
           assert.equal(forbidden.status,403);
+          const locked=await fetch(base+'/api/editor-open-draft',{method:'POST',
+            headers:{origin:base,'content-type':'application/json'},body:'{}'});
+          assert.equal(locked.status,403,'The old open test site cannot modify the official shared draft');
           const editor=await fetch(base+'/__editor/demo-preparation?celebration=101',{cache:'no-store'});
           assert.equal(editor.status,200);
           const html=await editor.text();assert.ok(html.includes('SERVER_ENDPOINT'));assert.ok(html.includes('Enregistré sur le serveur'));
