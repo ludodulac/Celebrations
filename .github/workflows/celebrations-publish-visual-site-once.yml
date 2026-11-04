@@ -80,6 +80,7 @@ jobs:
           node --test tests/test-editor-access-gate.mjs
           node --check migration/cloudflare/editor-server-sync-client.mjs
           node --check scripts/verify-visual-publishing-browser.mjs
+          node --check scripts/test-editor-add-inside-existing-block-browser.mjs
           node --test tests/test-editor-server-drafts.mjs
           node scripts/check-staging-d1-free-budget.mjs pre
       - name: Archive exact latest editor snapshot in private R2 (never overwrite)
@@ -157,6 +158,10 @@ jobs:
         env:
           VISUAL_ORIGIN: https://celebrations-visual-candidate.rondes.workers.dev
         run: node scripts/verify-visual-publishing-browser.mjs
+      - name: Confirm old titles, texts and photos accept multiple items inside same block
+        env:
+          EDITOR_BASE: https://celebrations-visual-candidate.rondes.workers.dev
+        run: node scripts/test-editor-add-inside-existing-block-browser.mjs
       - name: Publish visual site to EXISTING production Worker, preserving custom domains
         id: production_deploy
         shell: bash
