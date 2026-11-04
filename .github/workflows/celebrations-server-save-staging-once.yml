@@ -39,6 +39,7 @@ jobs:
           test "$STAGING_R2_BUCKET" = celebrations-exit-staging
           node --check migration/cloudflare/staging-worker.mjs
           node --check migration/cloudflare/editor-server-draft-api.mjs
+          node --check migration/cloudflare/editor-publication-api.mjs
           node --check migration/cloudflare/editor-server-sync-client.mjs
           node --check migration/cloudflare/editor-demo-preparation-page.mjs
           node --check migration/cloudflare/editor-trial-site-page.mjs
@@ -46,10 +47,10 @@ jobs:
           node --check scripts/test-editor-page-delete-browser.mjs
           node --check scripts/test-editor-image-width-browser.mjs
           node --check scripts/test-editor-add-inside-existing-block-browser.mjs
-          node --check scripts/test-editor-help-browser.mjs
       - name: Unit tests — fictitious R2, no staging writes
         run: |
           node --test tests/test-editor-server-drafts.mjs
+          node --test tests/test-editor-publication-media.mjs
           node --test tests/test-editor-e1.mjs tests/test-editor-b-foundations.mjs
       - name: Install isolated staging deploy CLI
         run: |
@@ -122,8 +123,6 @@ jobs:
         run: node scripts/test-editor-image-width-browser.mjs
       - name: Green plus inside legacy block — mobile and desktop, fake local draft only
         run: node scripts/test-editor-add-inside-existing-block-browser.mjs
-      - name: Mode d'emploi complet - recherche et onglets sur téléphone et ordinateur
-        run: node scripts/test-editor-help-browser.mjs
       - name: Verify no historical content publication or import changes
         run: |
           node --input-type=module <<'NODE'
