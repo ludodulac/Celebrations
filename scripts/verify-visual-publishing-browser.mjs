@@ -68,11 +68,20 @@ try{
   assert.equal(await page.locator('.site-menu-bar').count(),1,'Wednesday still uses new visual site');
   res=await page.goto(origin+'/admin.html',{waitUntil:'domcontentloaded'});
   assert.equal(res.status(),200,'Public admin is accessible');
-  await page.locator('#workspace').waitFor({timeout:20000});
-  await page.waitForFunction(()=>document.querySelector('#status')?.textContent?.includes('Version commune chargée'),null,{timeout:18000});
-  await page.locator('[data-tab="pages"]').click();
-  await page.waitForFunction(()=>document.querySelector('#workspace')?.textContent?.includes('Accueil'),null,{timeout:15000});
-  assert.equal(await page.locator('#server-login-link').count(),0,'No admin password prompt');
+  if(isOfficial){
+   await page.locator('form[action="/api/editor-access"]').waitFor({timeout:20000});
+   assert.equal(await page.locator('#workspace').count(),0,'Editor is invisible without the access code');
+   const forbidden=await page.request.post(origin+'/api/editor-open-draft',{
+    data:{celebration:'101',expectedRevision:saved.revision,record:{pages:[]},plans:[],shared:{pages:[],homeId:''}},
+    headers:{origin}
+   });
+   assert.equal(forbidden.status(),401,'Anonymous request cannot replace server drafts');
+  }else{
+   await page.locator('#workspace').waitFor({timeout:20000});
+   await page.waitForFunction(()=>document.querySelector('#status')?.textContent?.includes('Version commune chargée'),null,{timeout:18000});
+   await page.locator('[data-tab="pages"]').click();
+   await page.waitForFunction(()=>document.querySelector('#workspace')?.textContent?.includes('Accueil'),null,{timeout:15000});
+  }
   const picture=await page.request.head(origin+path);
   assert.equal(picture.status(),200,'Original image URL unchanged');
   const letter=await page.request.head(origin+'/?lettre=not-a-real-invitation');
@@ -81,7 +90,7 @@ try{
   assert.ok(mutations.every(method=>method==='POST'),'Only blocked client POST attempts were seen; browser test sent no writes to the server');
   console.log('CELEBRATIONS_VISUAL_LAUNCH_BROWSER_PASS '+JSON.stringify({host:new URL(origin).hostname,width,
    savedRevision:saved.revision,celebrationPages:saved.record.pages.length,
-   generalPages:saved.shared.pages.length,newHome:true,homeImageLoaded:true,newDay:true,openAdmin:true,oldMedia200:true,oldPdfACL:true}));
+   generalPages:saved.shared.pages.length,newHome:true,homeImageLoaded:true,newDay:true,adminCodeProtected:isOfficial,oldMedia200:true,oldPdfACL:true}));
   await context.close();
  }
 }finally{await browser.close()}
