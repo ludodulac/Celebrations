@@ -242,13 +242,14 @@ export async function handleEditorMedia(request,env){
   if(!entry)return err('Média introuvable',404);
   // Only delete uploads owned by this application and not referenced in ANY
   // draft, published snapshot, or public gallery. Legacy mail URLs are untouchable.
-  if(entry.source!=='uploaded'||!/^\/media\/new\/[0-9a-f-]{36}\.(?:jpg|png|webp|pdf|mp3|wav)$/.test(entry.src))
-   return err('Ce fichier ou ce lien historique est protégé',403);
+  const newUpload=entry.source==='uploaded'&&/^\/media\/new\/[0-9a-f-]{36}\.(?:jpg|png|webp|pdf|mp3|wav)$/.test(entry.src);
+  if(entry.source==='uploaded'&&!newUpload)return err('Ce fichier historique est protégé',403);
+  if(entry.source!=='uploaded'&&entry.source!=='link')return err('Lien historique protégé',403);
   const originals=JSON.stringify([state.drafts,state.shared?.pages,state.published]);
   if(originals.includes(entry.src)||entry.general)return err('Fichier encore utilisé ou visible : retirez ses références avant la suppression.',409);
   state.mediaCatalogue=discoverMedia(state).filter(r=>r.id!==entry.id);
   if(!await writeEditorState(env.EDITOR_BUCKET,current,state))return err('Modifications simultanées',409);
-  await env.EDITOR_BUCKET.delete(PREFIX+entry.src.split('/').pop());
+  if(newUpload)await env.EDITOR_BUCKET.delete(PREFIX+entry.src.split('/').pop());
   return json({ok:true,revision:state.version});
  }
  return err('Action inconnue',404);
