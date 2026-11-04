@@ -3,6 +3,7 @@ name: CELEBRATIONS SERVER SAVE - isolated staging (drafts only)
 # Diagnose nested add-menu click behavior and verify latest published-only server isolation.
 # Mobile nested fixed toolbar no longer overlays its green add button.
 # Confirm phone pointer target and prevent repeated media catalogue requests.
+# Verified touch handling: keep block selected through section toolbar pointer events.
 # Open sync requested by owner: old protected endpoint intact, no production cutover.
 # Mobile two-column controls: test responsive geometry of the two stacked editing areas.
 # Security rollout: staging stays readable but cannot overwrite the official shared editor.
