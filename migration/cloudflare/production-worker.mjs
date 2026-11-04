@@ -17,7 +17,7 @@ import {handleServerDraft} from "./editor-server-draft-api.mjs";
 export default {
  async fetch(request,env){
   const url=new URL(request.url),path=url.pathname;
-  const isolated=url.hostname==="celebrations-exit-production.rondes.workers.dev";
+  const isolated=["celebrations-exit-production.rondes.workers.dev","celebrations-visual-candidate.rondes.workers.dev"].includes(url.hostname);
   // Before domain cutover the independent candidate is READ-ONLY, by design.
   // This gate prevents public signups, analytics writes and admin mutations.
   if(isolated && request.method!=="GET" && request.method!=="HEAD")
@@ -41,7 +41,8 @@ export default {
   // stay on their original production routes and production D1/R2 bindings.
   const official=url.hostname==="ronde-des-archanges-universelle.eu"||
    url.hostname==="www.ronde-des-archanges-universelle.eu";
-  if(official){
+  const visualCandidate=url.hostname==="celebrations-visual-candidate.rondes.workers.dev";
+  if(official||visualCandidate){
    if(path==="/api/editor-open-draft")return handleServerDraft(request,env);
    if(path==="/__editor/demo-preparation"||path==="/admin"||path==="/admin.html")
     return handlePreparationDemo(request,env);
