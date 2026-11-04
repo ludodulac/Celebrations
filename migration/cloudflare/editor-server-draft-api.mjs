@@ -2,6 +2,7 @@
 // Authenticated JSON snapshots are persisted in the staging-only R2 bucket.
 import {authorize} from './auth-api.mjs';
 const HOST='celebrations-exit-staging.rondes.workers.dev';
+const PUBLISHED_HOSTS=new Set(['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu']);
 const KEY='editor-trials/server-drafts-v1.json';
 const ID=/^(?:[1-9][0-9]{0,7}|plan-(?:michael|gabriel|raphael|ouriel)-20[0-9]{2}-[0-9]{2}-[0-9]{2})$/;
 const MAX_BODY=1850000;
@@ -41,20 +42,24 @@ async function stored(bucket){
 export async function handleServerDraft(request,env){
  const url=new URL(request.url);
  const open=url.pathname==='/api/editor-open-draft';
- if(url.hostname!==HOST&&open)return error('Introuvable',404);
- if(url.hostname!==HOST||(!open&&url.pathname!=='/api/editor-server-draft'))return error('Introuvable',404);
+ if(!open&&url.pathname!=='/api/editor-server-draft')return error('Introuvable',404);
+ if(!PUBLISHED_HOSTS.has(url.hostname)&&url.hostname!==HOST)return error('Introuvable',404);
+ if(!open&&url.hostname!==HOST)return error('Introuvable',404);
  if(!['GET','POST'].includes(request.method))return error('Méthode interdite',405);
- if(!env.DB||!env.MEDIA_BUCKET)return error('Sauvegarde serveur indisponible',503);
+ // Official pages use the same shared editor snapshot as the verified staging editor;
+ // production MEDIA_BUCKET stays unchanged to preserve all original media URLs.
+ const draftBucket=PUBLISHED_HOSTS.has(url.hostname)?env.EDITOR_BUCKET:env.MEDIA_BUCKET;
+ if(!env.DB||!draftBucket)return error('Sauvegarde serveur indisponible',503);
  // The owner explicitly allows open editing during this temporary publishing phase.
  // The original authenticated route is intentionally unchanged for compatibility.
  if(!open&&!await authorize(request,env,true))return error('Connexion administrateur nécessaire',401);
- if(open&&request.method==='POST'&&request.headers.get('origin')!=='https://'+HOST)
+ if(open&&request.method==='POST'&&request.headers.get('origin')!=='https://'+url.hostname)
   return error('Écriture autorisée seulement depuis cet éditeur',403);
  try{
   if(request.method==='GET'){
    const id=url.searchParams.get('celebration');
    if(!goodId(id))return error('Célébration invalide',400);
-   const {state}=await stored(env.MEDIA_BUCKET);
+   const {state}=await stored(draftBucket);
    return json({ok:true,revision:state.version,record:state.drafts[id]||null,plans:state.plans,shared:state.shared,updatedAt:state.updatedAt||null});
   }
   if((request.headers.get('content-type')||'').split(';')[0]!=='application/json')return error('Format invalide',415);
@@ -65,7 +70,7 @@ export async function handleServerDraft(request,env){
    !Number.isSafeInteger(body.expectedRevision)||body.expectedRevision<0)return error('Données de sauvegarde invalides',400);
   const record=sanitizeRecord(body.record,body.celebration);
   if(!record)return error('Pages invalides',400);
-  const current=await stored(env.MEDIA_BUCKET);
+  const current=await stored(draftBucket);
   if(body.expectedRevision!==current.state.version)return error('Une version plus récente existe sur le serveur. Rechargez sans effacer votre brouillon local.',409);
   const drafts=Object.assign(Object.create(null),current.state.drafts);
   drafts[body.celebration]=record;
@@ -75,7 +80,7 @@ export async function handleServerDraft(request,env){
   if(serialized.length>5_000_000)return error('Capacité de brouillon dépassée',413);
   const options={httpMetadata:{contentType:'application/json'},onlyIf:current.etag?
    {etagMatches:current.etag}:{etagDoesNotMatch:'*'}};
-  const result=await env.MEDIA_BUCKET.put(KEY,serialized,options);
+  const result=await draftBucket.put(KEY,serialized,options);
   if(!result)return error('Une autre sauvegarde vient de modifier le serveur. Votre brouillon local est conservé.',409);
   return json({ok:true,revision:version,updatedAt});
  }catch{return error('Enregistrement serveur indisponible. Votre copie locale est conservée.',503)}
