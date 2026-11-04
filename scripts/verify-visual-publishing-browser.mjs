@@ -42,6 +42,11 @@ try{
   await page.waitForFunction(()=>document.querySelector('#stage-main')?.textContent?.trim().length>5,null,{timeout:22000});
   const home=await page.locator('#stage-main').innerText();
   assert.ok(home.length>5,'Home content should be visible');
+  const welcomeImage=page.locator('img[alt="Ronde des Archanges Universelle"]').first();
+  await welcomeImage.waitFor({state:'visible',timeout:18000});
+  await page.waitForFunction(()=>{const image=document.querySelector('img[alt="Ronde des Archanges Universelle"]');return !!image&&image.complete&&image.naturalWidth>0},null,{timeout:20000});
+  const homeImage=await welcomeImage.evaluate(img=>({width:img.naturalWidth,url:new URL(img.currentSrc,location.href).pathname}));
+  assert.ok(homeImage.width>0,'Homepage illustration must decode correctly');
   // A real saved homepage paragraph, not a local placeholder, must be visible.
   const homeData=saved.shared.pages.find(p=>p.id===saved.shared.homeId)||saved.shared.pages[0];
   const allBlocks=(blocks)=>blocks.flatMap(b=>b.kind==='section'?[...allBlocks(b.columns?.[0]||[]),...allBlocks(b.columns?.[1]||[])]:[b]);
@@ -74,7 +79,7 @@ try{
   assert.ok(mutations.every(method=>method==='POST'),'Only blocked client POST attempts were seen; browser test sent no writes to the server');
   console.log('CELEBRATIONS_VISUAL_LAUNCH_BROWSER_PASS '+JSON.stringify({host:new URL(origin).hostname,width,
    savedRevision:saved.revision,celebrationPages:saved.record.pages.length,
-   generalPages:saved.shared.pages.length,newHome:true,newDay:true,openAdmin:true,oldMedia200:true,oldPdfACL:true}));
+   generalPages:saved.shared.pages.length,newHome:true,homeImageLoaded:true,newDay:true,openAdmin:true,oldMedia200:true,oldPdfACL:true}));
   await context.close();
  }
 }finally{await browser.close()}
