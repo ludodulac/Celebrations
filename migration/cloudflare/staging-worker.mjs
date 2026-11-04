@@ -51,6 +51,7 @@ export default {
   if(path==="/api/editor-e1")return handleEditorE1(request,env);
   if(path==="/api/editor-trial-audio")return handleTrialAudio(request,env);
   if(path==="/api/editor-server-draft")return handleServerDraft(request,env);
+  if(path==="/api/editor-open-draft")return handleServerDraft(request,env);
   if(path==="/__editor/demo")return Response.redirect(new URL("/__editor/demo-preparation",url).toString(),302);
   if(path==="/__editor/demo-preparation")return handlePreparationDemo(request,env);
   if(path==="/__editor/voir-le-site")return handleTrialSite(request,env);
