@@ -1,12 +1,12 @@
 // Site-wide administration gate. No access code is stored in source or sent to visitors.
 // The public presentation and all historical file/PDF routes are unchanged.
-import {pbkdf,sha256} from './auth-api.mjs';
+import {sha256} from './auth-api.mjs';
 
 const COOKIE='celebrations_editor_access';
 const DOMAIN='ronde-des-archanges-universelle.eu';
 const TTL=7*24*60*60*1000;
 const PIN_SALT='c16cde110a7a5b98b45d1e08b94c02053eab24879c0b220f';
-const PIN_VERIFIER='e84a7dc7085d9cb09b887f4686d410674ac7715d77efc28248ceb2d2a6b8abdc';
+const PIN_VERIFIER='3095cabc0ccabf9960c3aa4269e8da4b93e47483a20cceda39063b54d207872d';
 const noCache={'cache-control':'no-store','x-content-type-options':'nosniff','referrer-policy':'no-referrer','x-robots-tag':'noindex,nofollow,noarchive'};
 const official=host=>host===DOMAIN||host==='www.'+DOMAIN;
 const encoder=new TextEncoder();
@@ -17,6 +17,21 @@ function match(a,b){
  return n===0;
 }
 const hex=bytes=>Array.from(new Uint8Array(bytes),x=>x.toString(16).padStart(2,'0')).join('');
+const PIN_ROUNDS=90000;
+// Workers rejects PBKDF2 iteration counts over 100,000 even through node:crypto.
+// Two sequential, independently salted 90k PBKDF2 stages stay within that
+// limit, and do not require a Node.js crypto implementation in production.
+export async function deriveEditorPin(candidate){
+ const text=encoder.encode(String(candidate));
+ const key=await crypto.subtle.importKey('raw',text,'PBKDF2',false,['deriveBits']);
+ const stageOne=await crypto.subtle.deriveBits({name:'PBKDF2',
+  salt:encoder.encode('celebrations-pin-v2-step1:'+PIN_SALT),
+  hash:'SHA-256',iterations:PIN_ROUNDS},key,256);
+ const secondKey=await crypto.subtle.importKey('raw',stageOne,'PBKDF2',false,['deriveBits']);
+ return hex(await crypto.subtle.deriveBits({name:'PBKDF2',
+  salt:encoder.encode('celebrations-pin-v2-step2:'+PIN_SALT),
+  hash:'SHA-256',iterations:PIN_ROUNDS},secondKey,256));
+}
 function cookie(request){
  const part=(request.headers.get('cookie')||'').split(';').map(v=>v.trim()).find(v=>v.startsWith(COOKIE+'='));
  return part?part.slice(COOKIE.length+1):'';
@@ -98,7 +113,7 @@ export async function editorAccessAction(request,env){
   if(typeof input!=='string'||input.length>32)return toHome(true);
   const key=await lockKey(request);
   if(await blocked(env.DB,key))return toHome(true);
-  const computed=await pbkdf(input,PIN_SALT);
+  const computed=await deriveEditorPin(input);
   if(!match(computed,PIN_VERIFIER)){await failure(env.DB,key);return toHome(true);}
   await env.DB.prepare('DELETE FROM celebrations_login_attempts WHERE identity_hash=?').bind(key).run();
   const payload=String(Date.now())+'.'+hex(crypto.getRandomValues(new Uint8Array(16)));
