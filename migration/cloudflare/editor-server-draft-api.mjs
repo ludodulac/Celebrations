@@ -2,6 +2,7 @@
 // Authenticated JSON snapshots are persisted in the staging-only R2 bucket.
 import {authorize} from './auth-api.mjs';
 import {hasEditorAccess} from './editor-site-access.mjs';
+import {initialPublication,discoverMedia} from './editor-publication-api.mjs';
 const HOST='celebrations-exit-staging.rondes.workers.dev';
 const PUBLISHED_HOSTS=new Set(['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu']);
 const PREVIEW_HOST='celebrations-visual-candidate.rondes.workers.dev';
@@ -65,7 +66,8 @@ export async function handleServerDraft(request,env){
    const id=url.searchParams.get('celebration');
    if(!goodId(id))return error('Célébration invalide',400);
    const {state}=await stored(draftBucket);
-   return json({ok:true,revision:state.version,record:state.drafts[id]||null,plans:state.plans,shared:state.shared,updatedAt:state.updatedAt||null});
+   return json({ok:true,revision:state.version,record:state.drafts[id]||null,plans:state.plans,shared:state.shared,
+    mediaCatalogue:discoverMedia(state),updatedAt:state.updatedAt||null});
   }
   if((request.headers.get('content-type')||'').split(';')[0]!=='application/json')return error('Format invalide',415);
   const raw=await request.text();
@@ -80,7 +82,12 @@ export async function handleServerDraft(request,env){
   const drafts=Object.assign(Object.create(null),current.state.drafts);
   drafts[body.celebration]=record;
   const updatedAt=new Date().toISOString(),version=current.state.version+1;
-  const state={version,updatedAt,drafts,plans:body.plans,shared:body.shared};
+  // First publication snapshot preserves precisely what visitors could see
+  // BEFORE this save. Later saves never change the public website implicitly.
+  const previouslyPublished=current.state.published||initialPublication(current.state);
+  const catalogue=discoverMedia({...current.state,drafts,plans:body.plans,shared:body.shared});
+  const state={...current.state,version,updatedAt,drafts,plans:body.plans,
+   shared:body.shared,published:previouslyPublished,mediaCatalogue:catalogue};
   const serialized=JSON.stringify(state);
   if(serialized.length>5_000_000)return error('Capacité de brouillon dépassée',413);
   const options={httpMetadata:{contentType:'application/json'},onlyIf:current.etag?
