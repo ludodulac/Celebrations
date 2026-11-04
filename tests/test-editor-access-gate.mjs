@@ -69,6 +69,32 @@ test('wrong code produces generic error and does not create an editor cookie',as
  assert.match(r.headers.get('location'),/erreur=1/);
 });
 
+test('privacy browser form without Origin is accepted for code validation',async()=>{
+ const page=editorLoginPage(req('/admin.html'));
+ const html=await page.text(),csrf=html.match(/name="_csrf" value="([a-f0-9]{64})"/)?.[1];
+ assert.ok(csrf);
+ const r=await editorAccessAction(req('/api/editor-access',{method:'POST',
+  headers:{cookie:'celebrations_editor_form='+csrf,'content-type':'application/x-www-form-urlencoded'},
+  body:new URLSearchParams({_csrf:csrf,code:'incorrect'})
+ }),fakeEnv());
+ assert.equal(r.status,303);
+ assert.match(r.headers.get('location')||'',/erreur/);
+});
+
+test('www form redirected to apex is accepted, but an invalid token is rejected',async()=>{
+ const page=editorLoginPage(req('/admin.html'));
+ const html=await page.text(),csrf=html.match(/name="_csrf" value="([a-f0-9]{64})"/)?.[1];
+ assert.ok(csrf);
+ const headers={origin:'https://ronde-des-archanges-universelle.eu',
+  cookie:'celebrations_editor_form='+csrf,'content-type':'application/x-www-form-urlencoded'};
+ const allowed=await editorAccessAction(req('/api/editor-access',{method:'POST',headers,
+  body:new URLSearchParams({_csrf:csrf,code:'incorrect'})}),fakeEnv());
+ assert.equal(allowed.status,303);
+ const denied=await editorAccessAction(req('/api/editor-access',{method:'POST',headers,
+  body:new URLSearchParams({_csrf:'0'.repeat(64),code:'incorrect'})}),fakeEnv());
+ assert.equal(denied.status,403);
+});
+
 test('fabricated cookies cannot bypass the editor gate',async()=>{
  const e=fakeEnv();
  const fake=String(Date.now())+'.'+'a'.repeat(32)+'.'+'b'.repeat(64);
