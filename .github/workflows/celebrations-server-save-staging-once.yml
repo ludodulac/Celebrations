@@ -1,5 +1,5 @@
 name: CELEBRATIONS SERVER SAVE - isolated staging (drafts only)
-# Mobile two-column controls: empty insertion rows do not intercept plus taps.
+# Mobile two-column controls: verify insertion on visible bottom blue plus and centered green plus.
 on:
   push:
     branches: [feat/celebrations-save-on-server-20261103]
