@@ -1,6 +1,7 @@
 // Isolated staging server drafts: no publication, no historical D1 writes.
 // Authenticated JSON snapshots are persisted in the staging-only R2 bucket.
 import {authorize} from './auth-api.mjs';
+import {hasEditorAccess} from './editor-site-access.mjs';
 const HOST='celebrations-exit-staging.rondes.workers.dev';
 const PUBLISHED_HOSTS=new Set(['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu']);
 const PREVIEW_HOST='celebrations-visual-candidate.rondes.workers.dev';
@@ -48,6 +49,8 @@ export async function handleServerDraft(request,env){
  if(!open&&url.hostname!==HOST)return error('Introuvable',404);
  if(!['GET','POST'].includes(request.method))return error('Méthode interdite',405);
  if(url.hostname===PREVIEW_HOST&&request.method!=='GET')return error('Aperçu non modifiable',405);
+ if(open&&PUBLISHED_HOSTS.has(url.hostname)&&request.method==='POST'&&
+    !await hasEditorAccess(request,env))return error('Code administrateur nécessaire',401);
  // Official pages use the same shared editor snapshot as the verified staging editor;
  // production MEDIA_BUCKET stays unchanged to preserve all original media URLs.
  const draftBucket=(PUBLISHED_HOSTS.has(url.hostname)||url.hostname===PREVIEW_HOST)?env.EDITOR_BUCKET:env.MEDIA_BUCKET;
