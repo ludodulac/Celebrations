@@ -1,5 +1,5 @@
 name: CELEBRATIONS SERVER SAVE - isolated staging (drafts only)
-# Mobile two-column controls: green plus centered independently of the settings gear.
+# Mobile two-column controls: full-size accessible blue and green plus touch areas.
 on:
   push:
     branches: [feat/celebrations-save-on-server-20261103]
