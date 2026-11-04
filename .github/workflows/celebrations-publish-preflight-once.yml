@@ -1,4 +1,5 @@
 name: CÉLÉBRATIONS — audit avant publication du nouvel éditeur (lecture seule)
+# Explicit publication preflight, read-only, 2026-11-04.
 on:
   push:
     branches: [feat/celebrations-save-on-server-20261103]
