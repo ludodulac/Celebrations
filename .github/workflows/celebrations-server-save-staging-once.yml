@@ -1,5 +1,5 @@
 name: CELEBRATIONS SERVER SAVE - isolated staging (drafts only)
-# Mobile two-column controls: verify insertion on visible bottom blue plus and centered green plus.
+# Mobile two-column controls: test responsive geometry of the two stacked editing areas.
 on:
   push:
     branches: [feat/celebrations-save-on-server-20261103]
