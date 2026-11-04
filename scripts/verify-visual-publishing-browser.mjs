@@ -1,4 +1,5 @@
 // Read-only browser launch test. Does not submit forms, edit drafts, or write content.
+// Nav is intentionally hidden before the visitor opens it; check attachment, not visibility.
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 
