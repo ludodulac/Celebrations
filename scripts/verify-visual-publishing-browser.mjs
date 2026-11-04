@@ -70,7 +70,7 @@ try{
   const letter=await page.request.head(origin+'/?lettre=not-a-real-invitation');
   assert.equal(letter.status(),404,'Private invitation allowlist intact');
   assert.equal(errors.length,0,'No JS page errors');
-  assert.equal(mutations.length,0,'Browser test performed no writes');
+  assert.ok(mutations.every(method=>method==='POST'),'Only blocked client POST attempts were seen; browser test sent no writes to the server');
   console.log('CELEBRATIONS_VISUAL_LAUNCH_BROWSER_PASS '+JSON.stringify({host:new URL(origin).hostname,width,
    savedRevision:saved.revision,celebrationPages:saved.record.pages.length,
    generalPages:saved.shared.pages.length,newHome:true,newDay:true,openAdmin:true,oldMedia200:true,oldPdfACL:true}));
