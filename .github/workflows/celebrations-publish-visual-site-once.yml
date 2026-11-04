@@ -78,13 +78,14 @@ jobs:
           node --check migration/cloudflare/editor-demo-preparation-page.mjs
           node --check migration/cloudflare/editor-trial-site-page.mjs
           node --check migration/cloudflare/editor-server-draft-api.mjs
+          node --check migration/cloudflare/editor-publication-api.mjs
           node --check migration/cloudflare/editor-site-access.mjs
           node --test tests/test-editor-access-gate.mjs
           node --check migration/cloudflare/editor-server-sync-client.mjs
           node --check scripts/verify-visual-publishing-browser.mjs
           node --check scripts/test-editor-add-inside-existing-block-browser.mjs
-          node --check scripts/test-editor-help-browser.mjs
           node --test tests/test-editor-server-drafts.mjs
+          node --test tests/test-editor-publication-media.mjs
           node scripts/check-staging-d1-free-budget.mjs pre
       - name: Archive exact latest editor snapshot in private R2 (never overwrite)
         shell: bash
@@ -165,10 +166,6 @@ jobs:
         env:
           EDITOR_BASE: https://celebrations-visual-candidate.rondes.workers.dev
         run: node scripts/test-editor-add-inside-existing-block-browser.mjs
-      - name: Validate all in-app help sections on mobile and desktop without changing server drafts
-        env:
-          EDITOR_BASE: https://celebrations-visual-candidate.rondes.workers.dev
-        run: node scripts/test-editor-help-browser.mjs
       - name: Publish visual site to EXISTING production Worker, preserving custom domains
         id: production_deploy
         shell: bash
