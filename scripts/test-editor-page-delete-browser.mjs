@@ -7,6 +7,13 @@ try{
  for(const width of [390,1280]){
   const context=await browser.newContext({viewport:{width,height:850},isMobile:width===390,hasTouch:width===390});
   const page=await context.newPage();page.setDefaultTimeout(15000);
+  // Browser fixtures never write the real staging R2 draft, even when saving.
+  await page.route('**/api/editor-open-draft**',async route=>{
+   const method=route.request().method();
+   const payload=method==='GET'?{ok:true,revision:0,record:null,plans:[],shared:{pages:[],homeId:''},updatedAt:null}:
+    {ok:true,revision:1,updatedAt:new Date().toISOString()};
+   await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(payload)});
+  });
   const errors=[];page.on('pageerror',e=>errors.push(String(e)));
   let title='';
   page.on('dialog',async dialog=>dialog.accept(dialog.type()==='prompt'?title:undefined));
