@@ -184,8 +184,18 @@ jobs:
           assert.equal(editor.status,200);
           const loginPage=await editor.text();
           assert.ok(loginPage.includes('Code d’accès'));
-          assert.match(loginPage,/name="_csrf" value="[a-f0-9]{64}"/);
-          assert.match(editor.headers.get('set-cookie')||'',/celebrations_editor_form=/);
+          const token=loginPage.match(/name="_csrf" value="([0-9]{13}\.[a-f0-9]{32}\.[a-f0-9]{64})"/)?.[1];
+          assert.ok(token,'Mobile-friendly login form must be server-signed');
+          assert.equal(editor.headers.get('set-cookie'),null,'Login form does not depend on preliminary cookie');
+          // Probe the complete signed form on the live server with an oversized
+          // invalid value: it reaches the code-length branch without D1 writes.
+          const codeProbe=await fetch(host+'/api/editor-access',{
+            method:'POST',redirect:'manual',
+            headers:{'content-type':'application/x-www-form-urlencoded'},
+            body:new URLSearchParams({_csrf:token,code:'x'.repeat(40)})
+          });
+          assert.equal(codeProbe.status,303,'Valid signed form should not report Origine interdite');
+          assert.match(codeProbe.headers.get('location')||'',/erreur=1/);
           const posted=await fetch(host+'/api/editor-open-draft',{method:'POST',headers:{origin:host,'content-type':'application/json'},body:'{}'});
           assert.equal(posted.status,401,'Unauthenticated official save must be forbidden');
           console.log('CELEBRATIONS_WWW_VISUAL_LIVE_PASS');
