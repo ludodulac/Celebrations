@@ -1,4 +1,5 @@
 // Access gate acceptance checks: visitor content stays public, editing requires a signed cookie.
+// HMAC-SHA256 sessions are verified only by the server.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import worker from '../migration/cloudflare/production-worker.mjs';
