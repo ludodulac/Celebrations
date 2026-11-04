@@ -133,7 +133,7 @@ jobs:
           TOML
           sed 's/^name = "celebrations-exit-production"/name = "celebrations-visual-candidate"/' \
             migration/cloudflare/wrangler.production.toml > migration/cloudflare/wrangler.visual.toml
-          git show 21c40b7820d741e5c7fa1f6b792471783c639f7a:migration/cloudflare/production-worker.mjs \
+          git show f42a4566b9fcae0976d2496a199e9934bd405869:migration/cloudflare/production-worker.mjs \
             > migration/cloudflare/production-worker-rollback.mjs
           sed 's/^main = "production-worker.mjs"/main = "production-worker-rollback.mjs"/' \
             migration/cloudflare/wrangler.production.toml > migration/cloudflare/wrangler.rollback.toml
