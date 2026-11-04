@@ -95,7 +95,7 @@ export function publicSnapshot(state,celebration){
   shared.homeId=shared.pages[0]?.id||'neutral-accueil-general';
  delete shared.celebrationVisibility;
  const plans=(published.plans||[]).filter(p=>celebrationVisibleFor(p.id,visibility,p.visibility));
- return {ok:true,record,shared,plans,
+ return {ok:true,revision:state.version,record,shared,plans,
   celebrationVisible,celebrationVisibility:visibility,
   media:discoverMedia(state).filter(r=>r.general===true),
   updatedAt:state.publishedAt||state.updatedAt||null};
