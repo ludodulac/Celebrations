@@ -245,6 +245,7 @@ export async function handleEditorMedia(request,env){
   const current=await readEditorState(env.EDITOR_BUCKET),state=copy(current.state);
   if(!Number.isSafeInteger(input.expectedRevision)||current.state.version!==input.expectedRevision)
    return err('Version obsolète, rechargez l’administration',409);
+  state.published||=initialPublication(state);
   let record=state.drafts[input.celebration];
   if(!record){
    const candidate=input.baseRecord;
@@ -265,7 +266,6 @@ export async function handleEditorMedia(request,env){
   if(input.atTime)b.atTime=input.atTime;
   page.blocks.push(b);
   state.drafts[input.celebration]=record;
-  state.published||=initialPublication(state);
   state.mediaCatalogue=discoverMedia(state);
   if(!await writeEditorState(env.EDITOR_BUCKET,current,state))return err('Insertion simultanée',409);
   return json({ok:true,revision:state.version,block:b});
