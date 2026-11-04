@@ -15,11 +15,11 @@ const path='/media/media/1791723108110/file-1791723109615-1000040461.jpg';
 // Give a freshly deployed Cloudflare workers.dev route time to propagate.
 let response;
 for(let attempt=0;attempt<12;attempt++){
- response=await fetch(origin+'/api/editor-open-draft?celebration=101',{cache:'no-store'});
+ response=await fetch(origin+'/api/editor-publication?celebration=101',{cache:'no-store'});
  if(response.status===200)break;
  await new Promise(resolve=>setTimeout(resolve,2000));
 }
-assert.equal(response.status,200,'Shared editor server must be reachable after deployment');
+assert.equal(response.status,200,'Published visitor data must be reachable after deployment');
 const saved=await response.json();
 assert.ok(saved.revision>=1,'Expected a real saved snapshot');
 assert.ok(saved.record?.pages?.length>=8,'User celebration pages must be saved');
