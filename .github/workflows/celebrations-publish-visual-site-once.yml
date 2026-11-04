@@ -1,6 +1,8 @@
 name: CÉLÉBRATIONS — publier interface visuelle sans changer domaine et liens historiques
 # Owner explicitly authorized official replacement on 2026-11-04; all prior read-only checks passed.
 # Approved editor UX fix: add green plus within existing filled blocks; verify candidate first.
+# Owner-approved lifecycle release: private drafts, explicit publication, hidden pages,
+# safe global media and public general library. Full staging browser checks passed.
 # User-approved in-admin guide: all editor controls, mobile search, no data changes.
 on:
   push:
