@@ -51,7 +51,14 @@ export default {
   if(path==="/api/editor-e1")return handleEditorE1(request,env);
   if(path==="/api/editor-trial-audio")return handleTrialAudio(request,env);
   if(path==="/api/editor-server-draft")return handleServerDraft(request,env);
-  if(path==="/api/editor-open-draft")return handleServerDraft(request,env);
+  if(path==="/api/editor-open-draft"){
+   // Shared production content must not remain writable through this old test host.
+   // Public preview GET still works, but changes are made on the official domain.
+   if(request.method!=="GET")return Response.json({ok:false,
+     error:"Les modifications se font désormais sur le site officiel."},
+     {status:403,headers:{"cache-control":"no-store"}});
+   return handleServerDraft(request,env);
+  }
   if(path==="/__editor/demo")return Response.redirect(new URL("/__editor/demo-preparation",url).toString(),302);
   if(path==="/__editor/demo-preparation")return handlePreparationDemo(request,env);
   if(path==="/__editor/voir-le-site")return handleTrialSite(request,env);
