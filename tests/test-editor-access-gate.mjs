@@ -1,5 +1,6 @@
 // Tests for the official editor's server-signed, cookie-independent login form.
 // The secret owner code is never stored in tests or shown to visitors.
+// Production smoke now exercises the real Worker password-verification path.
 // This specifically tests Brave/mobile forms without Origin and without cookie handshakes.
 import test from 'node:test';
 import assert from 'node:assert/strict';
