@@ -65,7 +65,8 @@ jobs:
           assert.equal(conf.success,true);
           const binds=conf.result.bindings;
           assert.equal(binds.find(x=>x.type==='r2_bucket'&&x.name==='MEDIA_BUCKET')?.bucket_name,'celebrations-exit-production');
-          assert.equal((binds.find(x=>x.type==='d1'&&x.name==='DB')||{}).database_id,'28736d2a-479b-472b-bf82-703ad0affe10');
+          const db=(binds.find(x=>x.type==='d1'&&x.name==='DB')||{});
+          assert.equal(db.database_id||db.id,'28736d2a-479b-472b-bf82-703ad0affe10');
           console.log('CELEBRATIONS_PUBLISH_TARGET_PASS two_existing_domains=true old_prod_media_binding_intact=true');
           NODE
       - name: Validate code syntax and shared server roundtrip, no live changes
