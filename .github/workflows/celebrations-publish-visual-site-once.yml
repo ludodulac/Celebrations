@@ -64,6 +64,7 @@ jobs:
           const conf=await (await fetch(base+'/accounts/'+account+'/workers/scripts/celebrations-exit-production/settings',{headers:h})).json();
           assert.equal(conf.success,true);
           const binds=conf.result.bindings;
+          assert.ok(binds.some(x=>x.name==='ADMIN_PASSWORD_HASH'&&x.type==='secret_text'),'Existing private signing secret must remain configured');
           assert.equal(binds.find(x=>x.type==='r2_bucket'&&x.name==='MEDIA_BUCKET')?.bucket_name,'celebrations-exit-production');
           const db=(binds.find(x=>x.type==='d1'&&x.name==='DB')||{});
           assert.equal(db.database_id||db.id,'28736d2a-479b-472b-bf82-703ad0affe10');
