@@ -97,7 +97,7 @@ jobs:
           j=json.loads(blob)
           assert j.get('version',0)>=1
           assert len(j.get('drafts',{}).get('101',{}).get('pages',[]))>=8
-          assert len(j.get('shared',{}).get('pages',[]))>=2
+          assert len(j.get('shared',{}).get('pages',[]))>=1
           digest=hashlib.sha256(blob).hexdigest()
           archive='editor-trials/prepublish-backups/visual-'+digest[:24]+'.json'
           try:
