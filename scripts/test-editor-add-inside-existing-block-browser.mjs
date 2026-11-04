@@ -59,7 +59,26 @@ try{
 
   // Add a third element to the same section, without another blue insertion bar.
   const within=first.getByRole('button',{name:'Ajouter à gauche'});
+  await page.evaluate(()=>{
+   window.__touchTrace=[];
+   for(const name of ['pointerdown','pointerup','click','focusin']){
+    document.addEventListener(name,e=>{
+     const b=e.target?.closest?.('button');
+     if((b?.className||'').includes('section-add-green')||e.target?.closest?.('.section-column-actions'))
+      window.__touchTrace.push({name,target:e.target?.tagName,
+       className:String(e.target?.className||'').slice(0,100),
+       button:b?.getAttribute('aria-label')||null,expanded:b?.getAttribute('aria-expanded')||null});
+    },true);
+   }
+  });
   await within.click();
+  const trace=await page.evaluate(()=>window.__touchTrace);
+  const buttonState=await within.evaluate(el=>{
+   const a=el.getBoundingClientRect(),p=document.elementFromPoint(a.left+a.width/2,a.top+a.height/2);
+   return {outer:el.outerHTML.slice(0,250),topElement:p?.outerHTML.slice(0,210),
+    rect:{left:a.left,top:a.top,w:a.width,h:a.height},inDOM:el.isConnected};
+  });
+  console.log('MOBILE_PLUS_DIAG',JSON.stringify({width,trace,buttonState}));
   const afterPlus=await first.locator('.section-element-menu').evaluateAll(nodes=>nodes.map(n=>({
    hidden:n.hidden,display:getComputedStyle(n).display,buttons:[...n.querySelectorAll('button')].map(b=>b.textContent)
   })));
