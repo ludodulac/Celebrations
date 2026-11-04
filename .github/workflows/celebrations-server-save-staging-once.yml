@@ -3,6 +3,7 @@ name: CELEBRATIONS SERVER SAVE - isolated staging (drafts only)
 # Mobile two-column controls: test responsive geometry of the two stacked editing areas.
 # Security rollout: staging stays readable but cannot overwrite the official shared editor.
 # Editor UX: add in-place green plus to old blocks; verify photo preserved on reload.
+# Publishing lifecycle: isolate saved drafts from public pages; media links indexed globally.
 on:
   push:
     branches: [feat/celebrations-save-on-server-20261103]
