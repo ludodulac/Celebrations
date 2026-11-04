@@ -1,5 +1,6 @@
 name: CÉLÉBRATIONS — publier interface visuelle sans changer domaine et liens historiques
 # Owner explicitly authorized official replacement on 2026-11-04; all prior read-only checks passed.
+# Approved editor UX fix: add green plus within existing filled blocks; verify candidate first.
 on:
   push:
     branches: [feat/celebrations-save-on-server-20261103]
