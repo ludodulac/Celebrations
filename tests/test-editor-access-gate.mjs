@@ -4,7 +4,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import worker from '../migration/cloudflare/production-worker.mjs';
-import {editorLoginPage,hasEditorAccess,editorAccessAction,editorLogout} from '../migration/cloudflare/editor-site-access.mjs';
+import {editorLoginPage,hasEditorAccess,editorAccessAction,editorLogout,deriveEditorPin} from '../migration/cloudflare/editor-site-access.mjs';
 import {handleServerDraft} from '../migration/cloudflare/editor-server-draft-api.mjs';
 
 const origin='https://www.ronde-des-archanges-universelle.eu';
@@ -31,6 +31,11 @@ const formReq=(csrf,originHeader)=>req('/api/editor-access',{
  body:new URLSearchParams({_csrf:csrf,code:'incorrect'})
 });
 
+test('Workers-compatible native PBKDF2 stages match an independent known-answer vector',async()=>{
+ const derived=await deriveEditorPin('fictional-test-only');
+ assert.equal(derived,'d31a46f3b8a38bb5ef4de6d4f22ffe7dd740f2a0f2aa058e74287135201b6df7');
+ assert.notEqual(await deriveEditorPin('a different fake input'),derived);
+});
 test('anonymous editor URLs present the signed login form, never the editor',async()=>{
  const e=fakeEnv();
  for(const path of ['/admin','/admin.html','/__editor/demo-preparation?celebration=101']){
