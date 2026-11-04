@@ -3,6 +3,7 @@
 // Admin deep links preserve the current page slug and the server-saved celebration.
 // The title changes to reflect the current visitor page.
 // Existing production secrets are kept intact by this deployment.
+// Browser analytics attempts are blocked in this read-only smoke test.
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 
