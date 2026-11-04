@@ -91,6 +91,8 @@ try{
   await page.locator('[data-tab="pages"]').click();
   assert.equal(await page.locator('.canvas>.content-section').count(),2,'both composed sections survive refresh');
   assert.equal(await page.locator('.canvas>.content-section').first().locator('.section-column>.block').count(),3);
+  assert.equal(await page.locator('.canvas>.block').count(),1,'nested image must not be re-added to homepage after reload');
+  assert.equal(await page.locator('.canvas>.block[data-id="legacy-image-in"]').count(),0,'old image now belongs only to its section');
   assert.deepEqual(errors,[],'no JS errors on phone or desktop');
   console.log('ADD_INSIDE_EXISTING_BLOCK_PASS',JSON.stringify({width,
    originalPreserved:true,itemsInOneBlock:3,secondPhotoSupportsText:true,
