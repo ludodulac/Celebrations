@@ -21,6 +21,7 @@ import {handlePreparationDemo} from "./editor-demo-preparation-page.mjs";
 import {handleTrialSite} from "./editor-trial-site-page.mjs";
 import {handleTrialAudio} from "./editor-trial-audio-api.mjs";
 import {handleServerDraft} from "./editor-server-draft-api.mjs";
+import {handleEditorPublication,handleEditorMediaFile} from "./editor-publication-api.mjs";
 export default {
  async fetch(request,env){
   const url=new URL(request.url),path=url.pathname;
@@ -50,6 +51,9 @@ export default {
   if(path==="/__editor/access/logout")return accessLogout(request,env);
   if(path==="/api/editor-e1")return handleEditorE1(request,env);
   if(path==="/api/editor-trial-audio")return handleTrialAudio(request,env);
+  if(path==="/api/editor-publication"&&request.method==="GET")
+   return handleEditorPublication(request,{...env,EDITOR_BUCKET:env.MEDIA_BUCKET});
+  if(path.startsWith("/media/new/"))return handleEditorMediaFile(request,{...env,EDITOR_BUCKET:env.MEDIA_BUCKET});
   if(path==="/api/editor-server-draft")return handleServerDraft(request,env);
   if(path==="/api/editor-open-draft"){
    // Shared production content must not remain writable through this old test host.
