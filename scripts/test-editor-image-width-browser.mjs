@@ -8,6 +8,13 @@ try{
   const context=await browser.newContext({viewport:{width,height:850},
    hasTouch:width===390,isMobile:width===390});
   const page=await context.newPage();page.setDefaultTimeout(12000);
+  // Browser fixtures never write the real staging R2 draft, even when saving.
+  await page.route('**/api/editor-open-draft**',async route=>{
+   const method=route.request().method();
+   const payload=method==='GET'?{ok:true,revision:0,record:null,plans:[],shared:{pages:[],homeId:''},updatedAt:null}:
+    {ok:true,revision:1,updatedAt:new Date().toISOString()};
+   await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(payload)});
+  });
   const errors=[];page.on('pageerror',error=>errors.push(String(error)));
   const res=await page.goto(base+'/__editor/demo-preparation?celebration=101',{waitUntil:'domcontentloaded'});
   assert.equal(res.status(),200);
