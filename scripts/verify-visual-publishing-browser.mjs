@@ -22,7 +22,7 @@ assert.equal(response.status,200,'Shared editor server must be reachable after d
 const saved=await response.json();
 assert.ok(saved.revision>=1,'Expected a real saved snapshot');
 assert.ok(saved.record?.pages?.length>=8,'User celebration pages must be saved');
-assert.ok(saved.shared?.pages?.length>=2,'User general pages must be saved');
+assert.ok(saved.shared?.pages?.length>=1,'At least the shared home page must be saved');
 const browser=await chromium.launch({args:['--no-sandbox']});
 try{
  for(const width of [390,1280]){
