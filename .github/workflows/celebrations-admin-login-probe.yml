@@ -1,0 +1,45 @@
+name: CELEBRATIONS - live admin login diagnosis, no site changes
+on:
+  push:
+    branches: [feat/celebrations-save-on-server-20261103]
+permissions: {contents: read}
+jobs:
+  diagnose:
+    if: ${{ contains(github.event.head_commit.message, '[ADMIN_LOGIN_PROBE]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+    steps:
+      - name: Read production D1 schema metadata and exercise bad-code login once
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          const account=process.env.CLOUDFLARE_ACCOUNT_ID;
+          const headers={'authorization':'Bearer '+process.env.CLOUDFLARE_API_TOKEN,'content-type':'application/json'};
+          const db='28736d2a-479b-472b-bf82-703ad0affe10';
+          for(const sql of [
+            "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('celebrations_login_attempts','celebrations_admin_sessions')",
+            "PRAGMA table_info('celebrations_login_attempts')"
+          ]){
+            const r=await fetch('https://api.cloudflare.com/client/v4/accounts/'+account+'/d1/database/'+db+'/query',
+              {method:'POST',headers,body:JSON.stringify({sql})});
+            const j=await r.json();
+            console.log('ADMIN_DB_METADATA',JSON.stringify({status:r.status,success:j.success,
+              tables:(j.result||[]).flatMap(x=>x.results||[]).map(x=>({name:x.name,type:x.type})),
+              errors:j.errors?.map(x=>x.code)}));
+          }
+          const base='https://www.ronde-des-archanges-universelle.eu';
+          const htmlRes=await fetch(base+'/admin.html',{cache:'no-store'});
+          const html=await htmlRes.text();
+          const csrf=html.match(/name="_csrf" value="([^"]+)"/)?.[1];
+          if(!csrf)throw Error('Server-signed form missing');
+          const r=await fetch(base+'/api/editor-access',{method:'POST',redirect:'manual',
+            headers:{'content-type':'application/x-www-form-urlencoded'},
+            body:new URLSearchParams({_csrf:csrf,code:'deliberately-invalid-987'})
+          });
+          console.log('ADMIN_BAD_CODE_PROBE',JSON.stringify({status:r.status,location:r.headers.get('location'),
+            result:(await r.text()).slice(0,100)}));
+          NODE
