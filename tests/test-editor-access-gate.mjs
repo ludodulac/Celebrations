@@ -1,5 +1,6 @@
 // Access gate acceptance checks: visitor content stays public, editing requires a signed cookie.
 // HMAC-SHA256 sessions are verified only by the server.
+// Mobile form submissions may omit Origin; the first-party token remains mandatory.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import worker from '../migration/cloudflare/production-worker.mjs';
