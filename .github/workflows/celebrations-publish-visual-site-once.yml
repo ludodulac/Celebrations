@@ -198,4 +198,7 @@ jobs:
           echo 'CELEBRATIONS_ROLLBACK_OLD_PUBLIC_SITE_DEPLOYED'
       - name: Final Cloudflare D1 reserve
         if: always()
+        # Other public workflows share Cloudflare account-wide reads. A race in
+        # this informational quota probe must not roll back a healthy live site.
+        continue-on-error: true
         run: node scripts/check-staging-d1-free-budget.mjs post
