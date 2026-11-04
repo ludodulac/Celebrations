@@ -60,6 +60,10 @@ try{
   // Add a third element to the same section, without another blue insertion bar.
   const within=first.getByRole('button',{name:'Ajouter à gauche'});
   await within.click();
+  const afterPlus=await first.locator('.section-element-menu').evaluateAll(nodes=>nodes.map(n=>({
+   hidden:n.hidden,display:getComputedStyle(n).display,buttons:[...n.querySelectorAll('button')].map(b=>b.textContent)
+  })));
+  console.log('AFTER_PLUS_DEBUG',JSON.stringify({width,afterPlus}));
   await first.locator('.section-element-menu:not([hidden])').getByRole('button',{name:'Titre',exact:true}).click();
   assert.equal(await first.locator('.section-column>.block').count(),3,'section can receive a second added item');
   assert.equal(await first.locator('.section-column>.block').nth(2).locator('.heading').count(),1,'section now has second title');
