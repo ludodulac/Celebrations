@@ -151,7 +151,7 @@ function publicFileCatalogue(steps,events,eventContents,stepContents){
 
 // The original site's large welcome illustration, copied to Cloudflare R2.
 // This existing staging key contains the same verified original homepage JPG.
-const HOME_IMAGE=asset('media/celebrations-staging-welcome-autumn-2026.jpg');
+const HOME_IMAGE=asset('media/1791723108110/file-1791723109615-1000040461.jpg');
 function generalHome(){
  return {id:'neutral-accueil-general',name:'Accueil général',group:'page',blocks:[
   {id:1,kind:'heading',text:'Bienvenue sur le site de la Ronde des Archanges Universelle',align:'center'},
