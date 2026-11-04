@@ -3,6 +3,7 @@
 import {authorize} from './auth-api.mjs';
 const HOST='celebrations-exit-staging.rondes.workers.dev';
 const PUBLISHED_HOSTS=new Set(['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu']);
+const PREVIEW_HOST='celebrations-visual-candidate.rondes.workers.dev';
 const KEY='editor-trials/server-drafts-v1.json';
 const ID=/^(?:[1-9][0-9]{0,7}|plan-(?:michael|gabriel|raphael|ouriel)-20[0-9]{2}-[0-9]{2}-[0-9]{2})$/;
 const MAX_BODY=1850000;
@@ -43,12 +44,13 @@ export async function handleServerDraft(request,env){
  const url=new URL(request.url);
  const open=url.pathname==='/api/editor-open-draft';
  if(!open&&url.pathname!=='/api/editor-server-draft')return error('Introuvable',404);
- if(!PUBLISHED_HOSTS.has(url.hostname)&&url.hostname!==HOST)return error('Introuvable',404);
+ if(!PUBLISHED_HOSTS.has(url.hostname)&&url.hostname!==PREVIEW_HOST&&url.hostname!==HOST)return error('Introuvable',404);
  if(!open&&url.hostname!==HOST)return error('Introuvable',404);
  if(!['GET','POST'].includes(request.method))return error('Méthode interdite',405);
+ if(url.hostname===PREVIEW_HOST&&request.method!=='GET')return error('Aperçu non modifiable',405);
  // Official pages use the same shared editor snapshot as the verified staging editor;
  // production MEDIA_BUCKET stays unchanged to preserve all original media URLs.
- const draftBucket=PUBLISHED_HOSTS.has(url.hostname)?env.EDITOR_BUCKET:env.MEDIA_BUCKET;
+ const draftBucket=(PUBLISHED_HOSTS.has(url.hostname)||url.hostname===PREVIEW_HOST)?env.EDITOR_BUCKET:env.MEDIA_BUCKET;
  if(!env.DB||!draftBucket)return error('Sauvegarde serveur indisponible',503);
  // The owner explicitly allows open editing during this temporary publishing phase.
  // The original authenticated route is intentionally unchanged for compatibility.
