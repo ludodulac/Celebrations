@@ -1,5 +1,5 @@
 name: CELEBRATIONS SERVER SAVE - isolated staging (drafts only)
-# Mobile two-column controls: only presentation changes, verify phone and desktop with Chromium.
+# Mobile two-column controls: green plus centered independently of the settings gear.
 on:
   push:
     branches: [feat/celebrations-save-on-server-20261103]
