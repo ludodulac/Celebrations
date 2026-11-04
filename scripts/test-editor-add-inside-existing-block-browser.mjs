@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 
-const base='https://celebrations-exit-staging.rondes.workers.dev';
+const base=process.env.EDITOR_BASE||'https://celebrations-exit-staging.rondes.workers.dev';
 const browser=await chromium.launch();
 try{
  for(const width of [390,1280]){
