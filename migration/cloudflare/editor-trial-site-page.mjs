@@ -8,7 +8,7 @@ const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const safeJson=x=>JSON.stringify(x).replace(/</g,'\\u003c').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029');
 export async function handleTrialSite(request,env){
  const url=new URL(request.url);
- if(url.hostname!==HOST&&!['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu'].includes(url.hostname))return new Response('Not found',{status:404});
+ if(url.hostname!==HOST&&!['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu','celebrations-visual-candidate.rondes.workers.dev'].includes(url.hostname))return new Response('Not found',{status:404});
  if(request.method!=='GET'&&request.method!=='HEAD')return new Response('Method not allowed',{status:405});
  if(!env.DB)return new Response('Site d’essai momentanément indisponible',{status:503});
  const slug=url.searchParams.get('page');
@@ -19,7 +19,7 @@ export async function handleTrialSite(request,env){
  const nonce=Array.from(crypto.getRandomValues(new Uint8Array(16)),v=>v.toString(16).padStart(2,'0')).join('');
  const allowSavedImages=String.raw`function urlOk(v){
   if(typeof v==='string'&&v.length<1000000&&/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(v))return v;`;
- const isOfficial=url.hostname!==HOST;
+ const isOfficial=['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu'].includes(url.hostname);
  const siteClient=TRIAL_SITE_CLIENT
   .replace("function urlOk(v){",allowSavedImages)
   .replace("(()=>{\'use strict\';","(async()=>{\'use strict\';")
