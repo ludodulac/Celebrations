@@ -58,6 +58,13 @@ try{
   const restored=page.locator('.canvas .block[data-id="image-width-browser-test"]');
   await restored.waitFor();
   assert.equal(await restored.locator('.picture').evaluate(el=>el.style.width),'45%','width survives reload');
+
+  await page.route('**/api/editor-publication**',async route=>{
+   const general=draft.pages.filter(p=>p.group==='page'),active=draft.pages.filter(p=>p.group==='celebration');
+   const result={ok:true,record:{pages:active},shared:{pages:general,homeId:general[0]?.id||'neutral-accueil-general'},
+    plans:[],media:[],celebrationVisible:true,celebrationVisibility:{}};
+   await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(result)});
+  });
   await page.goto(base+'/__editor/voir-le-site?celebration=101&page='+encodeURIComponent(fixture.stage),{waitUntil:'domcontentloaded'});
   const visitor=page.locator('figure.trial-figure').filter({has:page.locator('img[alt="Image pour test de taille"]')});
   await visitor.waitFor();
