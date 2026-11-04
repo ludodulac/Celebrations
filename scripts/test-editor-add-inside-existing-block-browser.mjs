@@ -64,11 +64,8 @@ try{
    hidden:n.hidden,display:getComputedStyle(n).display,buttons:[...n.querySelectorAll('button')].map(b=>b.textContent)
   })));
   const expanded=await within.getAttribute('aria-expanded');
-  console.log('AFTER_PLUS_DEBUG',JSON.stringify({width,expanded,afterPlus}));
-  if(afterPlus[0]?.hidden){
-   await within.evaluate(x=>x.click());
-   console.log('AFTER_DOM_CLICK_DEBUG',JSON.stringify(await first.locator('.section-element-menu').evaluateAll(nodes=>nodes.map(n=>({hidden:n.hidden,display:getComputedStyle(n).display})))));
-  }
+  assert.equal(expanded,'true','Real mobile and desktop taps must activate the green plus');
+  assert.equal(afterPlus[0]?.hidden,false,'Green plus menu must open with a normal pointer tap');
   await first.locator('.section-element-menu:not([hidden])').getByRole('button',{name:'Titre',exact:true}).click();
   assert.equal(await first.locator('.section-column>.block').count(),3,'section can receive a second added item');
   assert.equal(await first.locator('.section-column>.block').nth(2).locator('.heading').count(),1,'section now has second title');
