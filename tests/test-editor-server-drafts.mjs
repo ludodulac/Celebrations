@@ -35,6 +35,26 @@ test('anonymous users cannot read or write protected server drafts',async()=>{
  assert.equal((await handleServerDraft(req('GET','/api/editor-server-draft?celebration=101',null,false),e)).status,401);
  assert.equal((await handleServerDraft(req('POST','/api/editor-server-draft',body,false),e)).status,401);
 });
+test('owner-approved public staging sync is same-origin write-only and shares revisions',async()=>{
+ const e=env();
+ const openGet=new Request(origin+'/api/editor-open-draft?celebration=101');
+ const first=await handleServerDraft(openGet,e);
+ assert.equal(first.status,200);
+ assert.equal((await first.json()).revision,0);
+ const crossOrigin=new Request(origin+'/api/editor-open-draft',{method:'POST',
+  headers:{origin:'https://example.org','content-type':'application/json'},body:JSON.stringify(body)});
+ assert.equal((await handleServerDraft(crossOrigin,e)).status,403);
+ const absentOrigin=new Request(origin+'/api/editor-open-draft',{method:'POST',
+  headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+ assert.equal((await handleServerDraft(absentOrigin,e)).status,403);
+ const allowed=new Request(origin+'/api/editor-open-draft',{method:'POST',
+  headers:{origin,'content-type':'application/json'},body:JSON.stringify(body)});
+ const saved=await handleServerDraft(allowed,e);
+ assert.equal(saved.status,200);
+ assert.equal((await saved.json()).revision,1);
+ const reread=await handleServerDraft(openGet,e);
+ assert.equal((await reread.json()).record.pages[0].blocks[1].widthPct,45);
+});
 test('server persistence round-trip, dates, and conflict protection',async()=>{
  const e=env();
  const initial=await handleServerDraft(req('GET','/api/editor-server-draft?celebration=101'),e);
