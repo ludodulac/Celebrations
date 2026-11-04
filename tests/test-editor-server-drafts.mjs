@@ -25,7 +25,7 @@ function bucket(){
 }
 const env=()=>({DB:{prepare:()=>({bind:()=>({first:async()=>({email:'test@localhost',expires_at:'2099-01-01T00:00:00.000Z'})})})},MEDIA_BUCKET:bucket()});
 const body={celebration:'101',expectedRevision:0,
- record:{pages:[{id:'mercredi-101',group:'celebration',name:'Mercredi',blocks:[{id:1,kind:'text',text:'16 h — Cérémonie'}]}],
+ record:{pages:[{id:'mercredi-101',group:'celebration',name:'Mercredi',blocks:[{id:1,kind:'text',text:'16 h — Cérémonie'},{id:2,kind:'image',src:'/media/exemple.jpg',widthPct:45}]}],
  celebrationDates:{wednesday:'2026-11-04'},celebrationTimes:{mercredi:'16:00'}},
  plans:[],shared:{pages:[],homeId:''}
 };
@@ -47,6 +47,7 @@ test('server persistence round-trip, dates, and conflict protection',async()=>{
  assert.equal(result.record.pages[0].blocks[0].text,'16 h — Cérémonie');
  assert.equal(result.record.celebrationDates.wednesday,'2026-11-04');
  assert.equal(result.record.celebrationTimes.mercredi,'16:00');
+ assert.equal(result.record.pages[0].blocks[1].widthPct,45,'image width is stored on server');
  const old=await handleServerDraft(req('POST','/api/editor-server-draft',body),e);
  assert.equal(old.status,409,'no silent overwrite across devices');
  const again=await handleServerDraft(req('POST','/api/editor-server-draft',{...body,expectedRevision:1}),e);
