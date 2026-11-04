@@ -1,4 +1,5 @@
 // Read-only browser launch test. Does not submit forms, edit drafts, or write content.
+// The home hero image must load from the preserved public R2 media.
 // Nav is intentionally hidden before the visitor opens it; check attachment, not visibility.
 // Admin deep links preserve the current page slug and the server-saved celebration.
 // The title changes to reflect the current visitor page.
