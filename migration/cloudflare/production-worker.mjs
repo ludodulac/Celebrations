@@ -86,7 +86,8 @@ export default {
     ["/mercredi","mercredi"],["/jeudi","jeudi"],["/vendredi","vendredi"],
     ["/samedi","samedi"],["/dimanche","dimanche"],
     ["/apres-celebration","apres-celebration"],
-    ["/bibliotheque","mediatheque"],["/mediatheque","mediatheque"]
+    ["/bibliotheque","mediatheque"],["/mediatheque","mediatheque"],
+    ["/mediatheque-generale","mediatheque-generale"]
    ]);
    const normalized=path.length>1?path.replace(/\/$/,""):path;
    if(path==="/"||path==="/index.html"||directPages.has(normalized)){
