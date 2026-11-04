@@ -234,6 +234,42 @@ export async function handleEditorMedia(request,env){
   }catch(e){await env.EDITOR_BUCKET.delete(PREFIX+id);throw e}
   return json({ok:true,item:record,revision:state.version});
  }
+ if(action==='insert'){
+  let input;try{input=await request.json()}catch{return err('JSON invalide',400)}
+  if(!celebrationIdOk(input?.celebration)||typeof input.pageId!=='string'||
+    !input.pageId.endsWith('-'+input.celebration)||!pageIdOk(input.pageId)||
+    !['image','video','pdf','audio','link'].includes(input.mediaType)||
+    !allowedUrl(input.src)||typeof input.name!=='string'||input.name.length>120||
+    (input.atTime&&!/^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(input.atTime)))
+   return err('Insertion invalide',400);
+  const current=await readEditorState(env.EDITOR_BUCKET),state=copy(current.state);
+  if(!Number.isSafeInteger(input.expectedRevision)||current.state.version!==input.expectedRevision)
+   return err('Version obsolète, rechargez l’administration',409);
+  let record=state.drafts[input.celebration];
+  if(!record){
+   const candidate=input.baseRecord;
+   if(!candidate||!Array.isArray(candidate.pages)||candidate.pages.length>50||
+      !candidate.pages.every(p=>p&&p.group==='celebration'&&
+       typeof p.id==='string'&&p.id.endsWith('-'+input.celebration)&&
+       Array.isArray(p.blocks)&&p.blocks.length<300))return err('Pages non enregistrées',400);
+   record={pages:copy(candidate.pages),celebrationDates:{},celebrationTimes:{}};
+  }
+  const page=record.pages.find(p=>p.id===input.pageId&&p.group==='celebration');
+  if(!page||page.blocks.length>=290)return err('Page introuvable ou pleine',404);
+  const mediaKind=input.mediaType==='image'?'image':input.mediaType==='audio'?'audio':
+    input.mediaType==='video'?'video':'button';
+  const b={id:'block-'+crypto.randomUUID(),kind:mediaKind,align:'left',
+   text:mediaKind==='button'?'Ouvrir : '+input.name:input.name};
+  if(mediaKind==='image'||mediaKind==='audio')b.src=input.src;
+  else b.href=input.src;
+  if(input.atTime)b.atTime=input.atTime;
+  page.blocks.push(b);
+  state.drafts[input.celebration]=record;
+  state.published||=initialPublication(state);
+  state.mediaCatalogue=discoverMedia(state);
+  if(!await writeEditorState(env.EDITOR_BUCKET,current,state))return err('Insertion simultanée',409);
+  return json({ok:true,revision:state.version,block:b});
+ }
  if(action==='delete'){
   let body;try{body=await request.json()}catch{return err('JSON invalide',400)}
   if(typeof body?.id!=='string')return err('Média invalide',400);
