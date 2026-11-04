@@ -196,6 +196,18 @@ jobs:
           });
           assert.equal(codeProbe.status,303,'Valid signed form should not report Origine interdite');
           assert.match(codeProbe.headers.get('location')||'',/erreur=1/);
+          // Now run the real Workers PBKDF code path with an intentionally wrong
+          // value. This used to return 503 even for wrong values due to the 180k
+          // PBKDF2 iteration cap. A 303 proves that D1, KDF and validation work.
+          const realWrong=await fetch(host+'/api/editor-access',{
+            method:'POST',redirect:'manual',
+            headers:{'content-type':'application/x-www-form-urlencoded'},
+            body:new URLSearchParams({_csrf:token,code:'fictional-invalid-verify'})
+          });
+          assert.equal(realWrong.status,303,'Live Worker must reject a wrong PIN normally, not with Connexion indisponible');
+          assert.match(realWrong.headers.get('location')||'',/erreur=1/);
+          assert.equal(realWrong.headers.get('set-cookie'),null,'Wrong code must not grant an admin session');
+          console.log('CELEBRATIONS_REAL_LOGIN_HANDLER_PASS no_origin=true server_pbkdf=true wrong_code_rejected=true');
           const posted=await fetch(host+'/api/editor-open-draft',{method:'POST',headers:{origin:host,'content-type':'application/json'},body:'{}'});
           assert.equal(posted.status,401,'Unauthenticated official save must be forbidden');
           console.log('CELEBRATIONS_WWW_VISUAL_LIVE_PASS');
