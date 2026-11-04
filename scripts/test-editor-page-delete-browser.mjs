@@ -48,7 +48,7 @@ try{
   assert.equal(await extra.count(),0,'New celebration page removed');
   assert.equal(await page.locator('#workspace .list .item').filter({hasText:'Mercredi'}).count(),1,'Historic Wednesday remains');
   // Check 2-column editing layout and plus/buttons are aligned on narrow phones.
-  await page.locator('.section-insert .section-add-blue').first().click();
+  await page.locator('.section-insert .section-add-blue').last().click();
   await page.getByRole('button',{name:'Deux colonnes'}).first().click();
   const two=page.locator('.content-section[data-layout="columns"]').last();
   await two.waitFor();
