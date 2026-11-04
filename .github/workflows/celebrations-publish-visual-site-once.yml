@@ -182,7 +182,10 @@ jobs:
           assert.ok(html.includes('site-menu-bar'));
           const editor=await fetch(host+'/admin.html',{cache:'no-store'});
           assert.equal(editor.status,200);
-          assert.ok((await editor.text()).includes('Code d’accès'));
+          const loginPage=await editor.text();
+          assert.ok(loginPage.includes('Code d’accès'));
+          assert.match(loginPage,/name="_csrf" value="[a-f0-9]{64}"/);
+          assert.match(editor.headers.get('set-cookie')||'',/celebrations_editor_form=/);
           const posted=await fetch(host+'/api/editor-open-draft',{method:'POST',headers:{origin:host,'content-type':'application/json'},body:'{}'});
           assert.equal(posted.status,401,'Unauthenticated official save must be forbidden');
           console.log('CELEBRATIONS_WWW_VISUAL_LIVE_PASS');
