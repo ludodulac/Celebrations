@@ -14,6 +14,7 @@ import {handleStats} from "./stats-api.mjs";
 import {handlePreparationDemo} from "./editor-demo-preparation-page.mjs";
 import {handleTrialSite} from "./editor-trial-site-page.mjs";
 import {handleServerDraft} from "./editor-server-draft-api.mjs";
+import {handleEditorPublication,handleEditorMedia,handleEditorMediaFile} from "./editor-publication-api.mjs";
 import {hasEditorAccess,editorAccessAction,editorLoginPage,editorLogout} from "./editor-site-access.mjs";
 export default {
  async fetch(request,env){
@@ -64,6 +65,9 @@ export default {
    imageUrl.pathname="/media/media/1791723108110/file-1791723109615-1000040461.jpg";
    return handleMedia(new Request(imageUrl,request),env);
   }
+  // Application-owned new uploads live in EDITOR_BUCKET, never MEDIA_BUCKET.
+  // Historic /media/ and /letter/ routes remain byte-for-byte untouched.
+  if(path.startsWith("/media/new/"))return handleEditorMediaFile(request,env);
   if(path.startsWith("/media/")||path.startsWith("/letter/"))return handleMedia(request,env);
   // The two official domains now use the same visual visitor/editor interface.
   // All media, old emailed PDF, existing static assets and historic redirects
@@ -72,6 +76,8 @@ export default {
    url.hostname==="www.ronde-des-archanges-universelle.eu";
   const visualCandidate=url.hostname==="celebrations-visual-candidate.rondes.workers.dev";
   if((official||visualCandidate)&&env.DB){
+   if(path==="/api/editor-publication")return handleEditorPublication(request,env);
+   if(path==="/api/editor-media")return handleEditorMedia(request,env);
    if(path==="/api/editor-open-draft")return handleServerDraft(request,env);
    if(path==="/__editor/demo-preparation"||path==="/admin"||path==="/admin.html")
     return handlePreparationDemo(request,env);
