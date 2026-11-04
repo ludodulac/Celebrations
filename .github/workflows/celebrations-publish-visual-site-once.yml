@@ -75,6 +75,8 @@ jobs:
           node --check migration/cloudflare/editor-demo-preparation-page.mjs
           node --check migration/cloudflare/editor-trial-site-page.mjs
           node --check migration/cloudflare/editor-server-draft-api.mjs
+          node --check migration/cloudflare/editor-site-access.mjs
+          node --test tests/test-editor-access-gate.mjs
           node --check migration/cloudflare/editor-server-sync-client.mjs
           node --check scripts/verify-visual-publishing-browser.mjs
           node --test tests/test-editor-server-drafts.mjs
@@ -130,7 +132,7 @@ jobs:
           TOML
           sed 's/^name = "celebrations-exit-production"/name = "celebrations-visual-candidate"/' \
             migration/cloudflare/wrangler.production.toml > migration/cloudflare/wrangler.visual.toml
-          git show 796324de4abc776128e7c970dbf8d2de755c6ce5:migration/cloudflare/production-worker.mjs \
+          git show 21c40b7820d741e5c7fa1f6b792471783c639f7a:migration/cloudflare/production-worker.mjs \
             > migration/cloudflare/production-worker-rollback.mjs
           sed 's/^main = "production-worker.mjs"/main = "production-worker-rollback.mjs"/' \
             migration/cloudflare/wrangler.production.toml > migration/cloudflare/wrangler.rollback.toml
@@ -179,7 +181,9 @@ jobs:
           assert.ok(html.includes('site-menu-bar'));
           const editor=await fetch(host+'/admin.html',{cache:'no-store'});
           assert.equal(editor.status,200);
-          assert.ok((await editor.text()).includes('Pages de la célébration'));
+          assert.ok((await editor.text()).includes('Code d’accès'));
+          const posted=await fetch(host+'/api/editor-open-draft',{method:'POST',headers:{origin:host,'content-type':'application/json'},body:'{}'});
+          assert.equal(posted.status,401,'Unauthenticated official save must be forbidden');
           console.log('CELEBRATIONS_WWW_VISUAL_LIVE_PASS');
           NODE
       - name: Restore original production Worker automatically if a post-publish test fails
