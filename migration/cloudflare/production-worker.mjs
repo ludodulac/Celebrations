@@ -42,7 +42,7 @@ export default {
   const official=url.hostname==="ronde-des-archanges-universelle.eu"||
    url.hostname==="www.ronde-des-archanges-universelle.eu";
   const visualCandidate=url.hostname==="celebrations-visual-candidate.rondes.workers.dev";
-  if(official||visualCandidate){
+  if((official||visualCandidate)&&env.DB){
    if(path==="/api/editor-open-draft")return handleServerDraft(request,env);
    if(path==="/__editor/demo-preparation"||path==="/admin"||path==="/admin.html")
     return handlePreparationDemo(request,env);
