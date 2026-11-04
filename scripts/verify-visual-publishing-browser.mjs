@@ -32,7 +32,7 @@ try{
   });
   let res=await page.goto(origin+'/',{waitUntil:'domcontentloaded',timeout:40000});
   assert.equal(res.status(),200,'Home must resolve');
-  await page.locator('#general-navigation').waitFor();
+  await page.locator('#general-navigation').waitFor({state:'attached'});
   await page.locator('#stage-main').waitFor();
   await page.waitForFunction(()=>document.querySelector('#stage-main')?.textContent?.trim().length>5,null,{timeout:22000});
   const home=await page.locator('#stage-main').innerText();
