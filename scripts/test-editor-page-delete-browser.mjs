@@ -47,6 +47,34 @@ try{
   await extra.getByRole('button',{name:'Supprimer la page'}).click();
   assert.equal(await extra.count(),0,'New celebration page removed');
   assert.equal(await page.locator('#workspace .list .item').filter({hasText:'Mercredi'}).count(),1,'Historic Wednesday remains');
+  // Check 2-column editing layout and plus/buttons are aligned on narrow phones.
+  await page.locator('.section-insert .section-add-blue').first().click();
+  await page.getByRole('button',{name:'Deux colonnes'}).first().click();
+  const two=page.locator('.content-section[data-layout="columns"]').last();
+  await two.waitFor();
+  const rects=await two.evaluate(el=>{
+   const rect=n=>{const r=n.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height,right:r.right,bottom:r.bottom,centerX:r.x+r.width/2}};
+   const area=el.querySelector(':scope > .section-columns');
+   const columns=[...area.querySelectorAll(':scope > .section-column')];
+   return {layout:getComputedStyle(area).flexDirection,
+    sections:columns.map(x=>({box:rect(x),add:rect(x.querySelector('.section-add-green')),buttons:rect(x.querySelector('.section-column-actions'))})),
+    toolbar:rect(el.querySelector(':scope > .section-root-actions')),
+    root:rect(el)};
+  });
+  assert.equal(rects.sections.length,2);
+  if(width===390){
+   assert.equal(rects.layout,'column','two mobile columns stack');
+   assert.ok(rects.sections[1].box.y>=rects.sections[0].box.bottom-1,'second column sits under first');
+   assert.ok(rects.toolbar.bottom<=rects.sections[0].box.y+2,'layout and delete icons stay above the columns');
+   for(const section of rects.sections){
+    assert.ok(Math.abs(section.add.centerX-section.box.centerX)<5,'green plus centered on its column');
+    assert.ok(section.add.y>=section.box.y&&section.add.bottom<=section.box.bottom,'plus belongs inside its column');
+    assert.ok(section.add.width>=42,'plus is touch-friendly');
+   }
+  }else{
+   assert.ok(rects.sections[1].box.x>=rects.sections[0].box.right-2,'desktop columns stay side by side');
+  }
+  console.log('MOBILE_TWO_COLUMNS_CONTROL_ALIGNMENT_PASS',JSON.stringify({width,layout:rects.layout}));
   assert.deepEqual(errors,[]);
   console.log('SERVER_PAGE_DELETE_PASS mobile='+(width===390)+' general=true extra=true historic_protected=true');
   await context.close();
