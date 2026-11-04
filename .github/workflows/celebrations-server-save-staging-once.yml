@@ -1,4 +1,5 @@
 name: CELEBRATIONS SERVER SAVE - isolated staging (drafts only)
+# Open sync requested by owner: old protected endpoint intact, no production cutover.
 # Mobile two-column controls: test responsive geometry of the two stacked editing areas.
 on:
   push:
@@ -85,6 +86,14 @@ jobs:
             method:'POST',headers:{'content-type':'application/json'},
             body:JSON.stringify({celebration:'101',expectedRevision:0,record:{pages:[]},plans:[],shared:{pages:[],homeId:''}})
           });assert.equal(denied.status,401);
+          const open=await fetch(base+'/api/editor-open-draft?celebration=101',{cache:'no-store'});
+          assert.equal(open.status,200);
+          const emptyOrSaved=await open.json();assert.ok(Number.isSafeInteger(emptyOrSaved.revision));
+          const forbidden=await fetch(base+'/api/editor-open-draft',{
+            method:'POST',headers:{'content-type':'application/json','origin':'https://attacker.example'},
+            body:JSON.stringify({celebration:'101',expectedRevision:0,record:{pages:[]},plans:[],shared:{pages:[],homeId:''}})
+          });
+          assert.equal(forbidden.status,403);
           const editor=await fetch(base+'/__editor/demo-preparation?celebration=101',{cache:'no-store'});
           assert.equal(editor.status,200);
           const html=await editor.text();assert.ok(html.includes('SERVER_ENDPOINT'));assert.ok(html.includes('Enregistré sur le serveur'));
