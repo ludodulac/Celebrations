@@ -215,3 +215,6 @@ try{
   await context.close();
  }
 }finally{await browser.close()}
+
+// Saving must be proven by actual browser POST -> GET -> reload, not by a mock success response alone.
+await import('./test-editor-save-reload-browser.mjs');
