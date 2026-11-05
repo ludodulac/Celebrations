@@ -53,6 +53,7 @@ test('Preparation demo includes every public step/event/content/link without dat
  assert.ok(seed.pages[0].blocks.some(b=>b.kind==='image'&&b.src.includes('celebrations-staging-welcome-autumn-2026.jpg')));
  assert.ok(seed.pages.find(p=>p.id==='accueil-celebration-101').blocks.some(b=>b.text==='Le texte authentique de l’accueil'));
  assert.ok(seed.library.some(x=>x.type==='audio')&&seed.library.some(x=>x.type==='pdf'));
+ assert.ok(!seed.library.some(x=>x.type==='text'),'La bibliothèque publique ne doit contenir aucun paragraphe sans fichier');
  assert.ok(seed.media.some(m=>m.src.endsWith('/son.mp3')));
  assert.ok(seed.files.some(f=>f.category==='audios'&&f.pages.includes('Préparation')));
  const jsonResponse=await handlePreparationDemo(new Request(host+'?celebration=101&format=json'),env);
