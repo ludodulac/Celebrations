@@ -313,8 +313,8 @@ test('dragging one block into an existing standalone block groups content withou
  const title={id:17,kind:'heading',text:'Bienvenue'};
  const page={blocks:[section,title,text]};
  assert.equal(env.group(page,21,17,true),true);
- assert.equal(page.blocks.length,2);
- const group=page.blocks[0];
+ assert.equal(page.blocks.length,3,'The empty original zone remains available');
+ const group=page.blocks[1];
  assert.equal(group.kind,'section');assert.equal(group.layout,'single');
  assert.strictEqual(group.columns[0][0],title);
  assert.strictEqual(group.columns[0][1],photo);
@@ -325,7 +325,7 @@ test('dragging one block into an existing standalone block groups content withou
  assert.equal(env.move(page,22,String(group.id),0,21,true),true);
  assert.deepEqual(group.columns[0].map(x=>x.id),[17,21,22]);
  assert.equal(group.columns[0][2].rich,'<em>Texte important</em>');
- assert.equal(page.blocks.length,1,'No empty phantom blocks are inserted');
+ assert.equal(page.blocks.length,2,'The source content moves without duplicated entries');
  assert.equal(env.group(page,22,22,true),false,'A block cannot be grouped with itself');
 });
 
