@@ -98,8 +98,10 @@ try{
   // Editing a large photo must not hide the confirmation controls as the
   // editor is scrolled, nor must a modal exceed the zoomed viewport.
   await page.locator('button[data-tab="pages"]').click();
-  const imageBlock=page.locator('.canvas .block').filter({has:page.locator('.picture img')}).first();
-  await imageBlock.waitFor();
+  const initialImage=page.locator('.canvas .block').filter({has:page.locator('.picture img')}).first();
+  await initialImage.waitFor();
+  const imageId=await initialImage.getAttribute('data-id');
+  const imageBlock=page.locator('.canvas .block[data-id="'+imageId+'"]');
   await imageBlock.locator('.picture').click();
   assert.equal(await imageBlock.getByRole('button',{name:'Télécharger une image'}).count(),1);
   assert.equal(await imageBlock.getByRole('button',{name:'Images du site'}).count(),1);
