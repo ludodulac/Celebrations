@@ -224,3 +224,58 @@ test('published pages can be republished after image resizing; aligner is remove
  assert.ok(!block.includes("b('↔ Aligner'"),'No redundant Align button in image or linked button block');
  assert.ok(DEMO_CSS.includes('.image-publish-size'));
 });
+
+test('dragging preserves the exact existing text/image/video block through columns, sections and root',()=>{
+ const from=DEMO_CLIENT.indexOf('function editorElementLocation(');
+ const to=DEMO_CLIENT.indexOf('let editorDragState=',from);
+ assert.ok(from>0&&to>from,'Pure drag-and-drop helpers are present');
+ const context={};
+ vm.runInNewContext(DEMO_CLIENT.slice(from,to)+
+  '\nthis.move=moveEditorElement;this.locate=editorElementLocation;',context);
+ const heading={id:11,kind:'heading',text:'Psaume 273',rich:'<strong>Psaume 273</strong>',bold:true};
+ const photo={id:12,kind:'image',src:'/media/historic-photo.jpg',widthPct:40,align:'center'};
+ const video={id:13,kind:'video',href:'https://youtu.be/dQw4w9WgXcQ',cover:'/media/cover.jpg'};
+ const textBlock={id:14,kind:'text',text:'Texte original',rich:'<em>Texte original</em>'};
+ const single={id:101,kind:'section',layout:'single',columns:[[photo,textBlock],[]]};
+ const two={id:102,kind:'section',layout:'columns',columns:[[video],[]]};
+ const page={blocks:[heading,single,two]};
+ const move=context.move,locate=context.locate;
+ assert.equal(move(page,12,'102',1),true,'One-column image into right column');
+ assert.strictEqual(page.blocks[2].columns[1][0],photo,'Exact original image object is moved');
+ assert.equal(page.blocks[1].columns[0][0],textBlock,'Previous section is intact');
+ assert.equal(move(page,11,'102',1,12,false),true,'Historic standalone heading inside columns');
+ assert.deepEqual(page.blocks[2].columns[1].map(x=>x.id),[11,12]);
+ assert.equal(move(page,12,'102',1,11,false),true,'Reorder within a column');
+ assert.deepEqual(page.blocks[2].columns[1].map(x=>x.id),[12,11]);
+ assert.equal(move(page,13,'101',0,14,false),true,'Video from a two-column zone into a single-column zone');
+ assert.deepEqual(page.blocks[1].columns[0].map(x=>x.id),[13,14]);
+ assert.equal(move(page,14,'',0,102,false),true,'Text from a section into root before another section');
+ assert.deepEqual(page.blocks.map(x=>x.id),[101,14,102]);
+ assert.strictEqual(page.blocks[1],textBlock,'Rich text block identity preserved');
+ assert.equal(move(page,13,'101',0,13,false),false,'Drop on itself is a no-op');
+ assert.equal(move(page,13,'absent',1),false,'Invalid destinations are ignored');
+ assert.equal(move(page,13,'101',3),false,'Invalid column is ignored');
+ assert.equal(locate(page,14).sectionId,'','Moved text is now at root');
+ assert.equal(photo.src,'/media/historic-photo.jpg');
+ assert.equal(photo.widthPct,40);
+ assert.equal(heading.rich,'<strong>Psaume 273</strong>');
+ assert.equal(video.cover,'/media/cover.jpg');
+ const flattened=page.blocks.flatMap(b=>b.kind==='section'?b.columns.flat():[b]);
+ assert.deepEqual(flattened.map(b=>b.id).sort((a,b)=>a-b),[11,12,13,14],
+  'No duplicate or deleted content');
+});
+test('drag handle is available on original blocks and never publishes or autosaves',()=>{
+ assert.ok(DEMO_CLIENT.includes('box.append(editorMoveHandle(box,x,p))'));
+ assert.ok(DEMO_CLIENT.includes('function editorDropTarget('));
+ assert.ok(DEMO_CLIENT.includes("editorDragState=state"));
+ assert.ok(DEMO_CLIENT.includes("state.timer=setTimeout("),'Touch long press is supported');
+ assert.ok(DEMO_CLIENT.includes("mark();render();"));
+ assert.ok(DEMO_CLIENT.includes("wrap.dataset.insertIndex=String(index)"));
+ assert.ok(DEMO_CLIENT.includes("cell.dataset.columnIndex=String(index)"));
+ assert.ok(DEMO_CSS.includes('.editor-drag-ghost'));
+ assert.ok(DEMO_CSS.includes('.editor-drop-column'));
+ const logic=DEMO_CLIENT.slice(DEMO_CLIENT.indexOf('function editorElementLocation('),
+  DEMO_CLIENT.indexOf('function block(x,p,'));
+ assert.doesNotMatch(logic,/serverPublish\(/,'Drag and drop must never publish a page');
+ assert.doesNotMatch(logic,/serverSave\(/,'Drag and drop does not write immediately to the server');
+});
