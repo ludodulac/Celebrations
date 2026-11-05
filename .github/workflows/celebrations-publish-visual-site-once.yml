@@ -27,6 +27,8 @@ name: CÉLÉBRATIONS — publier interface visuelle sans changer domaine et lien
 # User reported videos missing and image-size edits not reaching live site.
 # Candidate must verify genuine historical video links, explicit republish of
 # already published pages, and an image resized to 40% in the saved snapshot.
+# Candidate gate: rerun after correcting root-index assumptions in the pure
+# in-memory reorder tests; no change to saved or published content.
 # Owner approved drag-and-drop of existing text/images/video between standalone
 # blocks and one/two-column sections. Reorder only in the private draft,
 # preserve block identity and test browser mouse + touch long press before live.
