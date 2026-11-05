@@ -49,6 +49,20 @@ try{
   await page.locator('button[data-tab="celebrations"]').click();
   assert.ok(await page.locator('.celebration-publication-controls').count()>0,
    'Celebration has independent publication controls');
+  const stageNav=page.locator('.celebration-editor .panel > .list');
+  const stageRow=stageNav.locator('.general-page-row').first();
+  await stageRow.waitFor();
+  const indicator=stageRow.locator('.inline-page-state');
+  assert.ok(['Publiée','Brouillon','Masquée'].includes(await indicator.getAttribute('aria-label')));
+  const geometry=await indicator.evaluate(e=>({width:Math.round(e.getBoundingClientRect().width),
+   height:Math.round(e.getBoundingClientRect().height),text:e.textContent}));
+  assert.deepEqual(geometry,{width:12,height:12,text:''},'Status is a small colored disk without text');
+  if(width===1280){
+   const navWidth=await stageNav.evaluate(e=>Math.round(e.getBoundingClientRect().width));
+   assert.ok(navWidth<=230,'Desktop celebration navigation must remain compact');
+   const titleWidth=await stageRow.locator('.item').evaluate(e=>Math.round(e.getBoundingClientRect().width));
+   assert.ok(titleWidth>95,'Stage titles have room for normal horizontal words');
+  }
   await page.locator('button[data-tab="media"]').click();
   await page.locator('.file-category-tabs').waitFor();
   for(const label of ['Images','PDF','Audios','Vidéos','Liens']){
