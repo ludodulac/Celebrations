@@ -2,7 +2,7 @@
 // Authenticated JSON snapshots are persisted in the staging-only R2 bucket.
 import {authorize} from './auth-api.mjs';
 import {hasEditorAccess} from './editor-site-access.mjs';
-import {initialPublication,discoverMedia} from './editor-publication-api.mjs';
+import {initialPublication,discoverMedia,publiclyVisible} from './editor-publication-api.mjs';
 const HOST='celebrations-exit-staging.rondes.workers.dev';
 const PUBLISHED_HOSTS=new Set(['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu']);
 const PREVIEW_HOST='celebrations-visual-candidate.rondes.workers.dev';
@@ -32,6 +32,37 @@ function sanitizeRecord(record,id){
  (record.celebrationTimes!==undefined&&!object(record.celebrationTimes)))return null;
  return {pages:record.pages,celebrationDates:record.celebrationDates||{},
   celebrationTimes:record.celebrationTimes||{},siteHomeId:String(record.siteHomeId||'').slice(0,80)};
+}
+// Enregistrer updates the already-public page in the SAME conditional R2 write.
+// New drafts, hidden pages and pages of a hidden celebration stay private.
+// Only the authenticated official-domain route may call this helper.
+export function refreshAlreadyPublishedPage(state,record,shared,celebration,pageId){
+ if(!pageId||!state.published)return false;
+ const isGeneral=/^neutral-(?:accueil-general|[0-9a-f-]{30,45})$/.test(pageId);
+ const sourcePages=isGeneral?shared.pages:record.pages;
+ const targetPages=isGeneral?state.published.shared?.pages:state.published.drafts?.[celebration]?.pages;
+ const source=sourcePages?.find(p=>p.id===pageId);
+ const prior=targetPages?.find(p=>p.id===pageId);
+ if(!source||!prior||!publiclyVisible(source)||!publiclyVisible(prior))return false;
+ if(!isGeneral){
+  const visibility=state.published.celebrationVisibility?.[celebration]||
+   state.published.plans?.find(p=>p.id===celebration)?.visibility;
+  if(visibility==='hidden'||visibility==='draft')return false;
+ }
+ const replacement=JSON.parse(JSON.stringify(source));
+ replacement.visibility='published';
+ const at=targetPages.findIndex(p=>p.id===pageId);
+ targetPages[at]=replacement;
+ if(isGeneral){
+  // A new home may only become public after that page has been published.
+  if(targetPages.some(p=>p.id===shared.homeId&&publiclyVisible(p)))
+   state.published.shared.homeId=shared.homeId;
+ }else{
+  const publishedRecord=state.published.drafts[celebration];
+  publishedRecord.celebrationDates=JSON.parse(JSON.stringify(record.celebrationDates||{}));
+  publishedRecord.celebrationTimes=JSON.parse(JSON.stringify(record.celebrationTimes||{}));
+ }
+ return true;
 }
 async function stored(bucket){
  const item=await bucket.get(KEY);
@@ -77,23 +108,34 @@ export async function handleServerDraft(request,env){
    !Number.isSafeInteger(body.expectedRevision)||body.expectedRevision<0)return error('Données de sauvegarde invalides',400);
   const record=sanitizeRecord(body.record,body.celebration);
   if(!record)return error('Pages invalides',400);
+  // The selected page must belong to the authenticated celebration/shared pages.
+  // An invalid or stale page must never be silently recorded as published.
+  const publishPageId=body.publishPageId;
+  if(publishPageId!==undefined&&
+   (typeof publishPageId!=='string'||publishPageId.length>110||
+    !record.pages.some(p=>p.id===publishPageId)&&!body.shared.pages.some(p=>p.id===publishPageId)))
+   return error('Page à mettre à jour introuvable',400);
   const current=await stored(draftBucket);
   if(body.expectedRevision!==current.state.version)return error('Une version plus récente existe sur le serveur. Rechargez sans effacer votre brouillon local.',409);
   const drafts=Object.assign(Object.create(null),current.state.drafts);
   drafts[body.celebration]=record;
   const updatedAt=new Date().toISOString(),version=current.state.version+1;
-  // First publication snapshot preserves precisely what visitors could see
-  // BEFORE this save. Later saves never change the public website implicitly.
+  // Keep unrelated published pages intact. The selected already-public page
+  // gets updated atomically with the private draft on the OFFICIAL domain only.
   const previouslyPublished=current.state.published||initialPublication(current.state);
   const catalogue=discoverMedia({...current.state,drafts,plans:body.plans,shared:body.shared});
   const state={...current.state,version,updatedAt,drafts,plans:body.plans,
    shared:body.shared,published:previouslyPublished,mediaCatalogue:catalogue};
+  const publishedPageId=open&&PUBLISHED_HOSTS.has(url.hostname)&&publishPageId&&
+   refreshAlreadyPublishedPage(state,record,body.shared,body.celebration,publishPageId)
+    ?publishPageId:null;
+  if(publishedPageId)state.publishedAt=updatedAt;
   const serialized=JSON.stringify(state);
   if(serialized.length>5_000_000)return error('Capacité de brouillon dépassée',413);
   const options={httpMetadata:{contentType:'application/json'},onlyIf:current.etag?
    {etagMatches:current.etag}:{etagDoesNotMatch:'*'}};
   const result=await draftBucket.put(KEY,serialized,options);
   if(!result)return error('Une autre sauvegarde vient de modifier le serveur. Votre brouillon local est conservé.',409);
-  return json({ok:true,revision:version,updatedAt});
+  return json({ok:true,revision:version,updatedAt,publishedPageId});
  }catch{return error('Enregistrement serveur indisponible. Votre copie locale est conservée.',503)}
 }
