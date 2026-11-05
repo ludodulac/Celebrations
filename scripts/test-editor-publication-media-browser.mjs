@@ -21,7 +21,19 @@ try{
    await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,revision:rev,updatedAt:new Date().toISOString()})});
   });
   await page.route('**/api/editor-media**',async route=>{
-   await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,items:[]})});
+   const items=[
+    {id:'image|/media/media/1791723108110/file-1791723109615-1000040461.jpg',type:'image',
+     src:'/media/media/1791723108110/file-1791723109615-1000040461.jpg',
+     name:'Ronde des Archanges Universelle',source:'link',general:false,
+     uses:[{pageId:'neutral-accueil-general',pageName:'Accueil général',
+      slug:'neutral-accueil-general',group:'page',celebrationId:''}]},
+    {id:'image|/media/new/12345678-1234-4234-8234-123456789abc.jpg',type:'image',
+     src:'/media/new/12345678-1234-4234-8234-123456789abc.jpg',
+     name:'10000426.jpg',source:'uploaded',general:false,uses:[]},
+    {id:'link|https://example.org/visiter',type:'link',src:'https://example.org/visiter',
+     name:'Bouton navigation',source:'link',general:false,uses:[]}
+   ];
+   await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,items})});
   });
   const res=await page.goto(base+'/__editor/demo-preparation?celebration=101',{waitUntil:'domcontentloaded'});
   assert.equal(res.status(),200);
@@ -65,10 +77,24 @@ try{
   }
   await page.locator('button[data-tab="media"]').click();
   await page.locator('.file-category-tabs').waitFor();
-  for(const label of ['Images','PDF','Audios','Vidéos','Liens']){
+  for(const label of ['Images','PDF','Audios','Vidéos','Autres']){
    assert.ok((await page.locator('.file-category-tabs').innerText()).includes(label));
   }
-  assert.equal(await page.getByRole('button',{name:'＋ Ajouter un lien web'}).count(),1);
+  assert.equal(await page.getByRole('button',{name:'＋ Référencer un média externe'}).count(),1);
+  assert.equal(await page.locator('.file-category-tabs button').filter({hasText:'Liens'}).count(),0);
+  assert.equal(await page.locator('.cards button').filter({hasText:/^(Insérer|Ouvrir)$/}).count(),0,
+   'Neither the Insert nor the Open button belongs to the global catalogue');
+  const home=page.locator('.global-media-card').filter({hasText:'Ronde des Archanges Universelle'});
+  await home.waitFor();
+  assert.equal(await home.locator('.file-location-link').count(),1);
+  assert.match(await home.locator('.file-location-link').first().innerText(),/Accueil général/);
+  assert.equal(await home.locator('.media-unused-ribbon').count(),0);
+  assert.equal(await home.locator('.media-picture-link').getAttribute('href'),
+   '/media/media/1791723108110/file-1791723109615-1000040461.jpg');
+  const unreferenced=page.locator('.global-media-card').filter({hasText:'10000426.jpg'});
+  await unreferenced.waitFor();
+  assert.equal(await unreferenced.locator('.media-unused-ribbon').innerText(),'Inutilisé');
+  assert.equal(await page.locator('.global-media-card').filter({hasText:'Bouton navigation'}).count(),0);
   assert.deepEqual(logs,[],'No console page errors');
   console.log('EDITOR_PUBLICATION_MEDIA_UI_PASS',JSON.stringify({width,createdDraft:true,
    published:true,hidden:true,celebrationControls:true,globalLibrary:true,
