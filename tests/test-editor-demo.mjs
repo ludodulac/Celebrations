@@ -168,3 +168,17 @@ test('global library has clickable files but no insert/open action buttons',()=>
  assert.ok(source.includes('libraryUnusedText(card,unused,hasImage)'));
  assert.ok(DEMO_CSS.includes('.media-unused-ribbon'));
 });
+
+test('image editing has two distinct actions and a safe remove-image-only button',()=>{
+ const start=DEMO_CLIENT.indexOf("if(x.kind==='image'){",DEMO_CLIENT.indexOf('function block('));
+ const end=DEMO_CLIENT.indexOf("if(box._tools)",start);
+ const section=DEMO_CLIENT.slice(start,end);
+ assert.ok(section.includes("b('Télécharger une image',()=>startImageUpload(x)"));
+ assert.ok(section.includes("b('Images du site',()=>showImagePicker(x)"));
+ assert.ok(!section.includes("b('Choisir une image'"));
+ assert.ok(DEMO_CLIENT.includes("dataset.action='remove-image-only'"));
+ assert.ok(DEMO_CLIENT.includes("delete x.assetId;x.text='';delete x.widthPct"));
+ assert.ok(DEMO_CLIENT.includes("const close=b('×',()=>dialog.close(),'image-picker-close')"));
+ assert.match(DEMO_CSS,/\.image-picker-dialog\[open\]/);
+ assert.match(DEMO_CSS,/\.stage-editor \.block\.is-selected>\.block-validate-actions\{\s*position:fixed/);
+});
