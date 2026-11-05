@@ -145,3 +145,12 @@ test('validation closes only after private server save succeeds, keeps editor op
  assert.equal(refused.scope.removed,0);
  assert.equal(refused.scope.pending(),true);
 });
+
+test('page/celebration status uses accessible green and orange circular indicators',()=>{
+ assert.ok(DEMO_CLIENT.includes("badge.setAttribute('aria-label',VISIBILITY_LABELS[state])"));
+ assert.ok(DEMO_CLIENT.includes("stateBadge.setAttribute('aria-label',VISIBILITY_LABELS[state])"));
+ assert.ok(DEMO_CSS.includes('.inline-page-state.state-published'));
+ assert.ok(DEMO_CSS.includes('.inline-page-state.state-draft'));
+ assert.match(DEMO_CSS,/grid-template-columns:230px minmax\(0,1fr\)/);
+ assert.ok(DEMO_CLIENT.includes("['published','Publier']"),'Publishing actions are still explicit');
+});
