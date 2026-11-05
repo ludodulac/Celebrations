@@ -4,6 +4,7 @@ import vm from 'node:vm';
 import {handleEditorDemo} from '../migration/cloudflare/editor-demo-page.mjs';
 import {DEMO_CLIENT} from '../migration/cloudflare/editor-demo-client.mjs';
 import {DEMO_CSS} from '../migration/cloudflare/editor-demo-style.mjs';
+import {TRIAL_SITE_CLIENT} from '../migration/cloudflare/editor-trial-site-client.mjs';
 const BASE='https://celebrations-exit-staging.rondes.workers.dev/__editor/demo';
 test('demo is anonymous, local and CSP-restricted',async()=>{
  const response=handleEditorDemo(new Request(BASE));
@@ -337,4 +338,13 @@ test('direct block dragging and drop-into-target are separate from text editing'
  assert.ok(DEMO_CLIENT.includes("editor-drop-into"));
  assert.ok(DEMO_CSS.includes('.block.editor-drop-into'));
  assert.ok(DEMO_CSS.includes('opacity:.94!important'));
+});
+
+test('a chosen divider survives publication, while historic pages get no automatic rules',()=>{
+ const render=TRIAL_SITE_CLIENT.slice(TRIAL_SITE_CLIENT.indexOf('function appendPageBlock('));
+ assert.ok(render.includes("'divider'"),'Visitors can see the chosen divider');
+ assert.ok(render.includes("make('hr','trial-custom-divider')"),'Only saved blocks render a line');
+ assert.ok(render.includes("b.thickness")&&render.includes("b.widthPct")&&render.includes("b.color"));
+ assert.ok(!render.includes('editor-zone-divider'),'No old automatic admin dividers on public pages');
+ assert.ok(DEMO_CLIENT.includes("menu.append(b('Trait de séparation'"),'Insertion between sections is explicit');
 });
