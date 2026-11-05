@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 
+// Live release gate: the real owner must be able to drag a text/photo by
+// its surface INTO another historical block, and insert a narrow editable
+// separator only where chosen. Validate both desktop and mobile before deploy.
 // Candidate-only browser regression: no real server writes. All editor API
 // calls are intercepted, including final private-draft saving.
 const base=process.env.EDITOR_BASE||'https://celebrations-visual-candidate.rondes.workers.dev';
