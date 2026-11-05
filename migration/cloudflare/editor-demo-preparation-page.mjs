@@ -190,7 +190,7 @@ function celebrationLibrary(events,eventContents,stepContents,steps){
   else if(t==='audio'||/\.(?:mp3|wav|m4a|ogg|opus|flac)$/i.test(path))type='audio';
   else if(t==='image'||/\.(?:png|jpe?g|webp|gif|svg)$/i.test(path))type='image';
   else if(t==='pdf'||/\.pdf$/i.test(path))type='pdf';
-  else if(t==='texte'||t==='text'||String(c.inline_text||'').trim())type='text';
+  // Inline page text and event descriptions are never media-library entries.
   if(!type)return;
   const id=String(c.id);
   if(library.has(id)){const old=library.get(id);if(!old.pages.includes(page))old.pages.push(page);return}
@@ -198,7 +198,7 @@ function celebrationLibrary(events,eventContents,stepContents,steps){
   library.set(id,{id,name:String(c.name||c.file_name||'Document').slice(0,280),
    description:String(c.description||'').slice(0,3000),
    type,src:path,cover,external,
-   text:type==='text'?String(c.inline_text||c.description||''):'',
+   text:'',
    chant:clean(c.audio_kind||c.audioKind||c.category).includes('chant')||/^\s*chant\b/i.test(String(c.name||'')),
    pages:[page]});
  }
