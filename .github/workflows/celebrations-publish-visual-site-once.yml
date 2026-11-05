@@ -31,6 +31,9 @@ name: CÉLÉBRATIONS — publier interface visuelle sans changer domaine et lien
 # directly; all subsequent mouse/long-press drag is exercised in the browser.
 # Candidate gate: rerun after correcting root-index assumptions in the pure
 # in-memory reorder tests; no change to saved or published content.
+# Owner requested a short dark-grey divider between every full-width editor
+# zone, whether a standalone legacy block, one column or two columns. Pure UI
+# decoration only, never published page content. Tests check desktop/mobile.
 # Owner approved drag-and-drop of existing text/images/video between standalone
 # blocks and one/two-column sections. Reorder only in the private draft,
 # preserve block identity and test browser mouse + touch long press before live.
