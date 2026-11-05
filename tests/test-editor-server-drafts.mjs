@@ -78,7 +78,7 @@ test('rejects oversized, cross-celebration and malformed drafts without writing'
  const e=env();
  const cross={...body,record:{pages:[{...body.record.pages[0],id:'mercredi-102'}]}};
  assert.equal((await handleServerDraft(req('POST','/api/editor-server-draft',cross),e)).status,400);
- const tooBig={...body,record:{pages:[{...body.record.pages[0],blocks:[{kind:'text',text:'x'.repeat(1900000)}]}]}};
+ const tooBig={...body,record:{pages:[{...body.record.pages[0],blocks:[{kind:'text',text:'x'.repeat(4600000)}]}]}};
  assert.equal((await handleServerDraft(req('POST','/api/editor-server-draft',tooBig),e)).status,413);
  const empty=await handleServerDraft(req('GET','/api/editor-server-draft?celebration=101'),e);
  assert.equal((await empty.json()).revision,0);
