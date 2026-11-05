@@ -17,14 +17,15 @@ try{
   page.setDefaultTimeout(18000);
   const errors=[],calls=[],saves=[];
   page.on('pageerror',error=>errors.push(error.message));
-  let revision=0;
+  let revision=0,storedRecord=null,storedPlans=[],storedShared={pages:[],homeId:''};
   await page.route('**/api/editor-open-draft**',async route=>{
    if(route.request().method()==='POST'){
-    saves.push(JSON.parse(route.request().postData()));
-    calls.push('save-draft');revision++;
+    const body=JSON.parse(route.request().postData());
+    saves.push(body);calls.push('save-draft');revision++;
+    storedRecord=body.record;storedPlans=body.plans||[];storedShared=body.shared;
    }
    const result=route.request().method()==='GET'?
-    {ok:true,revision,record:null,plans:[],shared:{pages:[],homeId:''},mediaCatalogue:[]}:
+    {ok:true,revision,record:storedRecord,plans:storedPlans,shared:storedShared,mediaCatalogue:[]}:
     {ok:true,revision,updatedAt:new Date().toISOString()};
    await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(result)});
   });
