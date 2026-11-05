@@ -129,7 +129,7 @@ try{
   assert.ok((await page.locator('#save-btn').innerText()).includes('Enregistrer'));
   await page.locator('#save-btn').click();
   await page.waitForFunction(()=>document.getElementById('save-btn')?.textContent?.includes('Enregistré'),
-   {timeout:10000}).catch(()=>{});
+   null,{timeout:10000});
   assert.ok(saves.length>0,'An explicit Save persists to the private draft server');
   assert.ok(!calls.includes('PUBLICATION'),'Drag and save never publish an existing page');
   const saved=saves.at(-1),allPages=[
