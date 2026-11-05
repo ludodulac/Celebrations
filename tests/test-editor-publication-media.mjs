@@ -130,3 +130,30 @@ test('External media may be added without server upload and made public only by 
  state=(await readEditorState(bucket)).state;
  assert.equal(publicSnapshot(state,'101').media[0].src,'https://example.org/doc.pdf');
 });
+
+test('media index excludes arbitrary link buttons and tracks general/draft/published usages',()=>{
+ const state=initial();
+ state.shared.pages[0].blocks.push({id:'home-photo',kind:'image',
+  src:'/media/media/1791723108110/file-1791723109615-1000040461.jpg'});
+ state.shared.pages[0].blocks.push({id:'nav',kind:'button',text:'Visiter le site',href:'https://example.org/'});
+ state.shared.pages[0].blocks.push({id:'file',kind:'button',text:'Ouvrir le PDF',
+  href:'https://example.org/existing.pdf'});
+ state.mediaCatalogue=[
+  {id:'image|/media/new/12345678-1234-4234-8234-123456789abc.jpg',type:'image',
+   src:'/media/new/12345678-1234-4234-8234-123456789abc.jpg',name:'10000426.jpg',source:'uploaded'},
+  {id:'link|https://example.org/',type:'link',src:'https://example.org/',name:'Menu'}
+ ];
+ state.published=structuredClone(state);
+ state.published.shared.pages[0].blocks=[
+  {id:'historic-visible',kind:'image',src:'/media/media/still-online.jpg'}];
+ const result=discoverMedia(state);
+ assert.ok(!result.some(x=>x.type==='link'), 'Navigation button is never a media file');
+ const home=result.find(x=>x.src.includes('1791723108110'));
+ assert.equal(home.uses[0].pageName,'Accueil');
+ assert.equal(home.uses[0].group,'page');
+ assert.equal(home.uses[0].slug,'neutral-accueil-general');
+ assert.equal(result.find(x=>x.src.endsWith('10000426.jpg'))?.uses.length,0);
+ assert.ok(result.find(x=>x.src.endsWith('still-online.jpg'))?.uses.length===1,
+  'A published-only media remains listed as in use');
+ assert.ok(result.find(x=>x.src==='https://example.org/existing.pdf')?.uses.length===1);
+});
