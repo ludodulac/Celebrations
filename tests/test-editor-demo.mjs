@@ -60,7 +60,7 @@ test('only the selected block shows editing controls, simplifying the page',()=>
  assert.match(DEMO_CSS,/\.block\.is-selected>\.tools/);
  assert.ok(DEMO_CLIENT.includes('function selectBlock('));
  assert.ok(DEMO_CLIENT.includes("box.onclick=()=>selectBlock(box)"));
- assert.ok(DEMO_CLIENT.includes('z.onfocus=()=>selectBlock(box)'));
+ assert.ok(DEMO_CLIENT.includes('z.onfocus=()=>{') && DEMO_CLIENT.includes('selectBlock(box);'));
 });
 
 test('Partial formatting preserves a selected range and keeps whole paragraph font size',()=>{
@@ -92,4 +92,56 @@ test('CSP-safe rich colour restoration uses DOM assignments after sanitising HTM
  assert.ok(DEMO_CLIENT.includes('function restoreInlineColours('));
  assert.ok(DEMO_CLIENT.includes('restoreInlineColours(z)'));
  assert.ok(DEMO_CLIENT.includes("span.removeAttribute('style');span.style.color=value"));
+});
+
+test('the selected element has an explicit draft-only Validate button',()=>{
+ assert.ok(DEMO_CLIENT.includes("b('✓ Valider'"));
+ assert.ok(DEMO_CLIENT.includes("void validateBlock(box,validate)"));
+ assert.match(DEMO_CSS,/\.block\.is-selected>\.block-validate-actions\{/);
+ assert.match(DEMO_CSS,/\.block>\.block-validate-actions\{display:none!important\}/);
+ assert.match(DEMO_CLIENT,/await serverSave\(\);[\s\S]*?if\(db\._serverPending\)return;/);
+ assert.ok(DEMO_CLIENT.includes("box.classList.remove('is-selected')"));
+});
+
+test('new headings and text fields are empty with visible hints, not saved template text',()=>{
+ const start=DEMO_CLIENT.indexOf('function createContent(kind){');
+ const end=DEMO_CLIENT.indexOf('\nfunction add(kind)',start);
+ assert.ok(start>0&&end>start);
+ const ctx={uniqueBlockId:()=>123};
+ vm.runInNewContext(
+  "const STARTER_TEXT={heading:'Nouveau titre',text:'Votre paragraphe',button:'Mon bouton',event:'Titre de l’événement'};\n"+
+  DEMO_CLIENT.slice(start,end)+'\nthis.make=createContent;',ctx);
+ for(const kind of ['heading','text','button','event'])assert.equal(ctx.make(kind).text,'',kind);
+ assert.equal(ctx.make('audio').text,'MP3 à choisir');
+ assert.ok(DEMO_CLIENT.includes('z.dataset.placeholder=STARTER_TEXT[x.kind]'));
+ assert.ok(DEMO_CLIENT.includes('range.selectNodeContents(z)'), 'Older starter labels become fully selected on first tap');
+});
+
+test('validation closes only after private server save succeeds, keeps editor open on failure',async()=>{
+ const start=DEMO_CLIENT.indexOf('async function validateBlock(');
+ const end=DEMO_CLIENT.indexOf('\nfunction block(x,p',start);
+ assert.ok(start>=0&&end>start);
+ async function simulate(success){
+  const scope={document:{activeElement:null},saved:0,attempts:0,removed:0};
+  vm.runInNewContext(
+   "let dirty=true,selectedBlockId='element-1';const db={_serverPending:true},IS_STAGE=true;"+
+   "function save(){dirty=false;this.saved++}"+
+   "async function serverSave(){this.attempts++;if(this.success)db._serverPending=false;}"+
+   DEMO_CLIENT.slice(start,end)+
+   ";this.validate=validateBlock;this.selected=()=>selectedBlockId;this.pending=()=>db._serverPending;",scope);
+  scope.success=success;
+  const box={isConnected:true,dataset:{id:'element-1'},contains:()=>false,classList:{remove:()=>{scope.removed++}}};
+  const button={disabled:false,textContent:'✓ Valider',blur:()=>{}};
+  await scope.validate(box,button);
+  return {scope,button};
+ }
+ const good=await simulate(true);
+ assert.equal(good.scope.saved,1);assert.equal(good.scope.attempts,1);
+ assert.equal(good.scope.selected(),null);assert.equal(good.scope.removed,1);
+ assert.equal(good.button.disabled,false);
+ const refused=await simulate(false);
+ assert.equal(refused.scope.attempts,1);
+ assert.equal(refused.scope.selected(),'element-1');
+ assert.equal(refused.scope.removed,0);
+ assert.equal(refused.scope.pending(),true);
 });
