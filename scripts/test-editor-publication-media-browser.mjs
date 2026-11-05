@@ -8,9 +8,12 @@ try{
   const page=await ctx.newPage();page.setDefaultTimeout(15000);
   const logs=[],calls=[];
   page.on('pageerror',e=>logs.push(e.message));
-  let rev=0;
+  let rev=0,lastSavedShared=null;
   await page.route('**/api/editor-open-draft**',async route=>{
-   if(route.request().method()==='POST'){calls.push('draft');rev++}
+   if(route.request().method()==='POST'){
+    calls.push('draft');rev++;
+    lastSavedShared=JSON.parse(route.request().postData()).shared;
+   }
    const result=route.request().method()==='GET'?
     {ok:true,revision:rev,record:null,plans:[],shared:{pages:[],homeId:''},mediaCatalogue:[]}:
     {ok:true,revision:rev,updatedAt:new Date().toISOString()};
@@ -113,6 +116,26 @@ try{
   assert.ok(isLoaded,'An existing home/celebration image must actually render: '+imageSrc);
   const imageId=await initialImage.getAttribute('data-id');
   const imageBlock=page.locator('.canvas .block[data-id="'+imageId+'"]');
+  await imageBlock.locator('.picture').click();
+  const slider=imageBlock.locator('input.image-size-slider');
+  await slider.waitFor({state:'visible'});
+  await slider.evaluate(input=>{
+   input.value='40';
+   input.dispatchEvent(new Event('input',{bubbles:true}));
+   input.dispatchEvent(new Event('change',{bubbles:true}));
+  });
+  assert.equal(await imageBlock.locator('.image-size-value').innerText(),'40 %');
+  const widthRatio=await imageBlock.evaluate(box=>{
+   const img=box.querySelector('.picture'),parent=box.getBoundingClientRect();
+   return img.getBoundingClientRect().width/parent.width;
+  });
+  assert.ok(widthRatio>.30&&widthRatio<.50,'Photo shrinks instantly in the editor');
+  await imageBlock.getByRole('button',{name:'Publier cette nouvelle taille sur le site des visiteurs'}).click();
+  await page.waitForFunction(()=>document.getElementById('status')?.textContent?.includes('Taille publiée'));
+  assert.ok(calls.includes('public:page:published'),'Published page can be updated without hiding it first');
+  const publishedWidth=lastSavedShared?.pages?.flatMap(p=>p.blocks||[])
+   .find(x=>x.id===Number(imageId)||String(x.id)===String(imageId))?.widthPct;
+  assert.equal(publishedWidth,40,'40% width persisted to server BEFORE publication');
   await imageBlock.locator('.picture').click();
   assert.equal(await imageBlock.getByRole('button',{name:'Télécharger une image'}).count(),1);
   assert.equal(await imageBlock.getByRole('button',{name:'Images du site'}).count(),1);
