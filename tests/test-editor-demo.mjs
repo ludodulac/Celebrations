@@ -197,3 +197,15 @@ test('gallery renders bounded thumbnail cards with captions and upload, distinct
  assert.ok(DEMO_CLIENT.includes('function removeImageFromBlock(x)'));
  assert.ok(DEMO_CLIENT.includes("remove.dataset.action='remove-image'"));
 });
+
+test('editor recovers hosted image when a local asset identifier is stale',()=>{
+ const part=DEMO_CLIENT.slice(DEMO_CLIENT.indexOf("if(x.kind==='image'){",DEMO_CLIENT.indexOf('function block(')),
+  DEMO_CLIENT.indexOf('if(box._tools)',DEMO_CLIENT.indexOf('function block(')));
+ assert.ok(part.includes("const src=localUrl||hostedUrl"));
+ assert.ok(part.includes("img.onerror=()=>"));
+ assert.ok(part.includes("restorePageImageFromPublished(p,x)"));
+ assert.ok(part.includes("image-size-slider"),'Size adjustment exists in image block');
+ assert.ok(DEMO_CSS.includes('.picture.image-load-error>img'));
+ assert.ok(DEMO_CLIENT.includes('function findImageByHeading('),'A source is matched by page and heading');
+ assert.ok(DEMO_CLIENT.includes("image.src=url;delete image.assetId"),'Restoration stays explicit');
+});
