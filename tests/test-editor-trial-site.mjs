@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Script} from 'node:vm';
 import {handleTrialSite} from '../migration/cloudflare/editor-trial-site-page.mjs';
-import {TRIAL_SITE_CLIENT} from '../migration/cloudflare/editor-trial-site-client.mjs';
+import {TRIAL_SITE_CLIENT,TRIAL_SITE_STYLE} from '../migration/cloudflare/editor-trial-site-client.mjs';
 const site='https://celebrations-exit-staging.rondes.workers.dev/__editor/voir-le-site';
 const data={
  celebrations:[{id:101,archangel:'Michaël',year:'2026'}],
@@ -80,4 +80,15 @@ test('Nouvel aperçu : accueil neutre, menu Célébrations et URL Gabriel planif
  assert.ok(html.includes('celebration-shortcuts'));
  assert.ok(!html.includes('id="celebration-choice"'));
  assert.ok(!html.includes('id="return-celebration"'));
+});
+
+test('video thumbnails have small bold captions under them, not titles in boxed buttons',()=>{
+ assert.ok(TRIAL_SITE_CLIENT.includes("container.append(toggle,title)"),
+  'YouTube/Vimeo caption is outside the player button');
+ assert.ok(TRIAL_SITE_CLIENT.includes("container.append(a,title)"),
+  'External video caption is a sibling below its thumbnail link');
+ assert.ok(!TRIAL_SITE_CLIENT.includes("a.append(title);container.append(a)"),
+  'A video title is no longer inside a linked framed card');
+ assert.match(TRIAL_SITE_STYLE,/\.trial-video-title\{font-size:14px;line-height:1\.4;font-weight:700/);
+ assert.match(TRIAL_SITE_STYLE,/\.trial-video \.trial-site-link\{border:0;/);
 });
