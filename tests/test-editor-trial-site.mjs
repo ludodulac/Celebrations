@@ -46,14 +46,14 @@ test('Site trial response contains eight programme pages plus neutral home, a re
  assert.equal(seed.pages.find(p=>p.group==='page').name,'Accueil général');
  assert.equal(sqls.length,7);
  assert.ok(sqls.every(q=>q.startsWith('SELECT ')),'read only');
- assert.match(r.headers.get('content-security-policy'),/connect-src 'none'/);
+ assert.match(r.headers.get('content-security-policy'),/connect-src 'self'/);
  const scripts=[...html.matchAll(/<script nonce="[0-9a-f]+">([\s\S]*?)<\/script>/g)];
  assert.equal(scripts.length,2);
  for(const m of scripts)new Script(m[1]);
 });
-test('Trial site denies unknown stages, production host, and POST writes',async()=>{
+test('Trial site rejects invalid stages and POST, but the live official host is allowed',async()=>{
  assert.equal((await handleTrialSite(new Request(site+'?page=invalid'),env)).status,404);
- assert.equal((await handleTrialSite(new Request('https://www.ronde-des-archanges-universelle.eu/__editor/voir-le-site'),env)).status,404);
+ assert.equal((await handleTrialSite(new Request('https://www.ronde-des-archanges-universelle.eu/__editor/voir-le-site'),env)).status,200);
  assert.equal((await handleTrialSite(new Request(site,{method:'POST'}),env)).status,405);
  assert.equal((await handleTrialSite(new Request(site+'?celebration=999'),env)).status,404);
 });
