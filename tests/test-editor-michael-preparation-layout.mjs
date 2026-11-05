@@ -21,7 +21,7 @@ const section=(id,blocks,cols=[blocks,[]],layout='single')=>({
 });
 function fixture(){
  const roots=[
-  section('intro',[item(4,'heading'),item(2,'text'),item(3,'text'),item(5,'text')]),
+  section('intro',[{...item(4,'heading'),text:'Travail de Préparation'},item(2,'text'),item(3,'text'),item(5,'text')]),
   section('travail',[],[[item(6,'heading'),item(7,'image')],[item(8,'button')]],'columns'),
   item('line-1','divider'),
   section('flammes',[],[[item('title-flammes','heading'),item(12,'image')],[item(13,'audio')]],'columns'),
