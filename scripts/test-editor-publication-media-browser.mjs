@@ -8,14 +8,16 @@ try{
   const page=await ctx.newPage();page.setDefaultTimeout(15000);
   const logs=[],calls=[];
   page.on('pageerror',e=>logs.push(e.message));
-  let rev=0,lastSavedShared=null;
+  let rev=0,lastSavedShared=null,lastSavedRecord=null,lastSavedPlans=[];
   await page.route('**/api/editor-open-draft**',async route=>{
    if(route.request().method()==='POST'){
     calls.push('draft');rev++;
-    lastSavedShared=JSON.parse(route.request().postData()).shared;
+    const saved=JSON.parse(route.request().postData());
+    lastSavedShared=saved.shared;lastSavedRecord=saved.record;lastSavedPlans=saved.plans||[];
    }
    const result=route.request().method()==='GET'?
-    {ok:true,revision:rev,record:null,plans:[],shared:{pages:[],homeId:''},mediaCatalogue:[]}:
+    {ok:true,revision:rev,record:lastSavedRecord,plans:lastSavedPlans,
+     shared:lastSavedShared||{pages:[],homeId:''},mediaCatalogue:[]}:
     {ok:true,revision:rev,updatedAt:new Date().toISOString()};
    await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(result)});
   });
