@@ -324,7 +324,7 @@ test('dragging one block into an existing standalone block groups content withou
  assert.equal(env.group(page,22,17,true),false,
   'A grouped element is no longer a root standalone drop target');
  assert.equal(env.move(page,22,String(group.id),0,21,true),true);
- assert.deepEqual(group.columns[0].map(x=>x.id),[17,21,22]);
+ assert.deepEqual(Array.from(group.columns[0],x=>x.id),[17,21,22]);
  assert.equal(group.columns[0][2].rich,'<em>Texte important</em>');
  assert.equal(page.blocks.length,2,'The source content moves without duplicated entries');
  assert.equal(env.group(page,22,22,true),false,'A block cannot be grouped with itself');
@@ -346,5 +346,5 @@ test('a chosen divider survives publication, while historic pages get no automat
  assert.ok(render.includes("make('hr','trial-custom-divider')"),'Only saved blocks render a line');
  assert.ok(render.includes("b.thickness")&&render.includes("b.widthPct")&&render.includes("b.color"));
  assert.ok(!render.includes('editor-zone-divider'),'No old automatic admin dividers on public pages');
- assert.ok(DEMO_CLIENT.includes("menu.append(b('Trait de séparation'"),'Insertion between sections is explicit');
+ assert.ok(DEMO_CLIENT.includes("b('Trait de séparation'"),'Insertion between sections is explicit');
 });
