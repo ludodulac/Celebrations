@@ -280,14 +280,61 @@ test('drag handle is available on original blocks and never publishes or autosav
  assert.doesNotMatch(logic,/serverSave\(/,'Drag and drop does not write immediately to the server');
 });
 
-test('editor zones have a centered grey line only between top-level sections',()=>{
- const section=DEMO_CLIENT.slice(DEMO_CLIENT.indexOf("const outer=n('div','canvas-wrap')"),
+
+test('automatic separators are absent; an optional thin divider can be inserted and styled',()=>{
+ const body=DEMO_CLIENT.slice(DEMO_CLIENT.indexOf("const outer=n('div','canvas-wrap')"),
   DEMO_CLIENT.indexOf('outer.append(canvas);right.append(outer);'));
- assert.ok(section.includes("if(index<p.blocks.length-1)"),'No leading or trailing divider');
- assert.ok(section.includes("if(!preview)"),'Dividers only exist in editing mode');
- assert.ok(section.includes("n('div','editor-zone-divider')"),'The divider is purely visual');
- assert.ok(section.includes("setAttribute('aria-hidden','true')"),'Screen readers ignore visual decoration');
- assert.ok(DEMO_CSS.includes('.canvas>.editor-zone-divider'));
- assert.match(DEMO_CSS,/width:min\(68%,480px\)/,'The line is not full width');
- assert.match(DEMO_CSS,/background:#798188/,'Dark grey, non-decorative line');
+ assert.doesNotMatch(body,/n\('div','editor-zone-divider'\)/,'No forced separators');
+ assert.ok(DEMO_CLIENT.includes("b('Trait de séparation'"),'Users can add a divider');
+ assert.ok(DEMO_CLIENT.includes("kind==='divider'"),'Editor supports divider blocks');
+ assert.ok(DEMO_CLIENT.includes("thickness:1,widthPct:60"),'1px and 60% are the defaults');
+ for(const label of ['Couleur du trait de séparation','Épaisseur du trait de séparation',
+  'Longueur du trait de séparation'])assert.ok(DEMO_CLIENT.includes(label),label);
+ const i=DEMO_CLIENT.indexOf("function createContent(kind)");
+ const j=DEMO_CLIENT.indexOf("function add(kind)",i);
+ const env={uniqueBlockId:()=>345,STARTER_TEXT:{}};
+ vm.runInNewContext(DEMO_CLIENT.slice(i,j)+'this.create=createContent;',env);
+ const d=env.create('divider');
+ assert.equal(d.kind,'divider');assert.equal(d.thickness,1);
+ assert.equal(d.widthPct,60);assert.equal(d.color,'#858c94');
+ assert.ok(DEMO_CSS.includes('.custom-divider-preview'));
+ assert.ok(DEMO_CSS.includes('.block.is-selected>.custom-divider-settings'));
+});
+
+test('dragging one block into an existing standalone block groups content without copying it',()=>{
+ const start=DEMO_CLIENT.indexOf('function editorElementLocation(');
+ const end=DEMO_CLIENT.indexOf('let editorDragState=',start);
+ const env={uniqueBlockId:()=>9090};
+ vm.runInNewContext(DEMO_CLIENT.slice(start,end)+
+  'this.group=moveEditorIntoBlock;this.move=moveEditorElement;',env);
+ const photo={id:21,kind:'image',src:'/media/old.jpg',widthPct:45};
+ const text={id:22,kind:'text',rich:'<em>Texte important</em>'};
+ const section={id:13,kind:'section',layout:'single',columns:[[photo],[]]};
+ const title={id:17,kind:'heading',text:'Bienvenue'};
+ const page={blocks:[section,title,text]};
+ assert.equal(env.group(page,21,17,true),true);
+ assert.equal(page.blocks.length,2);
+ const group=page.blocks[0];
+ assert.equal(group.kind,'section');assert.equal(group.layout,'single');
+ assert.strictEqual(group.columns[0][0],title);
+ assert.strictEqual(group.columns[0][1],photo);
+ assert.equal(group.columns[0][1].widthPct,45);
+ assert.equal(group.columns[0][0].text,'Bienvenue');
+ assert.equal(env.group(page,22,17,true),false,
+  'A grouped element is no longer a root standalone drop target');
+ assert.equal(env.move(page,22,String(group.id),0,21,true),true);
+ assert.deepEqual(group.columns[0].map(x=>x.id),[17,21,22]);
+ assert.equal(group.columns[0][2].rich,'<em>Texte important</em>');
+ assert.equal(page.blocks.length,1,'No empty phantom blocks are inserted');
+ assert.equal(env.group(page,22,22,true),false,'A block cannot be grouped with itself');
+});
+
+test('direct block dragging and drop-into-target are separate from text editing',()=>{
+ assert.ok(DEMO_CLIENT.includes('enableDirectBlockDragging(box,x,p)'));
+ assert.ok(DEMO_CLIENT.includes("const picture=e.target.closest('.picture,.video-preview,.custom-divider-preview')"));
+ assert.ok(DEMO_CLIENT.includes("if(editor&&document.activeElement===editor)return"));
+ assert.ok(DEMO_CLIENT.includes("moveEditorIntoBlock(state.page,state.sourceId"));
+ assert.ok(DEMO_CLIENT.includes("editor-drop-into"));
+ assert.ok(DEMO_CSS.includes('.block.editor-drop-into'));
+ assert.ok(DEMO_CSS.includes('opacity:.94!important'));
 });
