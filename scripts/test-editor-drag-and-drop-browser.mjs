@@ -217,5 +217,6 @@ try{
 }finally{await browser.close()}
 
 // Verify the exact editor state after a save, including low browser-storage space.
+// Gate production on a syntactically valid save client and full HTTP roundtrip.
 // Saving must be proven by actual browser POST -> GET -> reload, not by a mock success response alone.
 await import('./test-editor-save-reload-browser.mjs');
