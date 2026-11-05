@@ -54,28 +54,8 @@ try{
   await section.waitFor();
   const sectionId=await section.getAttribute('data-section-id');
   assert.equal(await section.locator('.section-column').count(),2);
-  const blockCount=await page.locator('.canvas>.block,.canvas>.content-section').count();
-  const dividers=page.locator('.canvas>.editor-zone-divider');
-  assert.ok(blockCount>=2,'There are multiple original content areas');
-  assert.equal(await dividers.count(),blockCount-1,
-   'Exactly one separator between every pair of full-width editor zones');
-  const dividerMetrics=await dividers.first().evaluate(el=>{
-   const canvas=el.closest('.canvas'),style=getComputedStyle(el),
-    bounds=el.getBoundingClientRect(),container=canvas.getBoundingClientRect();
-   return {lineWidth:bounds.width,canvasWidth:container.width,lineHeight:bounds.height,
-    color:style.backgroundColor,previous:el.previousElementSibling?.className,
-    next:el.nextElementSibling?.className};
-  });
-  assert.ok(dividerMetrics.lineWidth>80&&dividerMetrics.lineWidth<dividerMetrics.canvasWidth*.9,
-   'A visible divider stays shorter than the content canvas');
-  assert.ok(dividerMetrics.lineHeight>=2&&dividerMetrics.lineHeight<=3,
-   'A simple thin horizontal line, not a large panel');
-  assert.match(dividerMetrics.color,/rgb\(121, 129, 136\)/,
-   'Grey divider is visible on both sizes');
-  assert.match(dividerMetrics.previous,/block|content-section/,
-   'The previous node is a full content zone');
-  assert.match(dividerMetrics.next,/section-insert/,
-   'The existing insert button remains separate and usable');
+  assert.equal(await page.locator('.canvas>.editor-zone-divider').count(),0,
+   'Automatic grey lines must not be inserted between zones');
   const right=section.locator('.section-column').nth(1);
   const handle=page.locator('.canvas>.block[data-id="'+blockId+'"]>.editor-move-handle');
   assert.equal(await handle.count(),1,'Existing content has a dedicated move handle');
@@ -149,6 +129,63 @@ try{
     .locator('.block[data-id="'+blockId+'"]').count(),1);
   }
 
+  if(width===1280){
+   // Drop one ACTUAL historical element into the center of another standalone
+   // content block. This used to drop only above or below that element.
+   const standalones=page.locator('.canvas>.block[data-id]');
+   assert.ok(await standalones.count()>=2,
+    'Historical content has at least two standalone blocks to reorganize');
+   const source=standalones.first(),target=standalones.nth(1);
+   const movedId=await source.getAttribute('data-id');
+   const targetId=await target.getAttribute('data-id');
+   const srcKind=await source.getAttribute('data-kind');
+   const srcText=await source.locator('.ed').first().innerHTML().catch(()=>'');
+   const sourceSurface=source.locator('.ed,.picture,.video-preview').first();
+   assert.ok(await sourceSurface.count()>0,'The source has a directly draggable text or image');
+   await source.scrollIntoViewIfNeeded();
+   const start=await sourceSurface.boundingBox(),dest=await target.boundingBox();
+   assert.ok(start&&dest);
+   await page.mouse.move(start.x+Math.min(20,start.width/3),start.y+Math.min(15,start.height/2));
+   await page.mouse.down();
+   await page.mouse.move(dest.x+dest.width/2,dest.y+dest.height/2,{steps:20});
+   await page.mouse.up();
+   const nested=page.locator('.content-section .block[data-id="'+movedId+'"]');
+   await nested.waitFor({timeout:7000});
+   const partner=page.locator('.content-section .block[data-id="'+targetId+'"]');
+   assert.equal(await partner.count(),1,'The destination was converted into a group');
+   const common=await nested.evaluate(el=>el.closest('.content-section')?.dataset.sectionId);
+   assert.equal(await partner.evaluate(el=>el.closest('.content-section')?.dataset.sectionId),common);
+   assert.equal(await page.locator('.canvas .block[data-id="'+movedId+'"]').count(),1,
+    'Dropping directly on another block moves, never duplicates');
+   if(srcText)assert.equal(await nested.locator('.ed').first().innerHTML(),srcText,
+    'Original rich text survived the direct drag gesture');
+   console.log('EDITOR_DIRECT_DROP_INSIDE_BLOCK_PASS element='+srcKind);
+  }
+
+  // Optional divider can be added exactly where the owner chooses, not between
+  // every block. Default is thin 1px, 60% wide and grey.
+  const insert=page.locator('.canvas>.section-insert').last();
+  await insert.locator('.section-add-blue').evaluate(e=>e.click());
+  await insert.getByRole('button',{name:'Trait de séparation'}).evaluate(e=>e.click());
+  const divider=page.locator('.canvas .block[data-kind="divider"]').last();
+  await divider.waitFor();
+  await divider.locator('.custom-divider-preview').click();
+  const line=divider.locator('.custom-divider-line');
+  const before=await line.evaluate(el=>({width:el.style.width,height:el.style.height,
+   color:el.style.backgroundColor}));
+  assert.equal(before.width,'60%');assert.equal(before.height,'1px');
+  assert.ok(before.color,'Default divider color exists');
+  const dividerSettings=divider.locator('.custom-divider-settings');
+  await dividerSettings.getByRole('combobox',{name:'Épaisseur du trait de séparation'}).selectOption('3');
+  const length=dividerSettings.locator('input[type="range"]');
+  await length.evaluate(el=>{el.value='45';el.dispatchEvent(new Event('input',{bubbles:true}))});
+  const color=dividerSettings.locator('input[type="color"]');
+  await color.evaluate(el=>{el.value='#447799';el.dispatchEvent(new Event('input',{bubbles:true}))});
+  assert.equal(await line.getAttribute('style').then(x=>x.includes('width: 45%')),true);
+  assert.equal(await line.getAttribute('style').then(x=>x.includes('height: 3px')),true);
+  assert.equal(await page.locator('.canvas>.editor-zone-divider').count(),0,
+   'Inserting one optional divider must not add any automatic lines');
+
   // The move changes the private draft only. It must not publish automatically.
   assert.ok(!calls.includes('PUBLICATION'));
   assert.ok((await page.locator('#save-btn').innerText()).includes('Enregistrer'));
@@ -166,6 +203,9 @@ try{
   const savedSection=serverPage.blocks.find(b=>String(b.id)===String(sectionId));
   assert.ok(savedSection.columns.flat().some(b=>String(b.id)===String(blockId)),
    'Original block is present in the saved section');
+  const dividerSaved=allPages.some(p=>(p.blocks||[]).some(b=>
+   b.kind==='divider'&&b.thickness===3&&b.widthPct===45&&b.color==='#447799'));
+  assert.ok(dividerSaved,'The optional line settings are persisted in the private draft');
   assert.deepEqual(errors,[],'No drag gesture caused JavaScript errors');
   console.log('EDITOR_DRAG_DROP_PASS width='+width+' historical_element='+blockKind+
    ' private_saved=true mobile_long_press='+(width===390));
