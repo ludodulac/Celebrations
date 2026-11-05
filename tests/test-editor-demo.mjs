@@ -209,3 +209,18 @@ test('editor recovers hosted image when a local asset identifier is stale',()=>{
  assert.ok(DEMO_CLIENT.includes('function findImageByHeading('),'A source is matched by page and heading');
  assert.ok(DEMO_CLIENT.includes("image.src=url;delete image.assetId"),'Restoration stays explicit');
 });
+
+test('published pages can be republished after image resizing; aligner is removed',()=>{
+ const start=DEMO_CLIENT.indexOf('function publicationActions(');
+ const end=DEMO_CLIENT.indexOf('function attachPagePublicationControls(',start);
+ const section=DEMO_CLIENT.slice(start,end);
+ assert.ok(section.includes("visibility==='published'&&kind==='page'"));
+ assert.ok(section.includes("'Mettre à jour le site'"));
+ assert.ok(DEMO_CLIENT.includes("b('Publier cette taille'"));
+ assert.ok(DEMO_CLIENT.includes("serverPublish({kind:'page',pageId:p.id,visibility:'published'})"));
+ assert.ok(DEMO_CLIENT.includes('x.widthPct=Math.round(size)'));
+ assert.ok(DEMO_CLIENT.includes('input.onchange=resize'));
+ const block=DEMO_CLIENT.slice(DEMO_CLIENT.indexOf('function block('),DEMO_CLIENT.indexOf('function videoInfo('));
+ assert.ok(!block.includes("b('↔ Aligner'"),'No redundant Align button in image or linked button block');
+ assert.ok(DEMO_CSS.includes('.image-publish-size'));
+});
