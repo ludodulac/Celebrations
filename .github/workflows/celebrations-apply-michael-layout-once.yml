@@ -1,0 +1,53 @@
+name: Célébrations — réorganiser UNIQUEMENT Préparation Michaël (sauvegarde obligatoire)
+on:
+  push:
+    branches: [fix/celebrations-inline-validation-20261105]
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-visual-official-publish
+  cancel-in-progress: false
+jobs:
+  apply:
+    if: ${{ contains(github.event.head_commit.message, '[APPLY_MICHAEL_LAYOUT_ONCE]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    environment: celebrations-staging
+    env:
+      STAGING_R2_BUCKET: celebrations-exit-staging
+      STAGING_R2_ACCESS_KEY_ID: ${{ secrets.CELEBRATIONS_STAGING_R2_ACCESS_KEY_ID }}
+      STAGING_R2_SECRET_ACCESS_KEY: ${{ secrets.CELEBRATIONS_STAGING_R2_SECRET_ACCESS_KEY }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate content-preserving transformation before any remote write
+        run: |
+          set -euo pipefail
+          node --check scripts/transform-michael-preparation-page.mjs
+          node --test tests/test-editor-michael-preparation-layout.mjs
+          python -m py_compile scripts/apply-michael-preparation-layout.py
+      - name: Refuse old frontend / wrong official domain
+        shell: bash
+        run: |
+          python - <<'PY'
+          import urllib.request
+          u='https://ronde-des-archanges-universelle.eu/__editor/voir-le-site?celebration=101&page=preparation'
+          with urllib.request.urlopen(u,timeout=20) as r:
+           assert r.status==200
+           page=r.read().decode()
+          assert 'trial-document-item' in page,'The resource-aware public renderer is not yet deployed'
+          assert 'data-presentation' in page,'Resource presentation support missing'
+          print('MICHAEL_LAYOUT_FRONTEND_READY')
+          PY
+      - name: Backup exact live editor state, conditionally update Michaël ONLY and verify public rendering
+        run: |
+          python -m pip -q install boto3==1.40.57
+          python scripts/apply-michael-preparation-layout.py
