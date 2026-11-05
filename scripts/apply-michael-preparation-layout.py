@@ -10,6 +10,7 @@ Write order:
 5. Conditional If-Match write of exactly one revision, never clobbering edits.
 6. Read back every expected byte and check public endpoint renders the page.
 
+Owner-authorized release: tested resource templates on the real domain before this one-shot write.
 No media files, historic D1, authentication secrets or other celebrations change.
 """
 import os,sys,json,hashlib,subprocess,copy,datetime,time,urllib.request
