@@ -182,3 +182,16 @@ test('image editing has two distinct actions and a safe remove-image-only button
  assert.match(DEMO_CSS,/\.image-picker-dialog\[open\]/);
  assert.match(DEMO_CSS,/\.stage-editor \.block\.is-selected>\.block-validate-actions\{\s*position:fixed/);
 });
+
+test('gallery renders bounded thumbnail cards with captions and upload, distinct from site images',()=>{
+ const section=DEMO_CLIENT.slice(DEMO_CLIENT.indexOf('function showImagePicker('),
+  DEMO_CLIENT.indexOf('function createContent(kind){'));
+ assert.ok(section.includes("b('Télécharger une image'"));
+ assert.ok(section.includes("n('span','image-picker-thumbnail')"));
+ assert.ok(section.includes("n('span','image-picker-filename',name)"));
+ assert.ok(section.includes("const item=b('',onChoose,'sm image-picker-card')"));
+ assert.ok(DEMO_CSS.includes('grid-auto-rows:190px!important'));
+ assert.ok(DEMO_CSS.includes('.image-picker-dialog .image-picker-thumbnail img:not([hidden])'));
+ assert.ok(DEMO_CLIENT.includes('function removeImageFromBlock(x)'));
+ assert.ok(DEMO_CLIENT.includes("remove.dataset.action='remove-image'"));
+});
