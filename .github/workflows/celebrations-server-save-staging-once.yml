@@ -10,6 +10,7 @@ name: CELEBRATIONS SERVER SAVE - isolated staging (drafts only)
 # Editor UX: add in-place green plus to old blocks; verify photo preserved on reload.
 # Publishing lifecycle: isolate saved drafts from public pages; media links indexed globally.
 # One-off editor UX review: only the isolated staging deploy is permitted.
+# Refresh after test fixtures switched to the already-supported audio/* and video/* selectors.
 on:
   push:
     branches: [feat/celebrations-save-on-server-20261103, fix/celebrations-inline-validation-20261105]
