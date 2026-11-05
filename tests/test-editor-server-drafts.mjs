@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Script} from 'node:vm';
-import {handleServerDraft} from '../migration/cloudflare/editor-server-draft-api.mjs';
+import {handleServerDraft,refreshAlreadyPublishedPage} from '../migration/cloudflare/editor-server-draft-api.mjs';
 import {DEMO_CLIENT} from '../migration/cloudflare/editor-demo-client.mjs';
 import {TRIAL_SITE_CLIENT} from '../migration/cloudflare/editor-trial-site-client.mjs';
 import {SERVER_EDITOR_SYNC,SERVER_PREVIEW_PREFETCH} from '../migration/cloudflare/editor-server-sync-client.mjs';
@@ -83,6 +83,60 @@ test('rejects oversized, cross-celebration and malformed drafts without writing'
  const empty=await handleServerDraft(req('GET','/api/editor-server-draft?celebration=101'),e);
  assert.equal((await empty.json()).revision,0);
 });
+test('Enregistrer republishes only an existing visible page, preserving unrelated drafts and pages',()=>{
+ const live=(id,text,visibility='published')=>({id,group:'celebration',name:id,visibility,
+  blocks:[{id:1,kind:'text',text}]});
+ const published={
+  shared:{pages:[{id:'neutral-accueil-general',group:'page',name:'Accueil',visibility:'published',blocks:[{id:1,kind:'text',text:'Ancien accueil'}]}],
+   homeId:'neutral-accueil-general'},
+  drafts:{'101':{pages:[live('mercredi-101','Ancienne conférence'),live('jeudi-101','Autre événement')],
+    celebrationDates:{wednesday:'2026-11-04'},celebrationTimes:{mercredi:'16:00'}}},
+  plans:[],celebrationVisibility:{}
+ };
+ const state={published};
+ const record={pages:[live('mercredi-101','Conférence corrigée'),live('jeudi-101','Brouillon différent')],
+  celebrationDates:{wednesday:'2026-11-11'},celebrationTimes:{mercredi:'17:00'}};
+ const shared={pages:[{id:'neutral-accueil-general',group:'page',name:'Accueil',
+  visibility:'published',blocks:[{id:1,kind:'text',text:'Nouvel accueil'}]}],homeId:'neutral-accueil-general'};
+ assert.equal(refreshAlreadyPublishedPage(state,record,shared,'101','mercredi-101'),true);
+ assert.equal(state.published.drafts['101'].pages[0].blocks[0].text,'Conférence corrigée');
+ assert.equal(state.published.drafts['101'].pages[1].blocks[0].text,'Autre événement',
+  'An unrelated unpublished edit must not reach the site');
+ assert.equal(state.published.drafts['101'].celebrationDates.wednesday,'2026-11-11');
+ assert.equal(state.published.shared.pages[0].blocks[0].text,'Ancien accueil');
+ assert.equal(refreshAlreadyPublishedPage(state,record,shared,'101','neutral-accueil-general'),true);
+ assert.equal(state.published.shared.pages[0].blocks[0].text,'Nouvel accueil');
+});
+
+test('Auto-publication never exposes a hidden, draft or absent page',()=>{
+ const p=(id,visibility)=>({id,group:'celebration',name:id,visibility,blocks:[{kind:'text',text:'Public'}]});
+ const old=p('mercredi-101','published');
+ const prior=p('jeudi-101','draft');
+ const state={published:{shared:{pages:[],homeId:''},drafts:{'101':{pages:[old,prior] }},plans:[],celebrationVisibility:{}}};
+ const record={pages:[p('mercredi-101','hidden'),p('jeudi-101','published'),p('vendredi-101','published')]};
+ assert.equal(refreshAlreadyPublishedPage(state,record,{pages:[]},'101','mercredi-101'),false);
+ assert.equal(refreshAlreadyPublishedPage(state,record,{pages:[]},'101','jeudi-101'),false);
+ assert.equal(refreshAlreadyPublishedPage(state,record,{pages:[]},'101','vendredi-101'),false);
+ assert.equal(state.published.drafts['101'].pages[0].blocks[0].text,'Public');
+ state.published.celebrationVisibility['101']='hidden';
+ record.pages[0].visibility='published';
+ assert.equal(refreshAlreadyPublishedPage(state,record,{pages:[]},'101','mercredi-101'),false);
+});
+
+test('Staging save never publishes even when a page is requested for publication',async()=>{
+ const e=env();
+ const request=new Request(origin+'/api/editor-open-draft',{method:'POST',
+  headers:{origin,'content-type':'application/json'},
+  body:JSON.stringify({...body,publishPageId:'mercredi-101'})});
+ const saved=await handleServerDraft(request,e);
+ assert.equal(saved.status,200);
+ assert.equal((await saved.json()).publishedPageId,null);
+ const invalid=new Request(origin+'/api/editor-open-draft',{method:'POST',
+  headers:{origin,'content-type':'application/json'},
+  body:JSON.stringify({...body,expectedRevision:1,publishPageId:'mercredi-999'})});
+ assert.equal((await handleServerDraft(invalid,e)).status,400);
+});
+
 test('generated editor and preview scripts parse with required integration hooks',()=>{
  const editor=DEMO_CLIENT
   .replace("(()=>{'use strict';","(async()=>{'use strict';")
