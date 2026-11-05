@@ -12,7 +12,7 @@ export async function handleTrialSite(request,env){
  if(request.method!=='GET'&&request.method!=='HEAD')return new Response('Method not allowed',{status:405});
  if(!env.DB)return new Response('Site d’essai momentanément indisponible',{status:503});
  const slug=url.searchParams.get('page');
- if(slug&&slug!=='celebrations'&&slug!=='mediatheque'&&!STAGES.some(p=>p.slug===slug)&&slug!=='neutral-accueil-general'&&!/^neutral-[0-9a-f-]{30,45}$/.test(slug)&&!/^extra-[0-9a-f-]{30,45}$/.test(slug))return new Response('Étape introuvable',{status:404});
+ if(slug&&slug!=='celebrations'&&slug!=='mediatheque'&&slug!=='mediatheque-generale'&&!STAGES.some(p=>p.slug===slug)&&slug!=='neutral-accueil-general'&&!/^neutral-[0-9a-f-]{30,45}$/.test(slug)&&!/^extra-[0-9a-f-]{30,45}$/.test(slug))return new Response('Étape introuvable',{status:404});
  let result;
  try{result=await loadSevenStageContent(env,url.searchParams.get('celebration'))}
  catch{return new Response('Célébration introuvable',{status:404,headers:{'cache-control':'no-store'}})}
