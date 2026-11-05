@@ -279,3 +279,15 @@ test('drag handle is available on original blocks and never publishes or autosav
  assert.doesNotMatch(logic,/serverPublish\(/,'Drag and drop must never publish a page');
  assert.doesNotMatch(logic,/serverSave\(/,'Drag and drop does not write immediately to the server');
 });
+
+test('editor zones have a centered grey line only between top-level sections',()=>{
+ const section=DEMO_CLIENT.slice(DEMO_CLIENT.indexOf("const outer=n('div','canvas-wrap')"),
+  DEMO_CLIENT.indexOf('outer.append(canvas);right.append(outer);'));
+ assert.ok(section.includes("if(index<p.blocks.length-1)"),'No leading or trailing divider');
+ assert.ok(section.includes("if(!preview)"),'Dividers only exist in editing mode');
+ assert.ok(section.includes("n('div','editor-zone-divider')"),'The divider is purely visual');
+ assert.ok(section.includes("setAttribute('aria-hidden','true')"),'Screen readers ignore visual decoration');
+ assert.ok(DEMO_CSS.includes('.canvas>.editor-zone-divider'));
+ assert.match(DEMO_CSS,/width:min\(68%,480px\)/,'The line is not full width');
+ assert.match(DEMO_CSS,/background:#798188/,'Dark grey, non-decorative line');
+});
