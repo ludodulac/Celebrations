@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readEditorState,publicSnapshot,discoverMedia,handleEditorPublication,
- handleEditorMedia} from '../migration/cloudflare/editor-publication-api.mjs';
+import {readEditorState,publicSnapshot,discoverMedia,publishedMedia,publicHistoricalMedia,
+ mergePublicMedia,handleEditorPublication,handleEditorMedia} from '../migration/cloudflare/editor-publication-api.mjs';
 import {handleServerDraft} from '../migration/cloudflare/editor-server-draft-api.mjs';
 
 const host='https://www.ronde-des-archanges-universelle.eu';
@@ -156,4 +156,65 @@ test('media index excludes arbitrary link buttons and tracks general/draft/publi
  assert.ok(result.find(x=>x.src.endsWith('still-online.jpg'))?.uses.length===1,
   'A published-only media remains listed as in use');
  assert.ok(result.find(x=>x.src==='https://example.org/existing.pdf')?.uses.length===1);
+});
+
+test('visitor general media includes all published page files, not draft uploads or buttons',()=>{
+ const state=initial();
+ state.drafts['101'].pages[0].blocks.push({id:'public-pdf',kind:'button',text:'PDF',
+  href:'/media/public-programme.pdf'});
+ state.drafts['101'].pages[1].blocks.push({id:'private-image',kind:'image',
+  src:'/media/never-show-draft.jpg'});
+ state.shared.pages[1].blocks.push({id:'hidden-file',kind:'image',src:'/media/hidden-shared.jpg'});
+ state.mediaCatalogue=[
+  {type:'image',src:'/media/new/unpublished-upload.jpg',name:'Private upload',general:false},
+  {type:'audio',src:'https://example.org/public-audio.mp3',name:'Shared audio',general:true}
+ ];
+ const media=publicSnapshot(state,'101').media;
+ assert.ok(media.some(m=>m.type==='image'&&m.src==='/media/media/historical.jpg'),
+  'Published celebration photo appears by default');
+ assert.ok(media.some(m=>m.type==='pdf'&&m.src==='/media/public-programme.pdf'));
+ assert.ok(media.some(m=>m.src==='https://example.org/public-audio.mp3'));
+ assert.ok(!media.some(m=>m.src.includes('unpublished-upload')));
+ assert.ok(!media.some(m=>m.src.includes('never-show-draft')));
+ assert.ok(!media.some(m=>m.src.includes('hidden-shared')));
+});
+test('historic public D1 files from all published celebrations are included, without private or hidden pages',async()=>{
+ const state=initial();
+ state.drafts['101'].pages.push({id:'samedi-101',name:'Samedi',group:'celebration',
+  visibility:'hidden',blocks:[]});
+ state.drafts['202']={pages:[{id:'preparation-202',name:'Préparation',group:'celebration',
+  blocks:[]}]};
+ state.shared.celebrationVisibility={'202':'hidden'};
+ const publicContent=[
+  {celebration_id:101,step_key:'mercredi-101',name:'Archive PDF',
+   source_type:'file',storage_path:'media/archives/programme.pdf'},
+  {celebration_id:101,step_key:'mercredi-101',name:'Chant',
+   source_type:'file',storage_path:'media/archives/chant.mp3'},
+  {celebration_id:101,step_key:'mercredi-101',name:'Dossier texte',
+   source_type:'file',storage_path:'media/documents/explications.txt'},
+  {celebration_id:101,step_key:'mercredi-101',name:'Photo',
+   source_type:'file',storage_path:'media/galerie/photo.jpg',has_cover:1,
+   cover_storage_path:'media/galerie/couverture.jpg'},
+  {celebration_id:101,step_key:'mercredi-101',name:'Chant vidéo',
+   content_type:'Video',source_type:'url',external_url:'https://youtu.be/dQw4w9WgXcQ'},
+  {celebration_id:101,step_key:'samedi-101',name:'Image cachée',
+   source_type:'file',storage_path:'media/cache.jpg'},
+  {celebration_id:202,step_key:'preparation-202',name:'Célébration masquée',
+   source_type:'file',storage_path:'media/secret.jpg'},
+  {celebration_id:101,step_key:'mercredi-101',name:'Comité interne',
+   source_type:'file',storage_path:'committee/private.pdf'}
+ ];
+ const db={prepare(sql){return {all:async()=>({results:
+  sql.includes('FROM celebrations_event_contents')?publicContent:[]})}}};
+ const historic=await publicHistoricalMedia(db,state);
+ for(const name of ['Archive PDF','Chant','Dossier texte','Photo','Chant vidéo'])
+  assert.ok(historic.some(x=>x.name===name),name);
+ assert.ok(historic.some(x=>x.src.endsWith('couverture.jpg')),'A cover is an actual image file');
+ assert.ok(historic.some(x=>x.type==='file'&&x.src.endsWith('.txt')),'Text file is not inline text');
+ assert.ok(!historic.some(x=>x.src.includes('cache.jpg')));
+ assert.ok(!historic.some(x=>x.src.includes('secret.jpg')));
+ assert.ok(!historic.some(x=>x.src.includes('private.pdf')));
+ assert.ok(historic.every(x=>x.uses.length>0));
+ const merged=mergePublicMedia(publishedMedia(state),historic,historic);
+ assert.equal(merged.filter(x=>x.src.endsWith('programme.pdf')).length,1,'URLs de-duplicated');
 });
