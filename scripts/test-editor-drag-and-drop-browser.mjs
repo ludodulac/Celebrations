@@ -54,6 +54,28 @@ try{
   await section.waitFor();
   const sectionId=await section.getAttribute('data-section-id');
   assert.equal(await section.locator('.section-column').count(),2);
+  const blockCount=await page.locator('.canvas>.block,.canvas>.content-section').count();
+  const dividers=page.locator('.canvas>.editor-zone-divider');
+  assert.ok(blockCount>=2,'There are multiple original content areas');
+  assert.equal(await dividers.count(),blockCount-1,
+   'Exactly one separator between every pair of full-width editor zones');
+  const dividerMetrics=await dividers.first().evaluate(el=>{
+   const canvas=el.closest('.canvas'),style=getComputedStyle(el),
+    bounds=el.getBoundingClientRect(),container=canvas.getBoundingClientRect();
+   return {lineWidth:bounds.width,canvasWidth:container.width,lineHeight:bounds.height,
+    color:style.backgroundColor,previous:el.previousElementSibling?.className,
+    next:el.nextElementSibling?.className};
+  });
+  assert.ok(dividerMetrics.lineWidth>80&&dividerMetrics.lineWidth<dividerMetrics.canvasWidth*.9,
+   'A visible divider stays shorter than the content canvas');
+  assert.ok(dividerMetrics.lineHeight>=2&&dividerMetrics.lineHeight<=3,
+   'A simple thin horizontal line, not a large panel');
+  assert.match(dividerMetrics.color,/rgb\(121, 129, 136\)/,
+   'Grey divider is visible on both sizes');
+  assert.match(dividerMetrics.previous,/block|content-section/,
+   'The previous node is a full content zone');
+  assert.match(dividerMetrics.next,/section-insert/,
+   'The existing insert button remains separate and usable');
   const right=section.locator('.section-column').nth(1);
   const handle=page.locator('.canvas>.block[data-id="'+blockId+'"]>.editor-move-handle');
   assert.equal(await handle.count(),1,'Existing content has a dedicated move handle');
