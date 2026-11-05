@@ -6,6 +6,7 @@ name: CÉLÉBRATIONS — publier interface visuelle sans changer domaine et lien
 # User-approved in-admin guide: all editor controls, mobile search, no data changes.
 # Nov 5 explicit owner request: use the real official site, not the demo/staging domain.
 # Single safeguarded production UX release, preserving shared R2 drafts and historic media.
+# Owner-requested compact publication status dots (green/orange/grey), original 230px sidebar.
 on:
   push:
     branches: [feat/celebrations-save-on-server-20261103, fix/celebrations-inline-validation-20261105]
