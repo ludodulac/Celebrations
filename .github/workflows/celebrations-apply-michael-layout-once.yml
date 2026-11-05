@@ -34,12 +34,12 @@ jobs:
           node --check scripts/transform-michael-preparation-page.mjs
           node --test tests/test-editor-michael-preparation-layout.mjs
           python -m py_compile scripts/apply-michael-preparation-layout.py
-      - name: Refuse old frontend / wrong official domain
+      - name: Check the public frontend without entering the password-protected admin preview
         shell: bash
         run: |
           python - <<'PY'
           import urllib.request
-          u='https://ronde-des-archanges-universelle.eu/__editor/voir-le-site?celebration=101&page=preparation'
+          u='https://ronde-des-archanges-universelle.eu/'
           with urllib.request.urlopen(u,timeout=20) as r:
            assert r.status==200
            page=r.read().decode()
