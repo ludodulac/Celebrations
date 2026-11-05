@@ -40,6 +40,10 @@ name: CÉLÉBRATIONS — publier interface visuelle sans changer domaine et lien
 # 2026-11-05 visitor experience: both galleries display Images, Audios, Vidéos,
 # Documents only; 4 image columns on desktop; restore photos obscured by stale
 # browser assetId without silently altering the saved draft. Verify before live.
+# Owner request: saving an existing public page must also republish ONLY that
+# page in the same authenticated conditional R2 write. Draft/hidden pages stay
+# private, and staging remains non-publishing. Video titles are small captions
+# under their thumbnail, not framed buttons. Check both before live deployment.
 on:
   push:
     branches: [feat/celebrations-save-on-server-20261103, fix/celebrations-inline-validation-20261105]
@@ -126,6 +130,7 @@ jobs:
           node --check scripts/test-editor-drag-and-drop-browser.mjs
           node --test tests/test-editor-demo.mjs
           node --test tests/test-editor-server-drafts.mjs
+          node --test tests/test-editor-trial-site.mjs
           node --test tests/test-editor-publication-media.mjs
           node scripts/check-staging-d1-free-budget.mjs pre
       - name: Archive exact latest editor snapshot in private R2 (never overwrite)
