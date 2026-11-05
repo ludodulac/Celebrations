@@ -95,6 +95,36 @@ try{
   await unreferenced.waitFor();
   assert.equal(await unreferenced.locator('.media-unused-ribbon').innerText(),'Inutilisé');
   assert.equal(await page.locator('.global-media-card').filter({hasText:'Bouton navigation'}).count(),0);
+  // Editing a large photo must not hide the confirmation controls as the
+  // editor is scrolled, nor must a modal exceed the zoomed viewport.
+  await page.locator('button[data-tab="pages"]').click();
+  const imageBlock=page.locator('.canvas .block').filter({has:page.locator('.picture img')}).first();
+  await imageBlock.waitFor();
+  await imageBlock.locator('.picture').click();
+  assert.equal(await imageBlock.getByRole('button',{name:'Télécharger une image'}).count(),1);
+  assert.equal(await imageBlock.getByRole('button',{name:'Images du site'}).count(),1);
+  assert.equal(await imageBlock.getByRole('button',{name:'Choisir une image'}).count(),0);
+  await imageBlock.getByRole('button',{name:'Images du site'}).click();
+  const picker=page.locator('.image-picker-dialog');
+  await picker.waitFor();
+  const bounds=await picker.evaluate(e=>{
+    const r=e.getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:innerHeight}
+  });
+  assert.ok(bounds.top>=-1&&bounds.bottom<=bounds.height+1,'Image modal stays inside viewport');
+  await picker.getByRole('button',{name:'Fermer la fenêtre'}).click();
+  await picker.waitFor({state:'detached'});
+  await page.evaluate(()=>window.scrollTo(0,document.body.scrollHeight));
+  const validate=imageBlock.getByRole('button',{name:'Valider cet élément et enregistrer le brouillon'});
+  await validate.waitFor({state:'visible'});
+  const confirmBox=await validate.evaluate(e=>{
+    const r=e.getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:innerHeight}
+  });
+  assert.ok(confirmBox.top>=-1&&confirmBox.bottom<=confirmBox.height+1,
+    'Validate stays visible after scrolling a selected photo');
+  page.once('dialog',d=>d.accept());
+  await imageBlock.getByRole('button',{name:'Supprimer l’image'}).click();
+  assert.equal(await imageBlock.locator('.picture img').count(),0,'Image removed without deleting block');
+  assert.ok(await imageBlock.locator('.picture').count()>0,'Empty image block retained for a replacement');
   assert.deepEqual(logs,[],'No console page errors');
   console.log('EDITOR_PUBLICATION_MEDIA_UI_PASS',JSON.stringify({width,createdDraft:true,
    published:true,hidden:true,celebrationControls:true,globalLibrary:true,
