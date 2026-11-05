@@ -36,42 +36,69 @@ const validWeb=url=>{
  if(/^https:\/\//i.test(s)){try{const u=new URL(s);return u.username||u.password?'':u.href}catch{return ''}}
  return /^\/(?:media|letter|api\/editor-media\/file)\/[^?#\s.][^?#\s]*$/i.test(s)&&!s.includes('..')?s:'';
 };
+// Only actual files and video/image/audio resources belong in the media library.
+// Navigation links and arbitrary buttons are content, never separate media.
 function classify(block,src){
  if(block.kind==='video')return 'video';
  if(block.kind==='image')return 'image';
  if(block.kind==='audio')return 'audio';
  if(block.kind==='button'){
   if(/\.pdf(?:[?#]|$)/i.test(src))return 'pdf';
-  if(/\.(?:mp3|wav|ogg)(?:[?#]|$)/i.test(src))return 'audio';
-  if(/\.(?:jpe?g|png|webp|gif)(?:[?#]|$)/i.test(src))return 'image';
-  return 'link';
+  if(/\.(?:mp3|wav|ogg|m4a|opus|flac)(?:[?#]|$)/i.test(src))return 'audio';
+  if(/\.(?:jpe?g|png|webp|gif|svg|avif)(?:[?#]|$)/i.test(src))return 'image';
+  if(/\.(?:mp4|webm|mov)(?:[?#]|$)/i.test(src))return 'video';
  }
  return null;
 }
 const sourceOf=b=>b.kind==='video'||b.kind==='button'?b.href:b.src;
-function scanBlocks(blocks,into){
+function mediaUsage(page,celebrationId){
+ const shared=page.group==='page';
+ const suffix='-'+celebrationId;
+ return {pageId:page.id,pageName:String(page.name||'Page').slice(0,180),
+  celebrationId:shared?'':celebrationId,
+  slug:shared?page.id:(String(page.id).endsWith(suffix)?page.id.slice(0,-suffix.length):page.id),
+  group:shared?'page':'celebration'};
+}
+function scanBlocks(blocks,into,page,celebrationId){
  for(const block of blocks||[]){
   if(block.kind==='section'){
-   for(const column of block.columns||[])scanBlocks(column,into);
+   for(const column of block.columns||[])scanBlocks(column,into,page,celebrationId);
    continue;
   }
   const url=validWeb(sourceOf(block)),type=classify(block,url);
   if(!url||!type)continue;
   const key=type+'|'+url;
-  if(!into.has(key))into.set(key,{id:key,type,src:url,
+  let record=into.get(key);
+  if(!record){
+   record={id:key,type,src:url,
     name:String(block.text||block.title||url.split('/').pop()||'Média').slice(0,120),
-    source:url.startsWith('/media/new/')?'uploaded':'link',
-    general:false});
+    source:url.startsWith('/media/new/')?'uploaded':url.startsWith('/media/')?'historical':'link',
+    general:false,uses:[]};
+   into.set(key,record);
+  }
+  if(page&&page.id){
+   const use=mediaUsage(page,celebrationId);
+   if(!record.uses.some(x=>x.pageId===use.pageId&&x.celebrationId===use.celebrationId))
+    record.uses.push(use);
+  }
  }
 }
 export function discoverMedia(state){
  const index=new Map();
  for(const r of state.mediaCatalogue||[]){
-  if(r&&['image','video','pdf','audio','link'].includes(r.type)&&validWeb(r.src))
-   index.set(r.type+'|'+validWeb(r.src),{...r,id:r.type+'|'+validWeb(r.src)});
+  if(r&&['image','video','pdf','audio'].includes(r.type)&&validWeb(r.src)){
+   const src=validWeb(r.src);
+   index.set(r.type+'|'+src,{...r,id:r.type+'|'+src,uses:[]});
+  }
  }
- for(const p of state.shared?.pages||[])scanBlocks(p.blocks,index);
- for(const d of Object.values(state.drafts||{}))for(const p of d?.pages||[])scanBlocks(p.blocks,index);
+ for(const p of state.shared?.pages||[])scanBlocks(p.blocks,index,p,'');
+ for(const [id,draft] of Object.entries(state.drafts||{}))
+  for(const p of draft?.pages||[])scanBlocks(p.blocks,index,p,id);
+ // An older published revision can still display a file removed from its draft.
+ // Count this use too, so files visible to visitors are never marked 'unused'.
+ for(const p of state.published?.shared?.pages||[])scanBlocks(p.blocks,index,p,'');
+ for(const [id,draft] of Object.entries(state.published?.drafts||{}))
+  for(const p of draft?.pages||[])scanBlocks(p.blocks,index,p,id);
  return [...index.values()].slice(0,1800);
 }
 export function initialPublication(state){
@@ -201,7 +228,7 @@ export async function handleEditorMedia(request,env){
  const action=url.searchParams.get('action');
  if(action==='external'){
   let input;try{input=await request.json()}catch{return err('JSON invalide',400)}
-  if(!input||!allowedUrl(input.src)||!['image','video','pdf','audio','link'].includes(input.type))return err('Lien invalide',400);
+  if(!input||!allowedUrl(input.src)||!['image','video','pdf','audio'].includes(input.type))return err('Lien invalide',400);
   const current=await readEditorState(env.EDITOR_BUCKET);
   const state=copy(current.state);
   const items=discoverMedia(state),id=input.type+'|'+input.src;
