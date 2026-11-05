@@ -8,6 +8,7 @@ const browser=await chromium.launch();
 try{
  const context=await browser.newContext({viewport:{width:1280,height:860}});
  const page=await context.newPage();page.setDefaultTimeout(18000);
+ page.on('dialog',dialog=>dialog.accept());
  const errors=[];page.on('pageerror',e=>errors.push(String(e)));
  let version=0,record=null,plans=[],shared={pages:[],homeId:'neutral-accueil-general'};
  let posts=0,reloads=0,failed=false,forceConflict=false;
@@ -52,7 +53,7 @@ try{
  await page.locator('button[data-tab="pages"]').click();
  await page.locator('.canvas .block[data-kind="text"],.canvas .block[data-kind="heading"]').first().waitFor();
  const editable=page.locator('.canvas>.block .ed[contenteditable="true"]').first();
- const source=editable.locator('xpath=..'),blockId=await source.getAttribute('data-id');
+ const blockId=await editable.evaluate(el=>el.closest('.block')?.dataset.id);
  assert.ok(blockId,'The editable historical block has an ID');
  const sentinel='Enregistrement réel contrôlé — ' + Date.now();
  await editable.fill(sentinel);
@@ -90,7 +91,6 @@ try{
  assert.ok(await page.locator('#save-btn.save-failed').count()>0);
  const pending=await page.evaluate(()=>JSON.parse(localStorage.getItem('celebrations-demo-preparation-101')||'{}')._serverPending);
  assert.equal(pending,true,'Failed write is explicitly retained locally');
- page.on('dialog',d=>d.accept());
  await page.reload({waitUntil:'domcontentloaded'});
  await page.locator('button[data-tab="pages"]').click();
  assert.equal(await page.locator('.canvas .block[data-id="'+blockId+'"] .ed').innerText(),
