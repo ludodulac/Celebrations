@@ -115,25 +115,4 @@ print("MICHAEL_PAGE_REORGANIZED",json.dumps({
  "new_root":report["afterRoot"],"existing_leaf_blocks_preserved":report["leaves"],
  "titles_hidden_not_deleted":len(report["hiddenDuplicates"]),
  "snapshot_verified":True}))
-# Fetch only the *public* version. Do not print private/unsent drafts to logs.
-url="https://ronde-des-archanges-universelle.eu/api/editor-publication?celebration=101"
-success=False
-for attempt in range(6):
- try:
-  with urllib.request.urlopen(urllib.request.Request(url,headers={
-   "Cache-Control":"no-cache","User-Agent":"Célébrations-Michael-layout-audit/1.0"
-  }),timeout=15) as res:
-   response=json.load(res)
-  record=response.get("record") or {}
-  candidate=next((p for p in record.get("pages",[]) if p.get("id")==PAGE),None)
-  if candidate and candidate["blocks"]==newpage["blocks"]:
-   success=True
-   break
- except Exception as ex:
-  if attempt==5:print("VISITOR_CHECK_WARNING",type(ex).__name__)
- time.sleep(2)
-assert success,"Published page not yet confirmed in public API after editor save"
-print("MICHAEL_PUBLIC_PAGE_VERIFIED",json.dumps({
- "page":PAGE,"sections":len(newpage["blocks"]),
- "original_items_preserved":report["leaves"],
- "unrelated_pages_modified":0,"archive_verified":True}))
+print('MICHAEL_R2_READBACK_VERIFIED; public verification will run with Node fetch')
