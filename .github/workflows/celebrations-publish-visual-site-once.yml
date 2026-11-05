@@ -27,6 +27,9 @@ name: CÉLÉBRATIONS — publier interface visuelle sans changer domaine et lien
 # User reported videos missing and image-size edits not reaching live site.
 # Candidate must verify genuine historical video links, explicit republish of
 # already published pages, and an image resized to 40% in the saved snapshot.
+# Owner approved drag-and-drop of existing text/images/video between standalone
+# blocks and one/two-column sections. Reorder only in the private draft,
+# preserve block identity and test browser mouse + touch long press before live.
 # 2026-11-05 visitor experience: both galleries display Images, Audios, Vidéos,
 # Documents only; 4 image columns on desktop; restore photos obscured by stale
 # browser assetId without silently altering the saved draft. Verify before live.
@@ -113,6 +116,7 @@ jobs:
           node --check scripts/verify-visual-publishing-browser.mjs
           node --check scripts/test-editor-add-inside-existing-block-browser.mjs
           node --check scripts/test-editor-publication-media-browser.mjs
+          node --check scripts/test-editor-drag-and-drop-browser.mjs
           node --test tests/test-editor-demo.mjs
           node --test tests/test-editor-server-drafts.mjs
           node --test tests/test-editor-publication-media.mjs
@@ -200,6 +204,10 @@ jobs:
         env:
           EDITOR_BASE: https://celebrations-visual-candidate.rondes.workers.dev
         run: node scripts/test-editor-publication-media-browser.mjs
+      - name: Verify drag-and-drop between real historical blocks and columns (desktop and long-press touch)
+        env:
+          EDITOR_BASE: https://celebrations-visual-candidate.rondes.workers.dev
+        run: node scripts/test-editor-drag-and-drop-browser.mjs
       - name: Publish visual site to EXISTING production Worker, preserving custom domains
         id: production_deploy
         shell: bash
