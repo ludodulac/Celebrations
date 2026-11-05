@@ -33,7 +33,7 @@ try{
   await page.getByRole('button',{name:'＋ Page'}).first().click();
   const created=page.locator('.general-pages-list .general-page-row').filter({hasText:newName});
   await created.waitFor();
-  assert.ok((await created.innerText()).includes('Brouillon'),'New page stays in draft');
+  assert.equal(await created.locator('.inline-page-state').getAttribute('aria-label'),'Brouillon','New page stays in draft with an orange dot');
   await created.locator('.page-options summary').click();
   const options=created.locator('.page-options-menu');
   assert.ok((await options.innerText()).includes('Publier'));
