@@ -62,7 +62,7 @@ test('Preparation demo includes every public step/event/content/link without dat
  assert.ok(manifest.seed.files.some(f=>f.src?.endsWith('/son.mp3')));
  assert.equal(jsonResponse.headers.get('x-robots-tag'),'noindex,nofollow,noarchive');
  assert.ok(seed.files.some(f=>f.category==='pdf'&&f.pages.includes('Préparation')));
- assert.ok(seed.files.some(f=>f.category==='autres'&&f.text.includes('Texte source exact')));
+ assert.ok(!seed.files.some(f=>f.text||String(f.id).startsWith('text:')), 'Les paragraphes de la page ne sont pas des fichiers');
  assert.ok(!seed.files.some(f=>f.src?.includes('committee/')));
  assert.ok(!html.includes('NE_PAS_PUBLIER'));
  assert.ok(seed.pages.find(p=>p.name==='Préparation').blocks.some(b=>b.kind==='audio'));
