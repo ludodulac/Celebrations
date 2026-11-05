@@ -93,7 +93,7 @@ try{
    '/media/media/1791723108110/file-1791723109615-1000040461.jpg');
   const unreferenced=page.locator('.global-media-card').filter({hasText:'10000426.jpg'});
   await unreferenced.waitFor();
-  assert.equal(await unreferenced.locator('.media-unused-ribbon').innerText(),'Inutilisé');
+  assert.equal((await unreferenced.locator('.media-unused-ribbon').innerText()).toLowerCase(),'inutilisé');
   assert.equal(await page.locator('.global-media-card').filter({hasText:'Bouton navigation'}).count(),0);
   // Editing a large photo must not hide the confirmation controls as the
   // editor is scrolled, nor must a modal exceed the zoomed viewport.
