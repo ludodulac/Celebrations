@@ -10,6 +10,9 @@ name: CÉLÉBRATIONS — publier interface visuelle sans changer domaine et lien
 # Approved live-editor media and image UX: file-only global library, page links,
 # translucent unused overlay, separate upload/site picker, close X and fixed Validate.
 # Candidate browser verification must pass before updating the existing official Worker.
+# 2026-11-05 visitor library fix: all public historical D1 files and already
+# published page media, across celebrations; never expose drafts/private assets.
+# Verify direct /mediatheque-generale URL and category rendering before live update.
 # Repair visible site media: two simple actions immediately beneath existing photos,
 # fallback image gallery, and a browser assertion that old photos actually load.
 # Re-run the safeguarded candidate after fixing an isolated media-index test fixture (filename vs URL).
