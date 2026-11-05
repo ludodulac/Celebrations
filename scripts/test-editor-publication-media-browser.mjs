@@ -171,6 +171,46 @@ try{
   assert.equal(await imageBlock.locator('.picture img').count(),0,'Image removed without deleting block');
   assert.ok(await imageBlock.locator('.picture').count()>0,'Empty image block retained for a replacement');
   assert.deepEqual(logs,[],'No console page errors');
+  // The VISITOR gallery is different from the administrator catalogue.
+  // It must list all published resources without requiring manual 'general'
+  // flags, while omitting unpublished admin content and navigation buttons.
+  const visitor=await ctx.newPage();
+  visitor.on('pageerror',e=>logs.push(String(e)));
+  await visitor.route('**/api/editor-publication?**',async route=>{
+   const media=[
+    {type:'image',src:'/media/media/public-photo.jpg',name:'Photo publiée',general:false,uses:[{pageName:'Accueil'}]},
+    {type:'pdf',src:'/media/media/programme.pdf',name:'Programme public',general:false,uses:[]},
+    {type:'file',src:'/media/media/texte.txt',name:'Texte à télécharger',general:false,uses:[]},
+    {type:'audio',src:'/media/media/chant.mp3',name:'Chant public',general:false,uses:[]},
+    {type:'video',src:'https://youtu.be/dQw4w9WgXcQ',name:'Vidéo publiée',general:false,uses:[]},
+    {type:'link',src:'https://example.org/navigation',name:'Lien du menu',general:true,uses:[]}
+   ];
+   await route.fulfill({status:200,contentType:'application/json',
+    body:JSON.stringify({ok:true,revision:1,record:{pages:[]},
+     shared:{homeId:'neutral-accueil-general',pages:[{id:'neutral-accueil-general',name:'Accueil',
+      group:'page',blocks:[]}]},plans:[],celebrationVisible:true,
+     celebrationVisibility:{},media})});
+  });
+  const visitorResponse=await visitor.goto(base+'/mediatheque-generale?celebration=101',
+   {waitUntil:'domcontentloaded'});
+  assert.equal(visitorResponse.status(),200,'Direct visitor-library URL is reachable');
+  await visitor.getByRole('heading',{name:'Médiathèque générale'}).waitFor();
+  await visitor.getByRole('button',{name:'Tous les fichiers'}).waitFor();
+  const cards=visitor.locator('.media-card');
+  assert.equal(await cards.count(),5,'All five published files are visible immediately');
+  for(const name of ['Photo publiée','Programme public','Texte à télécharger',
+   'Chant public','Vidéo publiée']){
+   assert.ok(await visitor.getByText(name,{exact:true}).count()>0,name);
+  }
+  assert.equal(await visitor.getByText('Lien du menu',{exact:true}).count(),0,
+   'Navigation links are not media');
+  await visitor.getByRole('button',{name:'Documents (PDF et fichiers)'}).click();
+  assert.equal(await visitor.locator('.media-card').count(),2,'PDF and TXT are documents');
+  await visitor.getByRole('button',{name:'Images'}).click();
+  assert.equal(await visitor.locator('.media-card').count(),1,'Photo appears in images');
+  assert.deepEqual(logs,[],'No client JS exceptions on visitor or admin galleries');
+  console.log('EDITOR_PUBLIC_GENERAL_LIBRARY_PASS width='+width+' published=5 documents=2');
+  await visitor.close();
   console.log('EDITOR_PUBLICATION_MEDIA_UI_PASS',JSON.stringify({width,createdDraft:true,
    published:true,hidden:true,celebrationControls:true,globalLibrary:true,
    remoteWritesIntercepted:calls.length}));
