@@ -109,6 +109,36 @@ try{
   await imageBlock.getByRole('button',{name:'Images du site'}).click();
   const picker=page.locator('.image-picker-dialog');
   await picker.waitFor();
+  await picker.locator('.image-picker-card').first().waitFor();
+  assert.equal(await picker.getByRole('button',{name:'Télécharger une image'}).count(),1,
+   'Gallery always offers a separate upload action');
+  const thumbnails=await picker.locator('.image-picker-card').evaluateAll(cards=>
+   cards.slice(0,Math.min(6,cards.length)).map(card=>{
+    const rect=card.getBoundingClientRect(),thumb=card.querySelector('.image-picker-thumbnail'),
+      img=card.querySelector('img'),label=card.querySelector('.image-picker-filename');
+    const ir=img?.getBoundingClientRect(),tr=thumb?.getBoundingClientRect(),
+      lr=label?.getBoundingClientRect(),style=getComputedStyle(card);
+    return {x:rect.left,y:rect.top,right:rect.right,bottom:rect.bottom,
+      width:rect.width,height:rect.height,imageInside:!!ir&&!!tr&&
+       ir.left>=tr.left-1&&ir.right<=tr.right+1&&ir.top>=tr.top-1&&ir.bottom<=tr.bottom+1,
+      labelVisible:!!lr&&lr.height>10&&lr.bottom<=rect.bottom+1&&
+        !!label?.textContent?.trim(),
+      hasBorder:parseFloat(style.borderTopWidth)>=1,
+      hasBackground:style.backgroundColor!=='rgba(0, 0, 0, 0)'};
+   }));
+  assert.ok(thumbnails.length>=3,'Gallery contains real image cards');
+  for(const card of thumbnails){
+   assert.ok(card.width>=75&&card.height>=170&&card.height<=210,
+     'Each card has its own stable, visible image area');
+   assert.ok(card.imageInside,'Image fits entirely in its own thumbnail');
+   assert.ok(card.labelVisible,'Image filename is readable below its thumbnail');
+   assert.ok(card.hasBorder&&card.hasBackground,'Image cards have visible boundaries');
+  }
+  for(let i=0;i<thumbnails.length;i++)for(let j=i+1;j<thumbnails.length;j++){
+   const a=thumbnails[i],b=thumbnails[j];
+   const overlaps=a.x<b.right-1&&a.right>b.x+1&&a.y<b.bottom-1&&a.bottom>b.y+1;
+   assert.ok(!overlaps,'Image cards must not overlap one another');
+  }
   const bounds=await picker.evaluate(e=>{
     const r=e.getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:innerHeight}
   });
@@ -123,8 +153,10 @@ try{
   });
   assert.ok(confirmBox.top>=-1&&confirmBox.bottom<=confirmBox.height+1,
     'Validate stays visible after scrolling a selected photo');
+  assert.equal(await imageBlock.locator('.block-edit-actions').getByRole('button',{name:'Supprimer l’image'}).count(),1,
+   'Delete action visible directly beside the two image choices');
   page.once('dialog',d=>d.accept());
-  await imageBlock.getByRole('button',{name:'Supprimer l’image'}).click();
+  await imageBlock.locator('.block-edit-actions').getByRole('button',{name:'Supprimer l’image'}).click();
   assert.equal(await imageBlock.locator('.picture img').count(),0,'Image removed without deleting block');
   assert.ok(await imageBlock.locator('.picture').count()>0,'Empty image block retained for a replacement');
   assert.deepEqual(logs,[],'No console page errors');
