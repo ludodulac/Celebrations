@@ -36,6 +36,29 @@ const validWeb=url=>{
  if(/^https:\/\//i.test(s)){try{const u=new URL(s);return u.username||u.password?'':u.href}catch{return ''}}
  return /^\/(?:media|letter|api\/editor-media\/file)\/[^?#\s.][^?#\s]*$/i.test(s)&&!s.includes('..')?s:'';
 };
+// A video link is media only when it targets a real video host or a real
+// video file. Never promote arbitrary buttons or website navigation into media.
+export function videoMediaUrl(value){
+ const src=validWeb(value);
+ if(!src)return '';
+ if(/^\/(?:media|api\/editor-media\/file)\/[^?#]+\.(?:mp4|webm|mov|m4v|ogv)(?:[?#]|$)/i.test(src))return src;
+ try{
+  const u=new URL(src);
+  if(u.protocol!=='https:')return '';
+  const host=u.hostname.toLowerCase(),pathname=u.pathname.toLowerCase();
+  if(/\.(?:mp4|webm|mov|m4v|ogv)$/.test(pathname))return src;
+  if(['youtu.be','www.youtu.be'].includes(host))return /^\/[\w-]{11}(?:\/|$)/.test(u.pathname)?src:'';
+  if(['youtube.com','www.youtube.com','m.youtube.com','youtube-nocookie.com','www.youtube-nocookie.com'].includes(host)){
+   const id=u.searchParams.get('v')||(u.pathname.match(/^\/(?:embed|shorts|live)\/([\w-]{11})(?:\/|$)/)||[])[1];
+   return /^[\w-]{11}$/.test(id||'')?src:'';
+  }
+  if(['vimeo.com','www.vimeo.com','player.vimeo.com'].includes(host))
+   return /^\/(?:video\/)?\d{4,}(?:\/|$)/.test(u.pathname)?src:'';
+  if(['dailymotion.com','www.dailymotion.com','dai.ly','www.dai.ly'].includes(host))
+   return /^\/(?:video\/)?[a-zA-Z0-9]{5,}(?:\/|$)/.test(u.pathname)?src:'';
+ }catch{}
+ return '';
+}
 // Only actual files and video/image/audio resources belong in the media library.
 // Navigation links and arbitrary buttons are content, never separate media.
 function classify(block,src){
@@ -46,7 +69,8 @@ function classify(block,src){
   if(/\.pdf(?:[?#]|$)/i.test(src))return 'pdf';
   if(/\.(?:mp3|wav|ogg|m4a|opus|flac)(?:[?#]|$)/i.test(src))return 'audio';
   if(/\.(?:jpe?g|png|webp|gif|svg|avif)(?:[?#]|$)/i.test(src))return 'image';
-  if(/\.(?:mp4|webm|mov)(?:[?#]|$)/i.test(src))return 'video';
+  if(videoMediaUrl(src))return 'video';
+  if(/\.(?:txt|csv|docx?|odt|rtf|zip|epub)(?:[?#]|$)/i.test(src))return 'file';
  }
  return null;
 }
@@ -86,7 +110,7 @@ function scanBlocks(blocks,into,page,celebrationId){
 export function discoverMedia(state){
  const index=new Map();
  for(const r of state.mediaCatalogue||[]){
-  if(r&&['image','video','pdf','audio'].includes(r.type)&&validWeb(r.src)){
+  if(r&&['image','video','pdf','audio','file'].includes(r.type)&&validWeb(r.src)){
    const src=validWeb(r.src);
    index.set(r.type+'|'+src,{...r,id:r.type+'|'+src,uses:[]});
   }
@@ -167,8 +191,8 @@ const historicAsset=path=>{
 export async function publicHistoricalMedia(db,state){
  if(!db||typeof db.prepare!=='function')return [];
  const sql=[
-  "SELECT e.celebration_id AS celebration_id,e.step_key AS step_key,c.id AS id,c.name AS name,c.file_name AS file_name,c.content_type AS content_type,c.source_type AS source_type,c.storage_path AS storage_path,c.external_url AS external_url,c.has_cover AS has_cover,c.cover_storage_path AS cover_storage_path,c.cover_file_name AS cover_file_name FROM celebrations_event_contents ec JOIN celebrations_events e ON e.id=ec.event_id JOIN celebrations_contents c ON c.id=ec.content_id WHERE e.audience='all' AND c.audience='all' AND (c.source_type='file' OR c.has_cover=1 OR LOWER(c.content_type) LIKE '%vid%')",
-  "SELECT sc.celebration_id AS celebration_id,sc.step_key AS step_key,c.id AS id,c.name AS name,c.file_name AS file_name,c.content_type AS content_type,c.source_type AS source_type,c.storage_path AS storage_path,c.external_url AS external_url,c.has_cover AS has_cover,c.cover_storage_path AS cover_storage_path,c.cover_file_name AS cover_file_name FROM celebrations_step_contents sc JOIN celebrations_contents c ON c.id=sc.content_id WHERE c.audience='all' AND (c.source_type='file' OR c.has_cover=1 OR LOWER(c.content_type) LIKE '%vid%')"
+  "SELECT e.celebration_id AS celebration_id,e.step_key AS step_key,c.id AS id,c.name AS name,c.file_name AS file_name,c.content_type AS content_type,c.source_type AS source_type,c.storage_path AS storage_path,c.external_url AS external_url,c.has_cover AS has_cover,c.cover_storage_path AS cover_storage_path,c.cover_file_name AS cover_file_name FROM celebrations_event_contents ec JOIN celebrations_events e ON e.id=ec.event_id JOIN celebrations_contents c ON c.id=ec.content_id WHERE e.audience='all' AND c.audience='all' AND (c.source_type='file' OR c.has_cover=1 OR LOWER(c.content_type) LIKE '%vid%' OR c.external_url IS NOT NULL AND c.external_url <> '')",
+  "SELECT sc.celebration_id AS celebration_id,sc.step_key AS step_key,c.id AS id,c.name AS name,c.file_name AS file_name,c.content_type AS content_type,c.source_type AS source_type,c.storage_path AS storage_path,c.external_url AS external_url,c.has_cover AS has_cover,c.cover_storage_path AS cover_storage_path,c.cover_file_name AS cover_file_name FROM celebrations_step_contents sc JOIN celebrations_contents c ON c.id=sc.content_id WHERE c.audience='all' AND (c.source_type='file' OR c.has_cover=1 OR LOWER(c.content_type) LIKE '%vid%' OR c.external_url IS NOT NULL AND c.external_url <> '')"
  ];
  const [events,steps]=await Promise.all(sql.map(q=>db.prepare(q).all()));
  const published=state.published||initialPublication(state);
@@ -199,11 +223,10 @@ export async function publicHistoricalMedia(db,state){
    add(historicMediaType(row.storage_path,row.content_type),file,row.name||row.file_name,cid,page);
   const cover=row.has_cover?historicAsset(row.cover_storage_path):'';
   if(cover)add('image',cover,row.cover_file_name||row.name||'Illustration',cid,page);
-  // Only actual video media, not ordinary website links.
-  if(String(row.content_type||'').toLowerCase().includes('video')){
-   const src=validWeb(row.external_url);
-   if(src&&src.startsWith('https://'))add('video',src,row.name||'Vidéo',cid,page);
-  }
+  // Actual YouTube/Vimeo/Dailymotion (or a video file), regardless of the
+  // historical database content_type, which may simply say "lien" or "url".
+  const video=videoMediaUrl(row.external_url);
+  if(video)add('video',video,row.name||'Vidéo',cid,page);
  }
  return [...media.values()];
 }
