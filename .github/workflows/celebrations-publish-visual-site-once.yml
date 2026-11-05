@@ -13,6 +13,8 @@ name: CÉLÉBRATIONS — publier interface visuelle sans changer domaine et lien
 # 2026-11-05 visitor library fix: all public historical D1 files and already
 # published page media, across celebrations; never expose drafts/private assets.
 # Verify direct /mediatheque-generale URL and category rendering before live update.
+# Browser-proven failure: Worker-rewritten page param is not in location.search;
+# map the visitor pathname /mediatheque-generale to the library at boot.
 # Need exact diagnostic if visitor gallery HTML failed to render; production remains gated.
 # Regression test updated: a published celebration photo is already in public media;
 # unpublished external media must stay private until explicitly shared.
