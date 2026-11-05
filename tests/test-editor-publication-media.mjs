@@ -152,7 +152,7 @@ test('media index excludes arbitrary link buttons and tracks general/draft/publi
  assert.equal(home.uses[0].pageName,'Accueil');
  assert.equal(home.uses[0].group,'page');
  assert.equal(home.uses[0].slug,'neutral-accueil-general');
- assert.equal(result.find(x=>x.src.endsWith('10000426.jpg'))?.uses.length,0);
+ assert.equal(result.find(x=>x.name==='10000426.jpg')?.uses.length,0);
  assert.ok(result.find(x=>x.src.endsWith('still-online.jpg'))?.uses.length===1,
   'A published-only media remains listed as in use');
  assert.ok(result.find(x=>x.src==='https://example.org/existing.pdf')?.uses.length===1);
