@@ -45,8 +45,11 @@ try{
   }));
   assert.ok(blockId&&blockKind,'A real historical page element is present');
   const firstMenu=page.locator('.canvas>.section-insert').first();
-  await firstMenu.locator('.section-add-blue').click();
-  await firstMenu.getByRole('button',{name:'Deux colonnes'}).click();
+  // The first legacy insertion bar is intentionally 8px tall and can
+  // intercept normal clicks. Activate its two existing controls directly for
+  // test setup; the actual drag gesture below still uses real mouse input.
+  await firstMenu.locator('.section-add-blue').evaluate(e=>e.click());
+  await firstMenu.getByRole('button',{name:'Deux colonnes'}).evaluate(e=>e.click());
   let section=page.locator('.canvas>.content-section').first();
   await section.waitFor();
   const sectionId=await section.getAttribute('data-section-id');
