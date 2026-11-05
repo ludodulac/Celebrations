@@ -124,8 +124,103 @@ export function publicSnapshot(state,celebration){
  const plans=(published.plans||[]).filter(p=>celebrationVisibleFor(p.id,visibility,p.visibility));
  return {ok:true,revision:state.version,record,shared,plans,
   celebrationVisible,celebrationVisibility:visibility,
-  media:discoverMedia(state).filter(r=>r.general===true),
+  media:publishedMedia(state),
   updatedAt:state.publishedAt||state.updatedAt||null};
+}
+// Visitor library: every file on an actually published page, plus media
+// explicitly released to the general gallery. Draft/hidden resources never
+// become public just because they were uploaded to the admin file manager.
+export function publishedMedia(state){
+ const published=state.published||initialPublication(state);
+ const visibility=published.celebrationVisibility||{};
+ const sharedPages=(published.shared?.pages||[]).filter(publiclyVisible);
+ const drafts={};
+ for(const [id,record] of Object.entries(published.drafts||{})){
+  const plan=published.plans?.find(x=>String(x.id)===String(id));
+  if(!celebrationVisibleFor(id,visibility,plan?.visibility))continue;
+  drafts[id]={pages:(record.pages||[]).filter(publiclyVisible)};
+ }
+ const source={mediaCatalogue:(state.mediaCatalogue||[]).filter(m=>m.general===true),
+  shared:{pages:sharedPages},drafts};
+ return discoverMedia(source).filter(m=>m.general===true||(m.uses||[]).length>0);
+}
+const historicMediaType=(source,kind='')=>{
+ const path=String(source||'').split(/[?#]/)[0].toLowerCase();
+ if(/\.(?:png|jpe?g|gif|webp|svg|avif|bmp)$/.test(path))return 'image';
+ if(/\.pdf$/.test(path))return 'pdf';
+ if(/\.(?:mp3|wav|m4a|ogg|opus|flac|aac|wma)$/.test(path))return 'audio';
+ if(/\.(?:mp4|webm|mov|m4v|ogv)$/.test(path))return 'video';
+ if(/\.(?:txt|csv|rtf|odt|doc|docx|xls|xlsx|ppt|pptx|epub|zip)$/.test(path))return 'file';
+ const c=String(kind).toLowerCase();
+ return ['image','audio','video','pdf'].includes(c)?c:'file';
+};
+const historicAsset=path=>{
+ const s=String(path||'');
+ if(!s||s.length>600||s.startsWith('/')||s.startsWith('committee/')||
+  /^https?:/i.test(s)||/[\\\u0000-\u001f]/.test(s)||
+  s.split('/').some(part=>!part||part==='.'||part==='..'))return '';
+ const url='/media/'+s.split('/').map(encodeURIComponent).join('/');
+ return validWeb(url);
+};
+// This is deliberately TWO public-only bulk database queries rather than
+// fetching all celebration admin records or listing the R2 bucket.
+export async function publicHistoricalMedia(db,state){
+ if(!db||typeof db.prepare!=='function')return [];
+ const sql=[
+  "SELECT e.celebration_id AS celebration_id,e.step_key AS step_key,c.id AS id,c.name AS name,c.file_name AS file_name,c.content_type AS content_type,c.source_type AS source_type,c.storage_path AS storage_path,c.external_url AS external_url,c.has_cover AS has_cover,c.cover_storage_path AS cover_storage_path,c.cover_file_name AS cover_file_name FROM celebrations_event_contents ec JOIN celebrations_events e ON e.id=ec.event_id JOIN celebrations_contents c ON c.id=ec.content_id WHERE e.audience='all' AND c.audience='all' AND (c.source_type='file' OR c.has_cover=1 OR LOWER(c.content_type) LIKE '%vid%')",
+  "SELECT sc.celebration_id AS celebration_id,sc.step_key AS step_key,c.id AS id,c.name AS name,c.file_name AS file_name,c.content_type AS content_type,c.source_type AS source_type,c.storage_path AS storage_path,c.external_url AS external_url,c.has_cover AS has_cover,c.cover_storage_path AS cover_storage_path,c.cover_file_name AS cover_file_name FROM celebrations_step_contents sc JOIN celebrations_contents c ON c.id=sc.content_id WHERE c.audience='all' AND (c.source_type='file' OR c.has_cover=1 OR LOWER(c.content_type) LIKE '%vid%')"
+ ];
+ const [events,steps]=await Promise.all(sql.map(q=>db.prepare(q).all()));
+ const published=state.published||initialPublication(state);
+ const visibility=published.celebrationVisibility||{};
+ const pagesByCelebration=new Map();
+ for(const [id,record] of Object.entries(published.drafts||{})){
+  const plan=published.plans?.find(p=>String(p.id)===String(id));
+  if(!celebrationVisibleFor(id,visibility,plan?.visibility))continue;
+  pagesByCelebration.set(String(id),new Map(
+   (record.pages||[]).filter(publiclyVisible).map(p=>[p.id,p])));
+ }
+ const media=new Map();
+ function add(type,url,name,celebration,page){
+  if(!url||!['image','audio','video','pdf','file'].includes(type))return;
+  const id=type+'|'+url;
+  if(!media.has(id))media.set(id,{id,type,src:url,
+   name:String(name||url.split('/').at(-1)||'Fichier').slice(0,120),
+   general:false,uses:[],source:'historical'});
+  const item=media.get(id);
+  if(!item.uses.some(u=>u.pageId===page.id&&u.celebrationId===celebration))
+   item.uses.push(mediaUsage(page,celebration));
+ }
+ for(const row of [...(events.results||[]),...(steps.results||[])]){
+  const cid=String(row.celebration_id||''),page=pagesByCelebration.get(cid)?.get(String(row.step_key||''));
+  if(!page)continue;
+  const file=historicAsset(row.storage_path);
+  if(String(row.source_type||'').toLowerCase()==='file'&&file)
+   add(historicMediaType(row.storage_path,row.content_type),file,row.name||row.file_name,cid,page);
+  const cover=row.has_cover?historicAsset(row.cover_storage_path):'';
+  if(cover)add('image',cover,row.cover_file_name||row.name||'Illustration',cid,page);
+  // Only actual video media, not ordinary website links.
+  if(String(row.content_type||'').toLowerCase().includes('video')){
+   const src=validWeb(row.external_url);
+   if(src&&src.startsWith('https://'))add('video',src,row.name||'Vidéo',cid,page);
+  }
+ }
+ return [...media.values()];
+}
+export function mergePublicMedia(...catalogues){
+ const merged=new Map();
+ for(const item of catalogues.flat()){
+  if(!item?.src||!['image','video','audio','pdf','file'].includes(item.type))continue;
+  const id=item.type+'|'+item.src;
+  if(!merged.has(id))merged.set(id,{...item,id,uses:[...(item.uses||[])]});
+  else{
+   const existing=merged.get(id);
+   for(const use of item.uses||[])
+    if(!existing.uses.some(u=>u.pageId===use.pageId&&u.celebrationId===use.celebrationId))existing.uses.push(use);
+   if(item.general)existing.general=true;
+  }
+ }
+ return [...merged.values()];
 }
 function celebrationVisibleFor(id,map,planState){
  return (map[id]||planState||'published')==='published';
@@ -154,7 +249,12 @@ export async function handleEditorPublication(request,env){
   const id=url.searchParams.get('celebration');
   if(!celebrationIdOk(id))return err('Célébration invalide',400);
   const {state}=await readEditorState(env.EDITOR_BUCKET);
-  return json(publicSnapshot(state,id));
+  const snapshot=publicSnapshot(state,id);
+  // Public D1 records have their own historic storage catalogue; include them
+  // once per request without exposing unpublished editor drafts or private rows.
+  const historic=await publicHistoricalMedia(env.DB,state);
+  snapshot.media=mergePublicMedia(snapshot.media,historic);
+  return json(snapshot);
  }
  const denied=await protectedWrite(request,env);if(denied)return denied;
  let body;try{body=await request.json()}catch{return err('JSON invalide',400)}
