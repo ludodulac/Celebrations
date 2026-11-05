@@ -123,12 +123,12 @@ test('External media may be added without server upload and made public only by 
  const info=await added.json();
  assert.equal(info.item.general,false);
  let state=(await readEditorState(bucket)).state;
- assert.equal(publicSnapshot(state,'101').media.length,0);
+ assert.ok(!publicSnapshot(state,'101').media.some(m=>m.src==='https://example.org/doc.pdf'),'Unpublished uploaded file stays private');
  const shown=await handleEditorPublication(body({kind:'media',celebration:'101',
   expectedRevision:info.revision,mediaId:info.item.id,general:true},cookie),e);
  assert.equal(shown.status,200);
  state=(await readEditorState(bucket)).state;
- assert.equal(publicSnapshot(state,'101').media[0].src,'https://example.org/doc.pdf');
+ assert.ok(publicSnapshot(state,'101').media.some(m=>m.src==='https://example.org/doc.pdf'),'Explicit general item visible alongside already published media');
 });
 
 test('media index excludes arbitrary link buttons and tracks general/draft/published usages',()=>{
