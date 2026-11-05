@@ -130,6 +130,9 @@ jobs:
           node --check scripts/test-editor-add-inside-existing-block-browser.mjs
           node --check scripts/test-editor-publication-media-browser.mjs
           node --check scripts/test-editor-drag-and-drop-browser.mjs
+          node --check scripts/test-editor-michael-resource-browser.mjs
+          node --check scripts/transform-michael-preparation-page.mjs
+          node --test tests/test-editor-michael-preparation-layout.mjs
           node --test tests/test-editor-demo.mjs
           node --test tests/test-editor-server-drafts.mjs
           node --test tests/test-editor-trial-site.mjs
@@ -222,6 +225,10 @@ jobs:
         env:
           EDITOR_BASE: https://celebrations-visual-candidate.rondes.workers.dev
         run: node scripts/test-editor-drag-and-drop-browser.mjs
+      - name: Verify editable resource and document presets on desktop and mobile
+        env:
+          EDITOR_BASE: https://celebrations-visual-candidate.rondes.workers.dev
+        run: node scripts/test-editor-michael-resource-browser.mjs
       - name: Publish visual site to EXISTING production Worker, preserving custom domains
         id: production_deploy
         shell: bash
