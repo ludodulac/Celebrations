@@ -100,6 +100,17 @@ try{
   await page.locator('button[data-tab="pages"]').click();
   const initialImage=page.locator('.canvas .block').filter({has:page.locator('.picture img')}).first();
   await initialImage.waitFor();
+  // An <img> tag may exist while every photo is actually broken.
+  const imageSrc=await initialImage.locator('.picture img').first().getAttribute('src');
+  const isLoaded=await initialImage.locator('.picture img').first().evaluate(async img=>{
+   if(!img.complete)await new Promise(resolve=>{
+    img.addEventListener('load',resolve,{once:true});
+    img.addEventListener('error',resolve,{once:true});
+    setTimeout(resolve,3000);
+   });
+   return img.complete&&img.naturalWidth>0;
+  });
+  assert.ok(isLoaded,'An existing home/celebration image must actually render: '+imageSrc);
   const imageId=await initialImage.getAttribute('data-id');
   const imageBlock=page.locator('.canvas .block[data-id="'+imageId+'"]');
   await imageBlock.locator('.picture').click();
