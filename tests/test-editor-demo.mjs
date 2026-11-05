@@ -100,7 +100,7 @@ test('the selected element has an explicit draft-only Validate button',()=>{
  assert.match(DEMO_CSS,/\.block\.is-selected>\.block-validate-actions\{/);
  assert.match(DEMO_CSS,/\.block>\.block-validate-actions\{display:none!important\}/);
  assert.match(DEMO_CLIENT,/await serverSave\(\);[\s\S]*?if\(db\._serverPending\)return;/);
- assert.ok(DEMO_CLIENT.includes("box.classList.remove('is-selected')"));
+ assert.ok(DEMO_CLIENT.includes("if(typeof render==='function')render()"), 'Validation re-renders to fully close editing tools');
 });
 
 test('new headings and text fields are empty with visible hints, not saved template text',()=>{
