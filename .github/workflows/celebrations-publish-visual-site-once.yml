@@ -11,6 +11,7 @@ name: CÉLÉBRATIONS — publier interface visuelle sans changer domaine et lien
 # translucent unused overlay, separate upload/site picker, close X and fixed Validate.
 # Candidate browser verification must pass before updating the existing official Worker.
 # Re-run the safeguarded candidate after fixing an isolated media-index test fixture (filename vs URL).
+# Re-run after the browser test accounted for the uppercase ribbon and dialog click no longer deselects.
 on:
   push:
     branches: [feat/celebrations-save-on-server-20261103, fix/celebrations-inline-validation-20261105]
