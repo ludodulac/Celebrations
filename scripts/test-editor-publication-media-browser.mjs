@@ -207,21 +207,39 @@ try{
    console.error('VISITOR_LIBRARY_DIAGNOSTIC',JSON.stringify({diagnostics,logs}));
    throw error;
   }
-  await visitor.getByRole('button',{name:'Tous les fichiers'}).waitFor();
+  const tabs=visitor.locator('.media-tabs .media-tab');
+  assert.deepEqual(await tabs.allTextContents(),['Images','Audios','Vidéos','Documents'],
+   'Exactly four categories on the visitor site');
   const cards=visitor.locator('.media-card');
-  assert.equal(await cards.count(),5,'All five published files are visible immediately');
-  for(const name of ['Photo publiée','Programme public','Texte à télécharger',
-   'Chant public','Vidéo publiée']){
-   assert.ok(await visitor.getByText(name,{exact:true}).count()>0,name);
-  }
+  assert.equal(await cards.count(),1,'Images selected immediately; no enormous mixed gallery');
+  assert.equal(await visitor.getByText('Photo publiée',{exact:true}).count(),1);
   assert.equal(await visitor.getByText('Lien du menu',{exact:true}).count(),0,
-   'Navigation links are not media');
-  await visitor.getByRole('button',{name:'Documents (PDF et fichiers)'}).click();
-  assert.equal(await visitor.locator('.media-card').count(),2,'PDF and TXT are documents');
+   'Website navigation links do not become media');
+  if(width===1280){
+   const columns=await visitor.locator('.media-list').evaluate(el=>({
+    value:getComputedStyle(el).gridTemplateColumns,
+    count:getComputedStyle(el).gridTemplateColumns.split(' ').filter(Boolean).length,
+    bounds:el.getBoundingClientRect().width,
+    card:el.querySelector('.media-card')?.getBoundingClientRect().width
+   }));
+   assert.equal(columns.count,4,'Desktop visitor image gallery is always four columns');
+   assert.ok(columns.card<columns.bounds/3,'Each image tile stays compact');
+  }
+  await visitor.getByRole('button',{name:'Documents'}).click();
+  assert.equal(await cards.count(),2,'PDF and TXT files appear under Documents');
+  await visitor.getByRole('button',{name:'Audios'}).click();
+  assert.equal(await cards.count(),1,'Audio available');
+  await visitor.getByRole('button',{name:'Vidéos'}).click();
+  assert.equal(await cards.count(),1,'Video available');
   await visitor.getByRole('button',{name:'Images'}).click();
-  assert.equal(await visitor.locator('.media-card').count(),1,'Photo appears in images');
+  assert.equal(await cards.count(),1,'Image available');
+  await visitor.goto(base+'/__editor/voir-le-site?celebration=101&page=mediatheque',
+   {waitUntil:'domcontentloaded'});
+  await visitor.locator('.media-tabs .media-tab').first().waitFor();
+  assert.deepEqual(await visitor.locator('.media-tabs .media-tab').allTextContents(),
+   ['Images','Audios','Vidéos','Documents'],'The celebration media library shares the same four categories');
   assert.deepEqual(logs,[],'No client JS exceptions on visitor or admin galleries');
-  console.log('EDITOR_PUBLIC_GENERAL_LIBRARY_PASS width='+width+' published=5 documents=2');
+  console.log('EDITOR_PUBLIC_GENERAL_LIBRARY_PASS width='+width+' published=5 documents=2 fourColumns=true');
   await visitor.close();
   console.log('EDITOR_PUBLICATION_MEDIA_UI_PASS',JSON.stringify({width,createdDraft:true,
    published:true,hidden:true,celebrationControls:true,globalLibrary:true,
