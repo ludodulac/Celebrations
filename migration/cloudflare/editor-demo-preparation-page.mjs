@@ -128,14 +128,7 @@ function publicFileCatalogue(steps,events,eventContents,stepContents){
   const category=kind(path,type);
   add({id:'file:'+path,category,name:String(name||path.split('/').at(-1)||'Fichier').slice(0,300),src},page);
  };
- for(const step of steps){
-  const page=byKey.get(String(step.step_key));
-  if(step.body_text)add({id:'text:step:'+step.id,category:'autres',name:'Texte — '+page,text:asText(step.body_text)},page);
- }
- for(const e of events){
-  const page=byKey.get(String(e.step_key));if(!page)continue;
-  if(e.description)add({id:'text:event:'+e.id,category:'autres',name:String(e.title||'Texte de rendez-vous'),text:asText(e.description)},page);
- }
+ // Page paragraphs and event descriptions remain on their pages, not in the file catalogue.
  const eventPage=new Map(events.map(e=>[String(e.id),byKey.get(String(e.step_key))]));
  for(const c of [...eventContents,...stepContents]){
   const page=c.event_id!=null?eventPage.get(String(c.event_id)):byKey.get(String(c.step_key));
@@ -143,8 +136,7 @@ function publicFileCatalogue(steps,events,eventContents,stepContents){
   if(clean(c.source_type)==='file')addFile(c.storage_path,c.content_type,c.name||c.file_name,page);
   // A public file can have a separate public cover; it is a reusable image.
   if(c.has_cover&&c.cover_storage_path)addFile(c.cover_storage_path,'image',c.cover_file_name||c.name||'Couverture',page);
-  if(c.inline_text)add({id:'text:content:'+c.id+':inline',category:'autres',name:String(c.name||'Texte'),text:asText(c.inline_text)},page);
-  if(c.description)add({id:'text:content:'+c.id+':description',category:'autres',name:'Description — '+String(c.name||'Document'),text:asText(c.description)},page);
+  // Only actual stored files and their covers enter the media catalogue.
  }
  return [...entries.values()];
 }
