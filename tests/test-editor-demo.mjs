@@ -154,3 +154,17 @@ test('page/celebration status uses accessible green and orange circular indicato
  assert.match(DEMO_CSS,/grid-template-columns:230px minmax\(0,1fr\)/);
  assert.ok(DEMO_CLIENT.includes("['published','Publier']"),'Publishing actions are still explicit');
 });
+
+test('global library has clickable files but no insert/open action buttons',()=>{
+ assert.ok(DEMO_CLIENT.includes('function libraryTitle('));
+ assert.ok(DEMO_CLIENT.includes('function libraryPicture('));
+ const start=DEMO_CLIENT.indexOf('function media(){');
+ const end=DEMO_CLIENT.indexOf('function audioWorkbench(){',start);
+ assert.ok(start>0&&end>start);
+ const source=DEMO_CLIENT.slice(start,end);
+ assert.doesNotMatch(source,/b\('Insérer'/);
+ assert.doesNotMatch(source,/b\('Ouvrir'/);
+ assert.ok(source.includes('libraryLocationLinks(card,refs)'));
+ assert.ok(source.includes('libraryUnusedText(card,unused,hasImage)'));
+ assert.ok(DEMO_CSS.includes('.media-unused-ribbon'));
+});
