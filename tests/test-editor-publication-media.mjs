@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readEditorState,publicSnapshot,discoverMedia,publishedMedia,publicHistoricalMedia,
- mergePublicMedia,handleEditorPublication,handleEditorMedia} from '../migration/cloudflare/editor-publication-api.mjs';
+ mergePublicMedia,videoMediaUrl,handleEditorPublication,handleEditorMedia} from '../migration/cloudflare/editor-publication-api.mjs';
 import {handleServerDraft} from '../migration/cloudflare/editor-server-draft-api.mjs';
 
 const host='https://www.ronde-des-archanges-universelle.eu';
@@ -197,6 +197,12 @@ test('historic public D1 files from all published celebrations are included, wit
    cover_storage_path:'media/galerie/couverture.jpg'},
   {celebration_id:101,step_key:'mercredi-101',name:'Chant vidéo',
    content_type:'Video',source_type:'url',external_url:'https://youtu.be/dQw4w9WgXcQ'},
+  {celebration_id:101,step_key:'mercredi-101',name:'Lecture YouTube',
+   content_type:'Lien',source_type:'url',external_url:'https://www.youtube.com/watch?v=dQw4w9WgXcQ'},
+  {celebration_id:101,step_key:'mercredi-101',name:'Film Vimeo',
+   content_type:'external',source_type:'url',external_url:'https://vimeo.com/123456789'},
+  {celebration_id:101,step_key:'mercredi-101',name:'Menu web à exclure',
+   content_type:'Lien',source_type:'url',external_url:'https://example.org/accueil'},
   {celebration_id:101,step_key:'samedi-101',name:'Image cachée',
    source_type:'file',storage_path:'media/cache.jpg'},
   {celebration_id:202,step_key:'preparation-202',name:'Célébration masquée',
@@ -207,14 +213,35 @@ test('historic public D1 files from all published celebrations are included, wit
  const db={prepare(sql){return {all:async()=>({results:
   sql.includes('FROM celebrations_event_contents')?publicContent:[]})}}};
  const historic=await publicHistoricalMedia(db,state);
- for(const name of ['Archive PDF','Chant','Dossier texte','Photo','Chant vidéo'])
+ for(const name of ['Archive PDF','Chant','Dossier texte','Photo','Chant vidéo','Lecture YouTube','Film Vimeo'])
   assert.ok(historic.some(x=>x.name===name),name);
  assert.ok(historic.some(x=>x.src.endsWith('couverture.jpg')),'A cover is an actual image file');
  assert.ok(historic.some(x=>x.type==='file'&&x.src.endsWith('.txt')),'Text file is not inline text');
  assert.ok(!historic.some(x=>x.src.includes('cache.jpg')));
  assert.ok(!historic.some(x=>x.src.includes('secret.jpg')));
  assert.ok(!historic.some(x=>x.src.includes('private.pdf')));
+ assert.ok(!historic.some(x=>x.name==='Menu web à exclure'));
  assert.ok(historic.every(x=>x.uses.length>0));
  const merged=mergePublicMedia(publishedMedia(state),historic,historic);
  assert.equal(merged.filter(x=>x.src.endsWith('programme.pdf')).length,1,'URLs de-duplicated');
+});
+
+test('general visitor library extracts real videos from published links, never arbitrary websites',()=>{
+ const state=initial();
+ state.drafts['101'].pages[0].blocks.push(
+  {id:'youtube-button',kind:'button',text:'Enregistrement filmé',href:'https://youtu.be/dQw4w9WgXcQ'},
+  {id:'video',kind:'video',text:'Vidéo du programme',href:'https://vimeo.com/123456789'},
+  {id:'menu',kind:'button',text:'Site web',href:'https://example.org/bonjour'});
+ state.drafts['101'].pages[1].blocks.push(
+  {id:'private-vid',kind:'button',text:'Brouillon',href:'https://youtu.be/abcdefghijk'});
+ const videos=publishedMedia(state).filter(x=>x.type==='video');
+ assert.equal(videos.length,2,'Both video kinds appear in public media');
+ assert.ok(videos.some(x=>x.name==='Enregistrement filmé'));
+ assert.ok(videos.some(x=>x.name==='Vidéo du programme'));
+ assert.ok(!videos.some(x=>x.src.includes('abcdefghijk')));
+ assert.equal(videoMediaUrl('https://example.org/bonjour'),'');
+ assert.equal(videoMediaUrl('https://youtube.com.evil.example/watch?v=dQw4w9WgXcQ'),'');
+ assert.ok(videoMediaUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ'));
+ assert.ok(videoMediaUrl('https://vimeo.com/123456789'));
+ assert.ok(videoMediaUrl('https://www.dailymotion.com/video/x123456'));
 });
