@@ -194,7 +194,19 @@ try{
   const visitorResponse=await visitor.goto(base+'/mediatheque-generale?celebration=101',
    {waitUntil:'domcontentloaded'});
   assert.equal(visitorResponse.status(),200,'Direct visitor-library URL is reachable');
-  await visitor.getByRole('heading',{name:'Médiathèque générale'}).waitFor();
+  try{
+   await visitor.getByRole('heading',{name:'Médiathèque générale'}).waitFor({timeout:8000});
+  }catch(error){
+   const diagnostics=await visitor.evaluate(()=>({
+    url:location.href,title:document.title,
+    body:document.body?.innerText?.slice(0,1600),
+    main:document.getElementById('stage-main')?.innerHTML?.slice(0,1600),
+    media:window.__PUBLIC_MEDIA__?.length,
+    scripts:[...document.scripts].map(s=>({src:s.src,length:s.textContent.length})),
+   }));
+   console.error('VISITOR_LIBRARY_DIAGNOSTIC',JSON.stringify({diagnostics,logs}));
+   throw error;
+  }
   await visitor.getByRole('button',{name:'Tous les fichiers'}).waitFor();
   const cards=visitor.locator('.media-card');
   assert.equal(await cards.count(),5,'All five published files are visible immediately');
