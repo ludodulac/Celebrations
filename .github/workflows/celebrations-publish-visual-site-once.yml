@@ -4,9 +4,11 @@ name: CÉLÉBRATIONS — publier interface visuelle sans changer domaine et lien
 # Owner-approved lifecycle release: private drafts, explicit publication, hidden pages,
 # safe global media and public general library. Full staging browser checks passed.
 # User-approved in-admin guide: all editor controls, mobile search, no data changes.
+# Nov 5 explicit owner request: use the real official site, not the demo/staging domain.
+# Single safeguarded production UX release, preserving shared R2 drafts and historic media.
 on:
   push:
-    branches: [feat/celebrations-save-on-server-20261103]
+    branches: [feat/celebrations-save-on-server-20261103, fix/celebrations-inline-validation-20261105]
 permissions:
   contents: read
 concurrency:
@@ -44,7 +46,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$GITHUB_REF" = 'refs/heads/feat/celebrations-save-on-server-20261103'
+          test "$GITHUB_REF" = 'refs/heads/fix/celebrations-inline-validation-20261105'
           test "$STAGING_R2_BUCKET" = 'celebrations-exit-staging'
           test "$CELEBRATIONS_PROD_R2_BUCKET" = 'celebrations-exit-production'
           test "$CELEBRATIONS_PROD_D1_ID" = '28736d2a-479b-472b-bf82-703ad0affe10'
@@ -87,6 +89,7 @@ jobs:
           node --check scripts/verify-visual-publishing-browser.mjs
           node --check scripts/test-editor-add-inside-existing-block-browser.mjs
           node --check scripts/test-editor-publication-media-browser.mjs
+          node --test tests/test-editor-demo.mjs
           node --test tests/test-editor-server-drafts.mjs
           node --test tests/test-editor-publication-media.mjs
           node scripts/check-staging-d1-free-budget.mjs pre
@@ -141,7 +144,7 @@ jobs:
           TOML
           sed 's/^name = "celebrations-exit-production"/name = "celebrations-visual-candidate"/' \
             migration/cloudflare/wrangler.production.toml > migration/cloudflare/wrangler.visual.toml
-          git show f42a4566b9fcae0976d2496a199e9934bd405869:migration/cloudflare/production-worker.mjs \
+          git show 94affae000554942eb98880d149f758c46908ab7:migration/cloudflare/production-worker.mjs \
             > migration/cloudflare/production-worker-rollback.mjs
           sed 's/^main = "production-worker.mjs"/main = "production-worker-rollback.mjs"/' \
             migration/cloudflare/wrangler.production.toml > migration/cloudflare/wrangler.rollback.toml
@@ -234,9 +237,13 @@ jobs:
         working-directory: migration/cloudflare
         run: |
           set -euo pipefail
-          # Restore the prior Worker without rotating or deleting its secrets.
-          npx wrangler deploy --config wrangler.rollback.toml --keep-vars
-          echo 'CELEBRATIONS_ROLLBACK_OLD_PUBLIC_SITE_DEPLOYED'
+          # Restore the exact last successful published editor UI (2026-11-04)
+          # instead of an obsolete pre-editor Worker; keep all saved content.
+          for file in editor-demo-client.mjs editor-demo-style.mjs editor-demo-preparation-page.mjs; do
+            git show 94affae000554942eb98880d149f758c46908ab7:migration/cloudflare/"$file" > "$file"
+          done
+          npx wrangler deploy --config wrangler.production.toml --keep-vars
+          echo 'CELEBRATIONS_ROLLBACK_LAST_PUBLISHED_EDITOR_DEPLOYED'
       - name: Final Cloudflare D1 reserve
         if: always()
         # Other public workflows share Cloudflare account-wide reads. A race in
