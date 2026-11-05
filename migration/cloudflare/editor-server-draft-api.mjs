@@ -8,7 +8,7 @@ const PUBLISHED_HOSTS=new Set(['ronde-des-archanges-universelle.eu','www.ronde-d
 const PREVIEW_HOST='celebrations-visual-candidate.rondes.workers.dev';
 const KEY='editor-trials/server-drafts-v1.json';
 const ID=/^(?:[1-9][0-9]{0,7}|plan-(?:michael|gabriel|raphael|ouriel)-20[0-9]{2}-[0-9]{2}-[0-9]{2})$/;
-const MAX_BODY=1850000;
+const MAX_BODY=4500000;
 const secure={'cache-control':'no-store','x-robots-tag':'noindex,nofollow,noarchive','x-content-type-options':'nosniff','referrer-policy':'no-referrer'};
 const json=(value,status=200)=>Response.json(value,{status,headers:secure});
 const error=(message,status)=>json({ok:false,error:message},status);
