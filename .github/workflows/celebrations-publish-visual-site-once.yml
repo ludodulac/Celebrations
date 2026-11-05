@@ -42,6 +42,8 @@ name: CÉLÉBRATIONS — publier interface visuelle sans changer domaine et lien
 # browser assetId without silently altering the saved draft. Verify before live.
 # Owner request: saving an existing public page must also republish ONLY that
 # page in the same authenticated conditional R2 write. Draft/hidden pages stay
+# Release preflight refreshed: the official visitor route legitimately accepts the
+# official host and fetches the published snapshot on the same origin.
 # private, and staging remains non-publishing. Video titles are small captions
 # under their thumbnail, not framed buttons. Check both before live deployment.
 on:
