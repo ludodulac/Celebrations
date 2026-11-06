@@ -1,0 +1,38 @@
+name: CÉLÉBRATIONS — Galerie de fichiers et menu compact
+on:
+  push:
+    branches: [fix/celebrations-media-picker-gallery-dropdown-20261106]
+  pull_request:
+    paths:
+      - 'migration/cloudflare/editor-demo-client.mjs'
+      - 'migration/cloudflare/editor-demo-style.mjs'
+      - 'migration/cloudflare/editor-trial-site-client.mjs'
+      - 'migration/cloudflare/editor-trial-site-page.mjs'
+      - 'scripts/test-editor-media-picker-browser.mjs'
+      - 'scripts/verify-visual-publishing-browser.mjs'
+permissions:
+  contents: read
+jobs:
+  local-ui-checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Validate site UI code and do not alter user pages
+        run: |
+          node --check migration/cloudflare/editor-demo-client.mjs
+          node --check migration/cloudflare/editor-demo-style.mjs
+          node --check migration/cloudflare/editor-trial-site-client.mjs
+          node --check migration/cloudflare/editor-trial-site-page.mjs
+          node --check scripts/verify-visual-publishing-browser.mjs
+          node --check scripts/test-editor-media-picker-browser.mjs
+          node --test tests/test-editor-demo.mjs tests/test-editor-trial-site.mjs tests/test-editor-modal-page-video-fixes.mjs tests/test-editor-server-drafts.mjs
+      - name: Prepare Chromium with no access to production content
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Real desktop and mobile modal geometry
+        run: node scripts/test-editor-media-picker-browser.mjs
