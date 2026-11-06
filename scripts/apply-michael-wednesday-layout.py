@@ -44,7 +44,7 @@ assert page_sha.startswith(expected_page_hash),(
  "ABORT: Wednesday page has changed since its verified live audit; no writes.")
 assert len(pub["blocks"])==72
 
-transformed=subprocess.run(["node","-e", """
+transformed=subprocess.run(["node","--input-type=module","-e", """
  import {prepareMichaelWednesdayLayout} from './migration/cloudflare/editor-michael-wednesday-layout.mjs';
  const chunks=[];for await(const chunk of process.stdin)chunks.push(chunk);
  const page=JSON.parse(Buffer.concat(chunks).toString('utf8'));
