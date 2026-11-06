@@ -59,7 +59,7 @@ try{
   for(const filename of ['Une prière.pdf','Un chant.mp3','Une vidéo.mp4','Une photo.jpg','Ancien texte.docx']){
    await modal.getByRole('button',{name:'Choisir '+filename}).waitFor();
   }
-  await modal.getByRole('button',{name:/^PDF \\(/}).click();
+  await modal.getByRole('button',{name:/^PDF \(/}).click();
   await modal.getByRole('button',{name:'Choisir Une prière.pdf'}).click();
   assert.equal(await modal.count(),0,'Only the modal closes after choosing');
   assert.equal(await page.evaluate(()=>window.currentButton.href),'/media/priere.pdf');
