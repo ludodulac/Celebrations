@@ -10,7 +10,7 @@ const extract=(begin,end)=>{
  return DEMO_CLIENT.slice(a,b);
 };
 function n(tag,cls='',label=''){
- const el={tag,className:cls,textContent:label,children:[],attrs:{},open:false,
+ const el={tag,className:cls,textContent:label,children:[],attrs:{},open:false,value:'',
   append(...xs){this.children.push(...xs)},replaceChildren(...xs){this.children=xs},
   setAttribute(k,v){this.attrs[k]=v},close(){this.open=false;this.onclose?.()},
   showModal(){this.open=true},remove(){this.removed=true}};
@@ -62,7 +62,7 @@ test('the global file picker is modal and selects every kind without navigating 
 });
 
 test('video heading is rendered as a plain bold caption, updated while editing',()=>{
- const segment=extract("if(x.kind==='video'){","\n if(x.kind==='divider'){");
+ const segment=extract("if(x.kind==='video'){","\nif(x.kind==='divider'){");
  let box=n('div','block'),x={kind:'video',text:'Titre initial',href:'https://youtu.be/AAAAAAAAAAA'};
  const env={
   x,box,preview:false,n,b,validHref:v=>v.startsWith('https://'),
