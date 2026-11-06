@@ -7,6 +7,7 @@ on:
       - 'migration/cloudflare/editor-trial-site-client.mjs'
       - 'tests/test-editor-multiple-button-links.mjs'
       - 'tests/test-editor-section-presentation-step3.mjs'
+      - 'tests/test-editor-presentation-server-roundtrip-step4.mjs'
       - 'scripts/test-editor-step4-presentation-browser.mjs'
       - '.github/workflows/celebrations-step4-presentation-tests.yml'
   push:
@@ -36,7 +37,7 @@ jobs:
           node --check migration/cloudflare/editor-demo-style.mjs
           node --check migration/cloudflare/editor-trial-site-client.mjs
           node --check scripts/test-editor-step4-presentation-browser.mjs
-          node --test tests/test-editor-demo.mjs tests/test-editor-multiple-button-links.mjs tests/test-editor-section-presentation-step3.mjs
+          node --test tests/test-editor-demo.mjs tests/test-editor-multiple-button-links.mjs tests/test-editor-section-presentation-step3.mjs tests/test-editor-presentation-server-roundtrip-step4.mjs tests/test-editor-server-drafts.mjs
       - name: Install isolated test browser (no Cloudflare access)
         run: |
           npm install --no-save --no-package-lock playwright@1.58.2
