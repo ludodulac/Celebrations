@@ -106,6 +106,37 @@ try{
   console.log('CELEBRATIONS_HAMBURGER_DROPDOWN_PASS width='+width+' compact=true anchored=true dismissible=true stable_layout=true');
 
   assert.ok((await page.title()).endsWith(isOfficial?' — Célébrations des Archanges':' — Site d’essai'),'Page title must identify official or preview site');
+  // The public celebration directory has exactly four grid slots per
+  // desktop row, two on phones, and each archangel uses its true accent colour.
+  const listRes=await page.goto(origin+'/?page=celebrations',{waitUntil:'domcontentloaded'});
+  assert.equal(listRes.status(),200,'Celebration listing route must work');
+  await page.locator('.celebration-choice').first().waitFor({state:'visible',timeout:16000});
+  const colored=await page.evaluate(()=>{
+   const grid=document.querySelector('.celebration-choices');
+   const rows=[...grid.querySelectorAll('.celebration-choice')];
+   return {
+    columns:getComputedStyle(grid).gridTemplateColumns.split(' ').filter(Boolean).length,
+    entries:rows.map(r=>({name:r.textContent.trim().slice(0,80),
+     archangel:r.dataset.archangel,
+     line:getComputedStyle(r,'::after').backgroundColor})),
+    overflowing:document.documentElement.scrollWidth>innerWidth
+   };
+  });
+  assert.equal(colored.columns,width===1280?4:2,
+   'Celebration directory must show 4 cards per desktop row and 2 on mobile');
+  assert.ok(colored.entries.length>=1,'Published celebration cards remain visible');
+  const expectedColors={
+   michael:'rgb(234, 52, 47)',gabriel:'rgb(102, 92, 228)',
+   raphael:'rgb(50, 186, 99)',ouriel:'rgb(239, 187, 31)'
+  };
+  for(const item of colored.entries)if(expectedColors[item.archangel])
+   assert.equal(item.line,expectedColors[item.archangel],
+    'Correct small accent line for '+item.archangel);
+  assert.equal(colored.overflowing,false,'No horizontal scroll from four-column directory');
+  console.log('CELEBRATIONS_ARCHANGEL_GRID_PASS '+JSON.stringify({
+   width,columns:colored.columns,listed:colored.entries.length,
+   colored:colored.entries.filter(x=>expectedColors[x.archangel]).length
+  }));
   res=await page.goto(origin+'/mercredi/',{waitUntil:'domcontentloaded'});
   assert.equal(res.status(),200,'Old Wednesday route must work');
   await page.waitForFunction(()=>document.querySelector('#stage-main')?.textContent?.trim().length>5,null,{timeout:22000});
