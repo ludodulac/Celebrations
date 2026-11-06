@@ -61,7 +61,7 @@ test('new URL for one button remains independent and stale revisions never overw
  assert.equal(first.status,200);
  const newer=sample();newer.expectedRevision=1;
  const buttons=newer.record.pages[0].blocks[1].columns[1];
- buttons[1].text='Voir ailleurs';buttons[1].href='https://videos.example.org/alternate';
+ buttons[2].text='Voir ailleurs';buttons[2].href='https://videos.example.org/alternate';
  assert.equal((await handleServerDraft(request('POST',newer),e)).status,200);
  const old=await handleServerDraft(request('POST',body),e);
  assert.equal(old.status,409,'Other devices cannot silently clobber a newer draft');
