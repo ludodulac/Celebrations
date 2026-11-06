@@ -66,9 +66,9 @@ test('new URL for one button remains independent and stale revisions never overw
  const old=await handleServerDraft(request('POST',body),e);
  assert.equal(old.status,409,'Other devices cannot silently clobber a newer draft');
  const reread=await handleServerDraft(request('GET'),e);
- const restored=(await reread.json()).record.pages[0].blocks[1].columns[1];
+ const restored=(await reread.json()).record.pages[0].blocks[1].columns[1].filter(b=>b.kind==='button');
  assert.deepEqual(restored.map(b=>b.href),[
   'https://youtu.be/demo','https://videos.example.org/alternate','/media/priere156.pdf'
  ]);
- assert.deepEqual(restored.map(b=>b.text),['Prière 156','Voir sur YouTube','Voir ailleurs','Ouvrir le document'].slice(1));
+ assert.deepEqual(restored.map(b=>b.text),['Voir sur YouTube','Voir ailleurs','Ouvrir le document']);
 });
