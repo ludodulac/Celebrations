@@ -6,6 +6,7 @@ on:
       - 'migration/cloudflare/editor-demo-preparation-page.mjs'
       - 'migration/cloudflare/editor-demo-style.mjs'
       - 'tests/test-editor-modal-page-video-fixes.mjs'
+      - 'scripts/test-editor-media-picker-browser.mjs'
       - '.github/workflows/celebrations-picker-page-video-regressions.yml'
   push:
     branches: [fix/celebrations-inline-file-picker-page-save-video-title-20261106]
@@ -26,3 +27,9 @@ jobs:
           node --check migration/cloudflare/editor-demo-style.mjs
           node --check migration/cloudflare/editor-demo-preparation-page.mjs
           node --test tests/test-editor-modal-page-video-fixes.mjs tests/test-editor-demo.mjs tests/test-editor-trial-site.mjs tests/test-editor-server-drafts.mjs
+      - name: Install isolated browser for desktop and Android-sized picker tests
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Verify modal file picker interaction without touching real site data
+        run: node scripts/test-editor-media-picker-browser.mjs
