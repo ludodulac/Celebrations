@@ -96,7 +96,11 @@ try{
   assert.equal(await dropdown.isVisible(),false,'Escape closes navigation');
   assert.equal(await menuButton.getAttribute('aria-expanded'),'false');
   await menuButton.click();
-  await page.locator('#site-paper').click({position:{x:5,y:5}});
+  // Click at the far-right edge of the page, outside the small overlay.
+  // The former x=5 hit the open dropdown itself and was intercepted.
+  const paperBox=await page.locator('#site-paper').boundingBox();
+  assert.ok(paperBox&&paperBox.width>100);
+  await page.mouse.click(paperBox.x+paperBox.width-12,paperBox.y+12);
   assert.equal(await dropdown.isVisible(),false,'Outside click closes navigation');
   assert.equal(await menuButton.getAttribute('aria-expanded'),'false');
   console.log('CELEBRATIONS_HAMBURGER_DROPDOWN_PASS width='+width+' compact=true anchored=true dismissible=true stable_layout=true');
