@@ -61,7 +61,7 @@ try{
   }
   await modal.getByRole('button',{name:/^PDF \(/}).click();
   await modal.getByRole('button',{name:'Choisir Une prière.pdf'}).click();
-  assert.equal(await modal.count(),0,'Only the modal closes after choosing');
+  await modal.waitFor({state:'detached'}); // dialog close event removes the element asynchronously
   assert.equal(await page.evaluate(()=>window.currentButton.href),'/media/priere.pdf');
   assert.equal(await page.evaluate(()=>window.currentButton.displayAsButton),true);
   assert.equal(await page.evaluate(()=>window.marked),1);
