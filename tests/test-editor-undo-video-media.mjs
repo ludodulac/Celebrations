@@ -62,7 +62,9 @@ function undoEnvironment(){
    {id:'c',kind:'button',text:'Document',href:'/media/document.pdf'}
   ]
  };
- const db={pages:[page],siteHomeId:'neutral-accueil-general'};
+ const db={pages:[page,
+  {id:'mercredi-101',group:'celebration',name:'Mercredi',blocks:[{id:40,kind:'text',text:'Historique'}]}],
+  siteHomeId:'neutral-accueil-general'};
  const listeners=new Map(),elements=new Map();
  const actions={prepend:node=>elements.set(node.id,node)};
  const document={
@@ -100,6 +102,10 @@ test('undo restores the exact previous order of moved blocks, with no remote pub
  assert.ok(u.status.textContent.includes('Action annulée'));
  assert.equal(u.ctrl.marked,1);
  assert.equal(u.ctrl.rendered,1);
+ assert.equal(u.db.pages[1].visibility,undefined,
+  'Undo must not turn implicitly published historical pages into drafts');
+ assert.equal(u.db.pages[0].visibility,'published',
+  'Undo must preserve the explicit public status of the current page');
  assert.equal(SERVER_EDITOR_SYNC.includes('resetUndoHistory()'),true,
   'An explicit server publication clears older local undo actions');
 });
