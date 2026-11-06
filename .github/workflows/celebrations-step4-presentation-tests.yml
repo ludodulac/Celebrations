@@ -1,0 +1,45 @@
+name: CELEBRATIONS step 4 presentation verification (local only)
+on:
+  pull_request:
+    paths:
+      - 'migration/cloudflare/editor-demo-client.mjs'
+      - 'migration/cloudflare/editor-demo-style.mjs'
+      - 'migration/cloudflare/editor-trial-site-client.mjs'
+      - 'tests/test-editor-multiple-button-links.mjs'
+      - 'tests/test-editor-section-presentation-step3.mjs'
+      - 'scripts/test-editor-step4-presentation-browser.mjs'
+      - '.github/workflows/celebrations-step4-presentation-tests.yml'
+  push:
+    branches:
+      - feat/celebrations-section-presentation-step3-20261106
+    paths:
+      - '.github/workflows/celebrations-step4-presentation-tests.yml'
+      - 'scripts/test-editor-step4-presentation-browser.mjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+
+jobs:
+  local-browser-and-unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify syntax and locally run editor regressions (no services)
+        run: |
+          node --check migration/cloudflare/editor-demo-client.mjs
+          node --check migration/cloudflare/editor-demo-style.mjs
+          node --check migration/cloudflare/editor-trial-site-client.mjs
+          node --check scripts/test-editor-step4-presentation-browser.mjs
+          node --test tests/test-editor-demo.mjs tests/test-editor-multiple-button-links.mjs tests/test-editor-section-presentation-step3.mjs
+      - name: Install isolated test browser (no Cloudflare access)
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Validate desktop/mobile actual CSS rendering (synthetic page only)
+        run: node scripts/test-editor-step4-presentation-browser.mjs
