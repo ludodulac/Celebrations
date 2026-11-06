@@ -10,7 +10,7 @@ const extract=(begin,end)=>{
  return DEMO_CLIENT.slice(a,b);
 };
 function n(tag,cls='',label=''){
- const el={tag,className:cls,textContent:label,children:[],attrs:{},open:false,value:'',
+ const el={tag,className:cls,textContent:label,children:[],attrs:{},dataset:{},open:false,value:'',
   append(...xs){this.children.push(...xs)},replaceChildren(...xs){this.children=xs},
   setAttribute(k,v){this.attrs[k]=v},close(){this.open=false;this.onclose?.()},
   showModal(){this.open=true},remove(){this.removed=true}};
