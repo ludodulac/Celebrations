@@ -1,0 +1,32 @@
+name: CÉLÉBRATIONS — Retour arrière, vidéo médiathèque et cartes Archanges
+on:
+  push:
+    branches: [feat/celebrations-undo-video-library-archangel-grid-20261106]
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate core syntax and persistence tests
+        run: |
+          node --check migration/cloudflare/editor-demo-client.mjs
+          node --check migration/cloudflare/editor-trial-site-client.mjs
+          node --check migration/cloudflare/editor-server-sync-client.mjs
+          node --check scripts/test-editor-archangels-video-undo-browser.mjs
+          node --test tests/test-editor-undo-video-media.mjs tests/test-editor-demo.mjs tests/test-editor-trial-site.mjs tests/test-editor-modal-page-video-fixes.mjs tests/test-editor-server-drafts.mjs
+      - name: Install Chromium for real layout tests (synthetic page, no production writes)
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Test four-colour cards, local video player and mobile Undo button
+        run: node scripts/test-editor-archangels-video-undo-browser.mjs
+      - name: Verify retained previous plus-centering fix
+        run: node scripts/test-editor-plus-centering-browser.mjs
