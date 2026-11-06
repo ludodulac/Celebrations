@@ -1,0 +1,28 @@
+name: CELEBRATIONS — correctifs médiathèque, nouvelles pages et titres vidéo
+on:
+  pull_request:
+    paths:
+      - 'migration/cloudflare/editor-demo-client.mjs'
+      - 'migration/cloudflare/editor-demo-preparation-page.mjs'
+      - 'migration/cloudflare/editor-demo-style.mjs'
+      - 'tests/test-editor-modal-page-video-fixes.mjs'
+      - '.github/workflows/celebrations-picker-page-video-regressions.yml'
+  push:
+    branches: [fix/celebrations-inline-file-picker-page-save-video-title-20261106]
+permissions:
+  contents: read
+jobs:
+  editor-regressions:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Validate source modules and new regressions
+        run: |
+          node --check migration/cloudflare/editor-demo-client.mjs
+          node --check migration/cloudflare/editor-demo-style.mjs
+          node --check migration/cloudflare/editor-demo-preparation-page.mjs
+          node --test tests/test-editor-modal-page-video-fixes.mjs tests/test-editor-demo.mjs tests/test-editor-trial-site.mjs tests/test-editor-server-drafts.mjs
