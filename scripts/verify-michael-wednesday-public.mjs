@@ -16,7 +16,7 @@ const hidden=leaf.filter(x=>x.hideOnSite===true).map(x=>Number(x.id)).sort((a,b)
 assert.deepEqual(hidden,[9,12,36,56,57,59,60]);
 const links=new Map(leaf.filter(x=>x.kind==='button').map(x=>[Number(x.id),x]));
 for(const id of [61,62])assert.equal(links.get(id)?.displayAsButton,true);
-assert.equal(links.get(58)?.displayAsButton,true===false?true:undefined,
+assert.equal(links.get(58)?.displayAsButton,undefined,
  'Original conference YouTube video must stay a video thumbnail');
 for(const s of page.blocks)assert.equal(s.kind,'section');
 assert.equal(page.blocks.filter(s=>s.presentation==='resource').length,10);
