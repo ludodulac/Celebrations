@@ -29,7 +29,7 @@ try{
   const failures=[];page.on('pageerror',e=>failures.push(e.message));
   await page.setContent('<!doctype html><html lang="fr"><head><meta charset="utf-8"></head><body><main class="site-paper" data-preparation="true" style="margin:20px auto;width:95%;max-width:1000px"></main></body></html>');
   await page.addStyleTag({content:TRIAL_SITE_STYLE});
-  const result=await page.evaluate(({rendererSource,section})=>{
+  const result=await page.evaluate(async ({rendererSource,section})=>{
    const make=(tag,cls='',text)=>{
     const el=document.createElement(tag);
     if(cls)el.className=cls;
@@ -56,6 +56,8 @@ try{
    const blocks=[...card.querySelectorAll('.trial-button-block')];
    const links=[...card.querySelectorAll('a.trial-button')];
    const img=card.querySelector('.trial-figure img');
+   await img.decode().catch(()=>{});
+   await new Promise(requestAnimationFrame);
    const rect=e=>e.getBoundingClientRect();
    const first=cols[0],last=cols[1];
    return {
@@ -76,6 +78,7 @@ try{
     horizontalOverflow:document.documentElement.scrollWidth>document.documentElement.clientWidth
    };
   },{rendererSource,section:prepSection});
+  console.log('STEP4_VIEWPORT_METRICS '+JSON.stringify(result));
   assert.equal(result.columns,width===1280?2:1,'Resource columns must respond to viewport');
   assert.equal(result.linkLabels.length,3,'All three independent buttons must be visible');
   assert.deepEqual(result.linkLabels,['Voir sur YouTube','Voir sur Vimeo','Lire la prière']);
