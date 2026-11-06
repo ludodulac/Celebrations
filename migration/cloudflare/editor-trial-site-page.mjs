@@ -28,8 +28,8 @@ export async function handleTrialSite(request,env){
  '<style nonce="'+nonce+'">'+TRIAL_SITE_STYLE+'</style></head><body>'+
 
 
- '<div class="site-menu-bar"><button type="button" class="menu-toggle" id="menu-toggle" aria-expanded="false" aria-controls="general-navigation">☰ Menu</button></div>'+
- '<nav id="general-navigation" class="general-navigation" aria-label="Pages hors célébration" hidden></nav>'+
+ '<div class="site-menu-bar"><div class="site-menu-group"><button type="button" class="menu-toggle" id="menu-toggle" aria-expanded="false" aria-haspopup="true" aria-controls="general-navigation">☰ Menu</button>'+
+ '<nav id="general-navigation" class="general-navigation" aria-label="Pages hors célébration" hidden></nav></div></div>'+
  '<nav class="celebration-shortcuts" id="celebration-shortcuts" aria-label="Célébration"></nav>'+
  '<nav class="steps" id="stage-navigation" aria-label="Pages de la célébration"></nav>'+
  '<main class="site-paper" id="site-paper"><div id="stage-main"></div></main>'+

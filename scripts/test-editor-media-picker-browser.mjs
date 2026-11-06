@@ -59,6 +59,43 @@ try{
   for(const filename of ['Une prière.pdf','Un chant.mp3','Une vidéo.mp4','Une photo.jpg','Ancien texte.docx']){
    await modal.getByRole('button',{name:'Choisir '+filename}).waitFor();
   }
+  // Visual regression: PDF/audio/video cards must be full-width, readable rows.
+  const initial=await modal.evaluate(dialog=>{
+   const grid=dialog.querySelector('.file-picker-results');
+   const cards=[...grid.querySelectorAll('.file-picker-card')];
+   const rect=cards[0].getBoundingClientRect();
+   const icon=cards[0].querySelector('.file-picker-icon')?.getBoundingClientRect();
+   const strong=cards[0].querySelector('.file-picker-filename');
+   return {view:grid.dataset.view,columns:getComputedStyle(grid).gridTemplateColumns,
+    cardHeight:rect.height,iconHeight:icon?.height||0,
+    nameVisible:!!strong&&getComputedStyle(strong).display!=='none',
+    hasOverflow:cards.some(card=>card.scrollWidth>card.clientWidth+2)};
+  });
+  assert.equal(initial.view,'list');
+  assert.ok(initial.cardHeight>=70&&initial.iconHeight>=50,
+   'Files must have visible file icons and enough vertical room');
+  assert.equal(initial.nameVisible,true);
+  assert.equal(initial.hasOverflow,false,'File names must not extend past their cards');
+
+  await modal.getByRole('button',{name:/^Images \(/}).click();
+  const gallery=await modal.evaluate(dialog=>{
+   const grid=dialog.querySelector('.file-picker-results');
+   const card=grid.querySelector('.file-picker-card[data-kind="images"]');
+   const photo=card?.querySelector('.file-picker-icon');
+   const label=card?.querySelector('.file-picker-filename');
+   const previewRect=photo?.getBoundingClientRect();
+   const cardRect=card?.getBoundingClientRect();
+   return {view:grid.dataset.view,photoHeight:previewRect?.height||0,
+    cardHeight:cardRect?.height||0,hasImage:!!card?.querySelector('img'),
+    caption:label?.textContent||''};
+  });
+  assert.equal(gallery.view,'gallery');
+  assert.equal(gallery.hasImage,true,'Image cards must have actual image thumbnails');
+  assert.ok(gallery.photoHeight>95,'Image thumbnail must be visibly larger than a text line');
+  assert.ok(gallery.cardHeight>=160,'Image card must have room for thumbnail and filename');
+  assert.ok(gallery.caption.includes('Une photo.jpg'));
+  console.log('FILE_PICKER_LAYOUT_PASS '+JSON.stringify({width,...gallery,listInitial:initial}));
+
   await modal.getByRole('button',{name:/^PDF \(/}).click();
   await modal.getByRole('button',{name:'Choisir Une prière.pdf'}).click();
   await modal.waitFor({state:'detached'}); // dialog close event removes the element asynchronously
