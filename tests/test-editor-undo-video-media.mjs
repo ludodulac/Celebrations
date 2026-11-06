@@ -79,8 +79,8 @@ function undoEnvironment(){
   '\nfunction mark(){ctrl.marked++;rememberUndoChange()};'+
   '\nfunction render(){ctrl.rendered++};'+
   '\nreturn {resetUndoHistory,rememberUndoChange,undoLastEditorAction,ensureUndoButton,updateUndoButton,undoStack,db,document,listeners,status,ctrl};';
- const ctx=new Function('db','document','status','n','id','selectedBlockId','preview','editorDragState','editorDragFinish','ctrl',script)(
-  db,document,status,fakeNode,'preparation-101',null,false,null,()=>{},ctrl
+ const ctx=new Function('db','document','status','n','id','selectedBlockId','preview','editorDragState','editorDragFinish','ctrl','listeners',script)(
+  db,document,status,fakeNode,'preparation-101',null,false,null,()=>{},ctrl,listeners
  );
  return ctx;
 }
