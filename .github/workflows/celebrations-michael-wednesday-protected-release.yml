@@ -1,0 +1,67 @@
+name: Célébrations — réorganiser uniquement le mercredi de Michaël (sauvegarde intégrale)
+on:
+  push:
+    branches: [feat/michael-wednesday-layout-20261106]
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-visual-official-publish
+  cancel-in-progress: false
+jobs:
+  preflight-readonly:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    environment: celebrations-staging
+    env:
+      STAGING_R2_BUCKET: celebrations-exit-staging
+      STAGING_R2_ACCESS_KEY_ID: ${{ secrets.CELEBRATIONS_STAGING_R2_ACCESS_KEY_ID }}
+      STAGING_R2_SECRET_ACCESS_KEY: ${{ secrets.CELEBRATIONS_STAGING_R2_SECRET_ACCESS_KEY }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Validate exact content-preserving page transformation
+        run: |
+          node --check migration/cloudflare/editor-michael-wednesday-layout.mjs
+          node --check scripts/verify-michael-wednesday-browser.mjs
+          node --check scripts/verify-michael-wednesday-public.mjs
+          node --test tests/test-editor-michael-wednesday-layout.mjs
+          python -m py_compile scripts/apply-michael-wednesday-layout.py
+      - name: No-write preflight from exact current public and draft R2 pages
+        run: |
+          python -m pip -q install boto3==1.40.57
+          python scripts/apply-michael-wednesday-layout.py
+  apply-only-after-owner-approved-commit:
+    needs: preflight-readonly
+    if: ${{ contains(github.event.head_commit.message, '[APPLY_WEDNESDAY_LAYOUT_ONCE]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    environment: celebrations-staging
+    env:
+      STAGING_R2_BUCKET: celebrations-exit-staging
+      STAGING_R2_ACCESS_KEY_ID: ${{ secrets.CELEBRATIONS_STAGING_R2_ACCESS_KEY_ID }}
+      STAGING_R2_SECRET_ACCESS_KEY: ${{ secrets.CELEBRATIONS_STAGING_R2_SECRET_ACCESS_KEY }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Archive full original R2 snapshot, atomically update only mercredi-101, verify readback
+        run: |
+          python -m pip -q install boto3==1.40.57
+          python scripts/apply-michael-wednesday-layout.py --apply
+      - name: Read-only official public API verification
+        run: node scripts/verify-michael-wednesday-public.mjs
+      - name: Install Chromium for final responsive verification
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install chromium
+      - name: Read-only real-site desktop and mobile browser smoke test
+        run: node scripts/verify-michael-wednesday-browser.mjs
