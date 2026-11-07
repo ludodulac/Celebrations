@@ -53,6 +53,6 @@ test('demo mode stays available and does not issue stage network requests',()=>{
 });
 test('staging PDF, video and paragraph editor actions have not been stripped',()=>{
  for(const term of ["Choisir une vidéo du site","file-picker-dialog",
-  "blockSettings","saveRich(","section-add-blue","section-add-green"])
+  "function block(","saveRich(","section-add-blue","section-add-green"])
   assert.ok(DEMO_CLIENT.includes(term),term);
 });
