@@ -30,3 +30,15 @@ d'images/PDF/vidéo. Ne déclarer une réussite qu'après lecture de la CI.
 ## Sécurité
 Réserves de la M03 R1–R5 toujours ouvertes : ne pas fusionner ni déployer
 la refonte sans restaurations intégrales et rollback précis vérifiés.
+
+
+## Validation finale de la mission 07 (exécutée)
+
+- GitHub Actions [run #42408066044](https://github.com/ludodulac/Celebrations/actions/runs/42408066044) : **SUCCESS**.
+- Tests Node : **103 réussis, 0 échec, 0 ignoré** (nouveaux contrats M07, anciennes vérifications M05/M06, sections, boutons, sauvegardes, médias, pages).
+- Chromium : **10 vues de référence sur données fictives** — 5 sur ordinateur, 5 sur téléphone, **10/10 PASS**, sans erreur JavaScript et sans requête vers la production dans ces parcours.
+- Sélecteurs image/PDF/vidéo : **PASS** à 1280 et 390 px ; page éditée conservée.
+- Aucun nouveau schéma ni endpoint, aucune écriture D1/R2, aucune mise en ligne.
+- Les premières exécutions M07 avaient échoué à cause de tests d'extraction de fonctions réorganisées et d'une ancienne expression de test trop stricte pour la gestion des couvertures de boutons ; ces tests ont été corrigés **sans enlever leurs vérifications fonctionnelles** puis le parcours complet est passé.
+
+**Limite :** ce succès en environnement isolé ne certifie pas tous les cas de production ni l'égalité pixel par pixel de toutes les pages. La PR reste en **DRAFT** et non fusionnée. La publication demeure bloquée par les réserves M03 et demande un accord distinct du propriétaire.
