@@ -3,7 +3,7 @@
 import {DEMO_CSS} from './editor-demo-style.mjs';
 import {DEMO_CLIENT} from './editor-demo-client.mjs';
 import {TRIAL_AUDIO_CLIENT} from './editor-trial-audio-client.mjs';
-import {SERVER_EDITOR_SYNC} from './editor-server-sync-client.mjs';
+// SERVER_EDITOR_SYNC is composed explicitly by editor-demo-client.mjs.
 import {fiveColourways} from './editor-celebration-themes.mjs';
 const HOST='celebrations-exit-staging.rondes.workers.dev';
 export const STAGES=[
@@ -282,38 +282,9 @@ export async function handlePreparationDemo(request,env){
    return Response.json({ok:true,seed},{headers:{...noCache,'x-robots-tag':'noindex,nofollow,noarchive'}});
   }
   // Reuse the proven editor, but isolate its localStorage key from the fictional demo.
-  const client=DEMO_CLIENT
-   .replace("(()=>{'use strict';","(async()=>{'use strict';")
-   .replace("const KEY='celebrations-demo-editor-v1'","const KEY='celebrations-demo-preparation-'+String(window.__PREPARATION_SEED__.celebrationId)")
-   .replace("const clone=o=>JSON.parse(JSON.stringify(o));","seed.pages=window.__PREPARATION_SEED__.pages;\nconst clone=o=>JSON.parse(JSON.stringify(o));")
-   // Preserve earlier local edits to Préparation, while inserting the six other historical pages.
-   .replace("if(!db||!Array.isArray(db.pages))db=clone(seed);",
-`if(!db||!Array.isArray(db.pages))db=clone(seed);
-for(const archived of seed.pages){if(!db.pages.some(p=>p.id===archived.id))db.pages.push(clone(archived));}
-for(const official of seed.pages){
- const previous=db.pages.find(p=>p.id===official.id);
- if(!previous)continue;
- if(official.id.startsWith('apres-celebration-')&&previous.name==='Après préparation')previous.name='Après célébration';
- if(official.id.startsWith('accueil-celebration-')){
-  for(const extra of official.blocks.filter(b=>Number(b.id)>100000)){
-   if(!previous.blocks.some(b=>b.id===extra.id))previous.blocks.push(clone(extra));
-  }
- }
-}`)
-   .replace("let tab='celebrations',id='home',dirty=false,preview=false,target=null,imageCoverTarget=false,selectedBlockId=null,mediaCategory='images';","let tab=(new URLSearchParams(location.search).get('tab')==='pages'?'pages':'celebrations'),id=(seed.pages.find(p=>p.id===String(new URLSearchParams(location.search).get('page'))+'-'+window.__PREPARATION_SEED__.celebrationId||p.id===String(new URLSearchParams(location.search).get('page')))||seed.pages.find(p=>p.group==='celebration')||seed.pages[0]).id,dirty=false,preview=false,target=null,imageCoverTarget=false,selectedBlockId=null,mediaCategory='images';")
-   .replace("Choisir une page d’exemple","Les sept étapes de la célébration")
-   .replace("function render(){","function render(){const see=document.getElementById('view-site-btn');if(see){const current=page();const stage=pageSlug(current);see.href='/__editor/voir-le-site?celebration='+encodeURIComponent(window.__PREPARATION_SEED__.celebrationId)+'&page='+encodeURIComponent(stage);see.hidden=stateOfPage(current)!=='published';see.title=see.hidden?'Page en brouillon : utilisez Aperçu ou Publier cette page.':'Voir la page publiée';}")
-   .replace("el('save-btn').onclick=save;","el('save-btn').onclick=save;const see=document.getElementById('view-site-btn');if(see)see.onclick=()=>{if(dirty)save()};")
-   .replace("localStorage.setItem(SHARED_KEY,JSON.stringify({pages,homeId:db.siteHomeId||'neutral-accueil-general'}));","let previous={};try{previous=JSON.parse(localStorage.getItem(SHARED_KEY)||'{}')}catch{};localStorage.setItem(SHARED_KEY,JSON.stringify({pages,homeId:db.siteHomeId||'neutral-accueil-general',deletedPageIds:Array.isArray(previous.deletedPageIds)?previous.deletedPageIds:[]}));")
-   .replace("options.append(commands);row.append(options);","if(/^neutral-[0-9a-f-]{30,45}$/.test(q.id)){const del=b('Supprimer la page',()=>removeCustomPage(q),'sm');del.classList.add('danger');commands.append(del);}\n     options.append(commands);row.append(options);")
-   .replace("choose.className='item'+(q.id===p.id?' active':'');list.append(choose);","choose.className='item'+(q.id===p.id?' active':'');if(IS_STAGE&&!preview&&/^extra-[0-9a-f-]{30,45}-/.test(q.id)&&q.id.endsWith('-'+String(window.__PREPARATION_SEED__.celebrationId))){\n     const opts=n('details','page-options'),summary=n('summary','','⋯');\n     summary.setAttribute('aria-label','Options de la page '+q.name);\n     opts.append(summary);const menu=n('div','page-options-menu');\n     const remove=b('Supprimer la page',()=>removeCustomPage(q),'sm');remove.classList.add('danger');menu.append(remove);\n     opts.append(menu);const row=n('div','general-page-row');row.append(choose,opts);list.append(row);\n    }else list.append(choose);")
-   .replace("function moveGeneralPage(p,dir){","async function removeCustomPage(q){\n if(!IS_STAGE||!q||!db.pages.some(p=>p.id===q.id))return;\n const suffix='-'+String(window.__PREPARATION_SEED__?.celebrationId||'');\n const general=q.group==='page'&&/^neutral-[0-9a-f-]{30,45}$/.test(q.id);\n const extra=q.group==='celebration'&&/^extra-[0-9a-f-]{30,45}-/.test(q.id)&&q.id.endsWith(suffix);\n if(!general&&!extra)return;\n if(!confirm('Supprimer la page « '+q.name+' » ? Cette suppression sera enregistrée sur le serveur.'))return;\n const siblings=db.pages.filter(p=>p.group===q.group&&p.id!==q.id);\n if(!siblings.length){alert('Impossible de supprimer la dernière page de cette section.');return}\n if(stateOfPage(q)==='published'){\n  const hidden=await serverPublish({kind:'page',pageId:q.id,visibility:'hidden'});\n  if(!hidden){alert('La page est encore publique. Suppression annulée.');return}\n }\n if(general){\n  let original={};try{original=JSON.parse(localStorage.getItem(SHARED_KEY)||'{}')}catch{}\n  const deleted=[...new Set([...(Array.isArray(original.deletedPageIds)?original.deletedPageIds:[]),q.id])].slice(-100);\n  localStorage.setItem(SHARED_KEY,JSON.stringify({...original,deletedPageIds:deleted}));\n  if(db.siteHomeId===q.id)db.siteHomeId=siblings.find(p=>p.id==='neutral-accueil-general')?.id||siblings[0].id;\n }\n db.pages=db.pages.filter(p=>p.id!==q.id);\n if(id===q.id)id=siblings[0].id;\n selectedBlockId=null;mark();save();render();\n void serverSave();\n}\n"+"\nfunction moveGeneralPage(p,dir){")
-   .replace("function mark(){dirty=true;",SERVER_EDITOR_SYNC+"\nfunction mark(){serverLocalEditCounter++;db._serverPending=true;dirty=true;")
-   .replace("el('save-btn').onclick=()=>save(true);","el('save-btn').onclick=()=>{save();void serverSave();};")
-   .replace("render();loadFiles();","window.addEventListener('beforeunload',e=>{if(db._serverPending||serverSaving){e.preventDefault();e.returnValue=''}});await serverLoad();render();loadFiles();")
-   .replace("status.textContent='✓ Titre enregistré dans ce navigateur';","db._serverPending=true;localStorage.setItem(KEY,JSON.stringify(db));status.textContent='Titre modifié : cliquez sur Enregistrer pour le serveur';")
-   .replace('z.innerText.slice(0,5000)','z.innerText.slice(0,50000)');
-  if(!client.includes("window.__PREPARATION_SEED__.pages")||!client.includes("for(const archived of seed.pages)"))throw Error('Demo client adapter failed');
+  // Production/staging modes are supported by the same editor source.
+  // No request-time substitution of JavaScript function bodies is needed.
+  const client=DEMO_CLIENT;
   const nonce=Array.from(crypto.getRandomValues(new Uint8Array(16)),v=>v.toString(16).padStart(2,'0')).join('');
   const choices=celebrations.map(c=>'<option value="'+escapeHtml(c.id)+'"'+(String(c.id)===String(celebration.id)?' selected':'')+'>'+escapeHtml(c.archangel+' '+(c.year||''))+'</option>').join('')+(plannedCelebration(String(celebration.id))?'<option value="'+escapeHtml(celebration.id)+'" selected>'+escapeHtml(celebration.archangel+' · '+celebration.start_date+' (brouillon)')+'</option>':'');
   const html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Pages de la célébration — atelier Célébrations</title><style nonce="'+nonce+'">'+DEMO_CSS+'</style></head><body>'+
