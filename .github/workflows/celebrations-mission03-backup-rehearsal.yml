@@ -1,0 +1,61 @@
+name: CELEBRATIONS MISSION 03 — sauvegarde privée chiffrée et répétition isolée
+on:
+  push:
+    branches: [audit/celebrations-mission-03-backups-20261107]
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-mission03-editor-private-backup
+  cancel-in-progress: false
+jobs:
+  backup-and-recovery-rehearsal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      PROD_D1_ID: 28736d2a-479b-472b-bf82-703ad0affe10
+      STAGING_R2_BUCKET: celebrations-exit-staging
+      STAGING_R2_ACCESS_KEY_ID: ${{ secrets.CELEBRATIONS_STAGING_R2_ACCESS_KEY_ID }}
+      STAGING_R2_SECRET_ACCESS_KEY: ${{ secrets.CELEBRATIONS_STAGING_R2_SECRET_ACCESS_KEY }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      CELEBRATIONS_BACKUP_PASSPHRASE: ${{ secrets.CELEBRATIONS_BACKUP_PASSPHRASE }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fail closed if the audit tries to change site software
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/audit/celebrations-mission-03-backups-20261107'
+          git diff --name-only 84755de550e05f717503206db8e38a408518544b HEAD |
+            tee /tmp/m03-modified-paths
+          if grep -vE '^(docs/audit/MISSION-03-|scripts/mission03_|tests/test_mission03_|\.github/workflows/celebrations-mission03-)' /tmp/m03-modified-paths; then
+            echo "M03_STOP: a production source file was changed"
+            exit 1
+          fi
+          test "$STAGING_R2_BUCKET" = 'celebrations-exit-staging'
+          test "$PROD_D1_ID" = '28736d2a-479b-472b-bf82-703ad0affe10'
+          test -n "$CELEBRATIONS_BACKUP_PASSPHRASE"
+          test "${#CELEBRATIONS_BACKUP_PASSPHRASE}" -ge 32
+      - name: Install pinned read-only/crypto clients
+        run: python -m pip -q install boto3==1.40.57 cryptography==46.0.2
+      - name: Test encryption, tampering, unique key and structural validity offline
+        run: python tests/test_mission03_editor_private_backup.py
+      - name: Read current REAL R2 editor snapshot without writing
+        run: python scripts/mission03_editor_private_backup.py
+      - name: Encrypt new private backup, verify R2 readback and restore all editor bytes in RAM only
+        env:
+          M03_ALLOW_PRIVATE_ARCHIVE: 'yes'
+        run: python scripts/mission03_editor_private_backup.py --archive
+      - name: Check D1 public-media inventory and 113 original files / nine historic letters, read-only
+        run: node scripts/verify-public-media-before-visual-publish.mjs
