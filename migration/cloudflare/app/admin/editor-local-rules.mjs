@@ -18,15 +18,5 @@ function validHref(raw){const s=String(raw||'').trim();if(!s||s.includes('\\'))r
 
 function validColor(c){return typeof c==='string'&&/^#[0-9a-f]{6}$/i.test(c)}
 
-function inlineColor(value){
- const v=String(value||'').trim().toLowerCase();
- if(/^#[0-9a-f]{6}$/.test(v))return v;
- const match=v.match(/^rgb\(([^)]+)\)$/);
- if(!match)return '';
- const values=match[1].split(/[\s,]+/).filter(Boolean);
- if(values.length!==3||values.some(n=>!/^\d{1,3}$/.test(n)||Number(n)>255))return '';
- return '#'+values.map(n=>Number(n).toString(16).padStart(2,'0')).join('');
-}
-
-return {validIso,prettyDate,validTime,validHref,validColor,inlineColor};
+return {validIso,prettyDate,validTime,validHref,validColor};
 }

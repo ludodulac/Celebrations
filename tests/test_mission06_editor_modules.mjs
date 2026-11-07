@@ -14,7 +14,7 @@ test('M06: modularized script compiles, CSP inline contract and server sync appe
   assert.equal(typeof ({createEditorState,createEditorLocalRules,renderEditorFrame,bindEditorShell})[name],'function');
   assert.equal((DEMO_CLIENT.match(new RegExp('function '+name+'\\(','g'))||[]).length,1,name);
  }
- assert.equal((DEMO_CLIENT.match(/async function serverSave\\(/g)||[]).length,1);
+ assert.equal(DEMO_CLIENT.split('async function serverSave(').length-1,1);
  assert.ok(DEMO_CLIENT.includes(SERVER_EDITOR_SYNC));
  assert.ok(DEMO_CLIENT.includes("el('save-btn').onclick=IS_STAGE?"));
  assert.ok(!DEMO_CLIENT.includes('export function renderEditorFrame'));
@@ -48,8 +48,7 @@ test('M06: validation rules remain compatible with legacy values',()=>{
  assert.equal(r.validHref('javascript:alert(1)'),false);
  assert.equal(r.validHref('https://example.com/'),true);
  assert.equal(r.validColor('#aabbcc'),true);assert.equal(r.validColor('red'),false);
- assert.equal(r.inlineColor('rgb(255, 0, 16)'),'#ff0010');
- assert.equal(r.prettyDate('bad-date'),'');
+  assert.equal(r.prettyDate('bad-date'),'');
 });
 test('M06: render is a port-driven function; it keeps stage and tab semantics',()=>{
  const calls=[],view={hidden:null};
