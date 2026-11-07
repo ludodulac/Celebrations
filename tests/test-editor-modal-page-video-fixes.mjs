@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DEMO_CLIENT} from '../migration/cloudflare/editor-demo-client.mjs';
+import {createMediaCatalogue} from '../migration/cloudflare/app/domain/editor-media-catalogue.mjs';
+import {createEditorMediaCommands} from '../migration/cloudflare/app/application/editor-media-commands.mjs';
 import {DEMO_CSS} from '../migration/cloudflare/editor-demo-style.mjs';
 import {handleServerDraft} from '../migration/cloudflare/editor-server-draft-api.mjs';
 
@@ -35,6 +37,8 @@ test('the global file picker is modal and selects every kind without navigating 
   globalFiles:[sampleMedia.at(-1)],publicFiles:()=>[],
   globalMedia:sampleMedia.slice(0,4),
   mediaCategoryOf:r=>({pdf:'pdf',audio:'audios',video:'videos',image:'images'})[r.type]||'autres',
+  mediaCatalogue:createMediaCatalogue({validHref:src=>src.startsWith('/')||src.startsWith('https://')}),
+  editorMediaCommands:createEditorMediaCommands(),
   validHref:s=>s.startsWith('/')||s.startsWith('https://'),
   document:{body},IS_STAGE:true,globalMediaLoaded:true,render:()=>env.renders++,
   mark:()=>env.marks++,renders:0,marks:0
