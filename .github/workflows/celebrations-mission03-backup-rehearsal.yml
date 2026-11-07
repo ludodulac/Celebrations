@@ -54,8 +54,13 @@ jobs:
       - name: Read current REAL R2 editor snapshot without writing
         run: python scripts/mission03_editor_private_backup.py
       - name: Encrypt new private backup, verify R2 readback and restore all editor bytes in RAM only
+        # Never create repeated private copies on routine audit edits.
+        # The first encrypted archive was validated in run 42382798457.
+        if: ${{ contains(github.event.head_commit.message, '[M03_PRIVATE_BACKUP_ONCE]') }}
         env:
           M03_ALLOW_PRIVATE_ARCHIVE: 'yes'
         run: python scripts/mission03_editor_private_backup.py --archive
+      - name: Read-only check of version-pinned Worker rollback against the last verified release
+        run: python scripts/mission03_verify_rollback_contract.py
       - name: Check D1 public-media inventory and 113 original files / nine historic letters, read-only
         run: node scripts/verify-public-media-before-visual-publish.mjs
