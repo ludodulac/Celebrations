@@ -148,7 +148,7 @@ test('M08: global cards count every source only once by already-visible preceden
  assert.deepEqual(result.local.map(x=>x.id),[2,1]);
  assert.equal(result.remote.length,4,'external link remains outside visible category cards');
  assert.equal(result.countFor('pdf'),1,'same historical PDF is not shown twice');
- assert.equal(result.countFor('images'),2);
+ assert.equal(result.countFor('images'),3,'historical, local and new remote images each count once');
  assert.equal(result.countFor('audios'),2);
  assert.equal(result.countFor('videos'),1);
  assert.equal(JSON.stringify({historical,local,remote}),saved);
