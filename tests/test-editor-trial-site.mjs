@@ -107,4 +107,19 @@ test('Visitor dropdown always lists Accueil, Célébrations and Médiathèque g�
   'Permanent links precede all added visitor pages');
  assert.ok(!nav.includes("general.prepend(home)"),
   'Do not insert the homepage afterwards and leave custom pages before the media library');
+ // Exercise the actual DOM builder on two synthetic added visitor pages.
+ const general={children:[],replaceChildren(){this.children=[]},append(item){this.children.push(item)}};
+ const make=(tag,cls,label)=>({tag,cls,label});
+ const mockPages=[
+  {id:'neutral-accueil-general',name:'Accueil',group:'page'},
+  {id:'neutral-page-test-1',name:'Notre histoire',group:'page'},
+  {id:'neutral-page-test-2',name:'Équipe',group:'page'}
+ ];
+ const output=new Function('el','generalPages','pages','slugOf','active','listing','isGeneralGallery','make','go',
+  nav+';return general.children.map(item=>item.label);')(
+   id=>{assert.equal(id,'general-navigation');return general},
+   ()=>({homeId:'neutral-accueil-general'}),mockPages,
+   p=>p.id,'neutral-accueil-general',false,false,make,()=>{}
+  );
+ assert.deepEqual(output,['⌂ Accueil','✧ Célébrations','▧ Médiathèque générale','Notre histoire','Équipe']);
 });
