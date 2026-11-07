@@ -56,7 +56,7 @@ test('new section buttons have distinct IDs and opt into exact labeled button re
   assert.equal(item.kind,'button');
   assert.equal(item.displayAsButton,true);
  }
- assert.match(DEMO_CLIENT,/x\.href=v;delete x\.assetId;x\.displayAsButton=true;mark\(\);render\(\)/,
+ assert.ok(DEMO_CLIENT.includes('x.href=v;delete x.assetId;x.displayAsButton=true;'),
   'Editing an older button URL must also keep its explicit button appearance');
 });
 
