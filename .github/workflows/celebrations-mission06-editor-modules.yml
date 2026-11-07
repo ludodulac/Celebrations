@@ -1,0 +1,46 @@
+name: CÉLÉBRATIONS M06 — modules éditeur, aucune publication
+on:
+  push:
+    branches: [refactor/celebrations-mission-06-editor-modules-20261107]
+permissions:
+  contents: read
+jobs:
+  parity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntaxe, module, protections métier et régressions de M05
+        run: |
+          node --check migration/cloudflare/editor-demo-client.mjs
+          for file in migration/cloudflare/app/admin/*.mjs; do node --check "$file"; done
+          node --test \
+            tests/test_mission06_editor_modules.mjs \
+            tests/test_mission05_editor_composition.mjs \
+            tests/test-editor-demo.mjs \
+            tests/test-editor-trial-site.mjs \
+            tests/test-editor-server-drafts.mjs \
+            tests/test-editor-publication-media.mjs \
+            tests/test-editor-modal-page-video-fixes.mjs \
+            tests/test-editor-undo-video-media.mjs \
+            tests/test-editor-celebration-themes.mjs \
+            tests/test-editor-access-gate.mjs
+      - name: Navigateur de référence isolé (jamais de publication)
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+          node scripts/mission02-editor-reference-browser.mjs
+          node scripts/test-editor-media-picker-browser.mjs
+      - name: Captures temporaires des vues desktop/mobile
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: celebrations-m06-editor-parity-${{ github.run_number }}
+          path: artifacts/mission02/editor-fixture/
+          retention-days: 14
+          if-no-files-found: warn
