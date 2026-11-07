@@ -32,6 +32,7 @@ jobs:
         run: |
           node --check scripts/mission02-public-reference-browser.mjs
           node --check scripts/mission02-editor-reference-browser.mjs
+          node --check scripts/mission02-media-picker-reference-browser.mjs
           node --test \
             tests/test-editor-demo.mjs \
             tests/test-editor-trial-site.mjs \
@@ -51,6 +52,8 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Éditeur authentique avec données de test uniquement
         run: node scripts/mission02-editor-reference-browser.mjs
+      - name: Captures des sélecteurs de fichiers PDF, images, audio et vidéos
+        run: node scripts/mission02-media-picker-reference-browser.mjs
       - name: Lire et photographier les pages PUBLIQUES uniquement
         run: node scripts/mission02-public-reference-browser.mjs
       - name: Conserver les captures privées et les rapports du contrôle
