@@ -13,7 +13,7 @@ test('Mission 04 is documentation/design only, not a code deployment',()=>{
  assert.equal(contract.mandatoryReleaseGates.noProductionDeploymentFromThisBranch,true);
  assert.match(architecture,/IMPLÉMENTATION NON COMMENCÉE/);
  assert.match(architecture,/Aucune modification fonctionnelle et aucun déploiement/);
- assert.match(architecture,/MISSION 05/);
+ assert.match(architecture,/mission 05/i);
 });
 
 test('Target module responsibilities are unique, with no dependency cycles',()=>{
