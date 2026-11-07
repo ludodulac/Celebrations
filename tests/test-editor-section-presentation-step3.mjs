@@ -19,7 +19,7 @@ function fakeElement(tag,className='',textContent=''){
 }
 function flattened(node){return [node,...(node.children||[]).flatMap(flattened)]}
 function editorHelpers(){
- const start=DEMO_CLIENT.indexOf('function columnVerticalAlign(section,index){');
+ const start=DEMO_CLIENT.lastIndexOf('function columnVerticalAlign(section,index){');
  const end=DEMO_CLIENT.indexOf('\nfunction sectionColumn(section,p,index,single=false){',start);
  assert.ok(start>=0&&end>start,'Find the column settings helpers');
  let marked=0,rendered=0;
