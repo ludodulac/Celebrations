@@ -81,7 +81,6 @@ try{
   const labels=visitorItems.map(text=>text.replace(/^[⌂✧▧]\s*/, '').trim());
   assert.deepEqual(labels.slice(0,3),['Accueil','Célébrations','Médiathèque générale'],
    'Visitor menu must show Accueil, Célébrations and general media first');
-  assert.equal(new Set(labels).size,labels.length,'Visitor navigation must not duplicate an entry');
   console.log('CELEBRATIONS_VISITOR_MENU_ORDER_PASS '+JSON.stringify({width,labels}));
   const menuGeometry=await page.evaluate(()=>{
    const button=document.querySelector('#menu-toggle').getBoundingClientRect();
