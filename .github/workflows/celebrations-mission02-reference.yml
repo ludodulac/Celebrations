@@ -1,0 +1,59 @@
+name: CELEBRATIONS MISSION 02 — référence fonctionnelle et visuelle SANS PUBLICATION
+on:
+  push:
+    branches:
+      - audit/celebrations-mission-02-reference-20261107
+permissions:
+  contents: read
+jobs:
+  reference:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Télécharger code en lecture seule
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Bloquer tout changement du logiciel sur cette branche d'audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --name-only 75e4894c60adf65c8044619d5d7104c4dd061028 HEAD |
+            tee /tmp/mission02-changes.txt
+          if grep -vE '^(docs/audit/MISSION-02-|scripts/mission02-|\.github/workflows/celebrations-mission02-reference.yml)' /tmp/mission02-changes.txt; then
+            echo "ERROR: Mission 02 cannot modify any software or existing file."
+            exit 1
+          fi
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntaxe et contrôles non destructifs existants
+        run: |
+          node --check scripts/mission02-public-reference-browser.mjs
+          node --check scripts/mission02-editor-reference-browser.mjs
+          node --test \
+            tests/test-editor-demo-preparation.mjs \
+            tests/test-editor-demo.mjs \
+            tests/test-editor-trial-site.mjs \
+            tests/test-editor-server-drafts.mjs \
+            tests/test-editor-publication-media.mjs \
+            tests/test-editor-undo-video-media.mjs \
+            tests/test-editor-modal-page-video-fixes.mjs \
+            tests/test-editor-access-gate.mjs \
+            tests/test-editor-celebration-themes.mjs
+      - name: Chromium isolé
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Éditeur authentique avec données de test uniquement
+        run: node scripts/mission02-editor-reference-browser.mjs
+      - name: Lire et photographier les pages PUBLIQUES uniquement
+        run: node scripts/mission02-public-reference-browser.mjs
+      - name: Conserver les captures privées et les rapports du contrôle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: celebrations-mission02-references-${{ github.run_number }}
+          path: artifacts/mission02/
+          retention-days: 30
+          if-no-files-found: warn
