@@ -67,3 +67,31 @@ n'est pas activé par inadvertance.
 Aucune fusion ni déploiement autorisé par cette mission. PR **DRAFT**.
 Les réserves M03 de récupération complète D1/médias et rollback Worker
 demeurent des conditions de sécurité avant la publication des refontes.
+
+
+## Validation finale sur la branche — 07/11/2026
+
+- **[Workflow M08 #42411945696](https://github.com/ludodulac/Celebrations/actions/runs/42411945696) : SUCCESS.**
+- **114 tests Node réussis, 0 échec**, incluant les 11 nouveaux scénarios
+  dédiés à la classification, la provenance, les fichiers historiques, la
+  sélection des vidéos, les miniatures, les doublons et l’absence d’écritures
+  réseaux dans les modules purement locaux.
+- **10 vues de référence** en Chromium sur données fictives : 5 ordinateur,
+  5 téléphone, **10/10 PASS** ; aucune erreur JavaScript et aucune requête
+  de production relevée pendant ces parcours.
+- Fenêtre de choix de fichiers : **PASS à 1280 et 390 px** ; vignette photo,
+  types PDF/audio/vidéo, sélection d'un PDF, non-navigation et conservation de
+  la page en arrière-plan.
+- Les trois workflows historiques de PR (tests staging, tests éditeur B+C,
+  tests correctifs média/pages/vidéos) sont également **SUCCESS** à la
+  révision `58cdc8bdd4352147720d36187dad58a8edecccce`.
+- Le premier jet a nécessité une correction d'une attente de décompte de
+  catégories : trois sources d'images distinctes doivent être comptées.
+  Le test de navigateur dédié a également été mis à jour pour fournir aux
+  fonctions simulées leurs deux nouveaux modules réels. Les tests
+  fonctionnels et leurs assertions n'ont pas été désactivés.
+
+**Limite de la preuve :** ces résultats valident le code et les parcours
+isolés, **pas une restauration Cloudflare complète ni toutes les données
+réelles**. Ce n’est pas une autorisation de publier. La PR reste DRAFT ;
+aucun Worker, objet R2, base D1 ou fichier public n'est modifié.
