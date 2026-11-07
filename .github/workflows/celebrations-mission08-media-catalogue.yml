@@ -1,0 +1,53 @@
+name: CÉLÉBRATIONS M08 — catalogue médias sans publication
+on:
+  push:
+    branches: [refactor/celebrations-mission-08-media-catalogue-20261107]
+permissions:
+  contents: read
+jobs:
+  parity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntaxe, catégories, sélecteurs et régressions M05–M07
+        run: |
+          node --check migration/cloudflare/editor-demo-client.mjs
+          node --check migration/cloudflare/app/domain/editor-media-catalogue.mjs
+          node --check migration/cloudflare/app/application/editor-media-commands.mjs
+          node --test \
+            tests/test_mission08_media_catalogue.mjs \
+            tests/test_mission07_block_model.mjs \
+            tests/test_mission06_editor_modules.mjs \
+            tests/test_mission05_editor_composition.mjs \
+            tests/test-editor-demo.mjs \
+            tests/test-editor-section-presentation-step3.mjs \
+            tests/test-editor-multiple-button-links.mjs \
+            tests/test-editor-presentation-server-roundtrip-step4.mjs \
+            tests/test-editor-michael-preparation-layout.mjs \
+            tests/test-editor-trial-site.mjs \
+            tests/test-editor-server-drafts.mjs \
+            tests/test-editor-publication-media.mjs \
+            tests/test-editor-modal-page-video-fixes.mjs \
+            tests/test-editor-undo-video-media.mjs \
+            tests/test-editor-celebration-themes.mjs \
+            tests/test-editor-access-gate.mjs
+      - name: Simulation Chromium isolée — PC et téléphone, aucune production
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+          node scripts/mission02-editor-reference-browser.mjs
+          node scripts/test-editor-media-picker-browser.mjs
+      - name: Conserver les captures de référence temporaires
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: celebrations-m08-media-parity-${{ github.run_number }}
+          path: artifacts/mission02/editor-fixture/
+          retention-days: 14
+          if-no-files-found: warn

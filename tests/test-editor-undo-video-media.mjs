@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DEMO_CLIENT} from '../migration/cloudflare/editor-demo-client.mjs';
+import {createMediaCatalogue} from '../migration/cloudflare/app/domain/editor-media-catalogue.mjs';
+import {createEditorMediaCommands} from '../migration/cloudflare/app/application/editor-media-commands.mjs';
 import {SERVER_EDITOR_SYNC} from '../migration/cloudflare/editor-server-sync-client.mjs';
 
 const extract=(a,b)=>{
@@ -33,6 +35,8 @@ test('a video block chooses only videos from the same non-navigating library pop
    {name:'Présentation Michaël.mp4',src:'/media/my-video.mp4',type:'video'},
    {name:'Prière.pdf',src:'/media/priere.pdf',type:'pdf'}],
   mediaCategoryOf:r=>r.type==='video'?'videos':r.type==='pdf'?'pdf':'autres',
+  mediaCatalogue:createMediaCatalogue({validHref:src=>src.startsWith('/')||src.startsWith('https://')}),
+  editorMediaCommands:createEditorMediaCommands(),
   validHref:x=>x.startsWith('/'),
   document,IS_STAGE:true,globalMediaLoaded:true,
   mark:()=>changes.marked++,render:()=>changes.rendered++
