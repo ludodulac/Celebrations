@@ -1,0 +1,47 @@
+name: CELEBRATIONS MISSION 04 — contrat d'architecture sans modification du site
+on:
+  push:
+    branches: [design/celebrations-mission-04-architecture-20261107]
+permissions:
+  contents: read
+jobs:
+  architecture-reference:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Read-only checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Refuse any modification to site source, production workflows or user data
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --name-only 6f37459fe8752c66f1225267a8137362f5b4750b HEAD |
+            tee /tmp/mission04-changed-paths
+          if grep -vE '^(docs/architecture/CELEBRATIONS-M04-|docs/architecture/MISSION-04-|tests/test_mission04_|\.github/workflows/celebrations-mission04-)' /tmp/mission04-changed-paths; then
+            echo 'M04_ABORT: application source or protected workflow changed'
+            exit 1
+          fi
+      - name: Syntax check and architecture contract validation
+        run: |
+          node --check tests/test_mission04_architecture_contract.mjs
+          node --test tests/test_mission04_architecture_contract.mjs
+      - name: Preserve existing editor, public and R2 request behavior tests
+        run: |
+          node --test \
+            tests/test-editor-demo.mjs \
+            tests/test-editor-trial-site.mjs \
+            tests/test-editor-server-drafts.mjs \
+            tests/test-editor-publication-media.mjs
+      - name: Confirm original runtime files were not changed by Mission 04
+        shell: bash
+        run: |
+          test "$(git rev-parse 'HEAD:migration/cloudflare/production-worker.mjs')" = "$(git rev-parse '6f37459fe8752c66f1225267a8137362f5b4750b:migration/cloudflare/production-worker.mjs')"
+          test "$(git rev-parse 'HEAD:migration/cloudflare/editor-demo-client.mjs')" = "$(git rev-parse '6f37459fe8752c66f1225267a8137362f5b4750b:migration/cloudflare/editor-demo-client.mjs')"
+          test "$(git rev-parse 'HEAD:migration/cloudflare/editor-publication-api.mjs')" = "$(git rev-parse '6f37459fe8752c66f1225267a8137362f5b4750b:migration/cloudflare/editor-publication-api.mjs')"
+          echo 'M04_PRODUCTION_SOURCES_UNCHANGED_PASS'

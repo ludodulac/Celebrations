@@ -1,0 +1,247 @@
+{
+  "schemaVersion": 1,
+  "project": "CÉLÉBRATIONS / Ronde des Archanges Universelle",
+  "status": "PROPOSED_TARGET_NOT_IMPLEMENTED",
+  "auditBaseCommit": "6f37459fe8752c66f1225267a8137362f5b4750b",
+  "currentPublicBaselineCommit": "7cbfdbd79e2b40f8f4ca4b46dbc97d47e26b742d",
+  "publishedHostnames": [
+    "ronde-des-archanges-universelle.eu",
+    "www.ronde-des-archanges-universelle.eu"
+  ],
+  "runtime": {
+    "keepEntrypoint": "migration/cloudflare/production-worker.mjs",
+    "keepRuntime": "Cloudflare Worker + D1 + R2 + static assets",
+    "keepCsp": "Nonce-based inline script/style until equivalence established",
+    "keepNoFrameworkMigration": true,
+    "activeEditorR2Bucket": "celebrations-exit-staging",
+    "activeEditorR2Object": "editor-trials/server-drafts-v1.json",
+    "historicalMediaR2Bucket": "celebrations-exit-production",
+    "newUploadsPrefix": "editor-trials/uploads/",
+    "database": "D1 production (historic records and read-only catalogue)",
+    "publicReadIsolation": "Only server-filtered published snapshot; never serve private draft state"
+  },
+  "boundaries": [
+    {
+      "id": "domain",
+      "target": "migration/cloudflare/app/domain/",
+      "dependsOn": [],
+      "responsibility": "Pure immutable editor model, id/date/url validation, block types, visibility and stage slugs"
+    },
+    {
+      "id": "application",
+      "target": "migration/cloudflare/app/application/",
+      "dependsOn": [
+        "domain"
+      ],
+      "responsibility": "Pure commands, history, selectors, change-set and publication policies"
+    },
+    {
+      "id": "ports",
+      "target": "migration/cloudflare/app/ports/",
+      "dependsOn": [
+        "domain",
+        "application"
+      ],
+      "responsibility": "Contracts for editor store, catalogue, legacy content and auth; no concrete Cloudflare APIs"
+    },
+    {
+      "id": "adapters",
+      "target": "migration/cloudflare/app/adapters/",
+      "dependsOn": [
+        "domain",
+        "application",
+        "ports"
+      ],
+      "responsibility": "R2 ETag store, D1 legacy read, media storage, auth; HTTPS/HTTP mapping"
+    },
+    {
+      "id": "admin",
+      "target": "migration/cloudflare/app/admin/",
+      "dependsOn": [
+        "domain",
+        "application",
+        "ports"
+      ],
+      "responsibility": "Admin bootstrap, DOM controllers, modals, media chooser, drag/drop, inline editor and CSS"
+    },
+    {
+      "id": "public",
+      "target": "migration/cloudflare/app/public/",
+      "dependsOn": [
+        "domain",
+        "application",
+        "ports"
+      ],
+      "responsibility": "Public navigation, published read model, renderers, media gallery and CSS"
+    },
+    {
+      "id": "compat",
+      "target": "migration/cloudflare/app/compat/",
+      "dependsOn": [
+        "domain",
+        "ports"
+      ],
+      "responsibility": "Legacy page ids, routes and original mail/media URLs without migration"
+    },
+    {
+      "id": "composition",
+      "target": "migration/cloudflare/app/composition/",
+      "dependsOn": [
+        "domain",
+        "application",
+        "ports",
+        "adapters",
+        "admin",
+        "public",
+        "compat"
+      ],
+      "responsibility": "Server route adapters, HTML response and explicit composition, with existing Worker entrypoint unchanged"
+    }
+  ],
+  "frozenExternalRoutes": [
+    {
+      "method": "GET",
+      "path": "/",
+      "visibility": "public"
+    },
+    {
+      "method": "GET",
+      "path": "/mercredi/",
+      "visibility": "public"
+    },
+    {
+      "method": "GET",
+      "path": "/mediatheque-generale",
+      "visibility": "public"
+    },
+    {
+      "method": "GET",
+      "path": "/admin.html",
+      "visibility": "access-gate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/editor-open-draft",
+      "visibility": "authenticated"
+    },
+    {
+      "method": "POST",
+      "path": "/api/editor-open-draft",
+      "visibility": "authenticated"
+    },
+    {
+      "method": "GET",
+      "path": "/api/editor-publication",
+      "visibility": "public-published-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/editor-publication",
+      "visibility": "authenticated"
+    },
+    {
+      "method": "GET",
+      "path": "/api/editor-media",
+      "visibility": "authenticated"
+    },
+    {
+      "method": "POST",
+      "path": "/api/editor-media",
+      "visibility": "authenticated"
+    },
+    {
+      "method": "GET",
+      "path": "/media/new/*",
+      "visibility": "policy-checked-media"
+    },
+    {
+      "method": "GET",
+      "path": "/media/*",
+      "visibility": "historical-media"
+    },
+    {
+      "method": "GET",
+      "path": "/letter/*",
+      "visibility": "historical-documents"
+    }
+  ],
+  "compatibility": {
+    "stageSlugs": [
+      "accueil-celebration",
+      "preparation",
+      "mercredi",
+      "jeudi",
+      "vendredi",
+      "samedi",
+      "dimanche",
+      "apres-celebration"
+    ],
+    "archangels": [
+      "Michaël",
+      "Gabriel",
+      "Raphaël",
+      "Ouriel"
+    ],
+    "pageVisibilityValues": [
+      "draft",
+      "published",
+      "hidden"
+    ],
+    "preserveLegacyImplicitPublished": true,
+    "preserveAllPageIds": true,
+    "preserveExistingBlockData": true,
+    "preserveDraftsAndPublishedSplit": true,
+    "preserveCurrentSaveSemantics": true,
+    "preserveConditionalEtagWritesAnd409": true,
+    "preserveNoUndoOfRemotePublication": true,
+    "preserveOldEmailedLinks": true,
+    "preserveLegacyAssetsFallback": true,
+    "preserveCurrentVideoMediaUploadRestrictions": true,
+    "visitorMenuFirstThree": [
+      "Accueil",
+      "Célébrations",
+      "Médiathèque générale"
+    ],
+    "visitorDesktopCardsPerRow": 4,
+    "visitorMobileCardsPerRow": 2,
+    "colors": {
+      "Michaël": "#ea342f",
+      "Gabriel": "#665ce4",
+      "Raphaël": "#32ba63",
+      "Ouriel": "#efbb1f"
+    }
+  },
+  "targetOperations": {
+    "loadPrivate": "GET /api/editor-open-draft?celebration={id} requires editor session",
+    "savePrivate": "POST /api/editor-open-draft with expectedRevision; use R2 CAS; 409 on collision",
+    "publish": "POST /api/editor-publication; explicit visibility change only by authorized administrator",
+    "loadPublic": "GET /api/editor-publication?celebration={id}; return only published pages and public media",
+    "mediaUpload": "POST /api/editor-media?action=upload; retain current accepted MIME list and size checks",
+    "documentUndo": "Local editor-only bounded snapshot/commands; never revert remote publish"
+  },
+  "mandatoryReleaseGates": {
+    "exactCurrentWorkerRollbackVerified": false,
+    "independentlyRecoverableD1CurrentSnapshotVerified": false,
+    "mediaBinaryRecoveryCoverageVerified": false,
+    "independentOffCloudflareBackupVerified": false,
+    "mission02VisualParityRequired": true,
+    "noProductionDeploymentFromThisBranch": true
+  },
+  "missions": {
+    "10": "Draft/publish persistence",
+    "11": "Drag/drop and undo",
+    "12": "Public rendering",
+    "13": "CSS consolidation",
+    "14": "Auth/security review",
+    "15": "Archive proven unused code",
+    "16": "Release/tests/rollback pipeline",
+    "17": "Documentation and performance",
+    "18": "Final parity certification",
+    "04": "Architecture spec only",
+    "05": "Eliminate brittle string replacements",
+    "06": "Separate editor controllers and state",
+    "07": "Stabilize blocks and sections",
+    "08": "Unify media catalogue",
+    "09": "Page lifecycle"
+  }
+}
