@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DEMO_CLIENT} from '../migration/cloudflare/editor-demo-client.mjs';
+import {createBlockModel} from '../migration/cloudflare/app/domain/editor-block-model.mjs';
 import {DEMO_CSS} from '../migration/cloudflare/editor-demo-style.mjs';
 import {TRIAL_SITE_CLIENT,TRIAL_SITE_STYLE} from '../migration/cloudflare/editor-trial-site-client.mjs';
 
@@ -18,14 +19,14 @@ function fakeElement(tag,className='',textContent=''){
 }
 function flattened(node){return [node,...(node.children||[]).flatMap(flattened)]}
 function editorHelpers(){
- const start=DEMO_CLIENT.indexOf('function columnVerticalAlign(section,index){');
+ const start=DEMO_CLIENT.lastIndexOf('function columnVerticalAlign(section,index){');
  const end=DEMO_CLIENT.indexOf('\nfunction sectionColumn(section,p,index,single=false){',start);
  assert.ok(start>=0&&end>start,'Find the column settings helpers');
  let marked=0,rendered=0;
- const fn=new Function('n','mark','render',
+ const fn=new Function('n','mark','render','editorBlockModel',
   DEMO_CLIENT.slice(start,end)+
   ';return {columnVerticalAlign,columnButtonLayout,columnPresentationSettings};');
- const helpers=fn(fakeElement,()=>marked++,()=>rendered++);
+ const helpers=fn(fakeElement,()=>marked++,()=>rendered++,createBlockModel());
  return {...helpers,counts:()=>({marked,rendered})};
 }
 function publicRenderer(){
