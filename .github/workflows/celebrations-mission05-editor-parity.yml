@@ -1,0 +1,52 @@
+name: CÉLÉBRATIONS M05 — refonte sûre sans remplacement de code texte
+on:
+  push:
+    branches: [refactor/celebrations-mission-05-remove-string-patches-20261107]
+permissions:
+  contents: read
+jobs:
+  parity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    steps:
+      - name: Source de la branche de travail uniquement
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Vérification syntaxique des fichiers composés
+        run: |
+          node --check migration/cloudflare/editor-demo-client.mjs
+          node --check migration/cloudflare/editor-demo-preparation-page.mjs
+          node --check migration/cloudflare/editor-server-sync-client.mjs
+          node --check scripts/mission02-editor-reference-browser.mjs
+      - name: Contrats M05 et régressions critiques sans données réelles
+        run: |
+          node --test \
+            tests/test_mission05_editor_composition.mjs \
+            tests/test-editor-demo.mjs \
+            tests/test-editor-trial-site.mjs \
+            tests/test-editor-server-drafts.mjs \
+            tests/test-editor-publication-media.mjs \
+            tests/test-editor-modal-page-video-fixes.mjs \
+            tests/test-editor-undo-video-media.mjs \
+            tests/test-editor-celebration-themes.mjs \
+            tests/test-editor-access-gate.mjs
+      - name: Installer Chromium pour contrôler la même interface admin en environnement isolé
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Rejouer référence M02 (vrai éditeur, fausses données, aucun compte ni média modifié)
+        run: node scripts/mission02-editor-reference-browser.mjs
+      - name: Vérifier les fichiers image / PDF / vidéo sur ordinateur et mobile
+        run: node scripts/test-editor-media-picker-browser.mjs
+      - name: Conserver les captures de comparaison (éphémères, sans données privées)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: celebrations-m05-editor-parity-${{ github.run_number }}
+          path: artifacts/mission02/editor-fixture/
+          retention-days: 14
+          if-no-files-found: warn
