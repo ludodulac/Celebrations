@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readEditorState,publicSnapshot,discoverMedia,handleEditorPublication,
- handleEditorMedia} from '../migration/cloudflare/editor-publication-api.mjs';
+import {readEditorState,publicSnapshot,discoverMedia,publishedMedia,publicHistoricalMedia,
+ mergePublicMedia,videoMediaUrl,handleEditorPublication,handleEditorMedia} from '../migration/cloudflare/editor-publication-api.mjs';
 import {handleServerDraft} from '../migration/cloudflare/editor-server-draft-api.mjs';
 
 const host='https://www.ronde-des-archanges-universelle.eu';
@@ -123,10 +123,125 @@ test('External media may be added without server upload and made public only by 
  const info=await added.json();
  assert.equal(info.item.general,false);
  let state=(await readEditorState(bucket)).state;
- assert.equal(publicSnapshot(state,'101').media.length,0);
+ assert.ok(!publicSnapshot(state,'101').media.some(m=>m.src==='https://example.org/doc.pdf'),'Unpublished uploaded file stays private');
  const shown=await handleEditorPublication(body({kind:'media',celebration:'101',
   expectedRevision:info.revision,mediaId:info.item.id,general:true},cookie),e);
  assert.equal(shown.status,200);
  state=(await readEditorState(bucket)).state;
- assert.equal(publicSnapshot(state,'101').media[0].src,'https://example.org/doc.pdf');
+ assert.ok(publicSnapshot(state,'101').media.some(m=>m.src==='https://example.org/doc.pdf'),'Explicit general item visible alongside already published media');
+});
+
+test('media index excludes arbitrary link buttons and tracks general/draft/published usages',()=>{
+ const state=initial();
+ state.shared.pages[0].blocks.push({id:'home-photo',kind:'image',
+  src:'/media/media/1791723108110/file-1791723109615-1000040461.jpg'});
+ state.shared.pages[0].blocks.push({id:'nav',kind:'button',text:'Visiter le site',href:'https://example.org/'});
+ state.shared.pages[0].blocks.push({id:'file',kind:'button',text:'Ouvrir le PDF',
+  href:'https://example.org/existing.pdf'});
+ state.mediaCatalogue=[
+  {id:'image|/media/new/12345678-1234-4234-8234-123456789abc.jpg',type:'image',
+   src:'/media/new/12345678-1234-4234-8234-123456789abc.jpg',name:'10000426.jpg',source:'uploaded'},
+  {id:'link|https://example.org/',type:'link',src:'https://example.org/',name:'Menu'}
+ ];
+ state.published=structuredClone(state);
+ state.published.shared.pages[0].blocks=[
+  {id:'historic-visible',kind:'image',src:'/media/media/still-online.jpg'}];
+ const result=discoverMedia(state);
+ assert.ok(!result.some(x=>x.type==='link'), 'Navigation button is never a media file');
+ const home=result.find(x=>x.src.includes('1791723108110'));
+ assert.equal(home.uses[0].pageName,'Accueil');
+ assert.equal(home.uses[0].group,'page');
+ assert.equal(home.uses[0].slug,'neutral-accueil-general');
+ assert.equal(result.find(x=>x.name==='10000426.jpg')?.uses.length,0);
+ assert.ok(result.find(x=>x.src.endsWith('still-online.jpg'))?.uses.length===1,
+  'A published-only media remains listed as in use');
+ assert.ok(result.find(x=>x.src==='https://example.org/existing.pdf')?.uses.length===1);
+});
+
+test('visitor general media includes all published page files, not draft uploads or buttons',()=>{
+ const state=initial();
+ state.drafts['101'].pages[0].blocks.push({id:'public-pdf',kind:'button',text:'PDF',
+  href:'/media/public-programme.pdf'});
+ state.drafts['101'].pages[1].blocks.push({id:'private-image',kind:'image',
+  src:'/media/never-show-draft.jpg'});
+ state.shared.pages[1].blocks.push({id:'hidden-file',kind:'image',src:'/media/hidden-shared.jpg'});
+ state.mediaCatalogue=[
+  {type:'image',src:'/media/new/unpublished-upload.jpg',name:'Private upload',general:false},
+  {type:'audio',src:'https://example.org/public-audio.mp3',name:'Shared audio',general:true}
+ ];
+ const media=publicSnapshot(state,'101').media;
+ assert.ok(media.some(m=>m.type==='image'&&m.src==='/media/media/historical.jpg'),
+  'Published celebration photo appears by default');
+ assert.ok(media.some(m=>m.type==='pdf'&&m.src==='/media/public-programme.pdf'));
+ assert.ok(media.some(m=>m.src==='https://example.org/public-audio.mp3'));
+ assert.ok(!media.some(m=>m.src.includes('unpublished-upload')));
+ assert.ok(!media.some(m=>m.src.includes('never-show-draft')));
+ assert.ok(!media.some(m=>m.src.includes('hidden-shared')));
+});
+test('historic public D1 files from all published celebrations are included, without private or hidden pages',async()=>{
+ const state=initial();
+ state.drafts['101'].pages.push({id:'samedi-101',name:'Samedi',group:'celebration',
+  visibility:'hidden',blocks:[]});
+ state.drafts['202']={pages:[{id:'preparation-202',name:'Préparation',group:'celebration',
+  blocks:[]}]};
+ state.shared.celebrationVisibility={'202':'hidden'};
+ const publicContent=[
+  {celebration_id:101,step_key:'mercredi-101',name:'Archive PDF',
+   source_type:'file',storage_path:'media/archives/programme.pdf'},
+  {celebration_id:101,step_key:'mercredi-101',name:'Chant',
+   source_type:'file',storage_path:'media/archives/chant.mp3'},
+  {celebration_id:101,step_key:'mercredi-101',name:'Dossier texte',
+   source_type:'file',storage_path:'media/documents/explications.txt'},
+  {celebration_id:101,step_key:'mercredi-101',name:'Photo',
+   source_type:'file',storage_path:'media/galerie/photo.jpg',has_cover:1,
+   cover_storage_path:'media/galerie/couverture.jpg'},
+  {celebration_id:101,step_key:'mercredi-101',name:'Chant vidéo',
+   content_type:'Video',source_type:'url',external_url:'https://youtu.be/dQw4w9WgXcQ'},
+  {celebration_id:101,step_key:'mercredi-101',name:'Lecture YouTube',
+   content_type:'Lien',source_type:'url',external_url:'https://www.youtube.com/watch?v=dQw4w9WgXcQ'},
+  {celebration_id:101,step_key:'mercredi-101',name:'Film Vimeo',
+   content_type:'external',source_type:'url',external_url:'https://vimeo.com/123456789'},
+  {celebration_id:101,step_key:'mercredi-101',name:'Menu web à exclure',
+   content_type:'Lien',source_type:'url',external_url:'https://example.org/accueil'},
+  {celebration_id:101,step_key:'samedi-101',name:'Image cachée',
+   source_type:'file',storage_path:'media/cache.jpg'},
+  {celebration_id:202,step_key:'preparation-202',name:'Célébration masquée',
+   source_type:'file',storage_path:'media/secret.jpg'},
+  {celebration_id:101,step_key:'mercredi-101',name:'Comité interne',
+   source_type:'file',storage_path:'committee/private.pdf'}
+ ];
+ const db={prepare(sql){return {all:async()=>({results:
+  sql.includes('FROM celebrations_event_contents')?publicContent:[]})}}};
+ const historic=await publicHistoricalMedia(db,state);
+ for(const name of ['Archive PDF','Chant','Dossier texte','Photo','Chant vidéo','Lecture YouTube','Film Vimeo'])
+  assert.ok(historic.some(x=>x.name===name),name);
+ assert.ok(historic.some(x=>x.src.endsWith('couverture.jpg')),'A cover is an actual image file');
+ assert.ok(historic.some(x=>x.type==='file'&&x.src.endsWith('.txt')),'Text file is not inline text');
+ assert.ok(!historic.some(x=>x.src.includes('cache.jpg')));
+ assert.ok(!historic.some(x=>x.src.includes('secret.jpg')));
+ assert.ok(!historic.some(x=>x.src.includes('private.pdf')));
+ assert.ok(!historic.some(x=>x.name==='Menu web à exclure'));
+ assert.ok(historic.every(x=>x.uses.length>0));
+ const merged=mergePublicMedia(publishedMedia(state),historic,historic);
+ assert.equal(merged.filter(x=>x.src.endsWith('programme.pdf')).length,1,'URLs de-duplicated');
+});
+
+test('general visitor library extracts real videos from published links, never arbitrary websites',()=>{
+ const state=initial();
+ state.drafts['101'].pages[0].blocks.push(
+  {id:'youtube-button',kind:'button',text:'Enregistrement filmé',href:'https://youtu.be/dQw4w9WgXcQ'},
+  {id:'video',kind:'video',text:'Vidéo du programme',href:'https://vimeo.com/123456789'},
+  {id:'menu',kind:'button',text:'Site web',href:'https://example.org/bonjour'});
+ state.drafts['101'].pages[1].blocks.push(
+  {id:'private-vid',kind:'button',text:'Brouillon',href:'https://youtu.be/abcdefghijk'});
+ const videos=publishedMedia(state).filter(x=>x.type==='video');
+ assert.equal(videos.length,2,'Both video kinds appear in public media');
+ assert.ok(videos.some(x=>x.name==='Enregistrement filmé'));
+ assert.ok(videos.some(x=>x.name==='Vidéo du programme'));
+ assert.ok(!videos.some(x=>x.src.includes('abcdefghijk')));
+ assert.equal(videoMediaUrl('https://example.org/bonjour'),'');
+ assert.equal(videoMediaUrl('https://youtube.com.evil.example/watch?v=dQw4w9WgXcQ'),'');
+ assert.ok(videoMediaUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ'));
+ assert.ok(videoMediaUrl('https://vimeo.com/123456789'));
+ assert.ok(videoMediaUrl('https://www.dailymotion.com/video/x123456'));
 });

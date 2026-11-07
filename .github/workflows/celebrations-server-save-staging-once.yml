@@ -9,9 +9,11 @@ name: CELEBRATIONS SERVER SAVE - isolated staging (drafts only)
 # Security rollout: staging stays readable but cannot overwrite the official shared editor.
 # Editor UX: add in-place green plus to old blocks; verify photo preserved on reload.
 # Publishing lifecycle: isolate saved drafts from public pages; media links indexed globally.
+# One-off editor UX review: only the isolated staging deploy is permitted.
+# Refresh after test fixtures switched to the already-supported audio/* and video/* selectors.
 on:
   push:
-    branches: [feat/celebrations-save-on-server-20261103]
+    branches: [feat/celebrations-save-on-server-20261103, fix/celebrations-inline-validation-20261105]
     paths:
       - .github/workflows/celebrations-server-save-staging-once.yml
   workflow_dispatch:
@@ -22,7 +24,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   server-save:
-    if: github.ref == 'refs/heads/feat/celebrations-save-on-server-20261103'
+    if: github.ref == 'refs/heads/feat/celebrations-save-on-server-20261103' || github.ref == 'refs/heads/fix/celebrations-inline-validation-20261105'
     runs-on: ubuntu-24.04
     timeout-minutes: 18
     environment: celebrations-staging
@@ -48,6 +50,8 @@ jobs:
           node --check migration/cloudflare/editor-publication-api.mjs
           node --check migration/cloudflare/editor-server-sync-client.mjs
           node --check migration/cloudflare/editor-demo-preparation-page.mjs
+          node --check migration/cloudflare/editor-demo-client.mjs
+          node --check migration/cloudflare/editor-demo-style.mjs
           node --check migration/cloudflare/editor-trial-site-page.mjs
           node --check tests/test-editor-server-drafts.mjs
           node --check scripts/test-editor-page-delete-browser.mjs
@@ -56,6 +60,7 @@ jobs:
           node --check scripts/test-editor-publication-media-browser.mjs
       - name: Unit tests — fictitious R2, no staging writes
         run: |
+          node --test tests/test-editor-demo.mjs
           node --test tests/test-editor-server-drafts.mjs
           node --test tests/test-editor-publication-media.mjs
           node --test tests/test-editor-e1.mjs tests/test-editor-b-foundations.mjs

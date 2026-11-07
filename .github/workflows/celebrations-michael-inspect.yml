@@ -1,0 +1,30 @@
+name: Célébrations — analyse en lecture seule de la page de Michaël
+on:
+  push:
+    branches: [fix/celebrations-inline-validation-20261105]
+    paths:
+      - 'scripts/inspect-michael-preparation-public.py'
+      - '.github/workflows/celebrations-michael-inspect.yml'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    environment: celebrations-staging
+    env:
+      STAGING_R2_BUCKET: celebrations-exit-staging
+      STAGING_R2_ACCESS_KEY_ID: ${{ secrets.CELEBRATIONS_STAGING_R2_ACCESS_KEY_ID }}
+      STAGING_R2_SECRET_ACCESS_KEY: ${{ secrets.CELEBRATIONS_STAGING_R2_SECRET_ACCESS_KEY }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Inspect public page only — never write anything
+        run: |
+          python -m pip -q install boto3==1.40.57
+          python scripts/inspect-michael-preparation-public.py

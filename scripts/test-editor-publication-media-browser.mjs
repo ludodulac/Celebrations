@@ -8,11 +8,16 @@ try{
   const page=await ctx.newPage();page.setDefaultTimeout(15000);
   const logs=[],calls=[];
   page.on('pageerror',e=>logs.push(e.message));
-  let rev=0;
+  let rev=0,lastSavedShared=null,lastSavedRecord=null,lastSavedPlans=[];
   await page.route('**/api/editor-open-draft**',async route=>{
-   if(route.request().method()==='POST'){calls.push('draft');rev++}
+   if(route.request().method()==='POST'){
+    calls.push('draft');rev++;
+    const saved=JSON.parse(route.request().postData());
+    lastSavedShared=saved.shared;lastSavedRecord=saved.record;lastSavedPlans=saved.plans||[];
+   }
    const result=route.request().method()==='GET'?
-    {ok:true,revision:rev,record:null,plans:[],shared:{pages:[],homeId:''},mediaCatalogue:[]}:
+    {ok:true,revision:rev,record:lastSavedRecord,plans:lastSavedPlans,
+     shared:lastSavedShared||{pages:[],homeId:''},mediaCatalogue:[]}:
     {ok:true,revision:rev,updatedAt:new Date().toISOString()};
    await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(result)});
   });
@@ -21,7 +26,19 @@ try{
    await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,revision:rev,updatedAt:new Date().toISOString()})});
   });
   await page.route('**/api/editor-media**',async route=>{
-   await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,items:[]})});
+   const items=[
+    {id:'image|/media/media/1791723108110/file-1791723109615-1000040461.jpg',type:'image',
+     src:'/media/media/1791723108110/file-1791723109615-1000040461.jpg',
+     name:'Ronde des Archanges Universelle',source:'link',general:false,
+     uses:[{pageId:'neutral-accueil-general',pageName:'Accueil général',
+      slug:'neutral-accueil-general',group:'page',celebrationId:''}]},
+    {id:'image|/media/new/12345678-1234-4234-8234-123456789abc.jpg',type:'image',
+     src:'/media/new/12345678-1234-4234-8234-123456789abc.jpg',
+     name:'10000426.jpg',source:'uploaded',general:false,uses:[]},
+    {id:'link|https://example.org/visiter',type:'link',src:'https://example.org/visiter',
+     name:'Bouton navigation',source:'link',general:false,uses:[]}
+   ];
+   await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,items})});
   });
   const res=await page.goto(base+'/__editor/demo-preparation?celebration=101',{waitUntil:'domcontentloaded'});
   assert.equal(res.status(),200);
@@ -33,7 +50,7 @@ try{
   await page.getByRole('button',{name:'＋ Page'}).first().click();
   const created=page.locator('.general-pages-list .general-page-row').filter({hasText:newName});
   await created.waitFor();
-  assert.ok((await created.innerText()).includes('Brouillon'),'New page stays in draft');
+  assert.equal(await created.locator('.inline-page-state').getAttribute('aria-label'),'Brouillon','New page stays in draft with an orange dot');
   await created.locator('.page-options summary').click();
   const options=created.locator('.page-options-menu');
   assert.ok((await options.innerText()).includes('Publier'));
@@ -49,13 +66,206 @@ try{
   await page.locator('button[data-tab="celebrations"]').click();
   assert.ok(await page.locator('.celebration-publication-controls').count()>0,
    'Celebration has independent publication controls');
+  const stageNav=page.locator('.celebration-editor .panel > .list');
+  const stageRow=stageNav.locator('.general-page-row').first();
+  await stageRow.waitFor();
+  const indicator=stageRow.locator('.inline-page-state');
+  assert.ok(['Publiée','Brouillon','Masquée'].includes(await indicator.getAttribute('aria-label')));
+  const geometry=await indicator.evaluate(e=>({width:Math.round(e.getBoundingClientRect().width),
+   height:Math.round(e.getBoundingClientRect().height),text:e.textContent}));
+  assert.deepEqual(geometry,{width:12,height:12,text:''},'Status is a small colored disk without text');
+  if(width===1280){
+   const navWidth=await stageNav.evaluate(e=>Math.round(e.getBoundingClientRect().width));
+   assert.ok(navWidth<=230,'Desktop celebration navigation must remain compact');
+   const titleWidth=await stageRow.locator('.item').evaluate(e=>Math.round(e.getBoundingClientRect().width));
+   assert.ok(titleWidth>95,'Stage titles have room for normal horizontal words');
+  }
   await page.locator('button[data-tab="media"]').click();
   await page.locator('.file-category-tabs').waitFor();
-  for(const label of ['Images','PDF','Audios','Vidéos','Liens']){
+  for(const label of ['Images','PDF','Audios','Vidéos','Autres']){
    assert.ok((await page.locator('.file-category-tabs').innerText()).includes(label));
   }
-  assert.equal(await page.getByRole('button',{name:'＋ Ajouter un lien web'}).count(),1);
+  assert.equal(await page.getByRole('button',{name:'＋ Référencer un média externe'}).count(),1);
+  assert.equal(await page.locator('.file-category-tabs button').filter({hasText:'Liens'}).count(),0);
+  assert.equal(await page.locator('.cards button').filter({hasText:/^(Insérer|Ouvrir)$/}).count(),0,
+   'Neither the Insert nor the Open button belongs to the global catalogue');
+  const home=page.locator('.global-media-card').filter({hasText:'Ronde des Archanges Universelle'});
+  await home.waitFor();
+  assert.equal(await home.locator('.file-location-link').count(),1);
+  assert.match(await home.locator('.file-location-link').first().innerText(),/Accueil général/);
+  assert.equal(await home.locator('.media-unused-ribbon').count(),0);
+  assert.equal(await home.locator('.media-picture-link').getAttribute('href'),
+   '/media/media/1791723108110/file-1791723109615-1000040461.jpg');
+  const unreferenced=page.locator('.global-media-card').filter({hasText:'10000426.jpg'});
+  await unreferenced.waitFor();
+  assert.equal((await unreferenced.locator('.media-unused-ribbon').innerText()).toLowerCase(),'inutilisé');
+  assert.equal(await page.locator('.global-media-card').filter({hasText:'Bouton navigation'}).count(),0);
+  // Editing a large photo must not hide the confirmation controls as the
+  // editor is scrolled, nor must a modal exceed the zoomed viewport.
+  await page.locator('button[data-tab="pages"]').click();
+  const initialImage=page.locator('.canvas .block').filter({has:page.locator('.picture img')}).first();
+  await initialImage.waitFor();
+  // An <img> tag may exist while every photo is actually broken.
+  const imageSrc=await initialImage.locator('.picture img').first().getAttribute('src');
+  const isLoaded=await initialImage.locator('.picture img').first().evaluate(async img=>{
+   if(!img.complete)await new Promise(resolve=>{
+    img.addEventListener('load',resolve,{once:true});
+    img.addEventListener('error',resolve,{once:true});
+    setTimeout(resolve,3000);
+   });
+   return img.complete&&img.naturalWidth>0;
+  });
+  assert.ok(isLoaded,'An existing home/celebration image must actually render: '+imageSrc);
+  const imageId=await initialImage.getAttribute('data-id');
+  const imageBlock=page.locator('.canvas .block[data-id="'+imageId+'"]');
+  await imageBlock.locator('.picture').click();
+  const slider=imageBlock.locator('input.image-size-slider');
+  await slider.waitFor({state:'visible'});
+  await slider.evaluate(input=>{
+   input.value='40';
+   input.dispatchEvent(new Event('input',{bubbles:true}));
+   input.dispatchEvent(new Event('change',{bubbles:true}));
+  });
+  assert.equal(await imageBlock.locator('.image-size-value').innerText(),'40 %');
+  const widthRatio=await imageBlock.evaluate(box=>{
+   const img=box.querySelector('.picture'),parent=box.getBoundingClientRect();
+   return img.getBoundingClientRect().width/parent.width;
+  });
+  assert.ok(widthRatio>.30&&widthRatio<.50,'Photo shrinks instantly in the editor');
+  await imageBlock.getByRole('button',{name:'Publier cette nouvelle taille sur le site des visiteurs'}).click();
+  await page.waitForFunction(()=>document.getElementById('status')?.textContent?.includes('Taille publiée'));
+  assert.ok(calls.includes('public:page:published'),'Published page can be updated without hiding it first');
+  const publishedWidth=lastSavedShared?.pages?.flatMap(p=>p.blocks||[])
+   .find(x=>x.id===Number(imageId)||String(x.id)===String(imageId))?.widthPct;
+  assert.equal(publishedWidth,40,'40% width persisted to server BEFORE publication');
+  await imageBlock.locator('.picture').click();
+  assert.equal(await imageBlock.getByRole('button',{name:'Télécharger une image'}).count(),1);
+  assert.equal(await imageBlock.getByRole('button',{name:'Images du site'}).count(),1);
+  assert.equal(await imageBlock.getByRole('button',{name:'Choisir une image'}).count(),0);
+  await imageBlock.getByRole('button',{name:'Images du site'}).click();
+  const picker=page.locator('.image-picker-dialog');
+  await picker.waitFor();
+  await picker.locator('.image-picker-card').first().waitFor();
+  assert.equal(await picker.getByRole('button',{name:'Télécharger une image'}).count(),1,
+   'Gallery always offers a separate upload action');
+  const thumbnails=await picker.locator('.image-picker-card').evaluateAll(cards=>
+   cards.slice(0,Math.min(6,cards.length)).map(card=>{
+    const rect=card.getBoundingClientRect(),thumb=card.querySelector('.image-picker-thumbnail'),
+      img=card.querySelector('img'),label=card.querySelector('.image-picker-filename');
+    const ir=img?.getBoundingClientRect(),tr=thumb?.getBoundingClientRect(),
+      lr=label?.getBoundingClientRect(),style=getComputedStyle(card);
+    return {x:rect.left,y:rect.top,right:rect.right,bottom:rect.bottom,
+      width:rect.width,height:rect.height,imageInside:!!ir&&!!tr&&
+       ir.left>=tr.left-1&&ir.right<=tr.right+1&&ir.top>=tr.top-1&&ir.bottom<=tr.bottom+1,
+      labelVisible:!!lr&&lr.height>10&&lr.bottom<=rect.bottom+1&&
+        !!label?.textContent?.trim(),
+      hasBorder:parseFloat(style.borderTopWidth)>=1,
+      hasBackground:style.backgroundColor!=='rgba(0, 0, 0, 0)'};
+   }));
+  assert.ok(thumbnails.length>=3,'Gallery contains real image cards');
+  for(const card of thumbnails){
+   assert.ok(card.width>=75&&card.height>=170&&card.height<=210,
+     'Each card has its own stable, visible image area');
+   assert.ok(card.imageInside,'Image fits entirely in its own thumbnail');
+   assert.ok(card.labelVisible,'Image filename is readable below its thumbnail');
+   assert.ok(card.hasBorder&&card.hasBackground,'Image cards have visible boundaries');
+  }
+  for(let i=0;i<thumbnails.length;i++)for(let j=i+1;j<thumbnails.length;j++){
+   const a=thumbnails[i],b=thumbnails[j];
+   const overlaps=a.x<b.right-1&&a.right>b.x+1&&a.y<b.bottom-1&&a.bottom>b.y+1;
+   assert.ok(!overlaps,'Image cards must not overlap one another');
+  }
+  const bounds=await picker.evaluate(e=>{
+    const r=e.getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:innerHeight}
+  });
+  assert.ok(bounds.top>=-1&&bounds.bottom<=bounds.height+1,'Image modal stays inside viewport');
+  await picker.getByRole('button',{name:'Fermer la fenêtre'}).click();
+  await picker.waitFor({state:'detached'});
+  await page.evaluate(()=>window.scrollTo(0,document.body.scrollHeight));
+  const validate=imageBlock.getByRole('button',{name:'Valider cet élément et enregistrer le brouillon'});
+  await validate.waitFor({state:'visible'});
+  const confirmBox=await validate.evaluate(e=>{
+    const r=e.getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:innerHeight}
+  });
+  assert.ok(confirmBox.top>=-1&&confirmBox.bottom<=confirmBox.height+1,
+    'Validate stays visible after scrolling a selected photo');
+  assert.equal(await imageBlock.locator('.block-edit-actions').getByRole('button',{name:'Supprimer l’image'}).count(),1,
+   'Delete action visible directly beside the two image choices');
+  page.once('dialog',d=>d.accept());
+  await imageBlock.locator('.block-edit-actions').getByRole('button',{name:'Supprimer l’image'}).click();
+  assert.equal(await imageBlock.locator('.picture img').count(),0,'Image removed without deleting block');
+  assert.ok(await imageBlock.locator('.picture').count()>0,'Empty image block retained for a replacement');
   assert.deepEqual(logs,[],'No console page errors');
+  // The VISITOR gallery is different from the administrator catalogue.
+  // It must list all published resources without requiring manual 'general'
+  // flags, while omitting unpublished admin content and navigation buttons.
+  const visitor=await ctx.newPage();
+  visitor.on('pageerror',e=>logs.push(String(e)));
+  await visitor.route('**/api/editor-publication?**',async route=>{
+   const media=[
+    {type:'image',src:'/media/media/public-photo.jpg',name:'Photo publiée',general:false,uses:[{pageName:'Accueil'}]},
+    {type:'pdf',src:'/media/media/programme.pdf',name:'Programme public',general:false,uses:[]},
+    {type:'file',src:'/media/media/texte.txt',name:'Texte à télécharger',general:false,uses:[]},
+    {type:'audio',src:'/media/media/chant.mp3',name:'Chant public',general:false,uses:[]},
+    {type:'video',src:'https://youtu.be/dQw4w9WgXcQ',name:'Vidéo publiée',general:false,uses:[]},
+    {type:'link',src:'https://example.org/navigation',name:'Lien du menu',general:true,uses:[]}
+   ];
+   await route.fulfill({status:200,contentType:'application/json',
+    body:JSON.stringify({ok:true,revision:1,record:{pages:[]},
+     shared:{homeId:'neutral-accueil-general',pages:[{id:'neutral-accueil-general',name:'Accueil',
+      group:'page',blocks:[]}]},plans:[],celebrationVisible:true,
+     celebrationVisibility:{},media})});
+  });
+  const visitorResponse=await visitor.goto(base+'/mediatheque-generale?celebration=101',
+   {waitUntil:'domcontentloaded'});
+  assert.equal(visitorResponse.status(),200,'Direct visitor-library URL is reachable');
+  try{
+   await visitor.getByRole('heading',{name:'Médiathèque générale'}).waitFor({timeout:8000});
+  }catch(error){
+   const diagnostics=await visitor.evaluate(()=>({
+    url:location.href,title:document.title,
+    body:document.body?.innerText?.slice(0,1600),
+    main:document.getElementById('stage-main')?.innerHTML?.slice(0,1600),
+    media:window.__PUBLIC_MEDIA__?.length,
+    scripts:[...document.scripts].map(s=>({src:s.src,length:s.textContent.length})),
+   }));
+   console.error('VISITOR_LIBRARY_DIAGNOSTIC',JSON.stringify({diagnostics,logs}));
+   throw error;
+  }
+  const tabs=visitor.locator('.media-tabs .media-tab');
+  assert.deepEqual(await tabs.allTextContents(),['Images','Audios','Vidéos','Documents'],
+   'Exactly four categories on the visitor site');
+  const cards=visitor.locator('.media-card');
+  assert.equal(await cards.count(),1,'Images selected immediately; no enormous mixed gallery');
+  assert.equal(await visitor.getByText('Photo publiée',{exact:true}).count(),1);
+  assert.equal(await visitor.getByText('Lien du menu',{exact:true}).count(),0,
+   'Website navigation links do not become media');
+  if(width===1280){
+   const columns=await visitor.locator('.media-list').evaluate(el=>({
+    value:getComputedStyle(el).gridTemplateColumns,
+    count:getComputedStyle(el).gridTemplateColumns.split(' ').filter(Boolean).length,
+    bounds:el.getBoundingClientRect().width,
+    card:el.querySelector('.media-card')?.getBoundingClientRect().width
+   }));
+   assert.equal(columns.count,4,'Desktop visitor image gallery is always four columns');
+   assert.ok(columns.card<columns.bounds/3,'Each image tile stays compact');
+  }
+  await visitor.getByRole('button',{name:'Documents'}).click();
+  assert.equal(await cards.count(),2,'PDF and TXT files appear under Documents');
+  await visitor.getByRole('button',{name:'Audios'}).click();
+  assert.equal(await cards.count(),1,'Audio available');
+  await visitor.getByRole('button',{name:'Vidéos'}).click();
+  assert.equal(await cards.count(),1,'Video available');
+  await visitor.getByRole('button',{name:'Images'}).click();
+  assert.equal(await cards.count(),1,'Image available');
+  await visitor.goto(base+'/__editor/voir-le-site?celebration=101&page=mediatheque',
+   {waitUntil:'domcontentloaded'});
+  await visitor.locator('.media-tabs .media-tab').first().waitFor();
+  assert.deepEqual(await visitor.locator('.media-tabs .media-tab').allTextContents(),
+   ['Images','Audios','Vidéos','Documents'],'The celebration media library shares the same four categories');
+  assert.deepEqual(logs,[],'No client JS exceptions on visitor or admin galleries');
+  console.log('EDITOR_PUBLIC_GENERAL_LIBRARY_PASS width='+width+' published=5 documents=2 fourColumns=true');
+  await visitor.close();
   console.log('EDITOR_PUBLICATION_MEDIA_UI_PASS',JSON.stringify({width,createdDraft:true,
    published:true,hidden:true,celebrationControls:true,globalLibrary:true,
    remoteWritesIntercepted:calls.length}));

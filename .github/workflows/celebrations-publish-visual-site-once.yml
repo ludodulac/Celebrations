@@ -1,12 +1,57 @@
 name: CÉLÉBRATIONS — publier interface visuelle sans changer domaine et liens historiques
 # Owner explicitly authorized official replacement on 2026-11-04; all prior read-only checks passed.
+# Michaël preparation overhaul: first deploy and browser-test the reusable
+# Resource/Video/Documents editor presets. Actual page migration occurs only
+# in the separate backup-gated one-time workflow AFTER this release succeeds.
 # Approved editor UX fix: add green plus within existing filled blocks; verify candidate first.
 # Owner-approved lifecycle release: private drafts, explicit publication, hidden pages,
 # safe global media and public general library. Full staging browser checks passed.
 # User-approved in-admin guide: all editor controls, mobile search, no data changes.
+# Nov 5 explicit owner request: use the real official site, not the demo/staging domain.
+# Single safeguarded production UX release, preserving shared R2 drafts and historic media.
+# Owner-requested compact publication status dots (green/orange/grey), original 230px sidebar.
+# Approved live-editor media and image UX: file-only global library, page links,
+# translucent unused overlay, separate upload/site picker, close X and fixed Validate.
+# Candidate browser verification must pass before updating the existing official Worker.
+# 2026-11-05 visitor library fix: all public historical D1 files and already
+# published page media, across celebrations; never expose drafts/private assets.
+# Verify direct /mediatheque-generale URL and category rendering before live update.
+# Browser-proven failure: Worker-rewritten page param is not in location.search;
+# map the visitor pathname /mediatheque-generale to the library at boot.
+# Need exact diagnostic if visitor gallery HTML failed to render; production remains gated.
+# Regression test updated: a published celebration photo is already in public media;
+# unpublished external media must stay private until explicitly shared.
+# Repair visible site media: two simple actions immediately beneath existing photos,
+# fallback image gallery, and a browser assertion that old photos actually load.
+# Re-run the safeguarded candidate after fixing an isolated media-index test fixture (filename vs URL).
+# Re-run after the browser test accounted for the uppercase ribbon and dialog click no longer deselects.
+# Stable image-block test locator after clearing its picture; server gallery refresh added.
+# Gallery regression after owner's screenshot: three fixed non-overlapping image tiles with readable captions, visible upload and remove-image actions; ship only after browser geometry assertions.
+# User reported videos missing and image-size edits not reaching live site.
+# Candidate must verify genuine historical video links, explicit republish of
+# already published pages, and an image resized to 40% in the saved snapshot.
+# Candidate gesture test setup now clicks the legacy 8px insertion control
+# directly; all subsequent mouse/long-press drag is exercised in the browser.
+# Candidate gate: rerun after correcting root-index assumptions in the pure
+# in-memory reorder tests; no change to saved or published content.
+# Owner requested a short dark-grey divider between every full-width editor
+# zone, whether a standalone legacy block, one column or two columns. Pure UI
+# decoration only, never published page content. Tests check desktop/mobile.
+# Owner approved drag-and-drop of existing text/images/video between standalone
+# blocks and one/two-column sections. Reorder only in the private draft,
+# preserve block identity and test browser mouse + touch long press before live.
+# 2026-11-05 visitor experience: both galleries display Images, Audios, Vidéos,
+# Documents only; 4 image columns on desktop; restore photos obscured by stale
+# browser assetId without silently altering the saved draft. Verify before live.
+# Owner request: saving an existing public page must also republish ONLY that
+# page in the same authenticated conditional R2 write. Draft/hidden pages stay
+# Release preflight refreshed: the official visitor route legitimately accepts the
+# official host and fetches the published snapshot on the same origin.
+# private, and staging remains non-publishing. Video titles are small captions
+# under their thumbnail, not framed buttons. Check both before live deployment.
 on:
   push:
-    branches: [feat/celebrations-save-on-server-20261103]
+    branches: [feat/celebrations-save-on-server-20261103, fix/celebrations-inline-validation-20261105]
 permissions:
   contents: read
 concurrency:
@@ -44,7 +89,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$GITHUB_REF" = 'refs/heads/feat/celebrations-save-on-server-20261103'
+          test "$GITHUB_REF" = 'refs/heads/fix/celebrations-inline-validation-20261105'
           test "$STAGING_R2_BUCKET" = 'celebrations-exit-staging'
           test "$CELEBRATIONS_PROD_R2_BUCKET" = 'celebrations-exit-production'
           test "$CELEBRATIONS_PROD_D1_ID" = '28736d2a-479b-472b-bf82-703ad0affe10'
@@ -87,7 +132,13 @@ jobs:
           node --check scripts/verify-visual-publishing-browser.mjs
           node --check scripts/test-editor-add-inside-existing-block-browser.mjs
           node --check scripts/test-editor-publication-media-browser.mjs
+          node --check scripts/test-editor-drag-and-drop-browser.mjs
+          node --check scripts/test-editor-michael-resource-browser.mjs
+          node --check scripts/transform-michael-preparation-page.mjs
+          node --test tests/test-editor-michael-preparation-layout.mjs
+          node --test tests/test-editor-demo.mjs
           node --test tests/test-editor-server-drafts.mjs
+          node --test tests/test-editor-trial-site.mjs
           node --test tests/test-editor-publication-media.mjs
           node scripts/check-staging-d1-free-budget.mjs pre
       - name: Archive exact latest editor snapshot in private R2 (never overwrite)
@@ -141,7 +192,7 @@ jobs:
           TOML
           sed 's/^name = "celebrations-exit-production"/name = "celebrations-visual-candidate"/' \
             migration/cloudflare/wrangler.production.toml > migration/cloudflare/wrangler.visual.toml
-          git show f42a4566b9fcae0976d2496a199e9934bd405869:migration/cloudflare/production-worker.mjs \
+          git show 94affae000554942eb98880d149f758c46908ab7:migration/cloudflare/production-worker.mjs \
             > migration/cloudflare/production-worker-rollback.mjs
           sed 's/^main = "production-worker.mjs"/main = "production-worker-rollback.mjs"/' \
             migration/cloudflare/wrangler.production.toml > migration/cloudflare/wrangler.rollback.toml
@@ -157,7 +208,7 @@ jobs:
       - name: Install Cloudflare Wrangler and Chromium
         run: |
           npm install --no-save --no-package-lock wrangler@4 playwright@1.58.2
-          npx playwright install --with-deps chromium
+          npx playwright install chromium
       - name: Deploy visual candidate ONLY at independent workers.dev hostname
         working-directory: migration/cloudflare
         run: npx wrangler deploy --config wrangler.visual.toml
@@ -173,6 +224,14 @@ jobs:
         env:
           EDITOR_BASE: https://celebrations-visual-candidate.rondes.workers.dev
         run: node scripts/test-editor-publication-media-browser.mjs
+      - name: Verify drag-and-drop between real historical blocks and columns (desktop and long-press touch)
+        env:
+          EDITOR_BASE: https://celebrations-visual-candidate.rondes.workers.dev
+        run: node scripts/test-editor-drag-and-drop-browser.mjs
+      - name: Verify editable resource and document presets on desktop and mobile
+        env:
+          EDITOR_BASE: https://celebrations-visual-candidate.rondes.workers.dev
+        run: node scripts/test-editor-michael-resource-browser.mjs
       - name: Publish visual site to EXISTING production Worker, preserving custom domains
         id: production_deploy
         shell: bash
@@ -234,9 +293,13 @@ jobs:
         working-directory: migration/cloudflare
         run: |
           set -euo pipefail
-          # Restore the prior Worker without rotating or deleting its secrets.
-          npx wrangler deploy --config wrangler.rollback.toml --keep-vars
-          echo 'CELEBRATIONS_ROLLBACK_OLD_PUBLIC_SITE_DEPLOYED'
+          # Restore the exact last successful published editor UI (2026-11-04)
+          # instead of an obsolete pre-editor Worker; keep all saved content.
+          for file in editor-demo-client.mjs editor-demo-style.mjs editor-demo-preparation-page.mjs; do
+            git show 94affae000554942eb98880d149f758c46908ab7:migration/cloudflare/"$file" > "$file"
+          done
+          npx wrangler deploy --config wrangler.production.toml --keep-vars
+          echo 'CELEBRATIONS_ROLLBACK_LAST_PUBLISHED_EDITOR_DEPLOYED'
       - name: Final Cloudflare D1 reserve
         if: always()
         # Other public workflows share Cloudflare account-wide reads. A race in

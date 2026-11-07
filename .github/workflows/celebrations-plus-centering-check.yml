@@ -1,0 +1,25 @@
+name: CELEBRATIONS — alignement des plus dans les cercles
+on:
+  push:
+    branches: [fix/celebrations-centered-plus-icons-20261106]
+permissions:
+  contents: read
+jobs:
+  geometric-check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Syntax checks
+        run: |
+          node --check migration/cloudflare/editor-demo-style.mjs
+          node --check scripts/test-editor-plus-centering-browser.mjs
+      - name: Install Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Verify 3 disk centers on desktop and phone
+        run: node scripts/test-editor-plus-centering-browser.mjs
