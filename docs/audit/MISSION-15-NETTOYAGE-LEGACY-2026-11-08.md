@@ -53,3 +53,51 @@ Documentation de récupération : `docs/archive/CELEBRATIONS-M15-CODE-HISTORIQUE
 
 ### Réserves de la mission 3
 La version exacte du Worker actuel, l'export D1 intégral restaurable, l'inventaire/copie et la récupération des octets médias R2, ainsi qu'une copie de secours indépendante de Cloudflare, restent à certifier. Cette mission **ne publie rien**, et un test de régression vert n'est pas une preuve de restauration réelle.
+
+
+## Validation finale M15 — exécutée le 8 novembre 2026
+
+**[GitHub Actions M15 #42468561523](https://github.com/ludodulac/Celebrations/actions/runs/42468561523) : SUCCESS**, code testé à la révision `5703467a067aa11ddd61e76955f7272dabfa8950`.
+
+- **205 tests Node PASS, 0 échec, 0 ignoré**. En plus des missions
+  M05 à M14 : contrats D4, E2A, audio staging, API et compatibilité
+  Worker/media hérités, absence des huit anciennes fonctions et
+  vérification des douze empreintes Git d'origine.
+- **10 captures Chromium de référence** : 5 ordinateur et 5 téléphone,
+  0 échec, 0 erreur JavaScript et 0 requête vers la production.
+- **Sélecteur d'images/PDF/vidéos PASS** à 1280 px et 390 px :
+  maintien de la page active et absence de navigation imprévue.
+- **Glisser-déposer et Undo PASS**, avec déplacements réels entre blocs,
+  entre colonnes et annulation effective dans Chromium.
+- **Site visiteurs PASS** à 1280 px et 390 px : colonnes, PDF, vidéo,
+  titre sous miniature, image à 55 %, brouillons privés exclus, protection
+  du stockage local et affichage fermé si le serveur est indisponible.
+- **Trois familles de fenêtres et responsive PASS** aux deux tailles,
+  au premier plan, sans débordement, fermeture par Échap.
+
+### Ajustements de tests historiques nécessaires
+La première exécution de la suite élargie a révélé des hypothèses de
+tests devenues **obsolètes avant M15**, sans modification correspondante
+des sources du site :
+- l'ancien accès temporaire D4 avait **expiré le 3 novembre 2026** ;
+  son test atteste désormais le refus de connexion après expiration,
+  et continue de vérifier son comportement normal avant expiration ;
+- l'éditeur de préparation est déjà disponible sur les domaines
+  officiels, et l'image d'accueil originale est servie sous sa **vraie
+  URL média historique**, au lieu d'un ancien alias de staging ;
+- l'initialisation de l'éditeur utilise déjà la composition M06 plutôt
+  qu'une ancienne substitution de texte JavaScript.
+Deux tests extrayaient aussi `chooseFile` en s'arrêtant sur une fonction
+obsolète désormais supprimée ; leur délimitation a été rattachée
+à la fonction suivante réellement vivante, **sans perdre les assertions**.
+
+Les corrections ont été faites dans les tests et leurs paramètres,
+**pas dans les données réelles, les APIs historiques ni les fichiers du
+Worker**. Les premières exécutions avaient des échecs, puis la dernière
+exécution de code complète est verte.
+
+### Limitation du verdict
+Les captures et tests s'exécutent avec fixtures isolées, sans
+opération réelle de restitution D1/R2. La conformité visuelle totale
+sur les données de production et le rollback Cloudflare ne sont pas
+prouvés par ce résultat. **Aucune autorisation implicite de publier.**
