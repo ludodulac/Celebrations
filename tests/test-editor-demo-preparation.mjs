@@ -81,7 +81,8 @@ test('Preparation demo includes every public step/event/content/link without dat
  assert.equal(scripts.length,2);
  for(const s of scripts)new Script(s);
  assert.ok(scripts[1].includes("celebrations-demo-preparation-"));
- assert.ok(scripts[1].includes("seed.pages=window.__PREPARATION_SEED__.pages"));
+ assert.ok(scripts[1].includes("const STAGE_SEED=window.__PREPARATION_SEED__||null;"),
+  'M06+ explicitly compose editor state from the validated server seed');
 });
 test('No other host, unsafe methods or arbitrary celebration',async()=>{
  const official=await handlePreparationDemo(new Request('https://www.ronde-des-archanges-universelle.eu/__editor/demo-preparation'),env);

@@ -49,7 +49,7 @@ test('M15: generated editor remains syntactically valid and old dead handlers ar
  assert.ok(DEMO_CLIENT.includes('function pageWorkspace(group,mount=w){'),'editor still renders pages');
  assert.ok(DEMO_CLIENT.includes('editorDragModel.intoBlock('),'drag/drop remains');
  assert.ok(DEMO_CLIENT.includes('editorUndoPolicy.record('),'Undo remains');
- assert.ok(DEMO_CLIENT.includes('function cloudAudioUsages(){'),'active media inventory remains');
+ assert.ok(DEMO_CLIENT.includes('function cloudAudioUsages(key){'),'active media inventory remains');
  assert.ok(DEMO_CLIENT.includes('function userGuide(){'),'public admin guide remains');
  assert.ok(DEMO_CSS.includes('.media-unused-ribbon'),'media appearance unchanged');
  assert.ok(TRIAL_SITE_STYLE.includes('.trial-video-title'),'public appearance unchanged');
