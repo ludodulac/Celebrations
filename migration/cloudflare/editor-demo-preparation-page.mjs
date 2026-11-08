@@ -1,6 +1,7 @@
 // SEVEN PROGRAMME PAGES DEMO: read-only staging import of already-public historical records.
 // All modifications by the demo client stay in this browser; D1 is never written.
 import {DEMO_CSS} from './editor-demo-style.mjs';
+import {ADMIN_STAGE_LAYOUT} from './app/styles/admin/stage-layout.mjs';
 import {DEMO_CLIENT} from './editor-demo-client.mjs';
 import {TRIAL_AUDIO_CLIENT} from './editor-trial-audio-client.mjs';
 // SERVER_EDITOR_SYNC is composed explicitly by editor-demo-client.mjs.
@@ -293,7 +294,7 @@ export async function handlePreparationDemo(request,env){
   '<main class="main"><div id="workspace"></div><p class="status" id="status" role="status" aria-live="polite"></p></main></div></div>'+
   '<div id="editor-save-toast" class="editor-save-toast" role="status" aria-live="polite" hidden></div>'+ 
   '<input id="image-input" type="file" accept="image/jpeg,image/png,image/webp" hidden>'+
-  '<style nonce="'+nonce+'">.stage-editor .list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;overflow:visible}.stage-editor .list .item{white-space:normal;min-height:44px}.stage-editor .layout{grid-template-columns:minmax(210px,260px) minmax(0,1fr)}@media(max-width:850px){.stage-editor .layout{grid-template-columns:1fr}.stage-editor .list{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}}</style>'+
+  '<style nonce="'+nonce+'">'+ADMIN_STAGE_LAYOUT+'</style>'+
   '<script nonce="'+nonce+'">window.__PREPARATION_SEED__='+jsSafe(seed)+';</script>'+
   '<script nonce="'+nonce+'">'+TRIAL_AUDIO_CLIENT+'\n'+client+'</script></body></html>';
   return new Response(request.method==='HEAD'?null:html,{headers:{...noCache,'content-security-policy':"default-src 'none'; script-src 'nonce-"+nonce+"'; style-src 'nonce-"+nonce+"'; img-src 'self' data: blob: https:; media-src 'self' blob:; worker-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"}});
