@@ -145,6 +145,10 @@ test('M10: browser policy prevents stale readback success even with HTTP 200',()
  assert.equal(policy.readbackConfirmed(actual,5,'not-a-real-page',record,shared),false);
  assert.equal(policy.readbackConfirmed({revision:7},7,null,record,shared),true);
  assert.equal(policy.readbackConfirmed(null,1,null,record,shared),false);
+ assert.equal(policy.readbackConfirmed({},1,null,record,shared),false,
+  'a missing server revision is never proof of a save');
+ assert.equal(policy.readbackConfirmed({revision:'7'},7,null,record,shared),false,
+  'a non-numeric server revision is rejected');
 });
 test('M10: baseline conflict detection compares private, shared and planned documents',()=>{
  const record=clone(sample().drafts['101']),shared=clone(sample().shared),plans=[];
