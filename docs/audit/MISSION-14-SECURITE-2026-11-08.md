@@ -85,3 +85,40 @@ avant toute mise en ligne. Les essais CI synthétiques ne certifient
 pas la sécurité d'un compte Cloudflare réel.
 
 **PR DRAFT ; aucune fusion ni aucun déploiement autorisé ici.**
+
+
+## Validation finale M14 — 8 novembre 2026
+
+**[GitHub Actions M14 #42465180992](https://github.com/ludodulac/Celebrations/actions/runs/42465180992) : SUCCESS**, sur le code du commit
+`d07c16f0746fea6de9b30fc31dea7200fede02c4`.
+
+- **182 tests Node réussis, 0 échec, 0 ignoré**. Les contrôles de
+  refus d'accès sur les deux candidats et les deux domaines officiels,
+  faux cookies, vrais cookies de test, `Origin` malveillant ou absent,
+  lecture publique filtrée et refus de publication sans autorisation
+  sont exécutés avec succès.
+- Les tests antérieurs M05–M13 sont rejoués, y compris le contrat de
+  sauvegarde conditionnelle et les réponses HTTP 409 en cas de conflit.
+- **10 références Chromium de l'administration réussies** :
+  cinq ordinateur et cinq téléphone ; zéro erreur JS et zéro requête de
+  production observée.
+- **Sélecteurs de médias PASS** à 1280 px et 390 px.
+- **Glisser-déposer/Undo PASS** ; aucun changement de ce moteur.
+- **Site visiteurs PASS** à 1280 px et 390 px ; aucune fuite de brouillon,
+  y compris si la lecture publique est indisponible.
+- **Trois familles de fenêtres PASS** en deux tailles d'écran,
+  contrôle de superposition et fermeture Échap.
+- Une première exécution M14 a révélé une ancienne référence à
+  `PUBLISHED_HOSTS` laissée dans la routine de sauvegarde après
+  centralisation des domaines, qui provoquait un 503.
+  Cette référence a été corrigée en `isOfficialEditorHost`,
+  sans désactiver les tests. **La seconde exécution complète est verte.**
+
+**Périmètre vérifié :** le code du Worker et les services ont été exécutés
+avec des requêtes et des buckets fictifs. Aucune donnée Cloudflare
+réelle n'a été consultée ou modifiée. Un audit continu de sécurité
+et la protection explicite du staging historiquement ouvert restent
+nécessaires ; ne pas considérer les 182 tests comme une homologation
+de sécurité du site déployé.
+
+**PR #94 : DRAFT, ni fusionnée ni déployée.**
