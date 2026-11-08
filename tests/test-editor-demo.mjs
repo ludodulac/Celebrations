@@ -162,7 +162,7 @@ test('global library has clickable files but no insert/open action buttons',()=>
  assert.ok(DEMO_CLIENT.includes('function libraryTitle('));
  assert.ok(DEMO_CLIENT.includes('function libraryPicture('));
  const start=DEMO_CLIENT.indexOf('function media(){');
- const end=DEMO_CLIENT.indexOf('function audioWorkbench(){',start);
+ const end=DEMO_CLIENT.indexOf('const GUIDE_TOPICS=[',start);
  assert.ok(start>0&&end>start);
  const source=DEMO_CLIENT.slice(start,end);
  assert.doesNotMatch(source,/b\('Insérer'/);

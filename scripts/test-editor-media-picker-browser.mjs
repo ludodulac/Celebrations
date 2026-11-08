@@ -6,7 +6,7 @@ import {createEditorMediaCommands} from '../migration/cloudflare/app/application
 import {DEMO_CSS} from '../migration/cloudflare/editor-demo-style.mjs';
 
 const start=DEMO_CLIENT.indexOf('function chooseFile(x){');
-const end=DEMO_CLIENT.indexOf('\nfunction attachFile(r){',start);
+const end=DEMO_CLIENT.indexOf('\n// This prototype has no server media catalogue:',start);
 assert.ok(start>=0&&end>start);
 const chooserSource=DEMO_CLIENT.slice(start,end);
 const browser=await chromium.launch({headless:true});
