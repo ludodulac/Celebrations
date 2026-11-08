@@ -1,6 +1,7 @@
 // Site-wide administration gate. No access code is stored in source or sent to visitors.
 // The public presentation and all historical file/PDF routes are unchanged.
 import {sha256} from './auth-api.mjs';
+import {isOfficialEditorHost} from './app/security/editor-route-policy.mjs';
 
 const COOKIE='celebrations_editor_access';
 const DOMAIN='ronde-des-archanges-universelle.eu';
@@ -8,7 +9,7 @@ const TTL=7*24*60*60*1000;
 const PIN_SALT='c16cde110a7a5b98b45d1e08b94c02053eab24879c0b220f';
 const PIN_VERIFIER='3095cabc0ccabf9960c3aa4269e8da4b93e47483a20cceda39063b54d207872d';
 const noCache={'cache-control':'no-store','x-content-type-options':'nosniff','referrer-policy':'no-referrer','x-robots-tag':'noindex,nofollow,noarchive'};
-const official=host=>host===DOMAIN||host==='www.'+DOMAIN;
+const official=isOfficialEditorHost;
 const encoder=new TextEncoder();
 function secret(env){const v=env?.ADMIN_PASSWORD_HASH;return typeof v==='string'&&/^[a-f0-9]{64}$/i.test(v)?v:''}
 function match(a,b){

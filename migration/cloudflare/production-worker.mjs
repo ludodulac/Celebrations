@@ -16,10 +16,11 @@ import {handleTrialSite} from "./editor-trial-site-page.mjs";
 import {handleServerDraft} from "./editor-server-draft-api.mjs";
 import {handleEditorPublication,handleEditorMedia,handleEditorMediaFile} from "./editor-publication-api.mjs";
 import {hasEditorAccess,editorAccessAction,editorLoginPage,editorLogout} from "./editor-site-access.mjs";
+import {isOfficialEditorHost,isReadonlyCandidateHost,isPrivateEditorPath,sameOriginEditorWrite} from "./app/security/editor-route-policy.mjs";
 export default {
  async fetch(request,env){
   const url=new URL(request.url),path=url.pathname;
-  const isolated=["celebrations-exit-production.rondes.workers.dev","celebrations-visual-candidate.rondes.workers.dev"].includes(url.hostname);
+  const isolated=isReadonlyCandidateHost(url.hostname);
   // Before domain cutover the independent candidate is READ-ONLY, by design.
   // This gate prevents public signups, analytics writes and admin mutations.
   if(isolated && request.method!=="GET" && request.method!=="HEAD")
@@ -27,18 +28,25 @@ export default {
     "x-robots-tag":"noindex,nofollow,noarchive","cache-control":"no-store"
    }});
 
+  // Read-only candidate means PUBLIC read-only, not anonymous private GET.
+  // This early route boundary runs before static asset fallback, D1 or R2.
+  if(isolated&&isPrivateEditorPath(path))
+   return new Response("Introuvable",{status:404,headers:{
+    "x-robots-tag":"noindex,nofollow,noarchive",
+    "cache-control":"no-store","x-content-type-options":"nosniff"
+   }});
+
   if(isolated && path==="/robots.txt")
    return new Response("User-agent: *\nDisallow: /\n",{
     headers:{"content-type":"text/plain; charset=utf-8","x-robots-tag":"noindex,nofollow,noarchive","cache-control":"no-store"}});
   // Gate the administration itself AND every server write. Public viewing and
   // old mailed PDF/media addresses remain accessible without signing in.
-  const officialHost=url.hostname==="ronde-des-archanges-universelle.eu"||
-   url.hostname==="www.ronde-des-archanges-universelle.eu";
+  const officialHost=isOfficialEditorHost(url.hostname);
   if(officialHost){
    if(path==="/api/editor-access")return editorAccessAction(request,env);
    if(path==="/api/editor-logout"){
     if(request.method!=="POST")return new Response("Méthode interdite",{status:405});
-    if(request.headers.get("origin")!=="https://"+url.hostname)return new Response("Origine interdite",{status:403});
+    if(!sameOriginEditorWrite(request))return new Response("Origine interdite",{status:403});
     return editorLogout();
    }
    const editorPage=path==="/admin"||path==="/admin.html"||
@@ -71,8 +79,7 @@ export default {
   // The two official domains now use the same visual visitor/editor interface.
   // All media, old emailed PDF, existing static assets and historic redirects
   // stay on their original production routes and production D1/R2 bindings.
-  const official=url.hostname==="ronde-des-archanges-universelle.eu"||
-   url.hostname==="www.ronde-des-archanges-universelle.eu";
+  const official=isOfficialEditorHost(url.hostname);
   const visualCandidate=url.hostname==="celebrations-visual-candidate.rondes.workers.dev";
   if((official||visualCandidate)&&env.DB){
    if(path==="/api/editor-publication")return handleEditorPublication(request,env);
