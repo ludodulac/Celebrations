@@ -4,6 +4,7 @@ import {hasEditorAccess} from './editor-site-access.mjs';
 import {EDITOR_SNAPSHOT_LIMIT,expectedRevisionMatches} from './app/ports/editor-snapshot-contract.mjs';
 import {readEditorSnapshot,putEditorSnapshot} from './app/adapters/editor-r2-repository.mjs';
 import {isOfficialEditorHost,isReadonlyCandidateHost,sameOriginEditorWrite} from './app/security/editor-route-policy.mjs';
+import {mergePublicMediaIndexed} from './app/domain/editor-public-media-merge.mjs';
 
 const PREFIX='editor-trials/uploads/';
 const SITE=new Set(['www.ronde-des-archanges-universelle.eu','ronde-des-archanges-universelle.eu']);
@@ -225,19 +226,7 @@ export async function publicHistoricalMedia(db,state){
  return [...media.values()];
 }
 export function mergePublicMedia(...catalogues){
- const merged=new Map();
- for(const item of catalogues.flat()){
-  if(!item?.src||!['image','video','audio','pdf','file'].includes(item.type))continue;
-  const id=item.type+'|'+item.src;
-  if(!merged.has(id))merged.set(id,{...item,id,uses:[...(item.uses||[])]});
-  else{
-   const existing=merged.get(id);
-   for(const use of item.uses||[])
-    if(!existing.uses.some(u=>u.pageId===use.pageId&&u.celebrationId===use.celebrationId))existing.uses.push(use);
-   if(item.general)existing.general=true;
-  }
- }
- return [...merged.values()];
+ return mergePublicMediaIndexed(...catalogues);
 }
 function celebrationVisibleFor(id,map,planState){
  return (map[id]||planState||'published')==='published';
