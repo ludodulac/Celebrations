@@ -8,7 +8,7 @@ export function createEditorSyncPolicy(){
  }
  function noNewEdits(started,current){return started===current}
  function readbackConfirmed(saved,revision,pageId,record,shared){
-  if(!saved||saved.revision<revision)return false;
+  if(!saved||!Number.isSafeInteger(revision)||!Number.isSafeInteger(saved.revision)||saved.revision<revision)return false;
   if(!pageId)return true;
   const expected=record.pages.find(p=>p.id===pageId)||
    shared.pages.find(p=>p.id===pageId);
