@@ -38,3 +38,39 @@ Ces empreintes vérifiées par les tests sont celles **du CSS avant mission 13**
 Il ne serait pas responsable de supprimer les sélecteurs dupliqués ni les 338 déclarations forcées **sans test visuel différentiel ciblé pour chaque famille de règles**. Cette mission supprime l'entassement *dans les fichiers source* et cartographie précisément les couches de styles, mais **ne prétend pas optimiser ni minifier le CSS**. Cela pourra être fait dans une passe distincte avant publication si souhaité.
 
 Les réserves critiques M03 — rollback exact du Worker, sauvegarde restaurable D1, inventaire et récupération des octets R2, copie indépendante — **restent ouvertes**. Ne pas fusionner la PR ni déployer sans ces garanties et l'accord du propriétaire.
+
+
+## Validation finale M13 — exécutée le 8 novembre 2026
+
+**[GitHub Actions M13 n°42463199933](https://github.com/ludodulac/Celebrations/actions/runs/42463199933) : SUCCESS**, à la révision de code `04d1c55f0532a1840a8786354a6d57754f217fac`.
+
+- **163 tests Node réussis, 0 échec, 0 ignoré**. Ils contrôlent l'identité
+  caractère par caractère des couches recomposées via les empreintes CSS
+  d'origine, l'ordre des styles, les nonces CSP et les tests M05–M12.
+- **10 vues de référence Chromium réussies** pour l'administration :
+  5 ordinateur + 5 téléphone, **0 échec, 0 erreur JS, 0 requête de
+  production**.
+- **Sélecteur image/PDF/vidéo PASS** à 1280 et 390 px.
+- **Déplacements et Undo PASS** dans le véritable navigateur (M11).
+- **Site visiteurs PASS** à 1280 et 390 px : double colonne, photo à 55 %,
+  titre sous vidéo, PDF, séparateur et protection des brouillons (M12).
+- **Nouveau test M13 PASS** à 1280×840 et 390×844 : les trois familles
+  de fenêtres (image, fichier et insertion) tiennent entièrement dans
+  l'écran, sont **au premier plan pour le pointeur**, restent
+  accessibles, se ferment avec **Échap**, sans défilement horizontal.
+  Les deux colonnes publiques sont côte à côte sur ordinateur,
+  puis empilées verticalement sur téléphone ; titre vidéo à 14 px.
+- **8 captures Chromium spécifiques à M13** conservées comme artefact
+  temporaire : 3 fenêtres par format (6 captures) et 1 rendu visiteur
+  par format (2 captures). Ces images restent consultables dans
+  les artefacts de l'exécution Actions et sont complémentaires
+  au contrôle d'identité du CSS.
+
+**Important :** les trois empreintes du CSS initial n'ont pas changé
+et aucun sélecteur dupliqué ou `!important` n'a été supprimé :
+c'est un refactoring source, pas une refonte graphique ni une
+certification manuelle pixel à pixel. Une validation finale sur
+téléphones réels, sur les contenus authentiques et des sauvegardes
+restaurables reste nécessaire avant une publication.
+
+**Aucun déploiement ou fusion. PR n°93 conservée en DRAFT.**
