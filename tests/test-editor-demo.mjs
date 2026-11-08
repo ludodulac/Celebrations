@@ -122,7 +122,7 @@ test('new headings and text fields are empty with visible hints, not saved templ
 
 test('validation closes only after private server save succeeds, keeps editor open on failure',async()=>{
  const start=DEMO_CLIENT.indexOf('async function validateBlock(');
- const end=DEMO_CLIENT.indexOf('\nfunction block(x,p',start);
+ const end=DEMO_CLIENT.indexOf('\n// Pointer drag-and-drop moves',start);
  assert.ok(start>=0&&end>start);
  async function simulate(success){
   const scope={document:{activeElement:null},saved:0,attempts:0,removed:0};
