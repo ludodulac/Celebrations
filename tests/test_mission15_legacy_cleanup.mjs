@@ -46,7 +46,7 @@ test('M15: generated editor remains syntactically valid and old dead handlers ar
  assert.ok(DEMO_CLIENT.includes('function chooseFile(x){'),'real file chooser remains');
  assert.ok(DEMO_CLIENT.includes('function savedPageSets(){'),'media source analysis remains');
  assert.ok(DEMO_CLIENT.includes('function media(){'),'global library still renders');
- assert.ok(DEMO_CLIENT.includes('function page(){'),'editor still renders pages');
+ assert.ok(DEMO_CLIENT.includes('function pageWorkspace(group,mount=w){'),'editor still renders pages');
  assert.ok(DEMO_CLIENT.includes('editorDragModel.intoBlock('),'drag/drop remains');
  assert.ok(DEMO_CLIENT.includes('editorUndoPolicy.record('),'Undo remains');
  assert.ok(DEMO_CLIENT.includes('function cloudAudioUsages(){'),'active media inventory remains');

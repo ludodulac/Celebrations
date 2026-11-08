@@ -50,7 +50,7 @@ test('Preparation demo includes every public step/event/content/link without dat
  assert.equal(seed.pages.filter(p=>p.group==='page').length,1);
  assert.equal(seed.pages[0].name,'Accueil général');
  assert.equal(seed.pages[0].blocks[0].text,'Bienvenue sur le site de la Ronde des Archanges Universelle');
- assert.ok(seed.pages[0].blocks.some(b=>b.kind==='image'&&b.src.includes('celebrations-staging-welcome-autumn-2026.jpg')));
+ assert.ok(seed.pages[0].blocks.some(b=>b.kind==='image'&&b.src.includes('media/1791723108110/file-1791723109615-1000040461.jpg')));
  assert.ok(seed.pages.find(p=>p.id==='accueil-celebration-101').blocks.some(b=>b.text==='Le texte authentique de l’accueil'));
  assert.ok(seed.library.some(x=>x.type==='audio')&&seed.library.some(x=>x.type==='pdf'));
  assert.ok(!seed.library.some(x=>x.type==='text'),'La bibliothèque publique ne doit contenir aucun paragraphe sans fichier');
@@ -84,8 +84,10 @@ test('Preparation demo includes every public step/event/content/link without dat
  assert.ok(scripts[1].includes("seed.pages=window.__PREPARATION_SEED__.pages"));
 });
 test('No other host, unsafe methods or arbitrary celebration',async()=>{
- const wrong=await handlePreparationDemo(new Request('https://www.ronde-des-archanges-universelle.eu/__editor/demo-preparation'),env);
- assert.equal(wrong.status,404);
+ const official=await handlePreparationDemo(new Request('https://www.ronde-des-archanges-universelle.eu/__editor/demo-preparation'),env);
+ assert.equal(official.status,200,'M05 onward intentionally serve the same editor on the official host');
+ const foreign=await handlePreparationDemo(new Request('https://attacker.invalid/__editor/demo-preparation'),env);
+ assert.equal(foreign.status,404);
  const post=await handlePreparationDemo(new Request(host,{method:'POST'}),env);
  assert.equal(post.status,405);
  const fake=await handlePreparationDemo(new Request(host+'?celebration=999'),env);

@@ -45,7 +45,7 @@ test('the global file picker is modal and selects every kind without navigating 
   mark:()=>env.marks++,renders:0,marks:0
  };
  const args=Object.keys(env),vals=Object.values(env);
- const f=new Function(...args,extract('function chooseFile(x){','\nfunction savedPageSets(){')+';return chooseFile;')(...vals);
+ const f=new Function(...args,extract('function chooseFile(x){','\n// This prototype has no server media catalogue:')+';return chooseFile;')(...vals);
  for(const row of sampleMedia){
   const item={kind:'button',text:'Mon bouton',href:'',cover:'https://obsolete.test/a.jpg'};
   f(item);
@@ -62,7 +62,7 @@ test('the global file picker is modal and selects every kind without navigating 
  }
  assert.equal(env.marks,5);
  assert.equal(env.renders,5);
- assert.doesNotMatch(extract('function chooseFile(x){','\nfunction savedPageSets(){'),/tab='media'|location\.assign/,
+ assert.doesNotMatch(extract('function chooseFile(x){','\n// This prototype has no server media catalogue:'),/tab='media'|location\.assign/,
   'The picker must never switch page or navigate to media administration');
 });
 
