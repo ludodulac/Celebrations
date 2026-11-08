@@ -26,7 +26,7 @@ const categories=[['images','Images'],['pdf','PDF'],['audios','Audios'],['videos
 
 test('a video block chooses only videos from the same non-navigating library popup',()=>{
  const created=[],document={body:{append:x=>created.push(x)}};
- const source=extract('function chooseFile(x){','\nfunction attachFile(r){');
+ const source=extract('function chooseFile(x){','\nfunction savedPageSets(){');
  const changes={marked:0,rendered:0};
  const video={kind:'video',href:'',text:''};
  const env={
