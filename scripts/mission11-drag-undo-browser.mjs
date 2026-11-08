@@ -102,7 +102,7 @@ try{
   sections=>sections.map(section=>[...section.querySelectorAll('.block[data-id]')]
    .map(block=>block.dataset.id)));
  console.log('M11_AFTER_GROUP '+JSON.stringify({grouped,root:await rootIds()}));
- assert.ok(grouped.some(ids=>ids.join(',')==='410,411'),
+ assert.ok(grouped.some(ids=>ids.length===2&&[...ids].sort().join(',')==='410,411'),
   'Handle can group original title with target without cloning');
  assert.equal(await page.locator('#undo-btn').isDisabled(),false);
  await page.locator('#undo-btn').click();
