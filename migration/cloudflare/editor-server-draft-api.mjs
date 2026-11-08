@@ -132,7 +132,7 @@ export async function handleServerDraft(request,env){
   const catalogue=discoverMedia({...current.state,drafts,plans:body.plans,shared:body.shared});
   const state={...current.state,version,updatedAt,drafts,plans:body.plans,
    shared:body.shared,published:previouslyPublished,mediaCatalogue:catalogue};
-  const publishedPageId=open&&PUBLISHED_HOSTS.has(url.hostname)&&publishPageId&&
+  const publishedPageId=open&&isOfficialEditorHost(url.hostname)&&publishPageId&&
    refreshAlreadyPublishedPage(state,record,body.shared,body.celebration,publishPageId)
     ?publishPageId:null;
   if(publishedPageId)state.publishedAt=updatedAt;
