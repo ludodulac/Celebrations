@@ -31,7 +31,8 @@ La sauvegarde privée chiffrée réalisée en M03 ne contient que **le JSON édi
 
 | Protection | État à ce stade |
 |---|---|
-| Identifiant du Worker réellement actif et bundle complet archivé | **NON ATTESTÉ par une récupération Cloudflare live dans M16** |
+| Identifiant exact du Worker réellement actif | **RELEVÉ en lecture seule le 08/11/2026 à 20:51 UTC ; à revérifier immédiatement avant release** |
+| Bundle Worker complet archivé (scripts, assets, bindings) | **NON RECONSTITUÉ / NON CERTIFIÉ** |
 | Rejeu de l'ancien Worker exact sur candidat isolé | **NON EXÉCUTÉ** |
 | Archive JSON éditeur actuelle et copie hors Cloudflare | **NON CERTIFIÉ** (M03 : sauvegarde chiffrée rév. 114, récupération en RAM uniquement) |
 | Export complet récent D1 et restauration isolée avec relations | **NON EXÉCUTÉ** |
@@ -62,3 +63,70 @@ de changement Worker, R2, D1, domaine ou DNS.
 Les identifiants relevés, s'ils sont accessibles, ne prouvent pas
 qu'une restauration exacte de cette version ait été répétée. Les
 autres blocages de sortie restent inchangés.
+
+
+## Résultats définitifs des contrôles — 8 novembre 2026
+
+**[GitHub Actions M16 #42522240558](https://github.com/ludodulac/Celebrations/actions/runs/42522240558) : SUCCESS** sur la branche isolée. **Les deux jobs ont réussi.**
+
+### 1. Identité réelle du Worker — Cloudflare API GET, lecture seule
+
+Un appel **GET authentifié** à l'API Cloudflare a confirmé les métadonnées
+du Worker officiel `celebrations-exit-production`, sans aucun déploiement :
+
+| Métadonnée | Valeur observée |
+|---|---|
+| Worker | `celebrations-exit-production` |
+| Identifiant du déploiement actif | `cd46e1ba-e106-4f03-90aa-7110628a5b9f` |
+| Identifiant de la version active | `dcda4193-1d82-4283-9f0e-ae8a09e6a444` |
+| Date de création du déploiement retournée | `2026-11-07T10:52:09.869361Z` |
+| Date de constat réel | `2026-11-08T20:51:43.806Z` |
+| Distribution de trafic | 100 % sur cette unique version |
+
+**Preuve :** job `worker-metadata-readonly` de
+[GitHub Actions #42522240558](https://github.com/ludodulac/Celebrations/actions/runs/42522240558).
+Le jeton Cloudflare n'a pas été imprimé. L'identifiant exact ne fournit
+pas une archive du code ou des assets : il faut également obtenir le
+bundle complet et éprouver son réemploi sur un candidat isolé.
+Ce constat n'est **pas un verrou permanent** : l'identité doit être
+relue au moment exact d'une future opération.
+
+### 2. Tests automatisés — succès isolé, pas certification des données réelles
+
+- **37/37 nouveaux tests Node de politique M16**, dont rejets des
+  sauvegardes manquantes, des copies indépendantes différentes, des
+  données D1 et médias incomplètes, de la mauvaise version Worker, des
+  dates périmées et d'une absence d'autorisation propriétaire.
+- **205/205 tests Node de non-régression M05–M15**, lancés depuis
+  l'unique matrice M16.
+- **9/9 tests Python de restitution entièrement fictive en RAM** :
+  SQLite avec table parent/enfant, index, intégrité, clés étrangères,
+  inventaire média et empreintes des binaires historiques/nouveaux ;
+  détection d'une table/ligne/index absent, d'un média supprimé et
+  d'octets corrompus.
+- **10/10 vues Chromium de référence administration**, 5 ordinateur
+  et 5 téléphone, zéro erreur JS et zéro requête vers la production.
+- Sélecteurs médias sur les deux largeurs, déplacement réel et Undo,
+  site public sur les deux tailles, trois fenêtres (image/fichier/insertion)
+  et alignement des colonnes : **PASS**.
+- Captures temporaires conservées dans les artefacts GitHub Actions ;
+  aucun fichier privé ni secret exporté.
+
+### 3. Statut réel de sortie
+
+**Mission 16 — préparation des garde-fous : exécutée et testée.**
+
+**Autorisation de publication : NON.** Le vrai Worker actif est maintenant
+identifié, mais sa **restitution exacte sur un Worker isolé**, le backup
+transactionnel et la restauration de **l'intégralité de D1**, la copie
+indépendante de **tous les binaires R2** et le test réel de reprise de
+données restent **non attestés**.
+
+Les 9 tests de récupération Python utilisent exclusivement des
+**exemples synthétiques créés en mémoire**. Ne jamais les présenter
+comme une restauration de la D1 actuelle ou des médias réels.
+
+Le verrouillage de l'ancien publisher a été apporté à
+**la branche/PR M16 uniquement** ; les déclenchements potentiels sur
+d'autres branches existantes ne sont pas modifiés. **Ne pas fusionner ni
+exécuter d'ancienne publication avant audit distinct et accord précis.**
