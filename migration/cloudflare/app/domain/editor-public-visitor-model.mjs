@@ -2,7 +2,8 @@
 // Pure functions, no localStorage, no fetch, no DOM and no publication writes.
 export function createPublicVisitorModel(){
  function published(page,ids){
-  return !!page&&Array.isArray(ids)&&ids.some(id=>String(id)===String(page.id));
+  return !!page&&page.visibility!=='draft'&&page.visibility!=='hidden'&&
+   Array.isArray(ids)&&ids.some(id=>String(id)===String(page.id));
  }
  function assetIds(pages){
   const found=new Set();
@@ -20,10 +21,16 @@ export function createPublicVisitorModel(){
  }
  function publicSnapshot(result){
   if(result?.ok!==true||!Array.isArray(result.shared?.pages))return null;
+  // Defence in depth: exclude any hidden/draft page even if an upstream
+  // public endpoint accidentally includes it. Never modify R2 data objects.
+  const visible=p=>p&&p.visibility!=='draft'&&p.visibility!=='hidden';
+  const shared={...result.shared,pages:result.shared.pages.filter(visible)};
+  const record=result.record?{...result.record,
+   pages:(Array.isArray(result.record.pages)?result.record.pages:[]).filter(visible)}:null;
   return {
-   record:result.record||null,shared:result.shared,
+   record,shared,
    plans:Array.isArray(result.plans)?result.plans:[],
-   ids:[...(result.record?.pages||[]),...result.shared.pages].map(page=>page.id),
+   ids:[...(record?.pages||[]),...shared.pages].map(page=>page.id),
    visible:result.celebrationVisible===true,
    visibility:result.celebrationVisibility||{},
    media:Array.isArray(result.media)?result.media:[]
