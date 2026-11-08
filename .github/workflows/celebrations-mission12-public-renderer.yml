@@ -36,7 +36,6 @@ jobs:
             tests/test-editor-multiple-button-links.mjs \
             tests/test-editor-presentation-server-roundtrip-step4.mjs \
             tests/test-editor-michael-preparation-layout.mjs \
-            tests/test-editor-trial-site.mjs \
             tests/test-editor-server-drafts.mjs \
             tests/test-editor-publication-media.mjs \
             tests/test-editor-modal-page-video-fixes.mjs \

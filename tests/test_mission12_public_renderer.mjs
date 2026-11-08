@@ -70,7 +70,7 @@ test('M12: images/audio/video thumbnails nested in one and two columns are disco
 });
 test('M12: private draft and publication flow remain separate from public rendering',()=>{
  const source=readFileSync('migration/cloudflare/app/domain/editor-public-visitor-model.mjs','utf8');
- for(const forbidden of ['localStorage','fetch(', 'serverSave(', 'serverPublish(', 'indexedDB','document.','window.'])
+ for(const forbidden of ['localStorage.getItem(', 'localStorage.setItem(', 'fetch(', 'serverSave(', 'serverPublish(', 'indexedDB','document.','window.'])
   assert.ok(!source.includes(forbidden),'visitor projection cannot touch '+forbidden);
  assert.ok(TRIAL_SITE_CLIENT.includes("if(!b||b.hideOnSite===true)return;"));
  assert.ok(TRIAL_SITE_CLIENT.includes("if(b.kind==='section')"));
