@@ -56,3 +56,41 @@ rejoués. Le verdict effectif doit venir de GitHub Actions.
 Cette mission ne touche ni aux données ni aux objets de production.
 Les réserves M03 (restauration Worker/D1, octets médias R2 et sauvegarde
 indépendante) restent bloquantes avant toute fusion ou publication.
+
+
+## Validation finale — GitHub Actions (8 novembre 2026)
+
+**[M11 #42437333218](https://github.com/ludodulac/Celebrations/actions/runs/42437333218) : SUCCESS**, à la révision de branche `07b15285cb7eb0e60336ffd8d865416acebe6dd6`.
+
+- **151 tests Node réussis, 0 échec et 0 ignoré**, parmi lesquels les
+  nouveaux contrats de déplacement, la préservation de l'identité des
+  images/vidéos/PDF, la limitation de l'Undo, les visibilités publiques
+  intouchables et les gestes tactiles annulés avant l'appui long.
+- **10 vues de référence Chromium réussies** (5 ordinateur, 5 téléphone),
+  sans erreur JavaScript et sans requête vers la production.
+- **Sélecteur médias PASS** à 1280 et 390 pixels.
+- **Véritable interaction Chromium de la mission 11 : PASS** :
+  un texte initialement non sélectionné ne part pas en glisser-déposer
+  direct ; la poignée ⠿ déplace le bloc titre vers le bloc texte,
+  les regroupe dans une section, puis **Annuler** restaure les deux blocs.
+  Ensuite, une image réelle du DOM est déplacée d'une colonne à l'autre,
+  puis **Annuler** la replace dans sa colonne d'origine. L'essai a produit
+  **0 requête réseau de sauvegarde/publication et 0 erreur JavaScript**.
+- Le même parcours a vérifié les cibles visuelles
+  `editor-drop-into` et `editor-drop-after` pendant la manipulation.
+
+### Échecs corrigés avant validation
+Le premier lancement M11 avait détecté un vieux test isolant une portion
+trop large du code après extraction d'un module. Il a été restreint à sa
+véritable fonction métier, sans désactiver le test. Un parcours Chromium
+nouvellement ajouté a ensuite révélé que le dépôt d'un bloc au milieu
+d'un autre le place **avant ou après** suivant le pointeur : l'assertion
+vérifie donc la conservation des deux blocs sans imposer le mauvais ordre.
+La dernière exécution est entièrement verte.
+
+**Limite de validation :** le parcours manuel automatisé de glissement
+a été réalisé avec une souris Chromium ; les seuils/appuis tactiles sont
+vérifiés dans les tests unitaires, et les vues mobiles dans Chromium.
+Une recette tactile gestuelle sur un téléphone réel reste nécessaire
+avant mise en ligne. Les risques de restauration du site M03 restent
+inchangés et sont encore bloquants.
