@@ -3,6 +3,7 @@
 import {hasEditorAccess} from './editor-site-access.mjs';
 import {EDITOR_SNAPSHOT_LIMIT,expectedRevisionMatches} from './app/ports/editor-snapshot-contract.mjs';
 import {readEditorSnapshot,putEditorSnapshot} from './app/adapters/editor-r2-repository.mjs';
+import {isOfficialEditorHost,isReadonlyCandidateHost,sameOriginEditorWrite} from './app/security/editor-route-policy.mjs';
 
 const PREFIX='editor-trials/uploads/';
 const SITE=new Set(['www.ronde-des-archanges-universelle.eu','ronde-des-archanges-universelle.eu']);
@@ -243,14 +244,14 @@ function celebrationVisibleFor(id,map,planState){
 }
 function hostCheck(request){
  const u=new URL(request.url);
- return SITE.has(u.hostname)||u.hostname===PREVIEW||u.hostname===STAGING;
+ return isOfficialEditorHost(u.hostname)||u.hostname===PREVIEW||u.hostname===STAGING;
 }
 async function protectedWrite(request,env){
  const url=new URL(request.url);
- if(url.hostname===PREVIEW||url.hostname===STAGING)return err('Prévisualisation en lecture seule',405);
- if(!SITE.has(url.hostname))return err('Domaine non autorisé',404);
+ if(isReadonlyCandidateHost(url.hostname)||url.hostname===STAGING)return err('Prévisualisation en lecture seule',405);
+ if(!isOfficialEditorHost(url.hostname))return err('Domaine non autorisé',404);
  if(!await hasEditorAccess(request,env))return err('Code administrateur nécessaire',401);
- if(request.headers.get('origin')!=='https://'+url.hostname)return err('Origine interdite',403);
+ if(!sameOriginEditorWrite(request))return err('Origine interdite',403);
  return null;
 }
 const pageIdOk=id=>typeof id==='string'&&id.length<=110&&

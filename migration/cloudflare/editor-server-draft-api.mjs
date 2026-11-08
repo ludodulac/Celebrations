@@ -5,8 +5,8 @@ import {hasEditorAccess} from './editor-site-access.mjs';
 import {EDITOR_SNAPSHOT_LIMIT,expectedRevisionMatches} from './app/ports/editor-snapshot-contract.mjs';
 import {readEditorSnapshot,putEditorSnapshot} from './app/adapters/editor-r2-repository.mjs';
 import {initialPublication,discoverMedia,publiclyVisible} from './editor-publication-api.mjs';
+import {isOfficialEditorHost,isReadonlyCandidateHost,sameOriginEditorWrite} from './app/security/editor-route-policy.mjs';
 const HOST='celebrations-exit-staging.rondes.workers.dev';
-const PUBLISHED_HOSTS=new Set(['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu']);
 const PREVIEW_HOST='celebrations-visual-candidate.rondes.workers.dev';
 const ID=/^(?:[1-9][0-9]{0,7}|plan-(?:michael|gabriel|raphael|ouriel)-20[0-9]{2}-[0-9]{2}-[0-9]{2})$/;
 const MAX_BODY=4500000;
@@ -78,20 +78,25 @@ export async function handleServerDraft(request,env){
  const url=new URL(request.url);
  const open=url.pathname==='/api/editor-open-draft';
  if(!open&&url.pathname!=='/api/editor-server-draft')return error('Introuvable',404);
- if(!PUBLISHED_HOSTS.has(url.hostname)&&url.hostname!==PREVIEW_HOST&&url.hostname!==HOST)return error('Introuvable',404);
+ if(!isOfficialEditorHost(url.hostname)&&url.hostname!==PREVIEW_HOST&&url.hostname!==HOST)return error('Introuvable',404);
  if(!open&&url.hostname!==HOST)return error('Introuvable',404);
  if(!['GET','POST'].includes(request.method))return error('Méthode interdite',405);
  if(url.hostname===PREVIEW_HOST&&request.method!=='GET')return error('Aperçu non modifiable',405);
- if(open&&PUBLISHED_HOSTS.has(url.hostname)&&request.method==='POST'&&
+ // The candidate site is PUBLIC-only. A previous GET leaked private drafts,
+ // planned celebrations, shared admin pages and unpublished media metadata.
+ if(isReadonlyCandidateHost(url.hostname))return error('Introuvable',404);
+ // Enforce in the API handler itself, not solely at Worker route dispatch:
+ // the authenticated OFFICIAL GET is as sensitive as the POST.
+ if(open&&isOfficialEditorHost(url.hostname)&&
     !await hasEditorAccess(request,env))return error('Code administrateur nécessaire',401);
  // Official pages use the same shared editor snapshot as the verified staging editor;
  // production MEDIA_BUCKET stays unchanged to preserve all original media URLs.
- const draftBucket=(PUBLISHED_HOSTS.has(url.hostname)||url.hostname===PREVIEW_HOST)?env.EDITOR_BUCKET:env.MEDIA_BUCKET;
+ const draftBucket=isOfficialEditorHost(url.hostname)?env.EDITOR_BUCKET:env.MEDIA_BUCKET;
  if(!env.DB||!draftBucket)return error('Sauvegarde serveur indisponible',503);
  // The owner explicitly allows open editing during this temporary publishing phase.
  // The original authenticated route is intentionally unchanged for compatibility.
  if(!open&&!await authorize(request,env,true))return error('Connexion administrateur nécessaire',401);
- if(open&&request.method==='POST'&&request.headers.get('origin')!=='https://'+url.hostname)
+ if(open&&request.method==='POST'&&!sameOriginEditorWrite(request))
   return error('Écriture autorisée seulement depuis cet éditeur',403);
  try{
   if(request.method==='GET'){
