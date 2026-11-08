@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DEMO_CLIENT} from '../migration/cloudflare/editor-demo-client.mjs';
+import {createPageModel} from '../migration/cloudflare/app/domain/editor-pages.mjs';
 import {createMediaCatalogue} from '../migration/cloudflare/app/domain/editor-media-catalogue.mjs';
 import {createEditorMediaCommands} from '../migration/cloudflare/app/application/editor-media-commands.mjs';
 import {DEMO_CSS} from '../migration/cloudflare/editor-demo-style.mjs';
@@ -96,11 +97,11 @@ test('creating a test page calls server save, starts as a draft and never publis
  const db={pages:[{id:'preparation-101',group:'celebration',name:'Préparation',blocks:[]}]};
  let saved=0,published=0,renders=0;
  let id='',tab='',marked=0;
- const create=new Function('prompt','db','crypto','window','dirty','save','uniqueBlockId','mark','render','IS_STAGE','serverSave','id','selectedBlockId','tab',
+ const create=new Function('prompt','db','crypto','window','dirty','save','uniqueBlockId','mark','render','IS_STAGE','serverSave','id','selectedBlockId','tab','editorPageModel',
   source+';return createPage;')(
   ()=> 'Ma page de test',db,{randomUUID:()=> '123e4567-e89b-12d3-a456-426614174000'},
   {__PREPARATION_SEED__:{celebrationId:'101'}},false,()=>{saved++},
-  ()=>999,()=>{marked++},()=>{renders++},true,()=>{published++;return Promise.resolve(true)},'',null,'celebrations'
+  ()=>999,()=>{marked++},()=>{renders++},true,()=>{published++;return Promise.resolve(true)},'',null,'celebrations',createPageModel()
  );
  create('celebration');
  const fresh=db.pages.at(-1);
