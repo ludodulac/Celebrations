@@ -2,11 +2,12 @@
 // Authenticated JSON snapshots are persisted in the staging-only R2 bucket.
 import {authorize} from './auth-api.mjs';
 import {hasEditorAccess} from './editor-site-access.mjs';
+import {EDITOR_SNAPSHOT_LIMIT,expectedRevisionMatches} from './app/ports/editor-snapshot-contract.mjs';
+import {readEditorSnapshot,putEditorSnapshot} from './app/adapters/editor-r2-repository.mjs';
 import {initialPublication,discoverMedia,publiclyVisible} from './editor-publication-api.mjs';
 const HOST='celebrations-exit-staging.rondes.workers.dev';
 const PUBLISHED_HOSTS=new Set(['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu']);
 const PREVIEW_HOST='celebrations-visual-candidate.rondes.workers.dev';
-const KEY='editor-trials/server-drafts-v1.json';
 const ID=/^(?:[1-9][0-9]{0,7}|plan-(?:michael|gabriel|raphael|ouriel)-20[0-9]{2}-[0-9]{2}-[0-9]{2})$/;
 const MAX_BODY=4500000;
 const secure={'cache-control':'no-store','x-robots-tag':'noindex,nofollow,noarchive','x-content-type-options':'nosniff','referrer-policy':'no-referrer'};
@@ -65,13 +66,13 @@ export function refreshAlreadyPublishedPage(state,record,shared,celebration,page
  return true;
 }
 async function stored(bucket){
- const item=await bucket.get(KEY);
- if(!item)return {etag:null,state:{version:0,drafts:{},plans:[],shared:{pages:[],homeId:''}}};
- if(!item.body)throw Error('Draft inaccessible');
- const state=JSON.parse(await item.text());
- if(!object(state)||!object(state.drafts)||!Number.isSafeInteger(state.version)||state.version<1||
- !Array.isArray(state.plans)||!object(state.shared))throw Error('Stored draft invalid');
- return {etag:item.etag,state};
+ return readEditorSnapshot(bucket,{
+  empty:()=>({version:0,drafts:{},plans:[],shared:{pages:[],homeId:''}}),
+  requireBody:true,invalidMessage:'Stored draft invalid',
+  validate:state=>object(state)&&object(state.drafts)&&
+   Number.isSafeInteger(state.version)&&state.version>=1&&
+   Array.isArray(state.plans)&&object(state.shared)
+ });
 }
 export async function handleServerDraft(request,env){
  const url=new URL(request.url);
@@ -116,7 +117,7 @@ export async function handleServerDraft(request,env){
     !record.pages.some(p=>p.id===publishPageId)&&!body.shared.pages.some(p=>p.id===publishPageId)))
    return error('Page à mettre à jour introuvable',400);
   const current=await stored(draftBucket);
-  if(body.expectedRevision!==current.state.version)return error('Une version plus récente existe sur le serveur. Rechargez sans effacer votre brouillon local.',409);
+  if(!expectedRevisionMatches(body.expectedRevision,current.state.version))return error('Une version plus récente existe sur le serveur. Rechargez sans effacer votre brouillon local.',409);
   const drafts=Object.assign(Object.create(null),current.state.drafts);
   drafts[body.celebration]=record;
   const updatedAt=new Date().toISOString(),version=current.state.version+1;
@@ -131,10 +132,8 @@ export async function handleServerDraft(request,env){
     ?publishPageId:null;
   if(publishedPageId)state.publishedAt=updatedAt;
   const serialized=JSON.stringify(state);
-  if(serialized.length>5_000_000)return error('Capacité de brouillon dépassée',413);
-  const options={httpMetadata:{contentType:'application/json'},onlyIf:current.etag?
-   {etagMatches:current.etag}:{etagDoesNotMatch:'*'}};
-  const result=await draftBucket.put(KEY,serialized,options);
+  if(serialized.length>EDITOR_SNAPSHOT_LIMIT)return error('Capacité de brouillon dépassée',413);
+  const result=await putEditorSnapshot(draftBucket,current.etag,serialized);
   if(!result)return error('Une autre sauvegarde vient de modifier le serveur. Votre brouillon local est conservé.',409);
   return json({ok:true,revision:version,updatedAt,publishedPageId});
  }catch{return error('Enregistrement serveur indisponible. Votre copie locale est conservée.',503)}
