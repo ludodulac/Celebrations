@@ -47,3 +47,26 @@ jobs:
             artifacts/mission13/style-fixture/
           retention-days: 14
           if-no-files-found: warn
+
+  worker-metadata-readonly:
+    # Separate explicit one-shot, not a deployment nor an automatic secret-bearing
+    # step on every source commit. Uses only GET /deployments on the official
+    # Worker to identify the actual active deployment/version, never PUT/POST.
+    if: ${{ contains(github.event.head_commit.message, '[M16_WORKER_READONLY_ONCE]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Read exact active Worker metadata via Cloudflare GET; no write
+        run: |
+          node scripts/mission16_capture_worker_readonly.mjs
+          echo "M16_WORKER_METADATA_ONLY no_deployment=true no_d1_writes=true no_r2_writes=true"
