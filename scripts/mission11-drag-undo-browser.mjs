@@ -80,6 +80,14 @@ try{
   await page.mouse.down();
   await page.mouse.move(start.x+9,start.y+8,{steps:3});
   await page.mouse.move(finish.x,finish.y,{steps:16});
+  const debug=await page.evaluate(()=>{
+   const q=s=>[...document.querySelectorAll(s)].map(x=>x.dataset.id||x.dataset.sectionId||x.className);
+   return {dragSources:q('.editor-drag-source'),ghosts:q('.editor-drag-ghost'),
+    targetInto:q('.editor-drop-into'),targetBefore:q('.editor-drop-before'),
+    targetAfter:q('.editor-drop-after'),targetCol:q('.editor-drop-column'),
+    underPointer:document.elementFromPoint(window.innerWidth/2,window.innerHeight/2)?.className||null};
+  });
+  console.log('M11_DRAG_HOVER '+JSON.stringify({sourceSelector,destSelector,debug}));
   await page.mouse.up();
  };
  // Pointer-down on an UNSELECTED title must not reorder the page.
@@ -93,6 +101,7 @@ try{
  const grouped=await page.locator('.canvas .content-section').evaluateAll(
   sections=>sections.map(section=>[...section.querySelectorAll('.block[data-id]')]
    .map(block=>block.dataset.id)));
+ console.log('M11_AFTER_GROUP '+JSON.stringify({grouped,root:await rootIds()}));
  assert.ok(grouped.some(ids=>ids.join(',')==='410,411'),
   'Handle can group original title with target without cloning');
  assert.equal(await page.locator('#undo-btn').isDisabled(),false);
