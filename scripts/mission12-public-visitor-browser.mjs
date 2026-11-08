@@ -100,7 +100,12 @@ try{
   },{KEYS:EMPTY_STORAGE,DIRTY});
   await tab.route('**/*',async route=>{
    const request=route.request(),u=new URL(request.url()),verb=request.method();
-   if(u.origin!==HOST){badRequests++;return route.abort('blockedbyclient')}
+   if(u.origin!==HOST){
+    // Third-party YouTube thumbnail GETs are expected visuals, not writes.
+    // Block them in the fixture without recording a production write.
+    if(verb!=='GET'&&verb!=='HEAD')badRequests++;
+    return route.abort('blockedbyclient');
+   }
    if(u.pathname==='/__editor/voir-le-site'&&verb==='GET')
     return route.fulfill({status:200,contentType:'text/html; charset=utf-8',body:html});
    if(u.pathname==='/api/editor-publication'&&verb==='GET')
