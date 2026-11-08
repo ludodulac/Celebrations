@@ -47,9 +47,14 @@ export function checkReleaseEvidence(evidence,observed,{now=Date.now(),allowSynt
  fail(w.deploymentId===observed?.deploymentId&&w.versionId===observed?.versionId,
   'active Worker changed since evidence was captured: stop');
  fail(observed.script===OFFICIAL_WORKER,'unexpected Worker identity');
- fail(verified(w.rollbackTestOnIsolatedCandidate) &&
-  w.isolatedCandidateVersionId===w.versionId,
-  'exact original Worker version not proven restored on isolated candidate');
+ // Worker version IDs belong to their Worker service: an isolated candidate
+ // receives a DIFFERENT version ID. Compare complete bundle digests, not IDs.
+ fail(verified(w.rollbackTestOnIsolatedCandidate)&&
+  hasSha(w.originalBundleSha256)&&
+  w.originalBundleSha256===w.isolatedRestoredBundleSha256&&
+  UUID.test(w.isolatedCandidateVersionId||'')&&
+  w.isolatedCandidateVersionId!==w.versionId,
+  'original Worker bundle/asset/config digest not re-tested in an isolated candidate');
  fresh(w.rehearsedAt,now,24*60*60*1000,'Worker rehearsal');
  const e=evidence.editor;
  fail(plain(e)&&e.bucket===EDITOR_BUCKET&&e.sourceKey===EDITOR_OBJECT,
