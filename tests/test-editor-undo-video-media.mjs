@@ -4,6 +4,7 @@ import {DEMO_CLIENT} from '../migration/cloudflare/editor-demo-client.mjs';
 import {createMediaCatalogue} from '../migration/cloudflare/app/domain/editor-media-catalogue.mjs';
 import {createEditorMediaCommands} from '../migration/cloudflare/app/application/editor-media-commands.mjs';
 import {SERVER_EDITOR_SYNC} from '../migration/cloudflare/editor-server-sync-client.mjs';
+import {createEditorUndoPolicy} from '../migration/cloudflare/app/application/editor-undo-policy.mjs';
 
 const extract=(a,b)=>{
  const i=DEMO_CLIENT.indexOf(a),j=DEMO_CLIENT.indexOf(b,i+a.length);
@@ -85,8 +86,8 @@ function undoEnvironment(){
   '\nfunction mark(){ctrl.marked++;rememberUndoChange()};'+
   '\nfunction render(){ctrl.rendered++};'+
   '\nreturn {resetUndoHistory,rememberUndoChange,undoLastEditorAction,ensureUndoButton,updateUndoButton,undoStack,db,document,listeners,status,ctrl};';
- const ctx=new Function('db','document','status','n','id','selectedBlockId','preview','editorDragState','editorDragFinish','ctrl','listeners',script)(
-  db,document,status,fakeNode,'preparation-101',null,false,null,()=>{},ctrl,listeners
+ const ctx=new Function('db','document','status','n','id','selectedBlockId','preview','editorDragState','editorDragFinish','ctrl','listeners','createEditorUndoPolicy',script)(
+  db,document,status,fakeNode,'preparation-101',null,false,null,()=>{},ctrl,listeners,createEditorUndoPolicy
  );
  return ctx;
 }

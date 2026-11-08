@@ -4,6 +4,7 @@ import vm from 'node:vm';
 import {handleEditorDemo} from '../migration/cloudflare/editor-demo-page.mjs';
 import {DEMO_CLIENT} from '../migration/cloudflare/editor-demo-client.mjs';
 import {createBlockModel} from '../migration/cloudflare/app/domain/editor-block-model.mjs';
+import {createEditorDragModel} from '../migration/cloudflare/app/domain/editor-drag-model.mjs';
 import {DEMO_CSS} from '../migration/cloudflare/editor-demo-style.mjs';
 import {TRIAL_SITE_CLIENT} from '../migration/cloudflare/editor-trial-site-client.mjs';
 const BASE='https://celebrations-exit-staging.rondes.workers.dev/__editor/demo';
@@ -231,7 +232,7 @@ test('dragging preserves the exact existing text/image/video block through colum
  const from=DEMO_CLIENT.indexOf('function editorElementLocation(');
  const to=DEMO_CLIENT.indexOf('let editorDragState=',from);
  assert.ok(from>0&&to>from,'Pure drag-and-drop helpers are present');
- const context={};
+ const context={editorDragModel:createEditorDragModel({createSection:createBlockModel().createSection})};
  vm.runInNewContext(DEMO_CLIENT.slice(from,to)+
   '\nthis.move=moveEditorElement;this.locate=editorElementLocation;',context);
  const heading={id:11,kind:'heading',text:'Psaume 273',rich:'<strong>Psaume 273</strong>',bold:true};
@@ -306,7 +307,8 @@ test('automatic separators are absent; an optional thin divider can be inserted 
 test('dragging one block into an existing standalone block groups content without copying it',()=>{
  const start=DEMO_CLIENT.indexOf('function editorElementLocation(');
  const end=DEMO_CLIENT.indexOf('let editorDragState=',start);
- const env={uniqueBlockId:()=>9090,editorBlockModel:createBlockModel()};
+ const env={uniqueBlockId:()=>9090,editorBlockModel:createBlockModel(),
+  editorDragModel:createEditorDragModel({createSection:createBlockModel().createSection})};
  vm.runInNewContext(DEMO_CLIENT.slice(start,end)+
   'this.group=moveEditorIntoBlock;this.move=moveEditorElement;',env);
  const photo={id:21,kind:'image',src:'/media/old.jpg',widthPct:45};
