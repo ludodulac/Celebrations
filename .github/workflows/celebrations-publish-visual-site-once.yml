@@ -1,4 +1,4 @@
-name: CÉLÉBRATIONS — publier interface visuelle sans changer domaine et liens historiques
+name: CÉLÉBRATIONS — ANCIEN PUBLISHER DÉSACTIVÉ (M16, rollback exact non certifié)
 # Owner explicitly authorized official replacement on 2026-11-04; all prior read-only checks passed.
 # Michaël preparation overhaul: first deploy and browser-test the reusable
 # Resource/Video/Documents editor presets. Actual page migration occurs only
@@ -59,7 +59,9 @@ concurrency:
   cancel-in-progress: false
 jobs:
   publish:
-    if: ${{ contains(github.event.head_commit.message, '[PUBLISH_VISUAL_SITE_ONCE]') }}
+    # M16 BLOCK: this obsolete publisher has no exact-version rollback proof.
+    # Never reenable from a commit marker alone. Separate owner-approved release required.
+    if: ${{ false && contains(github.event.head_commit.message, '[PUBLISH_VISUAL_SITE_ONCE]') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: celebrations-staging
@@ -192,10 +194,9 @@ jobs:
           TOML
           sed 's/^name = "celebrations-exit-production"/name = "celebrations-visual-candidate"/' \
             migration/cloudflare/wrangler.production.toml > migration/cloudflare/wrangler.visual.toml
-          git show 94affae000554942eb98880d149f758c46908ab7:migration/cloudflare/production-worker.mjs \
-            > migration/cloudflare/production-worker-rollback.mjs
-          sed 's/^main = "production-worker.mjs"/main = "production-worker-rollback.mjs"/' \
-            migration/cloudflare/wrangler.production.toml > migration/cloudflare/wrangler.rollback.toml
+          # M16: deliberately NO obsolete rollback source. The exact deployed
+          # Cloudflare Worker version ID must be captured/verified, not git show.
+          echo 'M16_ROLLBACK_NOT_PREPARED_LEGACY_PUBLISHER_DISABLED'
           grep -Fx 'name = "celebrations-exit-production"' migration/cloudflare/wrangler.production.toml
           grep -Fx 'name = "celebrations-visual-candidate"' migration/cloudflare/wrangler.visual.toml
           grep -Fx 'binding = "MEDIA_BUCKET"' migration/cloudflare/wrangler.production.toml
@@ -287,19 +288,13 @@ jobs:
           assert.equal(posted.status,401,'Unauthenticated official save must be forbidden');
           console.log('CELEBRATIONS_WWW_VISUAL_LIVE_PASS');
           NODE
-      - name: Restore original production Worker automatically if a post-publish test fails
+      - name: Stop after failure — do not redeploy an outdated Worker as rollback
         if: ${{ failure() && steps.production_deploy.outcome == 'success' }}
         shell: bash
-        working-directory: migration/cloudflare
         run: |
-          set -euo pipefail
-          # Restore the exact last successful published editor UI (2026-11-04)
-          # instead of an obsolete pre-editor Worker; keep all saved content.
-          for file in editor-demo-client.mjs editor-demo-style.mjs editor-demo-preparation-page.mjs; do
-            git show 94affae000554942eb98880d149f758c46908ab7:migration/cloudflare/"$file" > "$file"
-          done
-          npx wrangler deploy --config wrangler.production.toml --keep-vars
-          echo 'CELEBRATIONS_ROLLBACK_LAST_PUBLISHED_EDITOR_DEPLOYED'
+          echo "::error::M16: previous Worker version unverified; no automatic rollback."
+          echo "::error::Recover using the exact Cloudflare deployed version ID only after owner's separate approval."
+          exit 1
       - name: Final Cloudflare D1 reserve
         if: always()
         # Other public workflows share Cloudflare account-wide reads. A race in
