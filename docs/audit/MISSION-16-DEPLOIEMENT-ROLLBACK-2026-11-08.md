@@ -47,3 +47,18 @@ Une série de tests synthétiques pourra vérifier que les **contrats refusent l
 - Mission 18 : recette générale, décisions séparées selon preuves de sauvegarde/restauration et tests utilisateurs.
 
 **Ne pas fusionner cette PR ni enclencher un ancien workflow de déploiement pour tester la mission.**
+
+## Annexe — lecture ponctuelle de l'identité réelle du Worker
+
+Une nouvelle tâche GitHub Actions distincte, `worker-metadata-readonly`,
+a été ajoutée. Elle ne s'exécute qu'avec le marqueur
+`[M16_WORKER_READONLY_ONCE]` sur cette branche. Elle utilise la
+configuration de secrets préexistante de l'environnement
+`celebrations-staging` pour envoyer **un unique GET** à l'API
+Cloudflare `/workers/scripts/celebrations-exit-production/deployments`.
+Elle ne demande pas les octets de contenu ni n'effectue
+de changement Worker, R2, D1, domaine ou DNS.
+
+Les identifiants relevés, s'ils sont accessibles, ne prouvent pas
+qu'une restauration exacte de cette version ait été répétée. Les
+autres blocages de sortie restent inchangés.
