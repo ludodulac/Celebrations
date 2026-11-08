@@ -1,8 +1,7 @@
-// Test-only, site-shaped preview of the already-public seven-stage programme.
-// This is not publication: reads server public records and overlays browser-local saved edits.
+// Read-only visitor renderer. Only the filtered published projection is displayed.
+// Browsing the site never modifies an administrator's locally saved drafts.
 import {loadSevenStageContent,STAGES} from './editor-demo-preparation-page.mjs';
 import {TRIAL_SITE_CLIENT,TRIAL_SITE_STYLE} from './editor-trial-site-client.mjs';
-import {SERVER_PREVIEW_PREFETCH} from './editor-server-sync-client.mjs';
 const HOST='celebrations-exit-staging.rondes.workers.dev';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const safeJson=x=>JSON.stringify(x).replace(/</g,'\\u003c').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029');
@@ -17,13 +16,8 @@ export async function handleTrialSite(request,env){
  try{result=await loadSevenStageContent(env,url.searchParams.get('celebration'))}
  catch{return new Response('Célébration introuvable',{status:404,headers:{'cache-control':'no-store'}})}
  const nonce=Array.from(crypto.getRandomValues(new Uint8Array(16)),v=>v.toString(16).padStart(2,'0')).join('');
- const allowSavedImages=String.raw`function urlOk(v){
-  if(typeof v==='string'&&v.length<1000000&&/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(v))return v;`;
  const isOfficial=['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu'].includes(url.hostname);
- const siteClient=TRIAL_SITE_CLIENT
-  .replace("function urlOk(v){",allowSavedImages)
-  .replace("(()=>{\'use strict\';","(async()=>{\'use strict\';")
-  .replace("const KEY=\'celebrations-demo-preparation-\'+celebration;",SERVER_PREVIEW_PREFETCH+"\nconst KEY=\'celebrations-demo-preparation-\'+celebration;");
+ const siteClient=TRIAL_SITE_CLIENT;
  const html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'+(isOfficial?'<title>Célébrations des Archanges</title>':'<meta name="robots" content="noindex,nofollow"><title>Site d’essai — Célébrations</title>')+
  '<style nonce="'+nonce+'">'+TRIAL_SITE_STYLE+'</style></head><body>'+
 
