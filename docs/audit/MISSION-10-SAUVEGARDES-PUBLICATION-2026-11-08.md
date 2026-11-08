@@ -55,3 +55,26 @@ et 503, sur l'indépendance du public et du brouillon, sur la politique de
 relecture et sur tous les contrats précédents M05–M09. Il rejoue les
 10 captures isolées (5 ordinateur / 5 téléphone) et le sélecteur médias.
 **Le verdict final est celui de GitHub Actions, non la présence du workflow.**
+
+
+## Validation effective (8 novembre 2026)
+
+- **[Workflow GitHub Actions M10 #42436266129](https://github.com/ludodulac/Celebrations/actions/runs/42436266129) : SUCCESS.**
+- **140 tests Node PASS, 0 échec, 0 ignoré**, dont 14 tests M10
+  supplémentaires : écriture conditionnelle de création, relecture,
+  deux appareils en collision, race ETag après la comparaison de version,
+  échec réseau 503, corruption de snapshot, validation de la révision,
+  absence de publication d'un brouillon, publication uniquement par commande,
+  vérification de la page après sauvegarde, détection d’une base divergente.
+- **10 captures isolées PASS** sur Chromium : 5 ordinateur et 5 téléphone,
+  aucune erreur JS, aucune requête réelle vers la production.
+- Sélecteur image/PDF/vidéo **PASS à 1280 et 390 px**. Aucun changement
+  de comportement du sélecteur pendant cette mission.
+- Les tests passent sur le commit de code
+  `a35157eebe15dfccc27b94c1d646d79aa20f16b5`.
+
+**Précision :** ce résultat atteste les contrats exécutés sur des buckets
+R2 simulés en mémoire et des pages fictives. Il ne prouve pas qu'un
+instantané D1 complet, tous les binaires R2, une archive externe et le Worker
+actuellement publié puissent être restaurés ensemble. Ces risques sont des
+**blocages de mise en production**, non des travaux implicitement achevés.
