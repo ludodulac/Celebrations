@@ -1,0 +1,54 @@
+name: CÉLÉBRATIONS M21 — vérification finale ciblée en lecture seule
+on:
+  push:
+    branches: [audit/celebrations-mission-21-final-preflight-20261109]
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-m21-final-readonly
+  cancel-in-progress: false
+
+jobs:
+  verifier-preuves-deja-acquises:
+    if: ${{ contains(github.event.head_commit.message, '[M21_LIVE_PREFLIGHT_ONCE]') }}
+    runs-on: ubuntu-24.04
+    environment: celebrations-staging
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      STAGING_R2_BUCKET: celebrations-exit-staging
+      STAGING_R2_ACCESS_KEY_ID: ${{ secrets.CELEBRATIONS_STAGING_R2_ACCESS_KEY_ID }}
+      STAGING_R2_SECRET_ACCESS_KEY: ${{ secrets.CELEBRATIONS_STAGING_R2_SECRET_ACCESS_KEY }}
+      CELEBRATIONS_PROD_R2_ACCESS_KEY_ID: ${{ secrets.CELEBRATIONS_PROD_R2_ACCES_KEY_ID }}
+      CELEBRATIONS_PROD_R2_SECRET_ACCESS_KEY: ${{ secrets.CELEBRATIONS_PROD_R2_SECRET_ACCES_KEY }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false, fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Scope guard M21 — no application or production change
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/audit/celebrations-mission-21-final-preflight-20261109'
+          BASE=d1547745db9bfda6f0c0d1abec3e1171f297f483
+          git cat-file -e "$BASE^{commit}"
+          BAD="$(git diff --name-only "$BASE" HEAD | grep -Ev '^(scripts/mission21_media_independent_readonly\.py|scripts/mission21_live_route_preflight\.mjs|\.github/workflows/celebrations-mission21-final-preflight\.yml|docs/audit/MISSION-21-LIVRAISON-PREFLIGHT-2026-11-09\.md)$' || true)"
+          if [ -n "$BAD" ]; then echo "M21_ABORT unexpected application change"; exit 1; fi
+          echo M21_NO_APPLICATION_CHANGE_PASS
+      - name: Read-only historical media metadata; do not redownload 767MB
+        run: |
+          python -m pip -q install boto3==1.40.57 requests==2.32.5
+          python scripts/mission21_media_independent_readonly.py
+      - name: Official site, private staging route and active Worker via GET only
+        run: |
+          node --check scripts/mission21_live_route_preflight.mjs
+          node scripts/mission21_live_route_preflight.mjs
+      - name: No deployments
+        run: echo M21_READONLY_NO_PUBLICATION_NO_R2_D1_WRITE_NO_DNS_CHANGE
