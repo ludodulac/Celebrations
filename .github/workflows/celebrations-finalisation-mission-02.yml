@@ -263,7 +263,25 @@ jobs:
           const j=await r.json();
           assert.equal(j.result?.deployments?.[0]?.id,
             'cd46e1ba-e106-4f03-90aa-7110628a5b9f','Official Worker deployment changed');
-          console.log('M02_SECURITY_REAL_HOSTS_PASS previewHosts=2 officialHosts=2 officialWorkerUnchanged=true remoteWrites=0');
+          const sub=await fetch('https://api.cloudflare.com/client/v4/accounts/'+account+
+            '/workers/scripts/celebrations-exit-production/subdomain',{
+            headers:{authorization:'Bearer '+token,accept:'application/json'},
+            signal:AbortSignal.timeout(20000)});
+          if(!sub.ok)throw Error('Official Worker subdomain settings cannot be verified');
+          const details=await sub.json();
+          assert.equal(details.result?.enabled,false,'Official workers.dev route was reopened');
+          assert.equal(details.result?.previews_enabled,false,'Official preview URLs were reopened');
+          let technicalStatus='unreachable';
+          try{technicalStatus=await get('https://celebrations-exit-production.rondes.workers.dev/');
+            assert.ok(technicalStatus>=400,'Official technical workers.dev still renders a site');
+          }catch(e){
+            if(e instanceof assert.AssertionError)throw e;
+          }
+          console.log('M02_SECURITY_REAL_HOSTS_PASS '+JSON.stringify({
+            previewHosts:2,officialHosts:2,officialWorkerUnchanged:true,
+            technicalSubdomainEnabled:false,technicalPreviewUrlsEnabled:false,
+            technicalRootStatus:technicalStatus,remoteWrites:0
+          }));
           NODE
 
   desactiver-adresse-technique-officielle-une-seule-fois:
