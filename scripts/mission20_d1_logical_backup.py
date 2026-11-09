@@ -63,6 +63,14 @@ class D1Reader:
             raise ValueError("M20 refuses non-SELECT SQL")
         r = self.session.post(self.endpoint, json={"sql": sql}, timeout=35)
         if r.status_code != 200:
+            try:
+                errors = r.json().get("errors", [])
+                # The query consists solely of fixed SQL/schema names, no row values.
+                detail = str((errors[0] or {}).get("message", ""))[:180] if errors else ""
+                detail = re.sub(r"[^A-Za-z0-9_.,: ()-]", "?", detail)
+                print("M20_D1_HTTP_ERROR_DETAIL " + detail)
+            except Exception:
+                pass
             raise RuntimeError("D1_HTTP_STATUS_" + str(r.status_code))
         payload = r.json()
         if payload.get("success") is not True or len(payload.get("result") or []) != 1:
@@ -114,6 +122,7 @@ def capture(reader):
     all_data, initial_counts = {}, {}
     total_rows = 0
     for name in tables:
+        print("M20_D1_TABLE_COUNT_START name=" + name)
         count = table_count(reader, name)
         print("M20_D1_TABLE_START index=" + str(len(initial_counts) + 1) + " rows=" + str(count))
         total_rows += count
