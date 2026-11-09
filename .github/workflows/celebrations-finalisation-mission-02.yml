@@ -145,7 +145,8 @@ jobs:
           import assert from 'node:assert/strict';
           const official=['https://ronde-des-archanges-universelle.eu','https://www.ronde-des-archanges-universelle.eu'];
           const previews=['https://celebrations-exit-staging.rondes.workers.dev',
-                          'https://celebrations-visual-candidate.rondes.workers.dev'];
+                          'https://celebrations-visual-candidate.rondes.workers.dev',
+                          'https://celebrations-exit-production.rondes.workers.dev'];
           const deny=['/api/editor-open-draft?celebration=101','/api/editor-server-draft?celebration=101',
             '/api/admin','/api/editor-media','/admin.html',
             '/media/new/12345678-1234-4234-8234-123456789abc.jpg'];
@@ -239,5 +240,5 @@ jobs:
           const j=await r.json();
           assert.equal(j.result?.deployments?.[0]?.id,
             'cd46e1ba-e106-4f03-90aa-7110628a5b9f','Official Worker deployment changed');
-          console.log('M02_SECURITY_REAL_HOSTS_PASS previewHosts=2 officialHosts=2 officialWorkerUnchanged=true remoteWrites=0');
+          console.log('M02_SECURITY_REAL_HOSTS_PASS previewHosts=3 officialHosts=2 officialWorkerUnchanged=true remoteWrites=0');
           NODE
