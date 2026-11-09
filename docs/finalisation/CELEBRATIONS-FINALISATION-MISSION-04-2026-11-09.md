@@ -46,3 +46,13 @@ M4 ne sera terminée que si :
 Si l'administration officielle ne peut pas être parcourue avec le véritable compte administrateur sans communiquer de secret, cette limite doit rester visible dans le bilan. La mission 5 devra vérifier le résultat **après publication de la refonte** sur le domaine officiel, sous accord du propriétaire.
 
 **Statut au moment de la rédaction : MISSION 4 EN COURS, publication candidate M4 à exécuter sur CI.**
+
+## 5. Réparation et test réel du candidat — preuve du 9 novembre
+
+**[GitHub Actions #42638013803](https://github.com/ludodulac/Celebrations/actions/runs/42638013803) : SUCCESS**, après correction du contrôle de configuration qui confondait la clé TOML autorisée `bucket_name` avec le champ `name` du Worker. Le seul Worker déployé est **`celebrations-visual-candidate`**. Le Worker officiel est confirmé inchangé avant et après : déploiement `cd46e1ba-e106-4f03-90aa-7110628a5b9f`.
+
+Chromium sur le **site candidat réellement déployé** : desktop **1280 px PASS**, mobile **390 px PASS**, affichage de page non vide, quatre célébrations présentes, premier menu dans l'ordre Accueil / Célébrations / Médiathèque générale, menu déroulant utilisable, route `/mercredi/` OK, **0 erreur JS, 0 erreur 5xx, 0 écriture**. Les routes de brouillons privés répondent **404**, l'API publique retourne la révision 117 avec huit pages de célébration et une page générale. Le `ReferenceError: __name is not defined` qui avait été constaté auparavant a disparu sur ce candidat réellement publié.
+
+**[CI offline M4 #42638013803](https://github.com/ludodulac/Celebrations/actions/runs/42638013803) : SUCCESS** également : parcours du vrai éditeur et des vrais gestionnaires d'API sur stockage synthétique, refus anonyme, sauvegarde puis relecture sur deux navigateurs, conflit 409, mise à jour d'une page déjà publiée sur Enregistrer, préservation des brouillons privés jusqu'à publication, médiathèque, 10 captures admin PC/mobile, régressions JavaScript et tests de restauration Python.
+
+Les deux domaines officiels n'étaient **pas examinés dans ce run**, car la mission déployait exclusivement le candidat. Le prochain commit lance le job ordinaire de **consultation HTTP/Chromium en lecture seule** sur candidat + deux domaines officiels. **Ne pas clôturer M4 avant ce contrôle réel.**
