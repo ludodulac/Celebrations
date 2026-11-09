@@ -48,3 +48,7 @@ Avant de clôturer définitivement M2, un **troisième hôte** doit être contr�
 ## Rectification du contrôle du troisième hôte
 
 Le run [#42623792074](https://github.com/ludodulac/Celebrations/actions/runs/42623792074) a annoncé dans sa chaîne de synthèse « trois hôtes » mais son tableau de résultats n'en contenait que **deux**. C'était une erreur de mise à jour du script de vérification ; ce run ne prouve **rien** pour `celebrations-exit-production.rondes.workers.dev`. Le script a été corrigé pour inclure réellement le troisième hôte. Le nouveau test en lecture seule est déclenché par `[M02_VERIFY_PREVIEWS_ONCE]`. Ne pas clôturer sans l'inspection des trois tableaux de résultats.
+
+## Troisième hôte technique — observation avant clôture
+
+Le run #42623950134 a correctement vérifié les **trois** hôtes. Le troisième `celebrations-exit-production.rondes.workers.dev` refuse les lectures de brouillons (`404`), mais renvoie `405` pour l'API admin et `307` sur `/admin.html` ; les deux premiers sont entièrement protégés en 404. Ce résultat **ne suffit pas à prouver l'innocuité de la redirection**. Nouveau contrôle : inspecter uniquement le nom d'hôte et le chemin de destination HTTP, jamais le contenu ou les cookies. Commande `[M02_VERIFY_PREVIEWS_ONCE]`.
