@@ -32,3 +32,9 @@ Toutes les configurations passent une garde explicite de nom, de base, de bucket
 - Une mesure HTTP de protection n'est pas un audit indépendant de sécurité de toutes les dépendances et de tous les accès ; la mission 4 vérifie les parcours réels.
 
 **Rappel : M2 ne publie pas la refonte vers le domaine officiel et ne certifie pas la sauvegarde indépendante (mission 3).**
+
+## Compte rendu du premier déploiement contrôlé
+
+GitHub Actions [#42623269565](https://github.com/ludodulac/Celebrations/actions/runs/42623269565) : les deux builds et **les deux déploiements** des Workers de test ont effectivement réussi le 9 novembre à 13:11–13:12 UTC. Le Worker officiel avant intervention était `cd46e1ba-e106-4f03-90aa-7110628a5b9f`. Le contrôle HTTP lancé immédiatement après a échoué dès sa seconde route staging, sans indiquer si c'était un défaut de propagation ou de déploiement. **Aucune conclusion de sécurité n'est tirée de ce premier essai.**
+
+Un deuxième contrôle est préparé dans un job **strictement en lecture seule**, sans redéploiement, en soumettant exactement les mêmes chemins privés aux deux hôtes et en vérifiant les deux domaines officiels. Il est déclenché uniquement par le marqueur `[M02_VERIFY_PREVIEWS_ONCE]`. Un statut de workflow SUCCESS ne constitue pas à lui seul la preuve : les journaux HTTP doivent être examinés.
