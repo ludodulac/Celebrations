@@ -1,0 +1,73 @@
+name: CÉLÉBRATIONS M19 — sauvegarde privée de l'état réel et inventaire, sans publication
+on:
+  push:
+    branches: [audit/celebrations-mission-19-backups-20261109]
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-mission19-private-backup
+  cancel-in-progress: false
+
+jobs:
+  sauvegarde-et-inventaire-prives:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      PROD_D1_ID: 28736d2a-479b-472b-bf82-703ad0affe10
+      STAGING_R2_BUCKET: celebrations-exit-staging
+      STAGING_R2_ACCESS_KEY_ID: ${{ secrets.CELEBRATIONS_STAGING_R2_ACCESS_KEY_ID }}
+      STAGING_R2_SECRET_ACCESS_KEY: ${{ secrets.CELEBRATIONS_STAGING_R2_SECRET_ACCESS_KEY }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      CELEBRATIONS_BACKUP_PASSPHRASE: ${{ secrets.CELEBRATIONS_BACKUP_PASSPHRASE }}
+    steps:
+      - name: Checkout Git source only (no deployment)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify mission scope and safe original R2 identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/audit/celebrations-mission-19-backups-20261109"
+          BASE=d2bbbbdd4db9b4db9f9ea36b7c8b0d4c6ea746af
+          git cat-file -e "$BASE^{commit}"
+          BAD="$(git diff --name-only "$BASE" HEAD | grep -Ev '^(scripts/mission19_(r2_readonly_inventory\.py|d1_metadata_readonly\.mjs)|docs/audit/MISSION-19-SAUVEGARDES-REELLES-2026-11-09\.md|\.github/workflows/celebrations-mission19-live-backup\.yml)$' || true)"
+          if [ -n "$BAD" ]; then
+            echo "M19_SCOPE_BLOCK: unexpected file changes"
+            exit 1
+          fi
+          test "$STAGING_R2_BUCKET" = 'celebrations-exit-staging'
+          test "$PROD_D1_ID" = '28736d2a-479b-472b-bf82-703ad0affe10'
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CELEBRATIONS_BACKUP_PASSPHRASE"
+          test "${#CELEBRATIONS_BACKUP_PASSPHRASE}" -ge 32
+          python -m py_compile scripts/mission19_r2_readonly_inventory.py scripts/mission03_editor_private_backup.py
+          node --check scripts/mission19_d1_metadata_readonly.mjs
+          echo "M19_SCOPE_READONLY_GUARD_PASS"
+      - name: Offline cryptographic and snapshot recovery tests
+        run: |
+          python -m pip -q install boto3==1.40.57 cryptography==46.0.2
+          python -m unittest discover -s tests -p 'test_mission03_editor_private_backup.py' -v
+      - name: Current R2 snapshot and media metadata (READ/LIST ONLY)
+        run: python scripts/mission19_r2_readonly_inventory.py
+      - name: New encrypted private R2 backup and exact in-memory restoration — ONE TIME
+        if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M19_PRIVATE_ARCHIVE_ONCE]') }}
+        env:
+          M03_ALLOW_PRIVATE_ARCHIVE: 'yes'
+        run: python scripts/mission03_editor_private_backup.py --archive
+      - name: Re-observe official Worker deployment version (GET ONLY)
+        run: node scripts/mission16_capture_worker_readonly.mjs
+      - name: D1 metadata verification (GET ONLY, no full export)
+        run: node scripts/mission19_d1_metadata_readonly.mjs
+      - name: Read-only D1 SELECT and public media/PDF link checks
+        run: node scripts/verify-public-media-before-visual-publish.mjs
