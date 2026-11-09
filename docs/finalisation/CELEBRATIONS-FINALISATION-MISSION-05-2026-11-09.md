@@ -56,4 +56,57 @@ La publication ne peut être déclarée terminée que si le workflow de déploie
 
 Après livraison, tout travail de webmaster doit partir de **cette branche de livraison** et viser le nouveau compte Cloudflare seulement lors de la migration séparée demandée. Le fait que les anciennes PR de nettoyage restent DRAFT ne signifie pas que la version Cloudflare publiée soit issue de `main` : le **commit de livraison et l'ID de version Cloudflare** font foi.
 
-**Statut au déclenchement : publication autorisée et test automatique lancé ; résultat réel à consigner après l'exécution.**
+## 7 — RÉSULTAT RÉEL : PUBLIÉ ET CONTRÔLÉ ✅
+
+**[GitHub Actions #42672508843](https://github.com/ludodulac/Celebrations/actions/runs/42672508843) — SUCCESS**, le **9 novembre 2026 vers 18:18 UTC**. Le déclenchement a été réalisé seulement après le contrôle des versions immuables et la répétition du rollback sur le candidat isolé.
+
+| Vérification de publication | Constat réel |
+| --- | --- |
+| Worker actif sur les deux domaines | `celebrations-exit-production` |
+| **Nouvelle version active à 100 %** | **`eccb1274-2ed8-491f-8557-c4330342e4bf`** |
+| **Nouveau déploiement Cloudflare** | **`ffdc7b2b-a443-45cf-843d-0419fe71cb8d`** |
+| **Version précédente préservée pour rollback** | `dcda4193-1d82-4283-9f0e-ae8a09e6a444` |
+| Deux noms officiels HTTP 200 | **2/2** |
+| Pages directes, médiathèque, menu et célébrations | **PASS** |
+| Éditeur sans connexion : brouillons GET et sauvegarde POST | **401 — protégés** |
+| Formulaire administrateur avec CSRF | **2/2 PASS** |
+| Mauvais code administrateur | **2/2 rejeté 303, zéro cookie de session** |
+| Navigateurs Chromium réel (candidat + deux officiels × desktop/mobile) | **6/6 PASS**, 0 erreur JS / 5xx / scroll horizontal |
+| Fichiers médias publics | **113/113 PASS** |
+| PDF accessibles sur le domaine officiel sans `www` | **9/9 PASS** |
+| PDF accessibles sur le domaine officiel avec `www` | **9/9 PASS** |
+| Lien PDF non autorisé/inconnu | **404** |
+| Anciennes routes privées des deux sites de test | **8/8 refusées** |
+| Ancienne adresse technique Workers.dev du site officiel | **Désactivée**, Preview URLs aussi |
+| R2/D1/DNS | **0 écriture de contenu / aucune migration** |
+| Rollback de production exécuté | **Non, car aucun échec après publication** |
+| Ancien Worker immuable récupérable via Cloudflare | **Oui, version d'avant conservée** |
+
+**Conclusion de la mission 5 : PUBLICATION TECHNIQUE ET CONTRÔLES AUTOMATISÉS TERMINÉS.** Les journaux attestent une nouvelle version réelle, non une simple branche préparée. La procédure de rollback était armée et avait été répétée sur le candidat isolé, mais n'a pas été nécessaire en production.
+
+### Validation administrateur encore manuelle
+
+Le véritable **code d'accès administrateur** n'a **pas** été communiqué ni utilisé. Le formulaire de connexion est bien rendu et son mécanisme de refus a été testé en conditions réelles ; les opérations d'édition/enregistrement/publication ont été vérifiées automatiquement avec les vrais gestionnaires de code et un stockage **simulé** dans la mission 4, pas avec une session authentifiée en production. **Le propriétaire doit donc faire une vérification finale dans l'administration officielle** : se connecter avec son code, ouvrir une page existante, contrôler les médias et l'aperçu, et si nécessaire tester un changement sans publication puis l'annuler. Ne pas toucher aux vraies pages destinées aux visiteurs pour un test destructif. Cela n'enlève pas la réussite de la publication, mais empêche de promettre une recette « humain connecté » qui n'a pas eu lieu.
+
+### Remise et poursuite du travail de webmaster
+
+Le site de référence livré reste `https://www.ronde-des-archanges-universelle.eu` ; l'administration sur `/admin.html`.
+
+**Source de référence pour les prochaines corrections :** branche GitHub `release/celebrations-finalisation-05-livraison-20261109`, dérivée de toutes les missions de finalisation. Les PR historiques empilées restent **DRAFT**, et le dépôt `main` n'est **pas** présumé représenter la version hébergée actuellement sur Cloudflare ; ne pas le déployer directement. Toute modification ultérieure doit partir de cette branche, passer les tests et conserver les paramètres d'authentification et de stockage.
+
+**Sauvegarde hors Cloudflare :** dossier privé Google Drive `SAUVEGARDES PRIVEES - Celebrations - 2026-11-09`, 10 archives chiffrées ZIP vérifiées, environ 838 Mo. **Le secret de déchiffrement doit être sauvegardé séparément par le propriétaire.** Ne jamais inclure la clé en clair dans un courriel, une PR ou le site public.
+
+**Transfert au compte Cloudflare du collègue (ULTÉRIEUR ET DISTINCT) :** créer les ressources D1 et R2 du nouveau compte, importer les **deux** buckets utilisés par la version actuelle (médias historiques d'un côté, brouillons/nouveaux médias de l'autre) et la base D1, rétablir secrets et bindings, tester le site sur un environnement indépendant, basculer ensuite les domaines, vérifier administration/visiteurs, puis seulement **supprimer les ressources de l'ancien compte** pour libérer l'espace. Ne pas laisser le nouveau site pointer vers les anciens buckets du compte actuel ; ne pas désactiver les anciennes ressources avant vérification du nouveau site.
+
+**PDF : conserver uniquement les URL du domaine officiel ; ne jamais réouvrir les anciennes URL Workers.dev**, explicitement déclarées obsolètes par le propriétaire.
+
+### Bilan des cinq étapes
+
+- **Finalisation 1/5 :** intégration du code sur la branche de livraison, tests de régression.
+- **Finalisation 2/5 :** routes privées des environnements techniques fermées, adresse Workers.dev officielle désactivée.
+- **Finalisation 3/5 :** sauvegarde chiffrée du contenu et données réelles sur Drive indépendant, restauration isolée 307/307.
+- **Finalisation 4/5 :** recette sur navigateur, correction réelle `__name`, médias 113/113, PDF 9/9 sur deux hôtes.
+- **Finalisation 5/5 :** **déploiement officiel réussi**, version immuable vérifiée et ancien Worker conservé.
+
+**Le transfert de compte Cloudflare et la validation finale avec un véritable code administrateur ne font pas partie des cinq missions de nettoyage et livraison automatisée.**
+
