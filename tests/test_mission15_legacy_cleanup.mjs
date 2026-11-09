@@ -25,7 +25,7 @@ const originalBlobShas={
  'migration/cloudflare/media-gateway.mjs':'a833e679190a0b6a1aade7dabc8b49c33a339408',
  'migration/cloudflare/editor-demo-page.mjs':'9f91ec14e60ef6637fbf4747dd813029c68768eb',
  'migration/cloudflare/editor-e2a-access-recovery.mjs':'26b535ed294fa83a2bc39cc5a85c8b3187042268',
- 'migration/cloudflare/editor-trial-site-client.mjs':'5ee471ed75952b6c2f78aaba323e1cceea7b689d',
+ 'migration/cloudflare/editor-trial-site-client.mjs':'4e9176e8bfd618aef4f32a2df177fbac38292e70',
  'migration/cloudflare/editor-server-draft-api.mjs':'2b4e381ee83416f5f1ed4645f078ec493f4e4a5d',
  'migration/cloudflare/editor-server-sync-client.mjs':'61ab92c0f11c8c6709aa747048f6fea769caf324',
  'migration/cloudflare/editor-demo-preparation-page.mjs':'0f312ef00223f42bf7145cda839e2ad4df618bbd',
@@ -70,7 +70,7 @@ test('M15: no dangling prototype calls or single-use function declarations',()=>
   (content.match(new RegExp('\\b'+name+'\\b','g'))||[]).length===1);
  assert.deepEqual(orphans,[],'no script function is declaration-only');
 });
-test('M15 + M17 + M2: historic sources and the two deliberately secured Workers are pinned',()=>{
+test('M15 + M17 + M2 + M4: historic sources and the two deliberately secured Workers are pinned',()=>{
  assert.equal(Object.keys(originalBlobShas).length,11);
  for(const [path,sha] of Object.entries(originalBlobShas))
   assert.equal(blobSha(path),sha,'legacy/route source changed unexpectedly: '+path);
