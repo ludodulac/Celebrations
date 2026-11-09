@@ -1,0 +1,69 @@
+name: CÉLÉBRATIONS — FINALISATION 3/5 — archive chiffrée hors Cloudflare
+on:
+  push:
+    branches: [release/celebrations-finalisation-03-backups-20261109]
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-portable-recovery-m03
+  cancel-in-progress: false
+jobs:
+  verification-et-sauvegarde:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      PROD_D1_ID: 28736d2a-479b-472b-bf82-703ad0affe10
+      STAGING_R2_BUCKET: celebrations-exit-staging
+      PROD_R2_BUCKET: celebrations-exit-production
+      STAGING_R2_ACCESS_KEY_ID: ${{ secrets.CELEBRATIONS_STAGING_R2_ACCESS_KEY_ID }}
+      STAGING_R2_SECRET_ACCESS_KEY: ${{ secrets.CELEBRATIONS_STAGING_R2_SECRET_ACCESS_KEY }}
+      CELEBRATIONS_PROD_R2_ACCESS_KEY_ID: ${{ secrets.CELEBRATIONS_PROD_R2_ACCES_KEY_ID }}
+      CELEBRATIONS_PROD_R2_SECRET_ACCESS_KEY: ${{ secrets.CELEBRATIONS_PROD_R2_SECRET_ACCES_KEY }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      CELEBRATIONS_BACKUP_PASSPHRASE: ${{ secrets.CELEBRATIONS_BACKUP_PASSPHRASE }}
+      BACKUP_ARTIFACT_FOLDER: artifacts/celebrations-finalisation03-ciphertext
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0, persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Verify exact branch, version lineage and absence of runtime changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/release/celebrations-finalisation-03-backups-20261109
+          BASE=c701c7f626097f0d9b59398a13c875c315b05cfb
+          git merge-base --is-ancestor "$BASE" HEAD
+          BAD="$(git diff --name-only "$BASE" HEAD | grep -Ev '^(scripts/finalisation03_portable_recovery\.py|tests/test_finalisation03_portable_recovery\.py|\.github/workflows/celebrations-finalisation-mission-03\.yml|docs/finalisation/CELEBRATIONS-FINALISATION-MISSION-03-2026-11-09\.md)$' || true)"
+          if [ -n "$BAD" ]; then echo M03_ABANDON_UNEXPECTED_CHANGES; exit 1; fi
+          test "$STAGING_R2_BUCKET" = 'celebrations-exit-staging'
+          test "$PROD_R2_BUCKET" = 'celebrations-exit-production'
+          test "$PROD_D1_ID" = '28736d2a-479b-472b-bf82-703ad0affe10'
+          test "${#CELEBRATIONS_BACKUP_PASSPHRASE}" -ge 32
+          python -m py_compile scripts/finalisation03_portable_recovery.py
+          echo M03_SCOPE_PASS
+      - name: Python cryptography and storage client libraries
+        run: python -m pip -q install boto3==1.40.57 cryptography==46.0.2 requests==2.32.5
+      - name: Isolated algorithm tests — no cloud connection
+        run: |
+          python -m unittest discover -s tests -p 'test_finalisation03_portable_recovery.py' -v
+          python -m unittest discover -s tests -p 'test_mission20_d1_logical_backup.py' -v
+      - name: Create one-time encrypted backup of actual R2/D1/Worker, then decrypt all bytes locally
+        if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M03_OFFCLOUD_BACKUP_ONCE]') }}
+        env:
+          M03_ALLOW_ONE_PORTABLE_BACKUP: 'yes'
+        run: python scripts/finalisation03_portable_recovery.py
+      - name: Transfer ciphertext ONLY to private-account GitHub Actions artifact (30 day temporary copy)
+        if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M03_OFFCLOUD_BACKUP_ONCE]') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: celebrations-m03-crypted-complete-20261109
+          path: artifacts/celebrations-finalisation03-ciphertext/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+      - name: No production change
+        run: echo M03_NO_D1_WRITES_NO_R2_WRITES_NO_WORKER_DEPLOY_NO_DNS_CHANGE
