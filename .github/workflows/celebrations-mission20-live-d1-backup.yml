@@ -1,0 +1,57 @@
+name: CÉLÉBRATIONS M20 — sauvegarde D1 logique SELECT, restauration RAM sans interruption
+on:
+  push:
+    branches: [audit/celebrations-mission-20-release-blockers-20261109]
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-mission20-one-off-d1
+  cancel-in-progress: false
+jobs:
+  d1-sauvegarde-logique-privee:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      PROD_D1_ID: 28736d2a-479b-472b-bf82-703ad0affe10
+      STAGING_R2_BUCKET: celebrations-exit-staging
+      STAGING_R2_ACCESS_KEY_ID: ${{ secrets.CELEBRATIONS_STAGING_R2_ACCESS_KEY_ID }}
+      STAGING_R2_SECRET_ACCESS_KEY: ${{ secrets.CELEBRATIONS_STAGING_R2_SECRET_ACCESS_KEY }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      CELEBRATIONS_BACKUP_PASSPHRASE: ${{ secrets.CELEBRATIONS_BACKUP_PASSPHRASE }}
+    steps:
+      - name: Checkout and strict scope guard (ne modifier aucun fichier de production)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Refuse outside designated audit branch and unexpected files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/audit/celebrations-mission-20-release-blockers-20261109'
+          BASE=ffd64029ddf4ae8dabbeb350b0e6d3a087fe2e8b
+          git cat-file -e "$BASE^{commit}"
+          BAD="$(git diff --name-only "$BASE" HEAD | grep -Ev '^(scripts/mission20_d1_logical_backup\.py|tests/test_mission20_d1_logical_backup\.py|\.github/workflows/celebrations-mission20-live-d1-backup\.yml|docs/audit/MISSION-20-SECURISATION-LIVRAISON-2026-11-09\.md)$' || true)"
+          if [ -n "$BAD" ]; then echo 'M20_SCOPE_BLOCK: software change detected'; exit 1; fi
+          test "$STAGING_R2_BUCKET" = 'celebrations-exit-staging'
+          test "$PROD_D1_ID" = '28736d2a-479b-472b-bf82-703ad0affe10'
+          test "${#CELEBRATIONS_BACKUP_PASSPHRASE}" -ge 32
+          python -m py_compile scripts/mission20_d1_logical_backup.py
+          echo M20_SCOPE_PASS
+      - name: Unit tests of recovery, corruption and data safety (OFFLINE)
+        run: |
+          python -m pip -q install boto3==1.40.57 cryptography==46.0.2 requests==2.32.5
+          python -m unittest discover -s tests -p 'test_mission20_d1_logical_backup.py' -v
+      - name: One-shot REAL D1 read via SELECT, ciphertext private R2 and RAM restore
+        if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M20_PRIVATE_D1_BACKUP_ONCE]') }}
+        env:
+          M20_ALLOW_ONE_PRIVATE_BACKUP: 'yes'
+        run: python scripts/mission20_d1_logical_backup.py
+      - name: Publication remains forbidden
+        run: echo M20_NO_DEPLOYMENT_NO_DNS_NO_WORKER_CHANGE_NO_PRODUCTION_DB_WRITE
