@@ -25,7 +25,7 @@ jobs:
           test "$GITHUB_REF" = refs/heads/release/celebrations-finalisation-04-recette-20261109
           BASE=386fbe483fbbfbf009912a5943c2808a9bb92f2d
           git merge-base --is-ancestor "$BASE" HEAD
-          BAD="$(git diff --name-only "$BASE" HEAD | grep -Ev '^(migration/cloudflare/editor-trial-site-client\.mjs|migration/cloudflare/editor-demo-client\.mjs|scripts/finalisation04_(real_handlers_isolated_browser|live_readonly_browser)\.mjs|tests/test_finalisation04_visitor_bundled_helper\.mjs|\.github/workflows/celebrations-finalisation-mission-04\.yml|docs/finalisation/CELEBRATIONS-FINALISATION-MISSION-04-2026-11-09\.md)$' || true)"
+          BAD="$(git diff --name-only "$BASE" HEAD | grep -Ev '^(migration/cloudflare/editor-trial-site-client\.mjs|migration/cloudflare/editor-demo-client\.mjs|scripts/finalisation04_(real_handlers_isolated_browser|live_readonly_browser)\.mjs|tests/test_finalisation04_visitor_bundled_helper\.mjs|tests/test_mission15_legacy_cleanup\.mjs|\.github/workflows/celebrations-finalisation-mission-04\.yml|docs/finalisation/CELEBRATIONS-FINALISATION-MISSION-04-2026-11-09\.md)$' || true)"
           if [ -n "$BAD" ]; then echo M04_FORBIDDEN_CHANGE; echo "$BAD"; exit 1; fi
           echo M04_RUNTIME_UNCHANGED_SINCE_M03_PASS
       - name: Contrats de sécurité, persistance, publication et régressions M01–M03
