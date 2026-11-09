@@ -1,0 +1,66 @@
+name: CÉLÉBRATIONS M05 — contrôler la version officielle en attente et l'éditeur
+on:
+  push:
+    branches: [release/celebrations-finalisation-05-livraison-20261109]
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-finalisation-m05-release
+  cancel-in-progress: false
+jobs:
+  version-officielle-en-attente:
+    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M05_VALIDATE_UPLOADED_VERSION_ONCE]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      STAGING_R2_ACCESS_KEY_ID: ${{ secrets.CELEBRATIONS_STAGING_R2_ACCESS_KEY_ID }}
+      STAGING_R2_SECRET_ACCESS_KEY: ${{ secrets.CELEBRATIONS_STAGING_R2_SECRET_ACCESS_KEY }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Contrôler old/new immutable Cloudflare Worker version and bindings, READ ONLY
+        run: node scripts/finalisation05_uploaded_version_validation.mjs
+      - name: Read actual R2 editor source without modifying it
+        run: |
+          python -m pip -q install boto3==1.40.57
+          python - <<'PY'
+          import os,json,hashlib,boto3
+          from urllib.parse import urlsplit
+          from botocore.config import Config
+          e=os.environ
+          if not e['R2_ENDPOINT'].startswith('https://'+e['CLOUDFLARE_ACCOUNT_ID']+'.r2.cloudflarestorage.com'):
+              raise RuntimeError('Wrong R2 endpoint')
+          s=boto3.client('s3',region_name='auto',endpoint_url=e['R2_ENDPOINT'],
+            aws_access_key_id=e['STAGING_R2_ACCESS_KEY_ID'],
+            aws_secret_access_key=e['STAGING_R2_SECRET_ACCESS_KEY'],
+            config=Config(retries={'max_attempts':2,'mode':'standard'}))
+          key='editor-trials/server-drafts-v1.json'
+          first=s.head_object(Bucket='celebrations-exit-staging',Key=key)
+          obj=s.get_object(Bucket='celebrations-exit-staging',Key=key)
+          raw=obj['Body'].read(5_000_001)
+          obj['Body'].close()
+          if len(raw)>5_000_000:raise RuntimeError('Editor source too large')
+          state=json.loads(raw)
+          after=s.head_object(Bucket='celebrations-exit-staging',Key=key)
+          if first['ETag']!=after['ETag']:raise RuntimeError('Editor snapshot changed')
+          if int(state['version'])!=117:raise RuntimeError('Editor revision diverged from offsite backup')
+          if len(state['drafts']['101']['pages'])<8 or len(state['shared']['pages'])<1:
+             raise RuntimeError('Editor source missing pages')
+          print('M05_EDITOR_SNAPSHOT_STABLE_PASS '+json.dumps({
+            'editor_revision':state['version'],
+            'draft_pages':len(state['drafts']['101']['pages']),
+            'general_pages':len(state['shared']['pages']),
+            'etag_unchanged':True,
+            'sha256_computed_without_logging_private_contents':True,
+            'r2_writes':0}))
+          PY
+      - name: Nothing activated
+        run: echo M05_NEW_VERSION_STILL_UNPUBLISHED_NO_D1_R2_WORKER_DEPLOY

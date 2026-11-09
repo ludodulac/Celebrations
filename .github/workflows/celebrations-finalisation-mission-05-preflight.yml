@@ -1,0 +1,46 @@
+name: CÉLÉBRATIONS — FINALISATION 5/5 — préflight de publication sans écriture
+on:
+  push:
+    branches: [release/celebrations-finalisation-05-livraison-20261109]
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-finalisation-m05-release
+  cancel-in-progress: false
+jobs:
+  preflight-readonly:
+    # The live preflight was already run successfully before release.
+    # Do not falsely fail after M05 when the active Worker version changes.
+    if: ${{ contains(github.event.head_commit.message, '[M05_PREFLIGHT_ONCE]') }}
+    runs-on: ubuntu-24.04
+    environment: celebrations-staging
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      CELEBRATIONS_PROD_D1_ID: 28736d2a-479b-472b-bf82-703ad0affe10
+      CELEBRATIONS_PROD_R2_BUCKET: celebrations-exit-production
+      CELEBRATIONS_STAGING_R2_BUCKET: celebrations-exit-staging
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0, persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Périmètre candidat verrouillé et base exacte M4
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/release/celebrations-finalisation-05-livraison-20261109'
+          git merge-base --is-ancestor ac57825edae91e595f96f9dcf1ed0045a1ba6ed8 HEAD
+          BAD="$(git diff --name-only ac57825edae91e595f96f9dcf1ed0045a1ba6ed8 HEAD | grep -Ev '^((scripts/finalisation05_[^/]+\.(mjs|py))|(tests/test_finalisation05_[^/]+\.(mjs|py))|(\.github/workflows/celebrations-finalisation-mission-05[^/]*\.yml)|(docs/finalisation/CELEBRATIONS-FINALISATION-MISSION-05-2026-11-09\.md))$' || true)"
+          if [ -n "$BAD" ]; then echo M05_RUNTIME_OR_UNEXPECTED_CHANGE_BLOCKED; exit 1; fi
+          echo M05_RELEASE_CODE_MATCHES_VALIDATED_M04_PASS
+      - name: Scripts de sécurité et preuve locale de rollback
+        run: |
+          node --check scripts/finalisation05_release_preflight.mjs
+          node --test tests/test_mission16_release_rollback.mjs tests/test_finalisation02_preview_security.mjs tests/test_finalisation04_visitor_bundled_helper.mjs
+          node scripts/mission16_editor_regressions.mjs
+      - name: Live Cloudflare worker/domain/D1/read-only backup freshness
+        run: node scripts/finalisation05_release_preflight.mjs
+      - name: Aucune publication automatique par ce workflow
+        run: echo M05_PREFLIGHT_ONLY_NO_RELEASE

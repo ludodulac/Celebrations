@@ -1,0 +1,134 @@
+name: CÉLÉBRATIONS M05 — préparer une version officielle SANS la publier
+on:
+  push:
+    branches: [release/celebrations-finalisation-05-livraison-20261109]
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-finalisation-m05-release
+  cancel-in-progress: false
+jobs:
+  upload-official-version-only:
+    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M05_UPLOAD_VERSION_ONCE]') }}
+    runs-on: ubuntu-24.04
+    environment: celebrations-staging
+    timeout-minutes: 35
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      CELEBRATIONS_PROD_D1_ID: 28736d2a-479b-472b-bf82-703ad0affe10
+      CELEBRATIONS_PROD_R2_BUCKET: celebrations-exit-production
+      CELEBRATIONS_STAGING_D1_ID: 0f761662-241f-42cc-ac94-5c68b4aa7797
+      CELEBRATIONS_STAGING_R2_BUCKET: celebrations-exit-staging
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0, persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Validate owner-approved branch / no application change / live binding identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/release/celebrations-finalisation-05-livraison-20261109
+          git merge-base --is-ancestor ac57825edae91e595f96f9dcf1ed0045a1ba6ed8 HEAD
+          BAD="$(git diff --name-only ac57825edae91e595f96f9dcf1ed0045a1ba6ed8 HEAD | grep -Ev '^((scripts/finalisation05_[^/]+\.(mjs|py))|(tests/test_finalisation05_[^/]+\.(mjs|py))|(\.github/workflows/celebrations-finalisation-mission-05[^/]*\.yml)|(docs/finalisation/CELEBRATIONS-FINALISATION-MISSION-05-2026-11-09\.md))$' || true)"
+          if [ -n "$BAD" ]; then echo M05_FORBIDDEN_CODE_CHANGE; exit 1; fi
+          test "$CELEBRATIONS_PROD_D1_ID" = 28736d2a-479b-472b-bf82-703ad0affe10
+          test "$CELEBRATIONS_PROD_R2_BUCKET" = celebrations-exit-production
+          test "$CELEBRATIONS_STAGING_R2_BUCKET" = celebrations-exit-staging
+          echo M05_APPLICATIVE_CODE_LOCKED_TO_M04_PASS
+      - name: Revalidate live complete release preflight (only D1 SELECT)
+        run: node scripts/finalisation05_release_preflight.mjs
+      - name: Build exact same tested visual release assets offline
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/build_production_assets.py
+          python scripts/audit_production_supabase_paths.py
+          python scripts/prepare_production_wrangler.py
+          cat >> migration/cloudflare/wrangler.production.toml <<'TOML'
+          [[r2_buckets]]
+          binding = "EDITOR_BUCKET"
+          bucket_name = "celebrations-exit-staging"
+          TOML
+          sed -i 's/^workers_dev = true$/workers_dev = false/' migration/cloudflare/wrangler.production.toml
+          grep -Fx 'name = "celebrations-exit-production"' migration/cloudflare/wrangler.production.toml
+          grep -Fx 'main = "production-worker.mjs"' migration/cloudflare/wrangler.production.toml
+          grep -Fx 'workers_dev = false' migration/cloudflare/wrangler.production.toml
+          grep -Fx 'preview_urls = false' migration/cloudflare/wrangler.production.toml
+          test "$(grep -Ec '^[[:space:]]*binding[[:space:]]*=[[:space:]]*"EDITOR_BUCKET"' migration/cloudflare/wrangler.production.toml)" = 1
+          grep -Fx 'database_id = "28736d2a-479b-472b-bf82-703ad0affe10"' migration/cloudflare/wrangler.production.toml
+          grep -Fx 'bucket_name = "celebrations-exit-production"' migration/cloudflare/wrangler.production.toml
+          grep -Fx 'bucket_name = "celebrations-exit-staging"' migration/cloudflare/wrangler.production.toml
+          if grep -Eq '^[[:space:]]*(route|routes|zone_id|custom_domain)[[:space:]]*=' migration/cloudflare/wrangler.production.toml; then
+            echo M05_FORBIDDEN_DNS_ROUTE; exit 1
+          fi
+          echo M05_CONFIRMED_PRODUCTION_CONFIG_NO_WORKERSDEV_PASS
+      - name: Install Wrangler with version-only release support
+        run: npm install --no-save --no-package-lock wrangler@4
+      - name: Upload candidate Worker version WITHOUT shifting production traffic
+        id: upload
+        shell: bash
+        env:
+          WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/m05-wrangler.jsonl
+        working-directory: migration/cloudflare
+        run: |
+          set -euo pipefail
+          npx wrangler versions upload --config wrangler.production.toml --keep-vars --strict \
+            --message "Célébrations M05 candidate GitHub ${GITHUB_SHA:0:12}; no live deploy"
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const p=process.env.WRANGLER_OUTPUT_FILE_PATH;
+          const records=fs.readFileSync(p,'utf8').split(/\r?\n/).filter(Boolean)
+            .map(x=>JSON.parse(x));
+          const all=records.filter(x=>x.type==='version-upload'&&x.worker_name==='celebrations-exit-production');
+          if(all.length!==1||!(/^[0-9a-f-]{36}$/i.test(all[0].version_id||'')))
+            throw Error('M05 uploaded Worker version ID not recovered');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT,'new_version_id='+all[0].version_id+'\n');
+          console.log('M05_VERSION_UPLOAD_ONLY_PASS '+JSON.stringify({
+            worker:all[0].worker_name,versionId:all[0].version_id,
+            published:false,newVersionOnly:true}));
+          NODE
+      - name: Confirm OLD production deployment never shifted and the NEW version exists
+        env:
+          M05_NEW_VERSION_ID: ${{ steps.upload.outputs.new_version_id }}
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const account=process.env.CLOUDFLARE_ACCOUNT_ID,token=process.env.CLOUDFLARE_API_TOKEN,
+          base='https://api.cloudflare.com/client/v4/accounts/'+account+'/workers/scripts/celebrations-exit-production';
+          async function get(path){
+            const r=await fetch(base+path,{headers:{authorization:'Bearer '+token},
+              signal:AbortSignal.timeout(20000)});
+            assert.equal(r.status,200);
+            const body=await r.json();assert.equal(body.success,true);
+            return body.result;
+          }
+          const d=await get('/deployments');
+          assert.equal(d.deployments?.[0]?.id,'cd46e1ba-e106-4f03-90aa-7110628a5b9f');
+          assert.equal(d.deployments[0].versions[0].version_id,'dcda4193-1d82-4283-9f0e-ae8a09e6a444');
+          const next=await get('/versions/'+process.env.M05_NEW_VERSION_ID);
+          assert.equal(next.id||next.version_id,process.env.M05_NEW_VERSION_ID);
+          const sub=await get('/subdomain');
+          assert.equal(sub.enabled,false);
+          assert.equal(sub.previews_enabled,false);
+          console.log('M05_NEW_VERSION_STORED_NOT_ACTIVATED_PASS '+JSON.stringify({
+            oldDeploymentStillLive:true,originalWorkerVersion:'dcda4193-1d82-4283-9f0e-ae8a09e6a444',
+            newCandidateVersion:process.env.M05_NEW_VERSION_ID,
+            technicalWorkersDevDisabled:true,previewUrlsDisabled:true}));
+          NODE
+      - name: Confirm original site still publicly accessible
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          for(const base of ['https://ronde-des-archanges-universelle.eu','https://www.ronde-des-archanges-universelle.eu']){
+            for(const [path,status] of [['/',200],['/api/editor-open-draft?celebration=101',401]]){
+              const res=await fetch(base+path,{redirect:'manual',signal:AbortSignal.timeout(20000)});
+              assert.equal(res.status,status);
+              await res.body?.cancel().catch(()=>{});
+            }
+          }
+          console.log('M05_UPLOAD_ONLY_ORIGINAL_SITE_UNCHANGED_PASS');
+          NODE
