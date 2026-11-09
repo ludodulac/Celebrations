@@ -37,7 +37,7 @@ jobs:
           test "$GITHUB_REF" = refs/heads/release/celebrations-finalisation-03-backups-20261109
           BASE=c701c7f626097f0d9b59398a13c875c315b05cfb
           git merge-base --is-ancestor "$BASE" HEAD
-          BAD="$(git diff --name-only "$BASE" HEAD | grep -Ev '^(scripts/finalisation03_portable_recovery\.py|tests/test_finalisation03_portable_recovery\.py|\.github/workflows/celebrations-finalisation-mission-03\.yml|docs/finalisation/CELEBRATIONS-FINALISATION-MISSION-03-2026-11-09\.md)$' || true)"
+          BAD="$(git diff --name-only "$BASE" HEAD | grep -Ev '^(scripts/finalisation03_portable_recovery\.py|scripts/finalisation03_restore_offline\.py|scripts/finalisation03_split_ciphertext\.py|tests/test_finalisation03_portable_recovery\.py|\.github/workflows/celebrations-finalisation-mission-03\.yml|\.github/workflows/celebrations-finalisation-mission-03-split\.yml|docs/finalisation/CELEBRATIONS-FINALISATION-MISSION-03-2026-11-09\.md)$' || true)"
           if [ -n "$BAD" ]; then echo M03_ABANDON_UNEXPECTED_CHANGES; exit 1; fi
           test "$STAGING_R2_BUCKET" = 'celebrations-exit-staging'
           test "$PROD_R2_BUCKET" = 'celebrations-exit-production'
