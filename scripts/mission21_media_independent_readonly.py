@@ -95,6 +95,11 @@ def main():
     # today's content matches SHA256 from October (not redownloaded).
     print("M21_SOURCE_LIST_START", flush=True)
     source = list_objects(sess, base)
+    print("M21_SOURCE_AGGREGATE "+json.dumps({
+        "object_count":len(source), "total_bytes":sum(source.values()),
+        "previous_reference_count":EXPECTED_SOURCE_FILES,
+        "previous_reference_bytes":EXPECTED_SOURCE_BYTES,
+    }, sort_keys=True), flush=True)
     if len(source) != EXPECTED_SOURCE_FILES or sum(source.values()) != EXPECTED_SOURCE_BYTES:
         raise ValueError("Historical source inventory changed")
     print("M21_STAGING_LIST_START", flush=True)
