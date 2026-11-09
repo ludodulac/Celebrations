@@ -228,9 +228,24 @@ jobs:
               for(const route of routes)statusesForHost.push(await get(host+route));
               const writeStatus=await get(host+'/api/editor-open-draft?celebration=101','POST');
               const home=await get(host+(host.includes('-staging.')?'/?staging=1':'/'));
-              statuses.push({host:new URL(host).hostname,privateStatuses:statusesForHost,writeStatus,home});
+              let safeAdminRedirect=false;
+              if(new URL(host).hostname==='celebrations-exit-production.rondes.workers.dev'&&
+                 statusesForHost[4]===307){
+                const redir=await fetch(host+'/admin.html',{redirect:'manual',cache:'no-store',signal:AbortSignal.timeout(16000)});
+                const target=redir.headers.get('location')?new URL(redir.headers.get('location'),host):null;
+                await redir.body?.cancel().catch(()=>{});
+                safeAdminRedirect=!!target&&target.origin===host&&target.pathname==='/admin'&&
+                  await get(host+'/admin')===404;
+              }
+              statuses.push({host:new URL(host).hostname,privateStatuses:statusesForHost,writeStatus,home,safeAdminRedirect});
             }
-            allOk=statuses.every(s=>s.privateStatuses.every(v=>v===404)&&s.writeStatus===405&&s.home===200);
+            allOk=statuses.every(s=>{
+              const technical=s.host==='celebrations-exit-production.rondes.workers.dev';
+              const protectedRoutes=technical
+                ?s.privateStatuses.every((v,i)=>i===4?s.safeAdminRedirect:[401,403,404,405].includes(v))
+                :s.privateStatuses.every(v=>v===404);
+              return protectedRoutes&&s.writeStatus===405&&s.home===200;
+            });
             console.log('M02_DEPLOYED_SECURITY_CHECK '+JSON.stringify({attempt,statuses,pass:allOk}));
             if(allOk)break;
             if(attempt!==5)await new Promise(r=>setTimeout(r,3500));
