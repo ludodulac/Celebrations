@@ -63,7 +63,7 @@ class D1Reader:
             raise ValueError("M20 refuses non-SELECT SQL")
         r = self.session.post(self.endpoint, json={"sql": sql}, timeout=35)
         if r.status_code != 200:
-            raise RuntimeError("D1 SELECT inaccessible")
+            raise RuntimeError("D1_HTTP_STATUS_" + str(r.status_code))
         payload = r.json()
         if payload.get("success") is not True or len(payload.get("result") or []) != 1:
             raise RuntimeError("D1 SELECT response refused")
@@ -96,6 +96,7 @@ def columns(reader, name):
 def capture(reader):
     raw = reader.select("SELECT type,name,tbl_name,sql FROM sqlite_master "
                         "WHERE sql IS NOT NULL ORDER BY type,name")
+    print("M20_D1_SCHEMA_METADATA_FETCH_PASS objects=" + str(len(raw)))
     schema = []
     for obj in raw:
         if obj.get("type") not in ("table", "index", "view", "trigger"):
@@ -107,12 +108,14 @@ def capture(reader):
             raise ValueError("Malformed schema SQL")
         schema.append({k: obj[k] for k in ("type", "name", "tbl_name", "sql")})
     tables = [x["name"] for x in schema if x["type"] == "table" and not x["name"].startswith("sqlite_")]
+    print("M20_D1_TABLE_SCHEMA_PASS tables=" + str(len(tables)))
     if len(tables) < 10 or len(tables) > MAX_TABLES:
         raise ValueError("Unexpected D1 table inventory")
     all_data, initial_counts = {}, {}
     total_rows = 0
     for name in tables:
         count = table_count(reader, name)
+        print("M20_D1_TABLE_START index=" + str(len(initial_counts) + 1) + " rows=" + str(count))
         total_rows += count
         if total_rows > MAX_ROWS:
             raise ValueError("Row count limit exceeded")
@@ -262,5 +265,12 @@ if __name__ == "__main__":
         main()
     except Exception as exc:
         # Deliberately omit the exception message (SQL, data or remote response).
-        print("M20_D1_BACKUP_STOP category=" + type(exc).__name__, file=sys.stderr)
+        allowed = str(exc)
+        if not (allowed.startswith("D1_HTTP_STATUS_") or allowed in (
+            "D1 SELECT response refused", "D1 SELECT not proven read-only",
+            "D1 results invalid", "Bounded D1 query budget exceeded",
+            "Unexpected D1 table inventory", "Table column metadata incomplete",
+            "D1 BLOB column requires dedicated byte-safe export")):
+            allowed = "Unclassified"
+        print("M20_D1_BACKUP_STOP category=" + type(exc).__name__ + " reason=" + allowed, file=sys.stderr)
         sys.exit(1)
