@@ -1,0 +1,67 @@
+name: Célébrations — nettoyage 1/6 — retrait du faux REST Supabase
+on:
+  push:
+    branches: [cleanup/celebrations-01-adaptateurs-20261109]
+permissions:
+  contents: read
+jobs:
+  no-regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Vérifier que SEUL l'adaptateur, le test et le rapport ont changé
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=65caf8d5d03d29882d0de0c0d00cdcfc622e473e
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD | grep -Ev '^(supabase-data\.js|tests/test_cleanup01_cloudflare_adapter\.mjs|\.github/workflows/celebrations-cleanup-01\.yml|docs/finalisation/CELEBRATIONS-NETTOYAGE-01-2026-11-09\.md)$' > /tmp/cleanup-unexpected || true
+          test ! -s /tmp/cleanup-unexpected || { echo CLEANUP01_UNEXPECTED_SOURCE_CHANGE; exit 1; }
+          echo CLEANUP01_SCOPE_TIGHT_PASS
+      - name: Comparer directement les sorties de la vraie D1 ancienne/nouvelle sur fixtures
+        run: |
+          node --check supabase-data.js
+          node --test tests/test_cleanup01_cloudflare_adapter.mjs
+      - name: Vérifier la sécurité du Worker, les liens et le comportement existant
+        run: |
+          node --test tests/test-exit-production-candidate.mjs tests/test_mission15_legacy_cleanup.mjs
+          node scripts/mission16_editor_regressions.mjs
+      - name: Construire les vrais assets Cloudflare après nettoyage, sans déploiement
+        run: |
+          python scripts/build_production_assets.py
+          python scripts/audit_production_supabase_paths.py
+      - name: Comparaison octet par octet du build officiel AVANT/APRÈS
+        shell: bash
+        run: |
+          set -euo pipefail
+          git worktree add --detach "$RUNNER_TEMP/celebrations-m01-before" 65caf8d5d03d29882d0de0c0d00cdcfc622e473e
+          (cd "$RUNNER_TEMP/celebrations-m01-before"; python scripts/build_production_assets.py; python scripts/audit_production_supabase_paths.py)
+          export OLD_SITE="$RUNNER_TEMP/celebrations-m01-before/production-public"
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib,os
+          old=Path(os.environ['OLD_SITE'])
+          new=Path('production-public')
+          left={str(x.relative_to(old)):x for x in old.rglob('*') if x.is_file()}
+          right={str(x.relative_to(new)):x for x in new.rglob('*') if x.is_file()}
+          assert left.keys()==right.keys(), 'Production asset tree changed unexpectedly'
+          diffs=[p for p in sorted(left) if left[p].read_bytes()!=right[p].read_bytes()]
+          assert diffs==['supabase-data.js'],f'Unexpected production file changes: {diffs}'
+          assert b'/rest/v1/' not in right['supabase-data.js'].read_bytes()
+          assert b'function sbJson(' not in right['supabase-data.js'].read_bytes()
+          print('CLEANUP01_PRODUCTION_ASSETS_IDENTICAL_EXCEPT_ONE_CLEANED_ADAPTER_PASS',{
+           'total_assets_compared':len(right),'modified_assets':diffs,
+           'other_asset_sha256_all_equal':True,'build_succeeded':True,
+           'd1_writes':0,'r2_writes':0,'worker_deployments':0
+          })
+          PY
+      - name: Aucune écriture distante
+        run: echo CLEANUP01_NO_SITE_CHANGE_NO_CLOUDFLARE_DEPLOY_PASS
