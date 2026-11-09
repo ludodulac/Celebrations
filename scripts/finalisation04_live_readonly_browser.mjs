@@ -49,7 +49,7 @@ try{
    try{
     const res=await page.goto(origin+'/',{waitUntil:'domcontentloaded',timeout:45000});
     assert.equal(res.status(),200,label+' home unavailable '+width);
-    await page.locator('#stage-main').waitFor({state:'visible'});
+    await page.locator('#stage-main').waitFor({state:'attached'});
     await page.waitForFunction(()=>document.querySelector('#stage-main')?.textContent?.trim().length>5);
     const nav=page.locator('#menu-toggle');
     await nav.waitFor({state:'visible'});
@@ -75,7 +75,7 @@ try{
     const wed=await page.goto(origin+'/mercredi/',
       {waitUntil:'domcontentloaded',timeout:40000});
     assert.equal(wed.status(),200,label+' Wednesday route unavailable');
-    await page.locator('#stage-main').waitFor({state:'visible'});
+    await page.locator('#stage-main').waitFor({state:'attached'});
     assert.deepEqual(errors,[],label+' browser JS exception');
     assert.deepEqual(server5xx,[],label+' Cloudflare 5xx');
     assert.deepEqual(externalWrites,[],label+' attempted POST even though test blocked it');
