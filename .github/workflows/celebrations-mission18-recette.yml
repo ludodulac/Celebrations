@@ -1,0 +1,74 @@
+name: CÉLÉBRATIONS M18 — recette finale isolée, sans déploiement
+on:
+  push:
+    branches: [audit/celebrations-mission-18-recette-20261109]
+
+permissions:
+  contents: read
+
+jobs:
+  recette-finale-sans-production:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Code candidat M18, historique complet pour la garde de diff
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Garantie M18 — pas de changement du logiciel depuis M17
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=0732142dad73c0a1db4b9224dc317f78f43d7cd9
+          git cat-file -e "$BASE^{commit}"
+          echo "Changements depuis le HEAD M17 :"
+          git diff --name-only "$BASE" HEAD
+          BAD="$(git diff --name-only "$BASE" HEAD | grep -Ev '^(docs/audit/MISSION-18-RECETTE-FINALE-2026-11-09\.md|\.github/workflows/celebrations-mission18-recette\.yml)$' || true)"
+          if [ -n "$BAD" ]; then
+            echo "ERREUR : fichier autre que le rapport et workflow M18 modifié :"
+            echo "$BAD"
+            exit 1
+          fi
+          echo "M18_CODE_INCHANGE_DEPUIS_M17_PASS"
+      - name: Base exacte M16 pour comparaison M17 navigateur et performance
+        uses: actions/checkout@v4
+        with:
+          ref: bff3f17f010e8cf217ea76dcc856804bdf8ceab6
+          path: _m17_baseline
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Contrats M05–M17, médias, brouillons, publication, sauvegarde
+        run: |
+          node --check migration/cloudflare/app/domain/editor-public-media-merge.mjs
+          node --check migration/cloudflare/editor-publication-api.mjs
+          node --test tests/test_mission17_public_media_merge.mjs tests/test_mission16_release_rollback.mjs
+          node scripts/mission16_editor_regressions.mjs
+          python -m unittest discover -s tests -p 'test_mission16_recovery.py' -v
+      - name: Équivalence et benchmark synthétiques des médias
+        run: node scripts/mission17_media_merge_benchmark.mjs
+      - name: Parcours réels de code en Chromium isolé, PC et mobile simulé
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+          node scripts/mission17_first_render_compare.mjs
+          node scripts/mission02-editor-reference-browser.mjs
+          node scripts/test-editor-media-picker-browser.mjs
+          node scripts/mission11-drag-undo-browser.mjs
+          node scripts/mission12-public-visitor-browser.mjs
+          node scripts/mission13-style-browser.mjs
+      - name: Captures de référence non confidentielles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: celebrations-m18-recette-${{ github.run_number }}
+          path: |
+            artifacts/mission02/editor-fixture/
+            artifacts/mission13/style-fixture/
+          retention-days: 14
+          if-no-files-found: warn
