@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 import {DEMO_CLIENT} from '../migration/cloudflare/editor-demo-client.mjs';
+import {createMediaCatalogue} from '../migration/cloudflare/app/domain/editor-media-catalogue.mjs';
+import {createEditorMediaCommands} from '../migration/cloudflare/app/application/editor-media-commands.mjs';
 import {DEMO_CSS} from '../migration/cloudflare/editor-demo-style.mjs';
 
 const start=DEMO_CLIENT.indexOf('function chooseFile(x){');
-const end=DEMO_CLIENT.indexOf('\nfunction attachFile(r){',start);
+const end=DEMO_CLIENT.indexOf('\n// This prototype has no server media catalogue:',start);
 assert.ok(start>=0&&end>start);
 const chooserSource=DEMO_CLIENT.slice(start,end);
 const browser=await chromium.launch({headless:true});
@@ -14,7 +16,7 @@ try{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.setContent('<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div class="stage-editor"><div class="canvas"><h1>Ma page de célébration</h1><p id="page-marker">Un texte déjà saisi</p><button id="open-file-picker">Choisir un fichier</button></div></div></body></html>');
   await page.addStyleTag({content:DEMO_CSS});
-  await page.evaluate(chooserSource=>{
+  await page.evaluate(({chooserSource,catalogueSource,commandsSource})=>{
    const n=(tag,cls='',title)=>{
     const el=document.createElement(tag);
     if(cls)el.className=cls;
@@ -35,20 +37,25 @@ try{
    ];
    const mediaCategoryOf=m=>({image:'images',pdf:'pdf',audio:'audios',video:'videos'})[m.type]||'autres';
    const validHref=v=>String(v).startsWith('/')||String(v).startsWith('https://');
+   // Evaluate the actual imported module implementations in this isolated
+   // browser snippet, just as the single CSP editor script composes them.
+   const mediaCatalogue=new Function('return ('+catalogueSource+')')()({validHref});
+   const editorMediaCommands=new Function('return ('+commandsSource+')')()();
    const IS_STAGE=true,globalMediaLoaded=true;
    const loadGlobalFiles=async()=>{},refreshGlobalMedia=async()=>{};
    const mark=()=>window.marked=(window.marked||0)+1;
    const render=()=>window.rerendered=(window.rerendered||0)+1;
    const chooser=new Function('n','b','FILE_CATEGORIES','globalFiles','publicFiles','globalMedia',
     'mediaCategoryOf','validHref','document','IS_STAGE','globalMediaLoaded',
-    'loadGlobalFiles','refreshGlobalMedia','mark','render',
+    'loadGlobalFiles','refreshGlobalMedia','mark','render','mediaCatalogue','editorMediaCommands',
     chooserSource+';return chooseFile;')(
     n,b,FILE_CATEGORIES,globalFiles,publicFiles,globalMedia,
     mediaCategoryOf,validHref,document,IS_STAGE,globalMediaLoaded,
-    loadGlobalFiles,refreshGlobalMedia,mark,render);
+    loadGlobalFiles,refreshGlobalMedia,mark,render,mediaCatalogue,editorMediaCommands);
    window.currentButton={kind:'button',text:'Mon bouton',href:''};
    document.querySelector('#open-file-picker').onclick=()=>chooser(window.currentButton);
-  },chooserSource);
+  },{chooserSource,catalogueSource:createMediaCatalogue.toString(),
+    commandsSource:createEditorMediaCommands.toString()});
   await page.getByRole('button',{name:'Choisir un fichier'}).click();
   const modal=page.locator('dialog.file-picker-dialog');
   await modal.waitFor();

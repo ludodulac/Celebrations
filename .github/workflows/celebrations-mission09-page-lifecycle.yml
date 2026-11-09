@@ -1,0 +1,54 @@
+name: CÉLÉBRATIONS M09 — cycle de vie des pages, non publié
+on:
+  push:
+    branches: [refactor/celebrations-mission-09-page-lifecycle-20261108]
+permissions:
+  contents: read
+jobs:
+  parity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntaxe, cycle de vie, visibilité, suppressions, régressions M05–M08
+        run: |
+          node --check migration/cloudflare/editor-demo-client.mjs
+          node --check migration/cloudflare/app/domain/editor-pages.mjs
+          node --check migration/cloudflare/app/application/editor-page-commands.mjs
+          node --test \
+            tests/test_mission09_page_lifecycle.mjs \
+            tests/test_mission08_media_catalogue.mjs \
+            tests/test_mission07_block_model.mjs \
+            tests/test_mission06_editor_modules.mjs \
+            tests/test_mission05_editor_composition.mjs \
+            tests/test-editor-demo.mjs \
+            tests/test-editor-section-presentation-step3.mjs \
+            tests/test-editor-multiple-button-links.mjs \
+            tests/test-editor-presentation-server-roundtrip-step4.mjs \
+            tests/test-editor-michael-preparation-layout.mjs \
+            tests/test-editor-trial-site.mjs \
+            tests/test-editor-server-drafts.mjs \
+            tests/test-editor-publication-media.mjs \
+            tests/test-editor-modal-page-video-fixes.mjs \
+            tests/test-editor-undo-video-media.mjs \
+            tests/test-editor-celebration-themes.mjs \
+            tests/test-editor-access-gate.mjs
+      - name: Vérifier interface ordinateur/téléphone dans Chromium isolé
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+          node scripts/mission02-editor-reference-browser.mjs
+          node scripts/test-editor-media-picker-browser.mjs
+      - name: Captures temporaires de référence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: celebrations-m09-page-parity-${{ github.run_number }}
+          path: artifacts/mission02/editor-fixture/
+          retention-days: 14
+          if-no-files-found: warn

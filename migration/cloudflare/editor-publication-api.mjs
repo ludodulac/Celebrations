@@ -1,8 +1,11 @@
 // Separate published website from the admin draft. Do not modify original
 // MEDIA_BUCKET or historic URLs. Both snapshots live in the existing editor R2.
 import {hasEditorAccess} from './editor-site-access.mjs';
+import {EDITOR_SNAPSHOT_LIMIT,expectedRevisionMatches} from './app/ports/editor-snapshot-contract.mjs';
+import {readEditorSnapshot,putEditorSnapshot} from './app/adapters/editor-r2-repository.mjs';
+import {isOfficialEditorHost,isReadonlyCandidateHost,sameOriginEditorWrite} from './app/security/editor-route-policy.mjs';
+import {mergePublicMediaIndexed} from './app/domain/editor-public-media-merge.mjs';
 
-const KEY='editor-trials/server-drafts-v1.json';
 const PREFIX='editor-trials/uploads/';
 const SITE=new Set(['www.ronde-des-archanges-universelle.eu','ronde-des-archanges-universelle.eu']);
 const PREVIEW='celebrations-visual-candidate.rondes.workers.dev';
@@ -13,22 +16,14 @@ const copy=x=>JSON.parse(JSON.stringify(x));
 const validState=x=>x&&typeof x==='object'&&Number.isSafeInteger(x.version)&&x.drafts&&x.shared&&Array.isArray(x.plans);
 const defaultState=()=>({version:0,drafts:{},plans:[],shared:{pages:[],homeId:''},mediaCatalogue:[]});
 export async function readEditorState(bucket){
- const blob=await bucket.get(KEY);
- if(!blob)return {state:defaultState(),etag:null};
- const state=JSON.parse(await blob.text());
- if(!validState(state))throw Error('Editor snapshot invalid');
- return {state,etag:blob.etag};
+ return readEditorSnapshot(bucket,{empty:defaultState,validate:validState});
 }
 export async function writeEditorState(bucket,previous,state){
  state.version=previous.state.version+1;
  state.updatedAt=new Date().toISOString();
  const str=JSON.stringify(state);
- if(str.length>5_000_000)throw Error('Editor snapshot size limit');
- const put=await bucket.put(KEY,str,{
-  httpMetadata:{contentType:'application/json'},
-  onlyIf:previous.etag?{etagMatches:previous.etag}:{etagDoesNotMatch:'*'}
- });
- return !!put;
+ if(str.length>EDITOR_SNAPSHOT_LIMIT)throw Error('Editor snapshot size limit');
+ return putEditorSnapshot(bucket,previous.etag,str);
 }
 const validWeb=url=>{
  const s=String(url||'').trim();
@@ -231,33 +226,21 @@ export async function publicHistoricalMedia(db,state){
  return [...media.values()];
 }
 export function mergePublicMedia(...catalogues){
- const merged=new Map();
- for(const item of catalogues.flat()){
-  if(!item?.src||!['image','video','audio','pdf','file'].includes(item.type))continue;
-  const id=item.type+'|'+item.src;
-  if(!merged.has(id))merged.set(id,{...item,id,uses:[...(item.uses||[])]});
-  else{
-   const existing=merged.get(id);
-   for(const use of item.uses||[])
-    if(!existing.uses.some(u=>u.pageId===use.pageId&&u.celebrationId===use.celebrationId))existing.uses.push(use);
-   if(item.general)existing.general=true;
-  }
- }
- return [...merged.values()];
+ return mergePublicMediaIndexed(...catalogues);
 }
 function celebrationVisibleFor(id,map,planState){
  return (map[id]||planState||'published')==='published';
 }
 function hostCheck(request){
  const u=new URL(request.url);
- return SITE.has(u.hostname)||u.hostname===PREVIEW||u.hostname===STAGING;
+ return isOfficialEditorHost(u.hostname)||u.hostname===PREVIEW||u.hostname===STAGING;
 }
 async function protectedWrite(request,env){
  const url=new URL(request.url);
- if(url.hostname===PREVIEW||url.hostname===STAGING)return err('Prévisualisation en lecture seule',405);
- if(!SITE.has(url.hostname))return err('Domaine non autorisé',404);
+ if(isReadonlyCandidateHost(url.hostname)||url.hostname===STAGING)return err('Prévisualisation en lecture seule',405);
+ if(!isOfficialEditorHost(url.hostname))return err('Domaine non autorisé',404);
  if(!await hasEditorAccess(request,env))return err('Code administrateur nécessaire',401);
- if(request.headers.get('origin')!=='https://'+url.hostname)return err('Origine interdite',403);
+ if(!sameOriginEditorWrite(request))return err('Origine interdite',403);
  return null;
 }
 const pageIdOk=id=>typeof id==='string'&&id.length<=110&&
@@ -287,7 +270,7 @@ export async function handleEditorPublication(request,env){
  if(body.kind==='celebration'&&!validVisibility(body.visibility))return err('Statut invalide',400);
  if(body.kind==='media'&&(typeof body.mediaId!=='string'||body.mediaId.length>720||typeof body.general!=='boolean'))return err('Média invalide',400);
  const current=await readEditorState(env.EDITOR_BUCKET);
- if(current.state.version!==body.expectedRevision)return err('Une nouvelle version du serveur existe. Rechargez.',409);
+ if(!expectedRevisionMatches(body.expectedRevision,current.state.version))return err('Une nouvelle version du serveur existe. Rechargez.',409);
  const state=copy(current.state),pub=state.published||initialPublication(state);
  if(body.kind==='page'){
   const isShared=body.pageId.startsWith('neutral-');
@@ -393,7 +376,7 @@ export async function handleEditorMedia(request,env){
     (input.atTime&&!/^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(input.atTime)))
    return err('Insertion invalide',400);
   const current=await readEditorState(env.EDITOR_BUCKET),state=copy(current.state);
-  if(!Number.isSafeInteger(input.expectedRevision)||current.state.version!==input.expectedRevision)
+  if(!expectedRevisionMatches(input.expectedRevision,current.state.version))
    return err('Version obsolète, rechargez l’administration',409);
   state.published||=initialPublication(state);
   let record=state.drafts[input.celebration];

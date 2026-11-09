@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DEMO_CLIENT} from '../migration/cloudflare/editor-demo-client.mjs';
+import {createPageModel} from '../migration/cloudflare/app/domain/editor-pages.mjs';
+import {createMediaCatalogue} from '../migration/cloudflare/app/domain/editor-media-catalogue.mjs';
+import {createEditorMediaCommands} from '../migration/cloudflare/app/application/editor-media-commands.mjs';
 import {DEMO_CSS} from '../migration/cloudflare/editor-demo-style.mjs';
 import {handleServerDraft} from '../migration/cloudflare/editor-server-draft-api.mjs';
 
@@ -35,12 +38,14 @@ test('the global file picker is modal and selects every kind without navigating 
   globalFiles:[sampleMedia.at(-1)],publicFiles:()=>[],
   globalMedia:sampleMedia.slice(0,4),
   mediaCategoryOf:r=>({pdf:'pdf',audio:'audios',video:'videos',image:'images'})[r.type]||'autres',
+  mediaCatalogue:createMediaCatalogue({validHref:src=>src.startsWith('/')||src.startsWith('https://')}),
+  editorMediaCommands:createEditorMediaCommands(),
   validHref:s=>s.startsWith('/')||s.startsWith('https://'),
   document:{body},IS_STAGE:true,globalMediaLoaded:true,render:()=>env.renders++,
   mark:()=>env.marks++,renders:0,marks:0
  };
  const args=Object.keys(env),vals=Object.values(env);
- const f=new Function(...args,extract('function chooseFile(x){','\nfunction attachFile(r){')+';return chooseFile;')(...vals);
+ const f=new Function(...args,extract('function chooseFile(x){','\n// This prototype has no server media catalogue:')+';return chooseFile;')(...vals);
  for(const row of sampleMedia){
   const item={kind:'button',text:'Mon bouton',href:'',cover:'https://obsolete.test/a.jpg'};
   f(item);
@@ -57,7 +62,7 @@ test('the global file picker is modal and selects every kind without navigating 
  }
  assert.equal(env.marks,5);
  assert.equal(env.renders,5);
- assert.doesNotMatch(extract('function chooseFile(x){','\nfunction attachFile(r){'),/tab='media'|location\.assign/,
+ assert.doesNotMatch(extract('function chooseFile(x){','\n// This prototype has no server media catalogue:'),/tab='media'|location\.assign/,
   'The picker must never switch page or navigate to media administration');
 });
 
@@ -92,11 +97,11 @@ test('creating a test page calls server save, starts as a draft and never publis
  const db={pages:[{id:'preparation-101',group:'celebration',name:'Préparation',blocks:[]}]};
  let saved=0,published=0,renders=0;
  let id='',tab='',marked=0;
- const create=new Function('prompt','db','crypto','window','dirty','save','uniqueBlockId','mark','render','IS_STAGE','serverSave','id','selectedBlockId','tab',
+ const create=new Function('prompt','db','crypto','window','dirty','save','uniqueBlockId','mark','render','IS_STAGE','serverSave','id','selectedBlockId','tab','editorPageModel',
   source+';return createPage;')(
   ()=> 'Ma page de test',db,{randomUUID:()=> '123e4567-e89b-12d3-a456-426614174000'},
   {__PREPARATION_SEED__:{celebrationId:'101'}},false,()=>{saved++},
-  ()=>999,()=>{marked++},()=>{renders++},true,()=>{published++;return Promise.resolve(true)},'',null,'celebrations'
+  ()=>999,()=>{marked++},()=>{renders++},true,()=>{published++;return Promise.resolve(true)},'',null,'celebrations',createPageModel()
  );
  create('celebration');
  const fresh=db.pages.at(-1);

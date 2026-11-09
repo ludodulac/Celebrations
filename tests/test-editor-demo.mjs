@@ -3,6 +3,8 @@ import test from 'node:test';
 import vm from 'node:vm';
 import {handleEditorDemo} from '../migration/cloudflare/editor-demo-page.mjs';
 import {DEMO_CLIENT} from '../migration/cloudflare/editor-demo-client.mjs';
+import {createBlockModel} from '../migration/cloudflare/app/domain/editor-block-model.mjs';
+import {createEditorDragModel} from '../migration/cloudflare/app/domain/editor-drag-model.mjs';
 import {DEMO_CSS} from '../migration/cloudflare/editor-demo-style.mjs';
 import {TRIAL_SITE_CLIENT} from '../migration/cloudflare/editor-trial-site-client.mjs';
 const BASE='https://celebrations-exit-staging.rondes.workers.dev/__editor/demo';
@@ -108,7 +110,7 @@ test('new headings and text fields are empty with visible hints, not saved templ
  const start=DEMO_CLIENT.indexOf('function createContent(kind){');
  const end=DEMO_CLIENT.indexOf('\nfunction add(kind)',start);
  assert.ok(start>0&&end>start);
- const ctx={uniqueBlockId:()=>123};
+ const ctx={uniqueBlockId:()=>123,editorBlockModel:createBlockModel()};
  vm.runInNewContext(
   "const STARTER_TEXT={heading:'Nouveau titre',text:'Votre paragraphe',button:'Mon bouton',event:'Titre de l’événement'};\n"+
   DEMO_CLIENT.slice(start,end)+'\nthis.make=createContent;',ctx);
@@ -120,7 +122,7 @@ test('new headings and text fields are empty with visible hints, not saved templ
 
 test('validation closes only after private server save succeeds, keeps editor open on failure',async()=>{
  const start=DEMO_CLIENT.indexOf('async function validateBlock(');
- const end=DEMO_CLIENT.indexOf('\nfunction block(x,p',start);
+ const end=DEMO_CLIENT.indexOf('\n// Pointer drag-and-drop moves',start);
  assert.ok(start>=0&&end>start);
  async function simulate(success){
   const scope={document:{activeElement:null},saved:0,attempts:0,removed:0};
@@ -160,7 +162,7 @@ test('global library has clickable files but no insert/open action buttons',()=>
  assert.ok(DEMO_CLIENT.includes('function libraryTitle('));
  assert.ok(DEMO_CLIENT.includes('function libraryPicture('));
  const start=DEMO_CLIENT.indexOf('function media(){');
- const end=DEMO_CLIENT.indexOf('function audioWorkbench(){',start);
+ const end=DEMO_CLIENT.indexOf('const GUIDE_TOPICS=[',start);
  assert.ok(start>0&&end>start);
  const source=DEMO_CLIENT.slice(start,end);
  assert.doesNotMatch(source,/b\('Insérer'/);
@@ -230,7 +232,7 @@ test('dragging preserves the exact existing text/image/video block through colum
  const from=DEMO_CLIENT.indexOf('function editorElementLocation(');
  const to=DEMO_CLIENT.indexOf('let editorDragState=',from);
  assert.ok(from>0&&to>from,'Pure drag-and-drop helpers are present');
- const context={};
+ const context={editorDragModel:createEditorDragModel({createSection:createBlockModel().createSection})};
  vm.runInNewContext(DEMO_CLIENT.slice(from,to)+
   '\nthis.move=moveEditorElement;this.locate=editorElementLocation;',context);
  const heading={id:11,kind:'heading',text:'Psaume 273',rich:'<strong>Psaume 273</strong>',bold:true};
@@ -293,7 +295,7 @@ test('automatic separators are absent; an optional thin divider can be inserted 
   'Longueur du trait de séparation'])assert.ok(DEMO_CLIENT.includes(label),label);
  const i=DEMO_CLIENT.indexOf("function createContent(kind)");
  const j=DEMO_CLIENT.indexOf("function add(kind)",i);
- const env={uniqueBlockId:()=>345,STARTER_TEXT:{}};
+ const env={uniqueBlockId:()=>345,STARTER_TEXT:{},editorBlockModel:createBlockModel()};
  vm.runInNewContext(DEMO_CLIENT.slice(i,j)+'this.create=createContent;',env);
  const d=env.create('divider');
  assert.equal(d.kind,'divider');assert.equal(d.thickness,1);
@@ -305,7 +307,8 @@ test('automatic separators are absent; an optional thin divider can be inserted 
 test('dragging one block into an existing standalone block groups content without copying it',()=>{
  const start=DEMO_CLIENT.indexOf('function editorElementLocation(');
  const end=DEMO_CLIENT.indexOf('let editorDragState=',start);
- const env={uniqueBlockId:()=>9090};
+ const env={uniqueBlockId:()=>9090,editorBlockModel:createBlockModel(),
+  editorDragModel:createEditorDragModel({createSection:createBlockModel().createSection})};
  vm.runInNewContext(DEMO_CLIENT.slice(start,end)+
   'this.group=moveEditorIntoBlock;this.move=moveEditorElement;',env);
  const photo={id:21,kind:'image',src:'/media/old.jpg',widthPct:45};

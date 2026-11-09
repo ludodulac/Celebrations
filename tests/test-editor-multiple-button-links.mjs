@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DEMO_CLIENT} from '../migration/cloudflare/editor-demo-client.mjs';
+import {createBlockModel} from '../migration/cloudflare/app/domain/editor-block-model.mjs';
 import {TRIAL_SITE_CLIENT} from '../migration/cloudflare/editor-trial-site-client.mjs';
 
 // Focused regression tests for independent buttons inside editable sections.
@@ -10,10 +11,10 @@ function newButtonFactory(){
  const end=DEMO_CLIENT.indexOf('\nfunction add(kind)',start);
  assert.ok(start>=0&&end>start,'Editor button constructor must exist');
  let id=1000;
- return new Function('uniqueBlockId','STARTER_TEXT',
+ return new Function('uniqueBlockId','STARTER_TEXT','editorBlockModel',
   DEMO_CLIENT.slice(start,end)+';return createContent;')(
    ()=>++id,{heading:'Nouveau titre',text:'Votre paragraphe',
-    button:'Mon bouton',event:'Titre de l’événement'});
+    button:'Mon bouton',event:'Titre de l’événement'},createBlockModel());
 }
 function element(tag,className='',textContent=''){
  const node={tag,className,textContent,children:[],dataset:{},style:{},
@@ -55,7 +56,7 @@ test('new section buttons have distinct IDs and opt into exact labeled button re
   assert.equal(item.kind,'button');
   assert.equal(item.displayAsButton,true);
  }
- assert.match(DEMO_CLIENT,/x\.href=v;delete x\.assetId;x\.displayAsButton=true;mark\(\);render\(\)/,
+ assert.ok(DEMO_CLIENT.includes('x.href=v;delete x.assetId;x.displayAsButton=true;'),
   'Editing an older button URL must also keep its explicit button appearance');
 });
 

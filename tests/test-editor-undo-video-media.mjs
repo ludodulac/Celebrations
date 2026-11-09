@@ -1,7 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DEMO_CLIENT} from '../migration/cloudflare/editor-demo-client.mjs';
+import {createMediaCatalogue} from '../migration/cloudflare/app/domain/editor-media-catalogue.mjs';
+import {createEditorMediaCommands} from '../migration/cloudflare/app/application/editor-media-commands.mjs';
 import {SERVER_EDITOR_SYNC} from '../migration/cloudflare/editor-server-sync-client.mjs';
+import {createEditorUndoPolicy} from '../migration/cloudflare/app/application/editor-undo-policy.mjs';
 
 const extract=(a,b)=>{
  const i=DEMO_CLIENT.indexOf(a),j=DEMO_CLIENT.indexOf(b,i+a.length);
@@ -23,7 +26,7 @@ const categories=[['images','Images'],['pdf','PDF'],['audios','Audios'],['videos
 
 test('a video block chooses only videos from the same non-navigating library popup',()=>{
  const created=[],document={body:{append:x=>created.push(x)}};
- const source=extract('function chooseFile(x){','\nfunction attachFile(r){');
+ const source=extract('function chooseFile(x){','\n// This prototype has no server media catalogue:');
  const changes={marked:0,rendered:0};
  const video={kind:'video',href:'',text:''};
  const env={
@@ -33,6 +36,8 @@ test('a video block chooses only videos from the same non-navigating library pop
    {name:'Présentation Michaël.mp4',src:'/media/my-video.mp4',type:'video'},
    {name:'Prière.pdf',src:'/media/priere.pdf',type:'pdf'}],
   mediaCategoryOf:r=>r.type==='video'?'videos':r.type==='pdf'?'pdf':'autres',
+  mediaCatalogue:createMediaCatalogue({validHref:src=>src.startsWith('/')||src.startsWith('https://')}),
+  editorMediaCommands:createEditorMediaCommands(),
   validHref:x=>x.startsWith('/'),
   document,IS_STAGE:true,globalMediaLoaded:true,
   mark:()=>changes.marked++,render:()=>changes.rendered++
@@ -81,8 +86,8 @@ function undoEnvironment(){
   '\nfunction mark(){ctrl.marked++;rememberUndoChange()};'+
   '\nfunction render(){ctrl.rendered++};'+
   '\nreturn {resetUndoHistory,rememberUndoChange,undoLastEditorAction,ensureUndoButton,updateUndoButton,undoStack,db,document,listeners,status,ctrl};';
- const ctx=new Function('db','document','status','n','id','selectedBlockId','preview','editorDragState','editorDragFinish','ctrl','listeners',script)(
-  db,document,status,fakeNode,'preparation-101',null,false,null,()=>{},ctrl,listeners
+ const ctx=new Function('db','document','status','n','id','selectedBlockId','preview','editorDragState','editorDragFinish','ctrl','listeners','createEditorUndoPolicy',script)(
+  db,document,status,fakeNode,'preparation-101',null,false,null,()=>{},ctrl,listeners,createEditorUndoPolicy
  );
  return ctx;
 }

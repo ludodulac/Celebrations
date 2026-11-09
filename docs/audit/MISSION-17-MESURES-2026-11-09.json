@@ -1,0 +1,54 @@
+{
+  "mission": 17,
+  "date": "2026-11-09",
+  "run_id": 42538464144,
+  "workflow_url": "https://github.com/ludodulac/Celebrations/actions/runs/42538464144",
+  "head_code": "ae93bd2e79bf0ecb63e9c8983e3ea608d269a3e1",
+  "baseline_commit": "bff3f17f010e8cf217ea76dcc856804bdf8ceab6",
+  "environment": "GitHub Actions ubuntu-24.04, Node 22.23.4, synthetic isolated Chromium",
+  "source": "synthetic-fixtures",
+  "no_production_network": true,
+  "output_equal": true,
+  "media_merge": [
+    {
+      "media": 150,
+      "raw_uses": 21600,
+      "baseline_ms": 5.106,
+      "indexed_ms": 2.78,
+      "speedup": 1.84
+    },
+    {
+      "media": 500,
+      "raw_uses": 72000,
+      "baseline_ms": 18.231,
+      "indexed_ms": 10.22,
+      "speedup": 1.78
+    },
+    {
+      "media": 1000,
+      "raw_uses": 144000,
+      "baseline_ms": 36.156,
+      "indexed_ms": 25.279,
+      "speedup": 1.43
+    }
+  ],
+  "admin_first_render": [
+    {
+      "viewport": "1280x840",
+      "m16_median_ms": 97.1,
+      "m17_median_ms": 97.9
+    },
+    {
+      "viewport": "390x844",
+      "m16_median_ms": 93.9,
+      "m17_median_ms": 92
+    }
+  ],
+  "html_bytes": 293157,
+  "d1_selects_synthetic": 7,
+  "node_tests": 247,
+  "python_tests": 9,
+  "chromium_reference_screens": 10,
+  "real_r2_d1_restore": false,
+  "production_deployed": false
+}

@@ -26,6 +26,15 @@ test('D4 temporary personal access authenticates only on staging without changin
    method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({code:value})
   });
   assert.equal((await handleEditorD4Login(post(code,'https://example.org'),env)).status,404);
+  // The D4 invitation was explicitly temporary and ended 2026-11-03.
+  // When expired, the original endpoint MUST reject even a correct code
+  // without querying sessions or changing the actual admin password.
+  if(Date.now()>=Date.parse('2026-11-03T00:00:00.000Z')){
+   assert.equal((await handleEditorD4Login(post('D4'+randomBytes(20).toString('hex')),env)).status,403);
+   assert.equal((await handleEditorD4Login(post(code),env)).status,403);
+   assert.equal(f.sqlite.prepare('SELECT COUNT(*) AS n FROM celebrations_admin_sessions').get().n,0);
+   return;
+  }
   assert.equal((await handleEditorD4Login(post('D4'+randomBytes(20).toString('hex')),env)).status,401);
   assert.equal((await handleEditorD4Login(post(code),{DB:f.DB})).status,503);
   const invitation=await handleEditorD4Login(post(code),env);
