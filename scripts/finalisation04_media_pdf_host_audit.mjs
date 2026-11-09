@@ -59,7 +59,7 @@ for(const h of hosts){
   assert.ok(typeof row.slug==='string'&&row.slug.length>=8);
   const res=await head(h.url+'/?lettre='+encodeURIComponent(row.slug));
   assert.equal(res.status,200,'Approved PDF unavailable on '+h.name);
-  assert.match(res.type,/application\\/pdf/i,'PDF content-type missing on '+h.name);
+  assert.ok(res.type.toLowerCase().includes('application/pdf'),'PDF content-type missing on '+h.name);
   assert.equal(res.redirect,false,'Approved PDF unexpectedly redirects on '+h.name);
   pdf200++;
  }
