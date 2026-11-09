@@ -208,6 +208,15 @@ jobs:
           const get=async(u,method='GET')=>{
             const r=await fetch(u,{method,redirect:'manual',cache:'no-store',
               headers:{'cache-control':'no-cache'},signal:AbortSignal.timeout(16000)});
+            if(new URL(u).hostname==='celebrations-exit-production.rondes.workers.dev'&&
+               new URL(u).pathname==='/admin.html'&&r.status>=300&&r.status<400){
+              const location=r.headers.get('location');
+              const target=location?new URL(location,u):null;
+              console.log('M02_THIRD_HOST_ADMIN_REDIRECT '+JSON.stringify({
+                status:r.status,targetHost:target?.hostname||null,
+                targetPath:target?.pathname||null,https:target?.protocol==='https:'
+              }));
+            }
             await r.body?.cancel().catch(()=>{});
             return r.status;
           };
