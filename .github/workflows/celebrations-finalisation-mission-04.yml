@@ -1,0 +1,95 @@
+name: CÉLÉBRATIONS — FINALISATION 4/5 — recette ordinateur, mobile, enregistrement et publication
+on:
+  push:
+    branches: [release/celebrations-finalisation-04-recette-20261109]
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-finalisation-04-safe-readonly
+  cancel-in-progress: false
+jobs:
+  verifications-integrite-et-editeur:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0,persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Refuser changements applicatifs et branche non autorisée
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/release/celebrations-finalisation-04-recette-20261109
+          BASE=386fbe483fbbfbf009912a5943c2808a9bb92f2d
+          git merge-base --is-ancestor "$BASE" HEAD
+          BAD="$(git diff --name-only "$BASE" HEAD | grep -Ev '^(scripts/finalisation04_(real_handlers_isolated_browser|live_readonly_browser)\.mjs|\.github/workflows/celebrations-finalisation-mission-04\.yml|docs/finalisation/CELEBRATIONS-FINALISATION-MISSION-04-2026-11-09\.md)$' || true)"
+          if [ -n "$BAD" ]; then echo M04_FORBIDDEN_CHANGE; echo "$BAD"; exit 1; fi
+          echo M04_RUNTIME_UNCHANGED_SINCE_M03_PASS
+      - name: Contrats de sécurité, persistance, publication et régressions M01–M03
+        run: |
+          node --check scripts/finalisation04_real_handlers_isolated_browser.mjs
+          node --check scripts/finalisation04_live_readonly_browser.mjs
+          node --test tests/test_finalisation02_preview_security.mjs tests/test_mission17_public_media_merge.mjs tests/test_mission16_release_rollback.mjs
+          node scripts/mission16_editor_regressions.mjs
+      - name: Test Python de restauration et de contrôle des fichiers
+        run: |
+          python -m pip -q install boto3==1.40.57 cryptography==46.0.2 requests==2.32.5
+          python -m unittest discover -s tests -p 'test_mission20_d1_logical_backup.py' -v
+          python -m unittest discover -s tests -p 'test_finalisation03_portable_recovery.py' -v
+          python -m unittest discover -s tests -p 'test_finalisation03_restore_offline.py' -v
+      - name: Installer Chromium pour les parcours éditeur authentifié simulé
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Parcours navigateur du VRAI code UI/API avec D1/R2 entièrement en mémoire
+        run: node scripts/finalisation04_real_handlers_isolated_browser.mjs
+      - name: Régressions d'interface ordinateur/téléphone, médiathèque, Undo, visiteurs
+        run: |
+          node scripts/mission02-editor-reference-browser.mjs
+          node scripts/test-editor-media-picker-browser.mjs
+          node scripts/mission11-drag-undo-browser.mjs
+          node scripts/mission12-public-visitor-browser.mjs
+          node scripts/mission13-style-browser.mjs
+      - name: Aucune mutation Cloudflare
+        run: echo M04_ISOLATED_EDITOR_D1_R2_WRITES_ZERO
+
+  navigation-reelle-des-sites-lecture-seule:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Chromium réel, sans mot de passe ni permissions d'écriture
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Parcours 3 domaines déployés (candidate + www + racine) en lecture seule
+        run: node scripts/finalisation04_live_readonly_browser.mjs
+      - name: Vérification des URLs des médias publics et PDF historiques
+        run: node scripts/verify-public-media-before-visual-publish.mjs
+      - name: Contrôle sans écriture des deux sites de test précédemment sécurisés
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const hosts=['https://celebrations-exit-staging.rondes.workers.dev',
+                       'https://celebrations-visual-candidate.rondes.workers.dev'];
+          const targets=['/api/editor-open-draft?celebration=101','/api/editor-media',
+                         '/admin','/media/new/12345678-1234-4234-8234-123456789abc.jpg'];
+          for(const h of hosts){
+            for(const path of targets){
+              const response=await fetch(h+path,{redirect:'manual',cache:'no-store',
+                signal:AbortSignal.timeout(20000)});
+              assert.equal(response.status,404,'M4 private endpoint unexpectedly accessible');
+              await response.body?.cancel().catch(()=>{});
+            }
+            console.log('M04_LEGACY_TEST_HOST_ACCESS_BLOCKED '+JSON.stringify({host:new URL(h).hostname,
+              protectedRoutesChecked:targets.length,all404:true}));
+          }
+          NODE
+      - name: Lecture seule terminée, aucune écriture distante
+        run: echo M04_REAL_SITES_ONLY_GET_HEAD_NO_AUTHENTICATED_LIVE_WRITES
