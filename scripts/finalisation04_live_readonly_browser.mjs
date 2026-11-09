@@ -35,11 +35,7 @@ try{
     hasTouch:mobile,serviceWorkers:'block',locale:'fr-FR'});
    const page=await ctx.newPage();page.setDefaultTimeout(20000);
    const errors=[],externalWrites=[],server5xx=[];
-   page.on('pageerror',e=>{
-     const msg=String(e.message||'');
-     errors.push(String(e.name||'Error')+':'+msg.slice(0,160)
-       .replace(/[^\\p{L}\\p{N}_.
-   });
+   page.on('pageerror',e=>errors.push(String(e.name||'Error')+':'+String(e.message||'').slice(0,120)));
    page.on('response',r=>{
     if(r.status()>=500&&r.url().startsWith(origin))server5xx.push(r.status());
    });
