@@ -45,7 +45,7 @@ M4 ne sera terminée que si :
 
 Si l'administration officielle ne peut pas être parcourue avec le véritable compte administrateur sans communiquer de secret, cette limite doit rester visible dans le bilan. La mission 5 devra vérifier le résultat **après publication de la refonte** sur le domaine officiel, sous accord du propriétaire.
 
-**Statut au moment de la rédaction : MISSION 4 EN COURS, publication candidate M4 à exécuter sur CI.**
+**Statut définitif : MISSION 4 — RECETTE TECHNIQUE TERMINÉE**, sous réserve d'un essai manuel connecté au vrai compte administrateur lors de la livraison M5. Le site officiel reste inchangé.
 
 ## 5. Réparation et test réel du candidat — preuve du 9 novembre
 
@@ -55,4 +55,39 @@ Chromium sur le **site candidat réellement déployé** : desktop **1280 px PASS
 
 **[CI offline M4 #42638013803](https://github.com/ludodulac/Celebrations/actions/runs/42638013803) : SUCCESS** également : parcours du vrai éditeur et des vrais gestionnaires d'API sur stockage synthétique, refus anonyme, sauvegarde puis relecture sur deux navigateurs, conflit 409, mise à jour d'une page déjà publiée sur Enregistrer, préservation des brouillons privés jusqu'à publication, médiathèque, 10 captures admin PC/mobile, régressions JavaScript et tests de restauration Python.
 
-Les deux domaines officiels n'étaient **pas examinés dans ce run**, car la mission déployait exclusivement le candidat. Le prochain commit lance le job ordinaire de **consultation HTTP/Chromium en lecture seule** sur candidat + deux domaines officiels. **Ne pas clôturer M4 avant ce contrôle réel.**
+Ce premier run de publication candidate n'examinait que le site d'essai. L'audit ultérieur en lecture seule sur les deux domaines officiels a **réussi**, voir section 6 ci-dessous.
+
+## 6 — Décision du propriétaire sur les URL des PDF et clôture des contrôles
+
+Le propriétaire a explicitement indiqué le **9 novembre 2026** que **seuls les PDF accessibles sur le domaine officiel actuel, avec et sans `www`, sont requis**. Les anciennes adresses techniques `workers.dev` figurant dans certains anciens courriels sont **obsolètes à la suite de la migration** et ne doivent **pas** être réactivées, ni considérées comme des critères de blocage. L'adresse `celebrations.rondes.workers.dev` ne fait plus partie des adresses requises non plus. Laisser les anciennes administrations techniques bloquées est une mesure de sécurité, non une panne à réparer.
+
+Le script `scripts/finalisation04_media_pdf_host_audit.mjs` a donc été corrigé pour ne consulter que :
+
+- `https://ronde-des-archanges-universelle.eu/?lettre=…`
+- `https://www.ronde-des-archanges-universelle.eu/?lettre=…`
+
+**[GitHub Actions #42651661719](https://github.com/ludodulac/Celebrations/actions/runs/42651661719) — SUCCESS, deux jobs de recette PASS, aucun déploiement supplémentaire** :
+
+| Test | Résultat vérifié |
+| --- | --- |
+| Site candidat `workers.dev`, Chromium 1280/390 px | 2/2 PASS |
+| Site officiel sans www, Chromium 1280/390 px | 2/2 PASS |
+| Site officiel avec www, Chromium 1280/390 px | 2/2 PASS |
+| Routes publiques et ordre du menu | PASS (4 célébrations, pages et menu) |
+| Erreurs JS, 5xx, débordements mobiles des six parcours | **0** |
+| API brouillon du candidat sans authentification | 404, refusée |
+| API brouillon du site officiel sans authentification | 401, refusée |
+| Médias publics approuvés sur le domaine officiel | **113/113 HTTP 200** |
+| Liens PDF approuvés sur le domaine officiel sans www | **9/9 HTTP 200 et `application/pdf`** |
+| Liens PDF approuvés sur le domaine officiel avec www | **9/9 HTTP 200 et `application/pdf`** |
+| Lien PDF inconnu et non approuvé | 404 |
+| Routes privées des deux Workers de test | **8/8 bloquées en 404** |
+| Tests de véritable code UI/API avec D1/R2 mémoire, PC/mobile | PASS |
+| Régressions Node, Python et interfaces | PASS |
+| Écritures de contenu D1/R2 réel, publication Worker officiel, DNS | **0** |
+
+Les sites officiels envoient encore des tentatives POST de statistiques de visite lors de la navigation normale. **Toutes les tentatives ont été interceptées par le navigateur de contrôle** : aucun POST n'a atteint les données réelles dans la recette. Cette télémétrie n'est pas une anomalie de l'éditeur.
+
+**Conclusion de M4 : recette technique réussie** pour les parcours automatisés sur le code actuel du candidat (éditeur via véritables gestionnaires mais stockage fictif) et sur les sites publics réellement accessibles (lecture seule). L'anomalie réelle `ReferenceError: __name is not defined` a été corrigée et le candidat déployé est testé sans erreur. **Le site officiel ne contient pas encore la nouvelle version candidate.** Aucun essai des modifications éditoriales sur la D1/R2 officielle n'a eu lieu ; cette vérification doit être faite avec le propriétaire, après publication M5, sans communiquer son code d'accès à des automatisations non validées. Une CI verte n'est pas une preuve de sécurité absolue, ni un test de migration vers le compte Cloudflare du destinataire.
+
+**Décision : MISSION 4 TERMINÉE pour son périmètre de recette**, **mission 5 (publication contrôlée, validation de l'éditeur réel, contrôle du retour arrière) RESTE À FAIRE**, après accord explicite. Le maintien du domaine officiel et des données était une contrainte respectée pendant M4.
