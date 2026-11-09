@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Script} from 'node:vm';
 import {TRIAL_SITE_CLIENT} from '../migration/cloudflare/editor-trial-site-client.mjs';
+import {DEMO_CLIENT} from '../migration/cloudflare/editor-demo-client.mjs';
 
 test('M4: embedded ESBuild-named public visitor helper exists before bundled function',()=>{
  const helper=TRIAL_SITE_CLIENT.indexOf('const __name=');
@@ -19,4 +20,12 @@ test('M4: builtin __name helper preserves exact callable semantics',()=>{
  // its Function.toString() result: it must work on the browser side.
  const actual=new Function(declaration+';const fn=(x)=>x+1;__name(fn,"computed");return {name:fn.name,value:fn(5)}')();
  assert.deepEqual(actual,{name:'computed',value:6});
+});
+
+test('M4: embedded ESM ADMIN functions also receive the Wrangler __name helper',()=>{
+ const helper=DEMO_CLIENT.indexOf('const __name=');
+ const model=DEMO_CLIENT.indexOf('function createEditorState(');
+ assert.ok(helper>0,'Missing esbuild helper in admin inline client');
+ assert.ok(model>helper,'The helper must precede imported admin functions');
+ assert.doesNotThrow(()=>new Script(DEMO_CLIENT),'Actual editor JavaScript must parse');
 });
