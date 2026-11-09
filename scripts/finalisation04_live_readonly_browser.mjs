@@ -50,6 +50,20 @@ try{
     const res=await page.goto(origin+'/',{waitUntil:'domcontentloaded',timeout:45000});
     assert.equal(res.status(),200,label+' home unavailable '+width);
     await page.locator('#stage-main').waitFor({state:'attached'});
+    // Metadata-only diagnostics: no rendered text, cookie or private data logged.
+    await page.waitForTimeout(1200);
+    const diag=await page.evaluate(()=>({
+      ready:document.readyState,
+      seedPresent:!!window.__TRIAL_SITE_SEED__,
+      publicSnapshotPresent:!!window.__PUBLIC_SITE_SNAPSHOT__,
+      stageTextLength:document.querySelector('#stage-main')?.textContent?.length||0,
+      stageChildren:document.querySelector('#stage-main')?.children.length||0,
+      navChildren:document.querySelector('#general-navigation')?.children.length||0,
+      loadedScripts:document.querySelectorAll('script').length
+    }));
+    console.log('M04_LIVE_STAGE_DIAGNOSTIC '+JSON.stringify({
+      host:label,viewport:width,...diag,jsErrorKinds:errors
+    }));
     await page.waitForFunction(()=>document.querySelector('#stage-main')?.textContent?.trim().length>5);
     const nav=page.locator('#menu-toggle');
     await nav.waitFor({state:'visible'});
