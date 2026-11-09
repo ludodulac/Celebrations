@@ -9,6 +9,9 @@ concurrency:
   cancel-in-progress: false
 jobs:
   preflight-readonly:
+    # The live preflight was already run successfully before release.
+    # Do not falsely fail after M05 when the active Worker version changes.
+    if: ${{ contains(github.event.head_commit.message, '[M05_PREFLIGHT_ONCE]') }}
     runs-on: ubuntu-24.04
     environment: celebrations-staging
     timeout-minutes: 20
