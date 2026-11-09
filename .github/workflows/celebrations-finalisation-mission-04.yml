@@ -154,12 +154,12 @@ jobs:
           grep -Fx 'bucket_name = "celebrations-exit-production"' migration/cloudflare/wrangler.m04-visual.toml
           grep -Fx 'bucket_name = "celebrations-exit-staging"' migration/cloudflare/wrangler.m04-visual.toml
           grep -Fx 'workers_dev = true' migration/cloudflare/wrangler.m04-visual.toml
-          for forbidden in 'name = "celebrations-exit-production"' 'route =' 'routes =' 'zone_id =' 'custom_domain ='; do
-            if grep -Fq "$forbidden" migration/cloudflare/wrangler.m04-visual.toml; then
-              echo M04_FORBIDDEN_REAL_DOMAIN_OR_WORKER
-              exit 1
-            fi
-          done
+          # Match only full TOML option keys: a legal R2 bucket_name must
+          # NOT be mistaken for the Worker script's name.
+          if grep -Eq '^[[:space:]]*(name[[:space:]]*=[[:space:]]*"celebrations-exit-production"|route[[:space:]]*=|routes[[:space:]]*=|zone_id[[:space:]]*=|custom_domain[[:space:]]*=)' migration/cloudflare/wrangler.m04-visual.toml; then
+            echo M04_FORBIDDEN_REAL_DOMAIN_OR_WORKER
+            exit 1
+          fi
           echo M04_ONLY_VISUAL_CANDIDATE_CONFIG_PASS
       - name: Deploy code correction ONLY to candidate preview
         shell: bash
