@@ -14,9 +14,7 @@ import boto3
 import requests
 from botocore.config import Config
 
-from audit_celebrations_media_dual_copy_readonly import (
-    source_inventory, r2_inventory, compare_manifests,
-)
+from audit_celebrations_media_dual_copy_readonly import r2_inventory
 from audit_public_only_media import SOURCE_TABLES, fetch_all, list_objects
 from copy_selected_public_media_to_production import select_visible_paths
 
@@ -93,13 +91,28 @@ def main():
     if len(key) < 20:
         raise ValueError("Source credentials unavailable")
     sess.headers.update({"apikey": key, "Authorization": "Bearer " + key})
-    # This source is outside Cloudflare; prior 158-object / full SHA256 proof
-    # belongs to 19 October. Timestamp and key checks detect later drift.
-    source = source_inventory(sess, base)
+    # Source outside Cloudflare: check keys/sizes, without falsely claiming
+    # today's content matches SHA256 from October (not redownloaded).
+    print("M21_SOURCE_LIST_START", flush=True)
+    source = list_objects(sess, base)
+    if len(source) != EXPECTED_SOURCE_FILES or sum(source.values()) != EXPECTED_SOURCE_BYTES:
+        raise ValueError("Historical source inventory changed")
+    print("M21_STAGING_LIST_START", flush=True)
     stage = r2_inventory(cloudflare_client("staging"))
-    prior = compare_manifests(source, stage)
-    print("M21_INDEPENDENT_SUPABASE_STAGING_MANIFEST_PASS " + json.dumps(prior, sort_keys=True), flush=True)
+    missing = set(source)-set(stage)
+    wrong = [k for k in source if k in stage and source[k] != stage[k][0]]
+    if missing or wrong:
+        raise ValueError("Staging media keys/size differ from source")
+    print("M21_INDEPENDENT_SUPABASE_STAGING_MANIFEST_PASS " + json.dumps({
+        "supabase_source_files":len(source), "supabase_source_bytes":sum(source.values()),
+        "r2_staging_matching_originals":len(source),
+        "r2_staging_additional_objects":len(stage)-len(source),
+        "missing":0,"size_mismatch":0,
+        "historical_sha256_proof_only":True,"sha256_recomputed_today":False,
+        "cloudflare_writes":0,"supabase_writes":0,
+    }, sort_keys=True), flush=True)
 
+    print("M21_REFERENCE_SELECTION_START",flush=True)
     data = {name: fetch_all(sess, base, table)
             for name, table in SOURCE_TABLES.items()}
     source2 = list_objects(sess, base)
@@ -107,6 +120,7 @@ def main():
         raise ValueError("Supabase media inventory changed across reads")
     report, partition = select_visible_paths(data, source2)
     approved = partition["selected"]
+    print("M21_PRODUCTION_LIST_START",flush=True)
     bucket = cloudflare_client("production")
     objects = {}
     for page in bucket.get_paginator("list_objects_v2").paginate(Bucket=PRODUCTION):
