@@ -44,3 +44,7 @@ Un deuxième contrôle est préparé dans un job **strictement en lecture seule*
 **SUCCESS** : les deux hôtes de test ont chacun renvoyé 404 pour les six routes privées inspectées, 405 pour POST vers l'éditeur, 200 pour la page d'accueil publique ; l'API privée officielle exige toujours la connexion (401), les deux domaines officiels répondent 200 et le déploiement officiel est inchangé. Aucun déploiement nouveau dans cette exécution, aucune écriture distante. L'échec du contrôle lancé immédiatement après le déploiement était donc lié au moment du contrôle ou à la propagation, sans motif de changer les données.
 
 Avant de clôturer définitivement M2, un **troisième hôte** doit être contrôlé : `celebrations-exit-production.rondes.workers.dev`, adresse technique du Worker officiel. Le suivi en lecture seule est relancé avec `[M02_VERIFY_PREVIEWS_ONCE]`. Si cet hôte n'est pas protégé, M2 n'est PAS terminée, même si les deux sites de test le sont.
+
+## Rectification du contrôle du troisième hôte
+
+Le run [#42623792074](https://github.com/ludodulac/Celebrations/actions/runs/42623792074) a annoncé dans sa chaîne de synthèse « trois hôtes » mais son tableau de résultats n'en contenait que **deux**. C'était une erreur de mise à jour du script de vérification ; ce run ne prouve **rien** pour `celebrations-exit-production.rondes.workers.dev`. Le script a été corrigé pour inclure réellement le troisième hôte. Le nouveau test en lecture seule est déclenché par `[M02_VERIFY_PREVIEWS_ONCE]`. Ne pas clôturer sans l'inspection des trois tableaux de résultats.
