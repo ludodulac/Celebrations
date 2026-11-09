@@ -1,8 +1,8 @@
-// M4: check public media and actual historical emailed PDF links by HOST,
-// without ever emitting slugs, media paths, data, email addresses or token.
-// The technical production workers.dev has been deliberately disabled by M2.
-// This is a read-only inventory of which public URLs still work, NOT a
-// request to re-enable a private admin or publish other unpublished files.
+// M4: check ONLY the two valid official-domain PDF hosts, as confirmed by
+// the site owner on 2026-11-09. Previous workers.dev emailed PDF URLs are
+// retired intentionally and MUST NOT be restored, tested or treated as blockers.
+// No file names, private slugs, visitor data, emails or credentials are logged.
+// Query D1 exclusively with SELECT and HEAD the official media/PDF URLs.
 import assert from 'node:assert/strict';
 const domain='https://ronde-des-archanges-universelle.eu';
 const www='https://www.ronde-des-archanges-universelle.eu';
@@ -49,41 +49,31 @@ for(let at=0;at<media.length;at+=5){
 }
 assert.equal(goodMedia,113,'Published public media unavailable');
 const hosts=[
- {name:'official',url:domain,required:true},
- {name:'official-www',url:www,required:true},
- {name:'historic-legacy',url:'https://celebrations.rondes.workers.dev',required:true},
- {name:'former-technical-workersdev',url:'https://celebrations-exit-production.rondes.workers.dev',required:false}
+ {name:'official',url:domain},
+ {name:'official-www',url:www}
 ];
-const result={};
+const counts={};
 for(const h of hosts){
- let pdf200=0,pdf404=0,other=0,redirect=0;
+ let pdf200=0;
  for(const row of invitations){
   assert.ok(typeof row.slug==='string'&&row.slug.length>=8);
-  const r=await head(h.url+'/?lettre='+encodeURIComponent(row.slug));
-  if(r.status===200 && /application\/pdf/i.test(r.type)&&!r.redirect)pdf200++;
-  else if(r.status===404)pdf404++;
-  else {other++;if(r.redirect)redirect++}
+  const res=await head(h.url+'/?lettre='+encodeURIComponent(row.slug));
+  assert.equal(res.status,200,'Approved PDF unavailable on '+h.name);
+  assert.match(res.type,/application\\/pdf/i,'PDF content-type missing on '+h.name);
+  assert.equal(res.redirect,false,'Approved PDF unexpectedly redirects on '+h.name);
+  pdf200++;
  }
- result[h.name]={pdf200,pdf404,other,redirect,required:h.required};
- console.log('M04_REAL_PDF_HOST_COUNTS '+JSON.stringify({host:h.name,...result[h.name],
-   slugsNotLogged:true}));
-}
-for(const x of hosts.filter(h=>h.required)){
- assert.equal(result[x.name].pdf200,9,'Historic PDF links broken on '+x.name);
-}
-const off=result['former-technical-workersdev'];
-if(off.pdf200!==9)console.log('M04_RETIREMENT_WARNING '+JSON.stringify({
- techHostPreviouslyProbedForEmailedPdf:true,
- status:'some_old_technical_PDF_links_unavailable',
- requiredAction:'M5 decide restore historic link compatibility while denying admin',
- safeToReenableWithoutNewCode:false,
+ assert.equal(pdf200,9,'Missing approved PDF on '+h.name);
+ counts[h.name]=pdf200;
+ console.log('M04_OFFICIAL_PDF_HOST_PASS '+JSON.stringify({
+   host:h.name,pdfsChecked:pdf200,allAvailable:true,privateSlugsLogged:false
  }));
+}
 const unknown=await head(domain+'/?lettre=not-a-real-invitation');
 assert.equal(unknown.status,404,'Unpublished PDF slug unexpectedly accepted');
 console.log('M04_MEDIA_PDF_REAL_READONLY_PASS '+JSON.stringify({
  publishedMediaAvailable:goodMedia,mediaExpected:113,
- historicApprovedPdfCount:invitations.length,hostCounts:result,
- unknownPdfSlugDenied:true,remoteWrites:0,d1SelectOnly:true,
- technicalWorkersDevStillDisabled:off.pdf200===0,
- legacyCompatibilityFullyProven:off.pdf200===9
+ approvedPdfCount:invitations.length,officialHostCounts:counts,
+ retiredWorkersDevLinksExcludedByOwnerDecision:true,
+ unknownPdfSlugDenied:true,remoteWrites:0,d1SelectOnly:true
 }));
