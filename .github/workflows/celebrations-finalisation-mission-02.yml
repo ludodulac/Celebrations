@@ -180,3 +180,64 @@ jobs:
           assert.equal(id,process.env.M02_OFFICIAL_DEPLOY_BEFORE,'Official Worker changed during security-only M02');
           console.log('M02_OFFICIAL_WORKER_VERSION_UNCHANGED_PASS '+JSON.stringify({deploymentId:id}));
           NODE
+
+  verifier-sans-redeployer:
+    if: ${{ contains(github.event.head_commit.message, '[M02_VERIFY_PREVIEWS_ONCE]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Vérifier seulement les vraies routes HTTP, sans corps privés ni déploiement
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const previews=['https://celebrations-exit-staging.rondes.workers.dev',
+                          'https://celebrations-visual-candidate.rondes.workers.dev'];
+          const routes=['/api/editor-open-draft?celebration=101',
+                        '/api/editor-server-draft?celebration=101',
+                        '/api/admin','/api/editor-media','/admin.html',
+                        '/media/new/12345678-1234-4234-8234-123456789abc.jpg'];
+          const get=async(u,method='GET')=>{
+            const r=await fetch(u,{method,redirect:'manual',cache:'no-store',
+              headers:{'cache-control':'no-cache'},signal:AbortSignal.timeout(16000)});
+            await r.body?.cancel().catch(()=>{});
+            return r.status;
+          };
+          let allOk=false;
+          for(let attempt=1;attempt<=5;attempt++){
+            let statuses=[];
+            for(const host of previews){
+              const statusesForHost=[];
+              for(const route of routes)statusesForHost.push(await get(host+route));
+              const writeStatus=await get(host+'/api/editor-open-draft?celebration=101','POST');
+              const home=await get(host+(host.includes('-staging.')?'/?staging=1':'/'));
+              statuses.push({host:new URL(host).hostname,privateStatuses:statusesForHost,writeStatus,home});
+            }
+            allOk=statuses.every(s=>s.privateStatuses.every(v=>v===404)&&s.writeStatus===405&&s.home===200);
+            console.log('M02_DEPLOYED_SECURITY_CHECK '+JSON.stringify({attempt,statuses,pass:allOk}));
+            if(allOk)break;
+            if(attempt!==5)await new Promise(r=>setTimeout(r,3500));
+          }
+          if(!allOk)throw Error('Preview security not complete after deployment propagation');
+          for(const host of ['https://ronde-des-archanges-universelle.eu',
+                             'https://www.ronde-des-archanges-universelle.eu']){
+            assert.equal(await get(host+'/'),200);
+            assert.equal(await get(host+'/api/editor-open-draft?celebration=101'),401);
+          }
+          const account=process.env.CLOUDFLARE_ACCOUNT_ID;
+          const token=process.env.CLOUDFLARE_API_TOKEN;
+          const r=await fetch('https://api.cloudflare.com/client/v4/accounts/'+account+
+             '/workers/scripts/celebrations-exit-production/deployments',{
+             headers:{authorization:'Bearer '+token},signal:AbortSignal.timeout(20000)});
+          if(!r.ok)throw Error('Official Worker version cannot be verified');
+          const j=await r.json();
+          assert.equal(j.result?.deployments?.[0]?.id,
+            'cd46e1ba-e106-4f03-90aa-7110628a5b9f','Official Worker deployment changed');
+          console.log('M02_SECURITY_REAL_HOSTS_PASS previewHosts=2 officialHosts=2 officialWorkerUnchanged=true remoteWrites=0');
+          NODE
