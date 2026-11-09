@@ -1,0 +1,57 @@
+name: CÉLÉBRATIONS M17 — documentation, benchmark et parité sans déploiement
+on:
+  push:
+    branches: [refactor/celebrations-mission-17-docs-performance-20261109]
+permissions:
+  contents: read
+jobs:
+  docs-and-performance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout baseline M16 (read-only) to compare identical UI
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: bff3f17f010e8cf217ea76dcc856804bdf8ceab6
+          path: _m17_baseline
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: M17 media catalogue equivalence and M16 fail-closed release checks
+        run: |
+          node --check migration/cloudflare/app/domain/editor-public-media-merge.mjs
+          node --check migration/cloudflare/editor-publication-api.mjs
+          node --check scripts/mission17_media_merge_benchmark.mjs
+          node --check scripts/mission17_first_render_compare.mjs
+          node --test tests/test_mission17_public_media_merge.mjs tests/test_mission16_release_rollback.mjs
+          node scripts/mission16_editor_regressions.mjs
+          python -m unittest discover -s tests -p 'test_mission16_recovery.py' -v
+      - name: CPU benchmark — original M16 versus indexed M17 media merge
+        run: node scripts/mission17_media_merge_benchmark.mjs
+      - name: Chromium sans réseau — pages M16/M17, ordinateur et téléphone
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+          node scripts/mission17_first_render_compare.mjs
+          node scripts/mission02-editor-reference-browser.mjs
+          node scripts/test-editor-media-picker-browser.mjs
+          node scripts/mission11-drag-undo-browser.mjs
+          node scripts/mission12-public-visitor-browser.mjs
+          node scripts/mission13-style-browser.mjs
+      - name: Références de présentation de l'administration et du site visiteurs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: celebrations-m17-docs-performance-${{ github.run_number }}
+          path: |
+            artifacts/mission02/editor-fixture/
+            artifacts/mission13/style-fixture/
+          retention-days: 14
+          if-no-files-found: warn

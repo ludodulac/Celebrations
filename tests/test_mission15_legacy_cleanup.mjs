@@ -26,7 +26,6 @@ const originalBlobShas={
  'migration/cloudflare/editor-demo-page.mjs':'9f91ec14e60ef6637fbf4747dd813029c68768eb',
  'migration/cloudflare/editor-e2a-access-recovery.mjs':'26b535ed294fa83a2bc39cc5a85c8b3187042268',
  'migration/cloudflare/editor-trial-site-client.mjs':'5ee471ed75952b6c2f78aaba323e1cceea7b689d',
- 'migration/cloudflare/editor-publication-api.mjs':'b7166bec93bd875741a25ae86450ccf6c427ac29',
  'migration/cloudflare/editor-server-draft-api.mjs':'2b4e381ee83416f5f1ed4645f078ec493f4e4a5d',
  'migration/cloudflare/editor-server-sync-client.mjs':'61ab92c0f11c8c6709aa747048f6fea769caf324',
  'migration/cloudflare/editor-demo-preparation-page.mjs':'0f312ef00223f42bf7145cda839e2ad4df618bbd',
@@ -71,10 +70,19 @@ test('M15: no dangling prototype calls or single-use function declarations',()=>
   (content.match(new RegExp('\\b'+name+'\\b','g'))||[]).length===1);
  assert.deepEqual(orphans,[],'no script function is declaration-only');
 });
-test('M15: 12 critical legacy route and public-media sources are byte-identical to M14',()=>{
- assert.equal(Object.keys(originalBlobShas).length,12);
+test('M15 + M17: 11 legacy route sources unchanged; reviewed media API change pinned',()=>{
+ assert.equal(Object.keys(originalBlobShas).length,11);
  for(const [path,sha] of Object.entries(originalBlobShas))
   assert.equal(blobSha(path),sha,'legacy/route source changed unexpectedly: '+path);
+ // M17 deliberately replaces only the public media merge hot path. Unlike
+ // Worker routes and historic media URLs, this one file must now have a
+ // reviewed, pinned identity, and its output is compared to the M16 oracle
+ // by tests/test_mission17_public_media_merge.mjs (300+ fixtures).
+ const apiPath='migration/cloudflare/editor-publication-api.mjs';
+ assert.equal(blobSha(apiPath),'670adddff637f44bbd55a144622294525b3bc488');
+ const api=readFileSync(apiPath,'utf8');
+ assert.ok(api.includes("import {mergePublicMediaIndexed}"));
+ assert.ok(api.includes("return mergePublicMediaIndexed(...catalogues)"));
 });
 test('M15: disconnected former demo module is RETAINED as compatibility entry',async()=>{
  const origin='https://celebrations-exit-staging.rondes.workers.dev';
