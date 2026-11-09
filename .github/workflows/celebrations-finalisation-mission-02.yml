@@ -1,0 +1,360 @@
+name: CÉLÉBRATIONS — FINALISATION 2/5 — sécurité staging et candidat
+on:
+  push:
+    branches: [release/celebrations-finalisation-02-security-20261109]
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-finalisation-m02-staging-candidate-only
+  cancel-in-progress: false
+
+jobs:
+  tests-et-guardes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Périmètre exact — aucun fichier du site officiel hors test-Workers
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/release/celebrations-finalisation-02-security-20261109'
+          BASE=6d5ab4a5857617ea4c9567f368ed435e39d8eb74
+          git merge-base --is-ancestor "$BASE" HEAD
+          BAD="$(git diff --name-only "$BASE" HEAD | grep -Ev '^(migration/cloudflare/(staging-worker|production-worker)\.mjs|tests/test_finalisation02_preview_security\.mjs|tests/test_mission15_legacy_cleanup\.mjs|\.github/workflows/celebrations-finalisation-mission-02\.yml|\.github/workflows/celebrations-publish-visual-site-once\.yml|docs/finalisation/CELEBRATIONS-FINALISATION-MISSION-02-2026-11-09\.md)$' || true)"
+          if [ -n "$BAD" ]; then echo M02_ABORT_UNEXPECTED_CHANGE; exit 1; fi
+          echo M02_CHANGE_SCOPE_PASS
+      - name: Analyse syntaxique, protection des brouillons et API publiques
+        run: |
+          set -euo pipefail
+          node --check migration/cloudflare/staging-worker.mjs
+          node --check migration/cloudflare/production-worker.mjs
+          node --check migration/cloudflare/editor-server-draft-api.mjs
+          node --test tests/test_finalisation02_preview_security.mjs tests/test_mission14_editor_security.mjs tests/test-editor-server-drafts.mjs
+          node scripts/mission16_editor_regressions.mjs
+          echo M02_OFFLINE_TESTS_PASS
+
+  deployer-seulement-staging-et-candidat:
+    needs: tests-et-guardes
+    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M02_SECURE_PREVIEWS_ONCE]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      STAGING_D1_ID: ${{ vars.CELEBRATIONS_STAGING_D1_ID }}
+      STAGING_R2_BUCKET: celebrations-exit-staging
+      CELEBRATIONS_PROD_D1_ID: 28736d2a-479b-472b-bf82-703ad0affe10
+      CELEBRATIONS_PROD_R2_BUCKET: celebrations-exit-production
+      CELEBRATIONS_STAGING_D1_ID: 0f761662-241f-42cc-ac94-5c68b4aa7797
+      CELEBRATIONS_STAGING_R2_BUCKET: celebrations-exit-staging
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Vérifier que le jeton Cloudflare ne manque pas et que les identités sont exactes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/release/celebrations-finalisation-02-security-20261109'
+          test "${#CLOUDFLARE_API_TOKEN}" -gt 15
+          test "$STAGING_D1_ID" = "$CELEBRATIONS_STAGING_D1_ID"
+          test "$STAGING_R2_BUCKET" = 'celebrations-exit-staging'
+          test "$CELEBRATIONS_PROD_D1_ID" != "$STAGING_D1_ID"
+          echo M02_CLOUDFLARE_IDENTITIES_PASS
+      - name: Constater les 3 versions AVANT toute intervention, GET uniquement
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs/promises';
+          const account=process.env.CLOUDFLARE_ACCOUNT_ID;
+          const token=process.env.CLOUDFLARE_API_TOKEN;
+          if(!/^[a-f0-9]{32}$/i.test(account))throw Error('Invalid Cloudflare account');
+          const names=['celebrations-exit-staging','celebrations-visual-candidate','celebrations-exit-production'];
+          for(const name of names){
+            const r=await fetch('https://api.cloudflare.com/client/v4/accounts/'+account+'/workers/scripts/'+name+'/deployments',{
+              headers:{authorization:'Bearer '+token,accept:'application/json'},
+              signal:AbortSignal.timeout(25000)
+            });
+            if(!r.ok)throw Error('Worker deployment GET unavailable for '+name+' HTTP '+r.status);
+            const j=await r.json();
+            const first=(j.result?.deployments||[])[0];
+            if(!j.success||!first?.id||!first?.versions?.length)throw Error('Missing Worker deployment for '+name);
+            if(name==='celebrations-exit-production'){
+              await fs.appendFile(process.env.GITHUB_ENV,'M02_OFFICIAL_DEPLOY_BEFORE='+first.id+'\n');
+            }
+            console.log('M02_WORKER_BEFORE '+JSON.stringify({script:name,deploymentId:first.id,
+              versionId:first.versions[0]?.version_id||null}));
+          }
+          NODE
+      - name: Construire les assets isolés et les deux configs strictes (pas de domaine officiel)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/build_staging_assets.py
+          python scripts/build_production_assets.py
+          python scripts/configure_staging_wrangler.py
+          python scripts/prepare_production_wrangler.py
+          cat >> migration/cloudflare/wrangler.production.toml <<'TOML'
+          [[r2_buckets]]
+          binding = "EDITOR_BUCKET"
+          bucket_name = "celebrations-exit-staging"
+          TOML
+          sed 's/^name = "celebrations-exit-production"/name = "celebrations-visual-candidate"/' migration/cloudflare/wrangler.production.toml > migration/cloudflare/wrangler.m02-visual.toml
+          grep -Fx 'name = "celebrations-exit-staging"' migration/cloudflare/wrangler.toml
+          grep -Fx 'name = "celebrations-visual-candidate"' migration/cloudflare/wrangler.m02-visual.toml
+          grep -Fx 'main = "staging-worker.mjs"' migration/cloudflare/wrangler.toml
+          grep -Fx 'main = "production-worker.mjs"' migration/cloudflare/wrangler.m02-visual.toml
+          grep -Fx 'bucket_name = "celebrations-exit-staging"' migration/cloudflare/wrangler.toml
+          grep -Fx 'database_id = "28736d2a-479b-472b-bf82-703ad0affe10"' migration/cloudflare/wrangler.m02-visual.toml
+          grep -Fx 'bucket_name = "celebrations-exit-production"' migration/cloudflare/wrangler.m02-visual.toml
+          grep -Fx 'binding = "EDITOR_BUCKET"' migration/cloudflare/wrangler.m02-visual.toml
+          for config in migration/cloudflare/wrangler.toml migration/cloudflare/wrangler.m02-visual.toml; do
+            if grep -Eq '(^|[[:space:]])(route|routes|zone_id|custom_domain)[[:space:]]*=' "$config"; then
+              echo 'M02_FORBIDDEN_OFFICIAL_ROUTE'
+              exit 1
+            fi
+          done
+          echo M02_TWO_ISOLATED_CONFIGS_PASS
+      - name: Installer Wrangler pour les deux Workers de test uniquement
+        run: npm install --no-save --no-package-lock wrangler@4
+      - name: Sécuriser UNIQUEMENT le Worker de staging historique
+        working-directory: migration/cloudflare
+        run: npx wrangler deploy --config wrangler.toml --keep-vars
+      - name: Sécuriser UNIQUEMENT le Worker du candidat visuel
+        working-directory: migration/cloudflare
+        run: npx wrangler deploy --config wrangler.m02-visual.toml --keep-vars
+      - name: Vérifier HTTP réel des routes privées sans cookie et la non-régression officielle
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const official=['https://ronde-des-archanges-universelle.eu','https://www.ronde-des-archanges-universelle.eu'];
+          const previews=['https://celebrations-exit-staging.rondes.workers.dev',
+                          'https://celebrations-visual-candidate.rondes.workers.dev'];
+          const deny=['/api/editor-open-draft?celebration=101','/api/editor-server-draft?celebration=101',
+            '/api/admin','/api/editor-media','/admin.html',
+            '/media/new/12345678-1234-4234-8234-123456789abc.jpg'];
+          const get=async(u,method='GET')=>{
+            const r=await fetch(u,{method,redirect:'manual',cache:'no-store',
+              signal:AbortSignal.timeout(20000)});
+            await r.body?.cancel().catch(()=>{});
+            return r.status;
+          };
+          for(const host of previews){
+            for(const route of deny){
+              const status=await get(host+route);
+              assert.equal(status,404,host+' '+route+' not blocked');
+            }
+            assert.equal(await get(host+'/api/editor-open-draft?celebration=101','POST'),405);
+            const home=await get(host+(host.includes('-staging.')?'/?staging=1':'/'));
+            assert.equal(home,200,'Preview public home unavailable');
+            console.log('M02_PREVIEW_HOST_SECURED '+JSON.stringify({host:new URL(host).hostname,privateRoutesBlocked:deny.length,postBlocked:405,publicHome:200}));
+          }
+          for(const host of official){
+            assert.equal(await get(host+'/'),200);
+            assert.equal(await get(host+'/api/editor-open-draft?celebration=101'),401);
+            console.log('M02_OFFICIAL_HOST_UNCHANGED '+JSON.stringify({host:new URL(host).hostname,publicHome:200,privateStatus:401}));
+          }
+          const account=process.env.CLOUDFLARE_ACCOUNT_ID;
+          const token=process.env.CLOUDFLARE_API_TOKEN;
+          const r=await fetch('https://api.cloudflare.com/client/v4/accounts/'+account+'/workers/scripts/celebrations-exit-production/deployments',{
+            headers:{authorization:'Bearer '+token,accept:'application/json'},signal:AbortSignal.timeout(25000)});
+          if(!r.ok)throw Error('Official Worker GET failed');
+          const j=await r.json();
+          const id=j.result?.deployments?.[0]?.id;
+          assert.equal(id,process.env.M02_OFFICIAL_DEPLOY_BEFORE,'Official Worker changed during security-only M02');
+          console.log('M02_OFFICIAL_WORKER_VERSION_UNCHANGED_PASS '+JSON.stringify({deploymentId:id}));
+          NODE
+
+  verifier-sans-redeployer:
+    if: ${{ contains(github.event.head_commit.message, '[M02_VERIFY_PREVIEWS_ONCE]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Vérifier seulement les vraies routes HTTP, sans corps privés ni déploiement
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const previews=['https://celebrations-exit-staging.rondes.workers.dev',
+                          'https://celebrations-visual-candidate.rondes.workers.dev'];
+          const routes=['/api/editor-open-draft?celebration=101',
+                        '/api/editor-server-draft?celebration=101',
+                        '/api/admin','/api/editor-media','/admin.html',
+                        '/media/new/12345678-1234-4234-8234-123456789abc.jpg'];
+          const get=async(u,method='GET')=>{
+            const r=await fetch(u,{method,redirect:'manual',cache:'no-store',
+              headers:{'cache-control':'no-cache'},signal:AbortSignal.timeout(16000)});
+            await r.body?.cancel().catch(()=>{});
+            return r.status;
+          };
+          let allOk=false;
+          for(let attempt=1;attempt<=5;attempt++){
+            let statuses=[];
+            for(const host of previews){
+              const statusesForHost=[];
+              for(const route of routes)statusesForHost.push(await get(host+route));
+              const writeStatus=await get(host+'/api/editor-open-draft?celebration=101','POST');
+              const home=await get(host+(host.includes('-staging.')?'/?staging=1':'/'));
+              statuses.push({host:new URL(host).hostname,privateStatuses:statusesForHost,writeStatus,home});
+            }
+            allOk=statuses.every(s=>s.privateStatuses.every(v=>v===404)&&s.writeStatus===405&&s.home===200);
+            console.log('M02_DEPLOYED_SECURITY_CHECK '+JSON.stringify({attempt,statuses,pass:allOk}));
+            if(allOk)break;
+            if(attempt!==5)await new Promise(r=>setTimeout(r,3500));
+          }
+          if(!allOk)throw Error('Preview security not complete after deployment propagation');
+          for(const host of ['https://ronde-des-archanges-universelle.eu',
+                             'https://www.ronde-des-archanges-universelle.eu']){
+            assert.equal(await get(host+'/'),200);
+            assert.equal(await get(host+'/api/editor-open-draft?celebration=101'),401);
+          }
+          const account=process.env.CLOUDFLARE_ACCOUNT_ID;
+          const token=process.env.CLOUDFLARE_API_TOKEN;
+          const r=await fetch('https://api.cloudflare.com/client/v4/accounts/'+account+
+             '/workers/scripts/celebrations-exit-production/deployments',{
+             headers:{authorization:'Bearer '+token},signal:AbortSignal.timeout(20000)});
+          if(!r.ok)throw Error('Official Worker version cannot be verified');
+          const j=await r.json();
+          assert.equal(j.result?.deployments?.[0]?.id,
+            'cd46e1ba-e106-4f03-90aa-7110628a5b9f','Official Worker deployment changed');
+          const sub=await fetch('https://api.cloudflare.com/client/v4/accounts/'+account+
+            '/workers/scripts/celebrations-exit-production/subdomain',{
+            headers:{authorization:'Bearer '+token,accept:'application/json'},
+            signal:AbortSignal.timeout(20000)});
+          if(!sub.ok)throw Error('Official Worker subdomain settings cannot be verified');
+          const details=await sub.json();
+          assert.equal(details.result?.enabled,false,'Official workers.dev route was reopened');
+          assert.equal(details.result?.previews_enabled,false,'Official preview URLs were reopened');
+          let technicalStatus='unreachable';
+          try{technicalStatus=await get('https://celebrations-exit-production.rondes.workers.dev/');
+            assert.ok(technicalStatus>=400,'Official technical workers.dev still renders a site');
+          }catch(e){
+            if(e instanceof assert.AssertionError)throw e;
+          }
+          console.log('M02_SECURITY_REAL_HOSTS_PASS '+JSON.stringify({
+            previewHosts:2,officialHosts:2,officialWorkerUnchanged:true,
+            technicalSubdomainEnabled:false,technicalPreviewUrlsEnabled:false,
+            technicalRootStatus:technicalStatus,remoteWrites:0
+          }));
+          NODE
+
+  desactiver-adresse-technique-officielle-une-seule-fois:
+    needs: tests-et-guardes
+    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M02_DISABLE_OFFICIAL_WORKERSDEV_ONCE]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Désactiver seulement le workers.dev du Worker OFFICIEL, sans déployer de code
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const account=process.env.CLOUDFLARE_ACCOUNT_ID,
+                token=process.env.CLOUDFLARE_API_TOKEN;
+          assert.match(account||'',/^[a-f0-9]{32}$/i);
+          assert.ok(token?.length>15);
+          assert.equal(process.env.GITHUB_REF,
+            'refs/heads/release/celebrations-finalisation-02-security-20261109');
+          const base='https://api.cloudflare.com/client/v4/accounts/'+account;
+          const name='celebrations-exit-production';
+          const target=base+'/workers/scripts/'+name+'/subdomain';
+          const deploymentUrl=base+'/workers/scripts/'+name+'/deployments';
+          async function api(url,method='GET',body){
+            const res=await fetch(url,{method,redirect:'error',cache:'no-store',
+              headers:{authorization:'Bearer '+token,accept:'application/json',
+                ...(body?{'content-type':'application/json'}:{})},
+              ...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(25000)});
+            if(!res.ok)throw Error('Cloudflare API '+method+' returned '+res.status);
+            const obj=await res.json();
+            if(!obj.success||obj.result===undefined)throw Error('Cloudflare API unsuccessful');
+            return obj.result;
+          }
+          const urls=['https://ronde-des-archanges-universelle.eu',
+                      'https://www.ronde-des-archanges-universelle.eu'];
+          async function httpStatus(url){
+            const r=await fetch(url,{redirect:'manual',cache:'no-store',
+              signal:AbortSignal.timeout(20000)});
+            await r.body?.cancel().catch(()=>{});
+            return r.status;
+          }
+          for(const url of urls){
+            assert.equal(await httpStatus(url+'/'),200,'Official site unavailable BEFORE change');
+            assert.equal(await httpStatus(url+'/api/editor-open-draft?celebration=101'),401,
+              'Official private GET not protected BEFORE change');
+          }
+          const before=await api(deploymentUrl);
+          const beforeId=before?.deployments?.[0]?.id;
+          assert.equal(beforeId,'cd46e1ba-e106-4f03-90aa-7110628a5b9f',
+            'Official deployment identity changed; abort before route update');
+          const old=await api(target);
+          if(typeof old.enabled!=='boolean'||typeof old.previews_enabled!=='boolean')
+            throw Error('Cloudflare workers.dev route shape unexpected');
+          console.log('M02_OFFICIAL_WORKERSDEV_BEFORE '+JSON.stringify({
+            script:name,enabled:old.enabled,previews_enabled:old.previews_enabled,
+            deploymentId:beforeId
+          }));
+          if(old.enabled||old.previews_enabled){
+            const changed=await api(target,'POST',{enabled:false,previews_enabled:false});
+            if(changed.enabled!==false||changed.previews_enabled!==false)
+              throw Error('Cloudflare did not confirm subdomain disabled');
+            console.log('M02_OFFICIAL_SUBDOMAIN_DISABLE_CONFIRMED');
+          }else{
+            console.log('M02_OFFICIAL_SUBDOMAIN_ALREADY_DISABLED');
+          }
+          const finalRoute=await api(target);
+          assert.equal(finalRoute.enabled,false);
+          assert.equal(finalRoute.previews_enabled,false);
+          const after=await api(deploymentUrl);
+          assert.equal(after?.deployments?.[0]?.id,beforeId,
+            'Worker code deployment unexpectedly changed');
+          for(const url of urls){
+            assert.equal(await httpStatus(url+'/'),200,'Official public site changed');
+            assert.equal(await httpStatus(url+'/api/editor-open-draft?celebration=101'),401,
+              'Official private GET changed');
+          }
+          // The now-unused workers.dev hostname should cease serving any
+          // HTML/JS or private responses. Cloudflare can propagate async.
+          const oldHost='https://celebrations-exit-production.rondes.workers.dev';
+          let gone=false,status=null;
+          for(let n=0;n<8;n++){
+            try{status=await httpStatus(oldHost+'/');
+              gone=status>=400;
+            }catch{gone=true;status='unreachable'}
+            if(gone)break;
+            await new Promise(resolve=>setTimeout(resolve,3000));
+          }
+          assert.ok(gone,'Technical workers.dev host still serves privileged routes');
+          console.log('M02_TECHNICAL_WORKERSDEV_DISABLED_PASS '+JSON.stringify({
+            subdomainEnabled:false,previewsEnabled:false,
+            workerDeploymentUnchanged:true,officialSitesOk:2,privateOfficialDenied:2,
+            technicalHttpStatus:status,d1Writes:0,r2Writes:0,workerCodeDeployments:0
+          }));
+          NODE

@@ -19,8 +19,8 @@ const OLD=[
  'showInsertDialog','attachPublicAudio','attachCloudAudio','audioWorkbench'
 ];
 const originalBlobShas={
- 'migration/cloudflare/production-worker.mjs':'a96575252b5702b18e6917730372d4f991d2767c',
- 'migration/cloudflare/staging-worker.mjs':'b759666229dca2fcfc2f98de59324bdff8a33cee',
+ 'migration/cloudflare/production-worker.mjs':'3ff02de49a8b1a0d81a78dac79ed562565774537',
+ 'migration/cloudflare/staging-worker.mjs':'1201803b2f7f824de9ee2171d15af434f6068c74',
  'migration/cloudflare/legacy-link-router.mjs':'926b3a776f18271036f22b9058a73ae7f439f604',
  'migration/cloudflare/media-gateway.mjs':'a833e679190a0b6a1aade7dabc8b49c33a339408',
  'migration/cloudflare/editor-demo-page.mjs':'9f91ec14e60ef6637fbf4747dd813029c68768eb',
@@ -70,11 +70,14 @@ test('M15: no dangling prototype calls or single-use function declarations',()=>
   (content.match(new RegExp('\\b'+name+'\\b','g'))||[]).length===1);
  assert.deepEqual(orphans,[],'no script function is declaration-only');
 });
-test('M15 + M17: 11 legacy route sources unchanged; reviewed media API change pinned',()=>{
+test('M15 + M17 + M2: historic sources and the two deliberately secured Workers are pinned',()=>{
  assert.equal(Object.keys(originalBlobShas).length,11);
  for(const [path,sha] of Object.entries(originalBlobShas))
   assert.equal(blobSha(path),sha,'legacy/route source changed unexpectedly: '+path);
- // M17 deliberately replaces only the public media merge hot path. Unlike
+ // M17 deliberately replaces only the public media merge hot path. The two
+ // Worker entrypoints have since received the explicit M2 preview security
+ // boundary; the other nine historic routes retain their verified blob IDs.
+ // Unlike
  // Worker routes and historic media URLs, this one file must now have a
  // reviewed, pinned identity, and its output is compared to the M16 oracle
  // by tests/test_mission17_public_media_merge.mjs (300+ fixtures).
@@ -91,10 +94,9 @@ test('M15: disconnected former demo module is RETAINED as compatibility entry',a
  assert.ok((await direct.text()).includes('Atelier visuel'));
  assert.equal(handleEditorDemo(new Request('https://other.example/__editor/demo')).status,404);
  const actual=await staging.fetch(new Request(origin+'/__editor/demo'),{});
- assert.equal(actual.status,302);
- assert.equal(new URL(actual.headers.get('location')).pathname,'/__editor/demo-preparation');
+ assert.equal(actual.status,404,'Old staging demo is retired from unauthenticated public access');
 });
-test('M15: historic staging routes, prepared pages and asset fallback remain untouched',async()=>{
+test('M15 + M2: historic staging route code retained but private access now blocked',async()=>{
  const routeCode=readFileSync('migration/cloudflare/staging-worker.mjs','utf8');
  for(const route of ['/__editor/demo-preparation','/__editor/voir-le-site',
   '/__editor/edit','/__editor/e1-client.js','/api/editor-open-draft',
@@ -113,7 +115,7 @@ test('M15: historic staging routes, prepared pages and asset fallback remain unt
  const denied=await staging.fetch(new Request(
   'https://celebrations-exit-staging.rondes.workers.dev/api/editor-open-draft',{
     method:'POST',body:'{}'}),env);
- assert.equal(denied.status,403,'legacy staging read-only write behaviour preserved');
+ assert.equal(denied.status,405,'decommissioned staging blocks all state-changing verbs');
 });
 test('M15: official Worker keeps static fallback and read-only candidate restrictions',async()=>{
  let count=0;

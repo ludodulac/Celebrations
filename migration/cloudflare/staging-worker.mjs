@@ -25,6 +25,21 @@ import {handleEditorPublication,handleEditorMediaFile} from "./editor-publicatio
 export default {
  async fetch(request,env){
   const url=new URL(request.url),path=url.pathname;
+  // FINALISATION 2: the obsolete staging hostname is now PUBLIC-ONLY.
+  // Its editor has moved to the official authenticated domain. Keep public
+  // visitors and historic media working, but deny every private/admin route
+  // BEFORE any D1, R2, asset fallback or legacy handler is consulted.
+  const obsoleteStaging=url.hostname==='celebrations-exit-staging.rondes.workers.dev';
+  if(obsoleteStaging){
+   const denied={'cache-control':'no-store','x-robots-tag':'noindex,nofollow,noarchive',
+    'x-content-type-options':'nosniff'};
+   if(request.method!=='GET'&&request.method!=='HEAD')
+    return new Response('Lecture seule',{status:405,headers:denied});
+   if(path==='/admin'||path==='/admin.html'||path.startsWith('/media/new/')||
+    path.startsWith('/__editor/')&&path!=='/__editor/voir-le-site'||
+    path.startsWith('/api/')&&!['/api/public-data','/api/editor-publication'].includes(path))
+    return new Response('Introuvable',{status:404,headers:denied});
+  }
   if((path==="/"||path==="/index.html"||path==="/admin.html"||path==="/admin")&&!url.searchParams.has("staging")){
    url.searchParams.set("staging","1");
    return Response.redirect(url.toString(),302);
