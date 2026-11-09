@@ -1,0 +1,31 @@
+name: CÉLÉBRATIONS M05 — répétition rollback sur candidat isolé uniquement
+on:
+  push:
+    branches: [release/celebrations-finalisation-05-livraison-20261109]
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-finalisation-m05-release
+  cancel-in-progress: false
+jobs:
+  rollback-isole-sans-production:
+    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M05_REHEARSE_ROLLBACK_ONCE]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Verify code syntax, worker destination hardcoded to isolated test
+        run: |
+          node --check scripts/finalisation05_rollback_rehearsal.mjs
+          test "$GITHUB_REF" = refs/heads/release/celebrations-finalisation-05-livraison-20261109
+      - name: Genuine two-version rollback on visual candidate; restore stable immutable version in finally
+        run: node scripts/finalisation05_rollback_rehearsal.mjs
+      - name: Official domain untouched
+        run: echo M05_ISOLATED_ROLLBACK_REHEARSED_NO_OFFICIAL_DEPLOY_NO_DB_OR_R2_WRITE
