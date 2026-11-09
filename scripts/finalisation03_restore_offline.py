@@ -37,9 +37,7 @@ def destination(root, origin):
     parts=origin.split("/")
     if not parts or any(p in ("",".","..") or "\\" in p or "\0" in p for p in parts):
         raise ValueError("Unsafe source path")
-    if not re.fullmatch(r"[A-Za-z0-9._/-]{1,1100}",origin):
-        # Non-ASCII filenames may legitimately occur in R2: reject for this
-        # version rather than risk an unsafe round-trip.
+    if len(origin) > 1100 or origin.startswith("/"):
         raise ValueError("Unexpected object path")
     out=root.joinpath(*parts)
     if not out.resolve().is_relative_to(root.resolve()):
@@ -65,7 +63,7 @@ def restore(source,target,password,check_d1=True):
         with output.open("xb") as stream:
             for index,part in enumerate(real["parts"]):
                 name=part["name"]
-                if not re.fullmatch(r"part-[0-9]{5}-[0-9]{4}\\.enc",name):
+                if not (re.fullmatch(r"part-[0-9]{5}-[0-9]{4}" + re.escape(".enc"),name)):
                     raise ValueError("Malformed part reference")
                 cipher=(source/name).read_bytes()
                 if hashlib.sha256(cipher).hexdigest()!=part["sha"]:
