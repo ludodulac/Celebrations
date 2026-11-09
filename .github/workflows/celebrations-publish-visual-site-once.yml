@@ -194,6 +194,12 @@ jobs:
           TOML
           sed 's/^name = "celebrations-exit-production"/name = "celebrations-visual-candidate"/' \
             migration/cloudflare/wrangler.production.toml > migration/cloudflare/wrangler.visual.toml
+          # M2: after creating the public-only candidate, NEVER re-enable the
+          # official Worker's disabled workers.dev/preview routes on publish.
+          sed -i 's/^workers_dev = true$/workers_dev = false/' migration/cloudflare/wrangler.production.toml
+          grep -Fx 'workers_dev = false' migration/cloudflare/wrangler.production.toml
+          grep -Fx 'preview_urls = false' migration/cloudflare/wrangler.production.toml
+          grep -Fx 'workers_dev = true' migration/cloudflare/wrangler.visual.toml
           # M16: deliberately NO obsolete rollback source. The exact deployed
           # Cloudflare Worker version ID must be captured/verified, not git show.
           echo 'M16_ROLLBACK_NOT_PREPARED_LEGACY_PUBLISHER_DISABLED'
