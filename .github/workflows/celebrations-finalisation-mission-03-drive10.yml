@@ -1,0 +1,108 @@
+name: CÉLÉBRATIONS M03 — 10 archives chiffrées Google Drive <100MB
+on:
+  push:
+    branches: [release/celebrations-finalisation-03-backups-20261109]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  copie-vers-drive-par-artifacts-sans-cloudflare:
+    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M03_SPLIT_DRIVE10_ONCE]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Reprendre l'archive chiffrée reconnue, sans accès R2/D1
+        uses: actions/download-artifact@v4
+        with:
+          name: celebrations-m03-crypted-complete-20261109
+          path: artifacts/initial
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: 42628200520
+      - name: Découper le chiffrement en 10 paquets inférieurs à 94MB et comparer tous SHA256
+        run: python scripts/finalisation03_split_drive10.py artifacts/initial artifacts/shards
+      - name: GitHub temporaire archive chiffrée 01
+        uses: actions/upload-artifact@v4
+        with:
+          name: celebrations-m03-gdrive-01-20261109
+          path: artifacts/shards/01/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 3
+      - name: GitHub temporaire archive chiffrée 02
+        uses: actions/upload-artifact@v4
+        with:
+          name: celebrations-m03-gdrive-02-20261109
+          path: artifacts/shards/02/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 3
+      - name: GitHub temporaire archive chiffrée 03
+        uses: actions/upload-artifact@v4
+        with:
+          name: celebrations-m03-gdrive-03-20261109
+          path: artifacts/shards/03/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 3
+      - name: GitHub temporaire archive chiffrée 04
+        uses: actions/upload-artifact@v4
+        with:
+          name: celebrations-m03-gdrive-04-20261109
+          path: artifacts/shards/04/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 3
+      - name: GitHub temporaire archive chiffrée 05
+        uses: actions/upload-artifact@v4
+        with:
+          name: celebrations-m03-gdrive-05-20261109
+          path: artifacts/shards/05/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 3
+      - name: GitHub temporaire archive chiffrée 06
+        uses: actions/upload-artifact@v4
+        with:
+          name: celebrations-m03-gdrive-06-20261109
+          path: artifacts/shards/06/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 3
+      - name: GitHub temporaire archive chiffrée 07
+        uses: actions/upload-artifact@v4
+        with:
+          name: celebrations-m03-gdrive-07-20261109
+          path: artifacts/shards/07/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 3
+      - name: GitHub temporaire archive chiffrée 08
+        uses: actions/upload-artifact@v4
+        with:
+          name: celebrations-m03-gdrive-08-20261109
+          path: artifacts/shards/08/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 3
+      - name: GitHub temporaire archive chiffrée 09
+        uses: actions/upload-artifact@v4
+        with:
+          name: celebrations-m03-gdrive-09-20261109
+          path: artifacts/shards/09/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 3
+      - name: GitHub temporaire archive chiffrée 10
+        uses: actions/upload-artifact@v4
+        with:
+          name: celebrations-m03-gdrive-10-20261109
+          path: artifacts/shards/10/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 3
+      - name: Aucune écriture hors stockage GitHub temporaire
+        run: echo M03_TEN_SHARDS_NO_PLAINTEXT_NO_CLOUDFLARE_NO_SUPABASE_WRITES
