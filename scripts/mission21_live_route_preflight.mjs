@@ -25,7 +25,7 @@ try {
   }
   const routes={};
   for(const name of ['official','officialWww','legacyStaging','candidate']) {
-    routes[name]=await check(hosts[name]+'/api/editor-open-draft');
+    routes[name]=await check(hosts[name]+'/api/editor-open-draft?celebration=101');
   }
   const officialProtected = [routes.official,routes.officialWww].every(n=>n===401||n===403||n===404);
   const stagingProtected = routes.legacyStaging===401||routes.legacyStaging===403||routes.legacyStaging===404;
