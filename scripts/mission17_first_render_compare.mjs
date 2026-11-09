@@ -34,11 +34,11 @@ function env(){
  }};
  return {DB:db,stats};
 }
-const URL=HOST+'/__editor/demo-preparation?celebration=101';
+const PAGE_URL=HOST+'/__editor/demo-preparation?celebration=101';
 async function build(fn){
  const e=env();
  const t0=performance.now();
- const result=await fn(new Request(URL),e);
+ const result=await fn(new Request(PAGE_URL),e);
  assert.equal(result.status,200);
  const html=await result.text();
  return {html,generateMs:performance.now()-t0,queries:e.stats.read};
@@ -83,7 +83,7 @@ try{
       return route.fulfill({status:405,body:'M17: mutation blocked'})}
      return route.fulfill({status:404,body:'Local fixture only'});
     });
-    await page.goto(URL,{waitUntil:'domcontentloaded'});
+    await page.goto(PAGE_URL,{waitUntil:'domcontentloaded'});
     await page.locator('.canvas>.block').first().waitFor({state:'visible'});
     const value=await page.evaluate(()=>({
      ms:performance.now(),blocks:document.querySelectorAll('.canvas>.block').length,

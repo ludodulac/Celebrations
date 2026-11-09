@@ -13,30 +13,30 @@ export function mergePublicMediaIndexed(...catalogues){
    continue;
   }
   const existing=merged.get(id);
-  let pages=seenByMedia.get(id);
-  if(!pages){
-   pages=new Map();
-   for(const use of existing.uses){
-    const pageId=use.pageId,celebrationId=use.celebrationId;
-    if(Number.isNaN(pageId)||Number.isNaN(celebrationId))continue;
-    let celebrations=pages.get(pageId);
-    if(!celebrations){celebrations=new Set();pages.set(pageId,celebrations)}
-    celebrations.add(celebrationId);
-   }
-   seenByMedia.set(id,pages);
+  // Normal page and celebration IDs are strings. A single key per pair is
+  // faster and far smaller than creating a Map+Set for every page ID.
+  // The length prefix makes collisions impossible even for unusual IDs.
+  const identity=(pageId,celebrationId)=>pageId.length+':'+pageId+celebrationId;
+  let seen=seenByMedia.get(id);
+  if(!seen){
+   seen=new Set();
+   for(const use of existing.uses)
+    if(typeof use.pageId==='string'&&typeof use.celebrationId==='string')
+     seen.add(identity(use.pageId,use.celebrationId));
+   seenByMedia.set(id,seen);
   }
   for(const use of item.uses||[]){
-   const pageId=use.pageId,celebrationId=use.celebrationId;
-   // The previous algorithm uses strict equality, where NaN !== NaN.
-   if(Number.isNaN(pageId)||Number.isNaN(celebrationId)){
+   if(typeof use.pageId==='string'&&typeof use.celebrationId==='string'){
+    const key=identity(use.pageId,use.celebrationId);
+    if(seen.has(key))continue;
+    seen.add(key);
     existing.uses.push(use);
-    continue;
+   }else{
+    // Legacy data with numeric/missing/object IDs uses the original strict
+    // equality semantics (including NaN !== NaN); never coerce those IDs.
+    if(!existing.uses.some(u=>u.pageId===use.pageId&&
+     u.celebrationId===use.celebrationId))existing.uses.push(use);
    }
-   let celebrations=pages.get(pageId);
-   if(celebrations?.has(celebrationId))continue;
-   existing.uses.push(use);
-   if(!celebrations){celebrations=new Set();pages.set(pageId,celebrations)}
-   celebrations.add(celebrationId);
   }
   if(item.general)existing.general=true;
  }
