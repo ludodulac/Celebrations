@@ -43,7 +43,10 @@ const initialGlobalPage={id:'neutral-accueil-general',group:'page',name:'Accueil
   {id:'test-title',kind:'heading',text:'Accueil de test M4'},
   {id:'test-text',kind:'text',text:'Version ancienne et publique'}
  ]};
-const initialShared={pages:[initialGlobalPage],homeId:'neutral-accueil-general'};
+const PRIVATE_PAGE_ID='neutral-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const privatePage={id:PRIVATE_PAGE_ID,group:'page',name:'Page privée M4',
+ visibility:'draft',blocks:[{id:'hidden-private',kind:'text',text:'Texte privé M4 à ne pas montrer avant publication'}]};
+const initialShared={pages:[initialGlobalPage,privatePage],homeId:'neutral-accueil-general'};
 let snapshot={version:1,drafts:{'101':basicRecord},plans:[],shared:initialShared};
 snapshot.published=initialPublication(snapshot);
 let etag=1;
@@ -182,22 +185,25 @@ try{
  const currentPublic=await handleEditorPublication(new Request(
    ORIGIN+'/api/editor-publication?celebration=101'),env);
  const published=await currentPublic.json();
- assert.equal(published.shared.pages[0].blocks[1].text,'Version ancienne et publique',
-   'Saving a draft should not leak unapproved changes to visitors');
- // Later explicit approval should publish the updated page through the real API.
+ assert.equal(published.shared.pages[0].blocks[1].text,savedSentinel,
+   'Enregistrer on an ALREADY published page must update the live copy as designed');
+ assert.ok(!JSON.stringify(published.shared.pages).includes('Texte privé M4'),
+   'An unapproved DRAFT page may never appear publicly');
+ // Explicitly publishing a previously private page must be authorized.
  const action=await handleEditorPublication(new Request(ORIGIN+'/api/editor-publication',{
    method:'POST',headers:{cookie:AUTH,origin:ORIGIN,'content-type':'application/json'},
    body:JSON.stringify({celebration:'101',expectedRevision:snapshot.version,
-     kind:'page',pageId:'neutral-accueil-general',visibility:'published'})
+     kind:'page',pageId:PRIVATE_PAGE_ID,visibility:'published'})
  }),env);
  assert.equal(action.status,200,'Real authenticated publication handler rejected synthetic page');
  const nowPublished=await handleEditorPublication(new Request(
    ORIGIN+'/api/editor-publication?celebration=101'),env);
  const publicData=await nowPublished.json();
- assert.ok(JSON.stringify(publicData.shared.pages).includes(savedSentinel),
-   'Explicitly published page did not reach REAL public API handler');
+ assert.ok(JSON.stringify(publicData.shared.pages).includes('Texte privé M4'),
+   'Explicitly approved private page did not reach REAL public API handler');
  console.log('M04_PUBLICATION_PRIVATE_DRAFT_GATE_PASS '+JSON.stringify({
-  beforePublicationDidNotLeak:true,afterExplicitPublicationVisible:true,
+  existingPublishedPageUpdatedOnSave:true,unpublishedDraftHiddenUntilApproval:true,
+  afterExplicitPublicationVisible:true,
   conflictsRefused:true,backendWritesOnlyInMemory:putOps,backendReadsOnlyInMemory:readOps,
   serverPosts:serverPost,serverGets:serverGet,blockedUnexpectedMutations:blocked,
   externalRequests:external,liveD1Writes:0,liveR2Writes:0}));
