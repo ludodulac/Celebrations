@@ -1,0 +1,49 @@
+name: CÉLÉBRATIONS M03 — nettoyer les copies GitHub temporaires déjà sauvegardées sur Drive
+on:
+  push:
+    branches: [release/celebrations-finalisation-03-backups-20261109]
+permissions:
+  contents: read
+  actions: write
+jobs:
+  nettoyer-les-only-temporary-backups:
+    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M03_CLEAN_GITHUB_TMP_ONCE]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Purger EXCLUSIVEMENT 13 artifacts temporaires M03 après SHA256 Drive vérifiés
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const ids=[[13680450403,"celebrations-m03-crypted-complete-20261109"],[13680057222,"celebrations-m03-shard-A-20261109"],[13680032333,"celebrations-m03-shard-B-20261109"],[13680606562,"celebrations-m03-gdrive-01-20261109"],[13679713944,"celebrations-m03-gdrive-02-20261109"],[13680626612,"celebrations-m03-gdrive-03-20261109"],[13679933700,"celebrations-m03-gdrive-04-20261109"],[13680476845,"celebrations-m03-gdrive-05-20261109"],[13680611673,"celebrations-m03-gdrive-06-20261109"],[13680476855,"celebrations-m03-gdrive-07-20261109"],[13679849855,"celebrations-m03-gdrive-08-20261109"],[13680392102,"celebrations-m03-gdrive-09-20261109"],[13679803900,"celebrations-m03-gdrive-10-20261109"]];
+          assert.equal(process.env.GITHUB_REPOSITORY,'ludodulac/Celebrations');
+          assert.equal(process.env.GITHUB_REF,'refs/heads/release/celebrations-finalisation-03-backups-20261109');
+          assert.equal(ids.length,13);
+          const base='https://api.github.com/repos/ludodulac/Celebrations/actions/artifacts/';
+          let deleted=0,alreadyAbsent=0;
+          for(const [id,expected] of ids){
+            const headers={authorization:'Bearer '+process.env.GH_TOKEN,
+              accept:'application/vnd.github+json',
+              'x-github-api-version':'2022-11-28'};
+            const current=await fetch(base+id,{headers});
+            if(current.status===404){alreadyAbsent++;continue;}
+            if(current.status!==200)throw Error('Artifact GET unavailable HTTP '+current.status);
+            const meta=await current.json();
+            assert.equal(meta.name,expected,'Refuse to remove unexpected artifact');
+            assert.ok(meta.size_in_bytes>1000,'Unexpected empty backup');
+            assert.ok(meta.workflow_run?.id===42628200520||
+              meta.workflow_run?.id===42629187252||
+              meta.workflow_run?.id===42629777170,'Artifact run identity not approved');
+            const removal=await fetch(base+id,{method:'DELETE',headers});
+            if(removal.status!==204)throw Error('Artifact deletion failed HTTP '+removal.status);
+            deleted++;
+          }
+          console.log('M03_TEMP_ARTIFACT_CLEANUP_PASS '+JSON.stringify({
+            deleted,alreadyAbsent,totalTargeted:ids.length,
+            sourceDriveBackupsTouched:0,
+            cloudflareWrites:0,codeChanges:0,
+            justCreatedTemporaryGithubArtifactsOnly:true
+          }));
+          NODE

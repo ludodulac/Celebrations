@@ -1,0 +1,48 @@
+name: CÉLÉBRATIONS M03 — répétition de restauration complète isolée
+on:
+  push:
+    branches: [release/celebrations-finalisation-03-backups-20261109]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  restauration-depuis-github-chiffre:
+    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M03_ISOLATED_RESTORE_ONCE]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: celebrations-staging
+    env:
+      CELEBRATIONS_BACKUP_PASSPHRASE: ${{ secrets.CELEBRATIONS_BACKUP_PASSPHRASE }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Dépendances crypto installées localement uniquement
+        run: python -m pip -q install cryptography==46.0.2 boto3==1.40.57 requests==2.32.5
+      - name: Tests de restauration sûre et chemins non fiables sur fixtures
+        run: |
+          python -m unittest discover -s tests -p 'test_finalisation03_restore_offline.py' -v
+          python -m unittest discover -s tests -p 'test_finalisation03_portable_recovery.py' -v
+      - name: Récupérer CHIFFRÉES les 303 sources R2 + D1 + Worker depuis GitHub, pas Cloudflare
+        uses: actions/download-artifact@v4
+        with:
+          name: celebrations-m03-crypted-complete-20261109
+          path: artifacts/m03-ciphertext
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: 42628200520
+      - name: Reconstituer R2 dans un nouveau dossier local et une SQLite isolée
+        run: |
+          python scripts/finalisation03_restore_offline.py \
+            --archive-folder artifacts/m03-ciphertext \
+            --new-destination artifacts/m03-isolated-restoration
+          test -s artifacts/m03-isolated-restoration/recovered-production-d1.sqlite
+          test -s artifacts/m03-isolated-restoration/production-worker-script-actual-multipart
+          echo M03_COMPLETE_OFFLINE_RESTORE_READBACK_PASS
+      - name: Détruire le dossier local clair créé pour le test (jamais de backup source)
+        if: always()
+        run: |
+          rm -rf artifacts/m03-isolated-restoration
+          echo M03_LOCAL_PLAINTEXT_FIXTURE_REMOVED_ONLY
+      - name: Aucune écriture distante
+        run: echo M03_RESTORE_NO_CLOUDFLARE_NO_D1_NO_R2_NO_SUPABASE_WRITES

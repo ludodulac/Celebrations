@@ -1,0 +1,46 @@
+name: CÉLÉBRATIONS M03 — fractionner archive chiffrée pour Drive, sans relire Cloudflare
+on:
+  push:
+    branches: [release/celebrations-finalisation-03-backups-20261109]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  fractionnement-deja-chiffre:
+    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M03_SPLIT_EXISTING_ARTIFACT_ONCE]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Lire l'archive CHIFFRÉE déjà validée depuis GitHub, pas Cloudflare
+        uses: actions/download-artifact@v4
+        with:
+          name: celebrations-m03-crypted-complete-20261109
+          path: artifacts/original-encrypted
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: 42628200520
+      - name: Diviser en deux parts < 490MB et revérifier tous les SHA256 chiffrés
+        run: python scripts/finalisation03_split_ciphertext.py artifacts/original-encrypted artifacts/shards
+      - name: Archiver part A chiffrée (aucune donnée en clair)
+        uses: actions/upload-artifact@v4
+        with:
+          name: celebrations-m03-shard-A-20261109
+          path: artifacts/shards/A/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+      - name: Archiver part B chiffrée (aucune donnée en clair)
+        uses: actions/upload-artifact@v4
+        with:
+          name: celebrations-m03-shard-B-20261109
+          path: artifacts/shards/B/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+      - name: Reproducible restoration requires BOTH ciphertext parts
+        run: echo M03_SHARD_ARCHIVES_ENCRYPTED_ONLY_NO_CLOUDFLARE_NO_PLAINTEXT
