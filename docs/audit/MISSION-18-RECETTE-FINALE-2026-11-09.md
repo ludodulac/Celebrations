@@ -35,7 +35,19 @@ Le workflow `.github/workflows/celebrations-mission18-recette.yml` reprend sur l
 3. Les scénarios Chromium M02, sélecteur de médias, glisser-déposer / Undo M11, rendu visiteurs M12 et style / fenêtres M13 sur 1280/390 px, avec jeu de données de test et sans production.
 4. Contrôle du comportement « fail-closed » : une CI verte ne transforme pas les réserves de sauvegarde et d'accès en autorisation de publication.
 
-**État de cette exécution : à compléter d'après les résultats réels GitHub Actions.** Il serait incorrect d'annoncer PASS avant qu'ils soient observés.
+**Exécution réelle M18 vérifiée le 9 novembre 2026 : [GitHub Actions #42597255223](https://github.com/ludodulac/Celebrations/actions/runs/42597255223) — SUCCESS.** Déclenchée sur le commit initial M18 `82a1067a93e1fc41c493b3c6fc71fc1f141bc67e` par `push`. Le job `recette-finale-sans-production` et **toutes ses étapes sont SUCCESS**.
+
+- **Garde Git : PASS** — `M18_CODE_INCHANGE_DEPUIS_M17_PASS`, aucun changement applicatif depuis M17.
+- **Node : 42/42 tests M16/M17 + 205/205 régressions M05–M15 = 247/247 PASS**, 0 échec.
+- **Python : 9/9 PASS** sur une base SQLite et des fichiers **synthétiques**, pas une restauration D1/R2 réels.
+- **Benchmark synthétique média M16 vs M17** : 150 médias, **2,988 → 1,572 ms (1,90×)** ; 500 médias, **10,547 → 5,260 ms (2,01×)** ; 1 000 médias, **20,571 → 14,244 ms (1,44×)**. Résultats équivalents et aucun gain garanti en production.
+- **Comparaison Chromium du premier bloc** : ordinateur 1280 px, **63,3 → 59,8 ms** ; téléphone 390 px, **56,6 → 55,7 ms**. Écarts mineurs en environnement isolé, HTML identique, 7 lectures D1 fictives, 0 requête de production, 0 écriture, 0 erreur JavaScript.
+- **Administration Chromium : 10/10 références PASS** (5 écrans ordinateur et 5 téléphone), sélecteur média et affichage de listes PASS, glisser-déposer + Undo PASS.
+- **Site visiteurs Chromium : PASS** ordinateur/téléphone, deux colonnes, images, PDF, vidéos, brouillons exclus, localStorage privé préservé, échec API public fermé.
+- **CSS : PASS** ordinateur/téléphone pour fenêtres, menus et débordements.
+- **Statut du site réel : aucun déploiement ni modification de données dans ce workflow.** La suite M18 reste **une recette fictive/instrumentée**. Les blocages B1–B6 demeurent.
+
+**Conclusion de recette technique M18 : PASS sur candidat isolé. Conclusion de publication : NO-GO.** Un passage CI vert ne remplace pas les preuves de sauvegardes actuelles ni l'essai utilisateur connecté sur un environnement sûr.
 
 ## 3 — Éléments encore nécessaires avant une décision distincte
 
@@ -58,4 +70,4 @@ Le workflow `.github/workflows/celebrations-mission18-recette.yml` reprend sur l
 - La présence de nombreuses PR DRAFT en chaîne ne signifie pas que la refonte est publiée ou utilisable en production.
 - **Avis de publication : NON**, tant que B1–B6 ne sont pas documentés par des preuves actuelles et contrôlables.
 
-Références de preuve : PR #82/M02, #83/M03, #89/M09, #90/M10, #92/M12, #94/M14, #96/M16, #97/M17 et GitHub Actions M17 #42538684571 (SUCCESS sur le HEAD M17). L'exécution M18 propre à cette branche doit être lue et mentionnée séparément.
+Références de preuve : PR #82/M02, #83/M03, #89/M09, #90/M10, #92/M12, #94/M14, #96/M16, #97/M17 et GitHub Actions M17 #42538684571 (SUCCESS sur le HEAD M17). L'exécution M18 de référence est #42597255223 : SUCCESS ; tout commit documentaire ultérieur déclenche un nouveau run à consulter si le HEAD est modifié.
