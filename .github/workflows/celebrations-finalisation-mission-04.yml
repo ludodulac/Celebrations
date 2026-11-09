@@ -76,7 +76,7 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Parcours 3 domaines déployés (candidate + www + racine) en lecture seule
         run: node scripts/finalisation04_live_readonly_browser.mjs
-      - name: Vérification des 113 médias et des neuf PDF sur chacun des anciens hôtes
+      - name: Vérifier 113 médias et neuf PDF sur les deux domaines officiels uniquement
         run: node scripts/finalisation04_media_pdf_host_audit.mjs
       - name: Contrôle sans écriture des deux sites de test précédemment sécurisés
         run: |
