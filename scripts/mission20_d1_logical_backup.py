@@ -112,6 +112,10 @@ def capture(reader):
         name = obj.get("name")
         if not IDENT.fullmatch(str(name or "")):
             raise ValueError("Unexpected schema object name")
+        # D1's internal _cf_KV table is visible in sqlite_master but cannot
+        # be SELECTed by clients (SQLITE_AUTH). It is NOT user database data.
+        if name.startswith("_cf_") or str(obj.get("tbl_name", "")).startswith("_cf_"):
+            continue
         if not isinstance(obj.get("sql"), str) or len(obj["sql"]) > 200000:
             raise ValueError("Malformed schema SQL")
         schema.append({k: obj[k] for k in ("type", "name", "tbl_name", "sql")})
