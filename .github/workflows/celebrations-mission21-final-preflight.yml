@@ -47,6 +47,7 @@ jobs:
           python -m pip -q install boto3==1.40.57 requests==2.32.5
           python scripts/mission21_media_independent_readonly.py
       - name: Official site, private staging route and active Worker via GET only
+        if: always() && !cancelled()
         run: |
           node --check scripts/mission21_live_route_preflight.mjs
           node scripts/mission21_live_route_preflight.mjs
