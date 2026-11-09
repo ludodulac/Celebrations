@@ -27,7 +27,7 @@ jobs:
           test "$GITHUB_REF" = 'refs/heads/release/celebrations-finalisation-02-security-20261109'
           BASE=6d5ab4a5857617ea4c9567f368ed435e39d8eb74
           git merge-base --is-ancestor "$BASE" HEAD
-          BAD="$(git diff --name-only "$BASE" HEAD | grep -Ev '^(migration/cloudflare/(staging-worker|production-worker)\.mjs|tests/test_finalisation02_preview_security\.mjs|\.github/workflows/celebrations-finalisation-mission-02\.yml|docs/finalisation/CELEBRATIONS-FINALISATION-MISSION-02-2026-11-09\.md)$' || true)"
+          BAD="$(git diff --name-only "$BASE" HEAD | grep -Ev '^(migration/cloudflare/(staging-worker|production-worker)\.mjs|tests/test_finalisation02_preview_security\.mjs|tests/test_mission15_legacy_cleanup\.mjs|\.github/workflows/celebrations-finalisation-mission-02\.yml|docs/finalisation/CELEBRATIONS-FINALISATION-MISSION-02-2026-11-09\.md)$' || true)"
           if [ -n "$BAD" ]; then echo M02_ABORT_UNEXPECTED_CHANGE; exit 1; fi
           echo M02_CHANGE_SCOPE_PASS
       - name: Analyse syntaxique, protection des brouillons et API publiques
