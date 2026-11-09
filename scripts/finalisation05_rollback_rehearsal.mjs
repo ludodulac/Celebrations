@@ -42,8 +42,8 @@ const makeBody=version=>({strategy:'percentage',
  annotations:{'workers/message':'M05 rehearsal on public-only candidate; restore immediately'}});
 let switched=false,restored=false,revertedToPrior=false;
 try{
+ switched=true; // Restore stable candidate even if the first POST times out after reaching Cloudflare.
  const trial=await api(route+'/deployments','POST',makeBody(temporary));
- switched=true;
  assert.equal(trial?.versions?.[0]?.version_id,temporary);
  const during=(await api(route+'/deployments')).deployments[0];
  assert.equal(during.versions[0].version_id,temporary);
