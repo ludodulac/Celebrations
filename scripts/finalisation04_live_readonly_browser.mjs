@@ -35,7 +35,12 @@ try{
     hasTouch:mobile,serviceWorkers:'block',locale:'fr-FR'});
    const page=await ctx.newPage();page.setDefaultTimeout(20000);
    const errors=[],externalWrites=[],server5xx=[];
-   page.on('pageerror',e=>errors.push(String(e.name||'Error')));
+   page.on('pageerror',e=>{
+     const msg=String(e.message||'');
+     const match=msg.match(/^([A-Za-z_$][\\w$]*) is not defined$/);
+     errors.push(match?'ReferenceError:undefined-identifier='+match[1]:
+       String(e.name||'Error')+':'+msg.slice(0,120).replace(/[^\\w .,:!()-]/g,'?'));
+   });
    page.on('response',r=>{
     if(r.status()>=500&&r.url().startsWith(origin))server5xx.push(r.status());
    });
