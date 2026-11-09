@@ -33,6 +33,7 @@ export default {
   // Candidate workers.dev hosts must only expose PUBLIC read endpoints.
   // Never leak an unpublished /media/new/ UUID or an admin API by direct GET.
   if(isolated&&(isPrivateEditorPath(path)||path.startsWith('/media/new/')||
+      path.startsWith('/__editor/')&&path!=='/__editor/voir-le-site'||
       path.startsWith('/api/')&&!['/api/editor-publication','/api/public-data'].includes(path)))
    return new Response("Introuvable",{status:404,headers:{
     "x-robots-tag":"noindex,nofollow,noarchive",
