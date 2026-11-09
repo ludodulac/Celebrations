@@ -27,7 +27,47 @@
 
 Le workflow `.github/workflows/celebrations-mission19-live-backup.yml` s'exécute sur la branche M19, avec accès à l'environnement GitHub existant `celebrations-staging`. Il utilise le script déjà éprouvé de M03 pour produire une sauvegarde R2 privée chiffrée **une seule fois** sur un commit marqué. Les autres commits n'en créent aucune. La restauration est strictement isolée en RAM ; aucun test n'écrase le JSON réel. La lecture en direct de D1 et de R2 peut être refusée en cas de permissions insuffisantes : le refus est un résultat à documenter, pas un motif pour contourner les restrictions.
 
-**État de la nouvelle exécution M19 : à renseigner uniquement après examen des journaux et de l'exécution GitHub Actions.** La réussite des anciens essais M03 et M18 n'est pas une preuve du nouvel instantané.
+## Résultats de l'exécution M19 réelle — 9 novembre 2026
+
+**[GitHub Actions M19 #42606769918](https://github.com/ludodulac/Celebrations/actions/runs/42606769918) : SUCCESS**, sur le commit `13168da2a7dd97ff6eef1b0d8fc9b45cc00c216f`. Le job et toutes les étapes ont réussi. Des secrets GitHub de l'environnement `celebrations-staging` ont été utilisés sans être imprimés. **Aucun changement applicatif, aucune fusion, aucun déploiement.**
+
+### A. Sauvegarde privée réelle du document éditorial — SUCCÈS, mais partielle
+
+- R2 actif `celebrations-exit-staging`, clé source `editor-trials/server-drafts-v1.json` ; **révision actuelle constatée 117**, **199 215 octets** ; le contrôle précédent M03 portait sur la révision 114.
+- État conservé dans la sauvegarde : **1 célébration, 8 pages, 8 pages publiées, 1 page générale publiée**, catalogue de **120 entrées média**.
+- **Nouvelle archive chiffrée AES-256-GCM de 199 296 octets**, écrite sous `private-backups/mission03-editor/` avec une clé privée aléatoire **sans remplacer l'état courant**.
+- Archive réellement **relue depuis R2**, déchiffrée et reconstruite en RAM. **Égalité parfaite des octets et empreintes de la source**. L'ETag de la source est demeuré inchangé.
+- **8/8 tests Python de chiffrement/validation PASS**. Aucune donnée en clair envoyée dans GitHub.
+- **Limite majeure :** le JSON ne contient pas les octets de tous les médias ; la nouvelle archive reste dans **le même compte Cloudflare**. Ce n'est pas une copie hors Cloudflare et pas une restauration intégrale du site.
+
+### B. Médias R2 et documents historiques — disponibilité vérifiée
+
+- Listing paginé réel de `editor-trials/uploads/` : **1 objet**, **86 096 octets**, métadonnées uniquement. Les octets de cet objet n'ont pas été archivés ni restaurés.
+- Listing direct du bucket R2 des médias historiques : **indisponible avec les droits de l'identifiant utilisé** (`ClientError`). Cela ne signifie ni absence des objets ni corruption du bucket.
+- Sur le domaine officiel : **113/113 médias publics accessibles** au contrôle HTTP HEAD.
+- **9/9 PDF historiques accessibles** sur le domaine officiel et sur chacun des deux anciens hôtes testés. Fausse invitation refusée en **HTTP 404**.
+- Ces tests confirment des routes publiques **accessibles**, pas l'existence d'une copie indépendante de chaque binaire.
+
+### C. Worker et D1 réelle — métadonnées vérifiées, sauvegarde non faite
+
+- Version active Worker observée via **GET Cloudflare le 9 novembre 2026 à 11:10:06 UTC** : déploiement `cd46e1ba-e106-4f03-90aa-7110628a5b9f`, version `dcda4193-1d82-4283-9f0e-ae8a09e6a444` ; version servie à 100 % au dernier relevé M16. Aucun bundle complet téléchargé, aucune restauration.
+- D1 production retrouvée et vérifiée par GET : **19 tables**, fichier déclaré de **5 521 408 octets**. La base n'a subi aucune écriture dans ces contrôles.
+- **Aucun export D1 déclenché** : l'API Cloudflare d'export peut temporairement empêcher D1 de servir des requêtes. Il serait imprudent de l'exécuter sans une fenêtre contrôlée ou une stratégie de continuité. Ce contrôle **n'est pas une sauvegarde D1**.
+
+### D. Bilan opérationnel
+
+| Question | Verdict démontré |
+| --- | --- |
+| L'état éditorial présent le 9 novembre est-il archivé et déchiffrable ? | **OUI**, révision 117, dans le même Cloudflare, retour en mémoire exact |
+| Les pages, les médias et les PDF du site actuel ont-ils été modifiés ? | **NON** dans le workflow M19 |
+| Les médias historiques et PDF publics répondent-ils ? | **OUI**, 113 médias et neuf PDF sur les trois hôtes requis |
+| Le Worker est-il récupérable octet par octet ? | **NON CERTIFIÉ** |
+| D1 entière est-elle exportée et restaurée ? | **NON** |
+| Tous les fichiers R2 sont-ils copiés et restaurés ? | **NON** |
+| Une sauvegarde indépendante, durable et confidentielle hors Cloudflare existe-t-elle ? | **NON ATTESTÉ** |
+| Peut-on publier maintenant ? | **NON — NO-GO** |
+
+**Conclusion : M19 a réussi son archivage réel du snapshot éditorial et ses contrôles de disponibilité, mais la récupération complète reste NON CERTIFIÉE.** Ne pas fusionner ni déployer la refonte à partir de ce seul succès.
 
 ## Ce qui reste bloquant avant publication, même avec une sauvegarde M19 réussie
 
