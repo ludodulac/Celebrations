@@ -52,3 +52,7 @@ Le run [#42623792074](https://github.com/ludodulac/Celebrations/actions/runs/426
 ## Troisième hôte technique — observation avant clôture
 
 Le run #42623950134 a correctement vérifié les **trois** hôtes. Le troisième `celebrations-exit-production.rondes.workers.dev` refuse les lectures de brouillons (`404`), mais renvoie `405` pour l'API admin et `307` sur `/admin.html` ; les deux premiers sont entièrement protégés en 404. Ce résultat **ne suffit pas à prouver l'innocuité de la redirection**. Nouveau contrôle : inspecter uniquement le nom d'hôte et le chemin de destination HTTP, jamais le contenu ou les cookies. Commande `[M02_VERIFY_PREVIEWS_ONCE]`.
+
+## Explication du statut 307 sur le troisième hôte
+
+Le troisième hôte technique répond **307** sur `/admin.html` en pointant vers **son propre `/admin`**, ce que les précédents tests stricts « toutes les routes privées = 404 » ont classé à tort en échec. Le chemin `/api/editor-open-draft` est **404**, `/api/admin` est **405**, les autres chemins contrôlés **404**. La nouvelle vérification accepte cette redirection **uniquement si** `/admin` aboutit réellement à **404** sans cookie. Le code n'est pas redéployé pour ce seul écart de convention HTTP. **[M02_VERIFY_PREVIEWS_ONCE]**
