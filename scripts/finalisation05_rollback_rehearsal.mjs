@@ -31,6 +31,8 @@ const active=deployment[0],older=deployment.find((x,i)=>i>0&&
  x.versions[0].version_id!==active.versions?.[0]?.version_id&&
  Date.parse(x.created_on)>Date.parse('2026-11-09T12:00:00Z'));
 assert.ok(active.versions?.length===1&&active.versions[0].percentage===100);
+assert.equal(active.versions[0].version_id,'a3f48946-59b8-4bbb-8498-2a4e354de574',
+ 'Candidate not on exact known-good M4 version: abort without mutation');
 assert.ok(older,'Secure M2 candidate previous version unavailable');
 const stable=active.versions[0].version_id,
  temporary=older.versions[0].version_id;
@@ -43,8 +45,9 @@ const makeBody=version=>({strategy:'percentage',
 let switched=false,restored=false,revertedToPrior=false;
 try{
  switched=true; // Restore stable candidate even if the first POST times out after reaching Cloudflare.
- const trial=await api(route+'/deployments','POST',makeBody(temporary));
- assert.equal(trial?.versions?.[0]?.version_id,temporary);
+ await api(route+'/deployments','POST',makeBody(temporary));
+ // Cloudflare POST result may wrap the new deployment differently; the authoritative
+ // read-only GET is checked instead of relying on its POST return shape.
  const during=(await api(route+'/deployments')).deployments[0];
  assert.equal(during.versions[0].version_id,temporary);
  revertedToPrior=true;
@@ -55,8 +58,7 @@ try{
  if(switched){
   for(let n=0;n<3&&!restored;n++){
    try{
-    const done=await api(route+'/deployments','POST',makeBody(stable));
-    assert.equal(done.versions?.[0]?.version_id,stable);
+    await api(route+'/deployments','POST',makeBody(stable));
     const actual=(await api(route+'/deployments')).deployments[0];
     assert.equal(actual.versions[0].version_id,stable);
     restored=true;
