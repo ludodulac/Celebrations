@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import staging from '../migration/cloudflare/staging-worker.mjs';
 import candidate from '../migration/cloudflare/production-worker.mjs';
 
@@ -82,4 +83,16 @@ test('M2: only real official domains retain the original admin route and login s
  assert.ok(candidateCode.includes("hasEditorAccess"));
  assert.ok(!stagingCode.includes("celebrations-exit-production.rondes.workers.dev"));
  assert.ok(!candidateCode.includes("npx wrangler"));
+});
+
+test('M2: future production publish keeps workers.dev OFF while visual candidate stays reachable',()=>{
+ const workflow=readFileSync('.github/workflows/celebrations-publish-visual-site-once.yml','utf8');
+ const candidate=workflow.indexOf('migration/cloudflare/wrangler.production.toml > migration/cloudflare/wrangler.visual.toml');
+ const secure=workflow.indexOf("sed -i 's/^workers_dev = true$/workers_dev = false/' migration/cloudflare/wrangler.production.toml");
+ const deploy=workflow.indexOf('npx wrangler deploy --config wrangler.production.toml --keep-vars');
+ assert.ok(candidate>0,'candidate should be generated before separate official config');
+ assert.ok(secure>candidate,'official config must be locked down only after candidate derived');
+ assert.ok(deploy>secure,'official deploy must use disabled workers.dev config');
+ assert.ok(workflow.includes("grep -Fx 'preview_urls = false' migration/cloudflare/wrangler.production.toml"));
+ assert.ok(workflow.includes("grep -Fx 'workers_dev = true' migration/cloudflare/wrangler.visual.toml"));
 });
