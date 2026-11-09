@@ -1,0 +1,113 @@
+name: CÉLÉBRATIONS — FINALISATION 1/5 — code intégré et non-régression
+on:
+  push:
+    branches: [release/celebrations-finalisation-01-integration-20261109]
+permissions:
+  contents: read
+jobs:
+  integration-offline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Code intégré complet, sans secrets ni déploiement
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Les 21 missions sont ancêtres du candidat de livraison
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor 3515fe9c3a21392858bbe30d8df63e1da1b4d808 HEAD
+          for i in $(seq -w 1 21); do
+            case "$i" in
+            01) git merge-base --is-ancestor 75e4894c60adf65c8044619d5d7104c4dd061028 HEAD || { echo "M1_MISSION_01_ABSENT"; exit 1; } ;;
+            02) git merge-base --is-ancestor 84755de550e05f717503206db8e38a408518544b HEAD || { echo "M1_MISSION_02_ABSENT"; exit 1; } ;;
+            03) git merge-base --is-ancestor 6f37459fe8752c66f1225267a8137362f5b4750b HEAD || { echo "M1_MISSION_03_ABSENT"; exit 1; } ;;
+            04) git merge-base --is-ancestor 7898de5716840b5fda17ea7679286ad5e9db6ad7 HEAD || { echo "M1_MISSION_04_ABSENT"; exit 1; } ;;
+            05) git merge-base --is-ancestor d59ac94317c0f42d6a01a64a3ad4d258f3197794 HEAD || { echo "M1_MISSION_05_ABSENT"; exit 1; } ;;
+            06) git merge-base --is-ancestor b302adebb3f5d580cdc114a80896aad05f2aea4b HEAD || { echo "M1_MISSION_06_ABSENT"; exit 1; } ;;
+            07) git merge-base --is-ancestor fd282b35fc18c7cbed66422d37a1c3eb0b24e08d HEAD || { echo "M1_MISSION_07_ABSENT"; exit 1; } ;;
+            08) git merge-base --is-ancestor b848a225a71a60a92c774eec7cf1941eef02a329 HEAD || { echo "M1_MISSION_08_ABSENT"; exit 1; } ;;
+            09) git merge-base --is-ancestor db1592dee3b5f8a5ef7232fdcc6be93fceef1d12 HEAD || { echo "M1_MISSION_09_ABSENT"; exit 1; } ;;
+            10) git merge-base --is-ancestor f94bdaecbf5205fe0e5e63100105d7dfc08fb501 HEAD || { echo "M1_MISSION_10_ABSENT"; exit 1; } ;;
+            11) git merge-base --is-ancestor 8e6bedaa274791e67bb588480e68e330e736a024 HEAD || { echo "M1_MISSION_11_ABSENT"; exit 1; } ;;
+            12) git merge-base --is-ancestor ba5767aa94a9c8355392153db74966b2cf077c92 HEAD || { echo "M1_MISSION_12_ABSENT"; exit 1; } ;;
+            13) git merge-base --is-ancestor 70240656a880bd5ff7ba7653fb4981741a16a5e4 HEAD || { echo "M1_MISSION_13_ABSENT"; exit 1; } ;;
+            14) git merge-base --is-ancestor 5e0155b3d816f8ac6f2912a1d202955b315bf005 HEAD || { echo "M1_MISSION_14_ABSENT"; exit 1; } ;;
+            15) git merge-base --is-ancestor be4bfd39e8a61bbf1b43fbc26aa4d24447635bc6 HEAD || { echo "M1_MISSION_15_ABSENT"; exit 1; } ;;
+            16) git merge-base --is-ancestor bff3f17f010e8cf217ea76dcc856804bdf8ceab6 HEAD || { echo "M1_MISSION_16_ABSENT"; exit 1; } ;;
+            17) git merge-base --is-ancestor 0732142dad73c0a1db4b9224dc317f78f43d7cd9 HEAD || { echo "M1_MISSION_17_ABSENT"; exit 1; } ;;
+            18) git merge-base --is-ancestor d2bbbbdd4db9b4db9f9ea36b7c8b0d4c6ea746af HEAD || { echo "M1_MISSION_18_ABSENT"; exit 1; } ;;
+            19) git merge-base --is-ancestor ffd64029ddf4ae8dabbeb350b0e6d3a087fe2e8b HEAD || { echo "M1_MISSION_19_ABSENT"; exit 1; } ;;
+            20) git merge-base --is-ancestor d1547745db9bfda6f0c0d1abec3e1171f297f483 HEAD || { echo "M1_MISSION_20_ABSENT"; exit 1; } ;;
+            21) git merge-base --is-ancestor 3515fe9c3a21392858bbe30d8df63e1da1b4d808 HEAD || { echo "M1_MISSION_21_ABSENT"; exit 1; } ;;
+              *) echo "Unexpected mission number"; exit 1 ;;
+            esac
+          done
+          echo M1_ALL_21_MISSION_HEADS_INTEGRATED_PASS
+      - name: Code applicatif inchangé depuis M17 ; rapport et tests seuls après
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor 0732142dad73c0a1db4b9224dc317f78f43d7cd9 HEAD
+          BAD="$(git diff --name-only 0732142dad73c0a1db4b9224dc317f78f43d7cd9 HEAD | grep -Ev '^((docs/audit/MISSION-(18|19|20|21)-[^/]+\.md)|(docs/finalisation/CELEBRATIONS-FINALISATION-MISSION-01-2026-11-09\.md)|(.github/workflows/celebrations-mission(18|19|20|21)-[^/]+\.yml)|(.github/workflows/celebrations-finalisation-mission-01\.yml)|(scripts/mission(19|20|21)_[^/]+\.(py|mjs))|(tests/test_mission20_d1_logical_backup\.py))$' || true)"
+          if [ -n "$BAD" ]; then
+            echo "M1_UNEXPECTED_RUNTIME_CHANGE_AFTER_M17"
+            echo "$BAD"
+            exit 1
+          fi
+          echo M1_RUNTIME_IDENTICAL_TO_M17_PASS
+      - name: Référence M16 pour une comparaison visuelle exacte
+        uses: actions/checkout@v4
+        with:
+          ref: bff3f17f010e8cf217ea76dcc856804bdf8ceab6
+          path: _m17_baseline
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Syntaxe des points d'entrée et modules essentiels
+        run: |
+          node --check migration/cloudflare/production-worker.mjs
+          node --check migration/cloudflare/staging-worker.mjs
+          node --check migration/cloudflare/editor-server-draft-api.mjs
+          node --check migration/cloudflare/editor-publication-api.mjs
+          node --check migration/cloudflare/editor-demo-client.mjs
+          node --check migration/cloudflare/app/security/editor-route-policy.mjs
+          node --check migration/cloudflare/app/release/editor-release-policy.mjs
+          echo M1_ENTRYPOINTS_PARSE_PASS
+      - name: Non-régression logique de l'éditeur, publication et sécurité M05–M17
+        run: |
+          node --test tests/test_mission17_public_media_merge.mjs tests/test_mission16_release_rollback.mjs
+          node scripts/mission16_editor_regressions.mjs
+          node --test tests/test-editor-server-drafts.mjs
+      - name: Récupération synthétique et tests crypto sans données de production
+        run: |
+          python -m pip -q install boto3==1.40.57 cryptography==46.0.2 requests==2.32.5
+          python -m unittest discover -s tests -p 'test_mission16_recovery.py' -v
+          python -m unittest discover -s tests -p 'test_mission03_editor_private_backup.py' -v
+          python -m unittest discover -s tests -p 'test_mission20_d1_logical_backup.py' -v
+      - name: Interface M16 vs M17 et parcours ordinateur/téléphone simulé
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+          node scripts/mission17_first_render_compare.mjs
+          node scripts/mission02-editor-reference-browser.mjs
+          node scripts/test-editor-media-picker-browser.mjs
+          node scripts/mission11-drag-undo-browser.mjs
+          node scripts/mission12-public-visitor-browser.mjs
+          node scripts/mission13-style-browser.mjs
+      - name: Captures synthétiques sans données confidentielles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: celebrations-finalisation-m01-${{ github.run_number }}
+          path: |
+            artifacts/mission02/editor-fixture/
+            artifacts/mission13/style-fixture/
+          retention-days: 14
+          if-no-files-found: warn
