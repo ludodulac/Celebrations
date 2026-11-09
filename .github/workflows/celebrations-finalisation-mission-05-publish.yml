@@ -67,7 +67,7 @@ jobs:
         run: node scripts/finalisation04_live_readonly_browser.mjs
       - name: Verify 113/113 public media and PDF 9/9 on BOTH official domains only
         run: node scripts/finalisation04_media_pdf_host_audit.mjs
-      - name: Final official admin form: signed CSRF and invalid code rejection without login
+      - name: 'Final official admin form — signed CSRF and invalid code rejection without login'
         run: |
           node --input-type=module <<'NODE'
           import assert from 'node:assert/strict';
