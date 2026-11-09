@@ -3,11 +3,14 @@
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 
-const hosts=[
+const allHosts=[
  {label:'candidate',origin:'https://celebrations-visual-candidate.rondes.workers.dev',privateStatus:404},
  {label:'official',origin:'https://ronde-des-archanges-universelle.eu',privateStatus:401},
  {label:'official-www',origin:'https://www.ronde-des-archanges-universelle.eu',privateStatus:401}
 ];
+const mode=process.env.M04_HOST_SCOPE||'all';
+assert.ok(['all','candidate','official'].includes(mode),'Unknown M4 site scope');
+const hosts=mode==='all'?allHosts:allHosts.filter(h=>mode==='candidate'?h.label==='candidate':h.label!=='candidate');
 const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
 let total=0;
 try{
