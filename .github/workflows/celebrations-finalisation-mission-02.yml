@@ -351,7 +351,7 @@ jobs:
           const oldHost='https://celebrations-exit-production.rondes.workers.dev';
           let gone=false,status=null;
           for(let n=0;n<8;n++){
-            try{status=await httpStatus(oldHost+'/api/editor-open-draft?celebration=101');
+            try{status=await httpStatus(oldHost+'/');
               gone=status>=400;
             }catch{gone=true;status='unreachable'}
             if(gone)break;
