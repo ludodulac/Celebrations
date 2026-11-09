@@ -199,7 +199,8 @@ jobs:
           node --input-type=module <<'NODE'
           import assert from 'node:assert/strict';
           const previews=['https://celebrations-exit-staging.rondes.workers.dev',
-                          'https://celebrations-visual-candidate.rondes.workers.dev'];
+                          'https://celebrations-visual-candidate.rondes.workers.dev',
+                          'https://celebrations-exit-production.rondes.workers.dev'];
           const routes=['/api/editor-open-draft?celebration=101',
                         '/api/editor-server-draft?celebration=101',
                         '/api/admin','/api/editor-media','/admin.html',
