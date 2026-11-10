@@ -166,14 +166,13 @@ export async function commitAuditedDirectoryAdmin(db,directory,actor,b,
     }
     case 'set_person_types': {
       if(!Array.isArray(b.typeIds)||b.typeIds.length>100||
-          b.typeIds.some(t=>!isMemberTypeId(t))||
-          new Set(b.typeIds).size!==b.typeIds.length)
+          b.typeIds.some(t=>!isMemberTypeId(t)))
         throw new TypeError('Invalid or repeated member types');
       if(!await directory.getPerson(target))throw new RangeError('Unknown person');
       const old=await directory.getPersonMemberTypes(target);
       const catalogue=await directory.getMemberTypes();
       const historic=new Set(old.map(l=>l.typeId));
-      const desired=planDirectoryMemberTypes(target,b.typeIds,catalogue);
+      const desired=planDirectoryMemberTypes(target,[...new Set(b.typeIds)],catalogue);
       for(const l of desired) {
         const type=catalogue.find(t=>t.id===l.typeId);
         if(!type||(type.disabled&&!historic.has(l.typeId)))
