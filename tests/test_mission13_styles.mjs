@@ -52,13 +52,13 @@ const env={DB:{prepare(sql){
  }}}};
 }}};
 
-test('M13: all eight admin layers rejoin exactly into the approved M02/M03 CSS bytes',async()=>{
+test('M13: all eight admin layers rejoin exactly into the current approved editor CSS bytes',async()=>{
  const chunks=await layers('admin',adminNames);
- assert.deepEqual(chunks.map(x=>x.length),[7690,5092,15255,22591,11635,11868,7717,12868]);
+ assert.deepEqual(chunks.map(x=>x.length),[7690,5433,15255,24476,11635,11868,8280,12868]);
  assert.equal(chunks.join(''),ADMIN_STYLE);
  assert.equal(DEMO_CSS,ADMIN_STYLE);
- assert.equal(DEMO_CSS.length,94716);
- assert.equal(fnv64(DEMO_CSS),'63cf9e5c36f1df15');
+ assert.equal(DEMO_CSS.length,97505);
+ assert.equal(fnv64(DEMO_CSS),'97d11a5b6fd3fa9d');
 });
 test('M13: all six public layers rejoin exactly into M12 CSS bytes',async()=>{
  const chunks=await layers('public',publicNames);
@@ -79,9 +79,9 @@ test('M13: stage-only layout preserves its original order, content and nonce sty
   source.indexOf("'<style nonce=\"'+nonce+'\">'+DEMO_CSS"));
 });
 test('M13: planned breakpoint inventory and cascade overrides remain safe after M02/M03',()=>{
- assert.equal(count(DEMO_CSS,'@media'),46);
+ assert.equal(count(DEMO_CSS,'@media'),53);
  assert.equal(count(TRIAL_SITE_STYLE,'@media'),16);
- assert.equal(count(DEMO_CSS,'!important'),314);
+ assert.equal(count(DEMO_CSS,'!important'),317);
  assert.equal(count(TRIAL_SITE_STYLE,'!important'),28);
  for(const marker of ['.editor-drag-ghost','.image-picker-dialog[open]',
   'dialog.file-picker-dialog[open]','.editor-undo-button','.block-validate-actions',
