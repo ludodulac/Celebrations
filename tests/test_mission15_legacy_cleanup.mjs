@@ -19,7 +19,7 @@ const OLD=[
  'showInsertDialog','attachPublicAudio','attachCloudAudio','audioWorkbench'
 ];
 const originalBlobShas={
- 'migration/cloudflare/production-worker.mjs':'3ff02de49a8b1a0d81a78dac79ed562565774537',
+ 'migration/cloudflare/production-worker.mjs':'272e73d24a649fe6982bc7a255d80fde2db59705',
  'migration/cloudflare/staging-worker.mjs':'1201803b2f7f824de9ee2171d15af434f6068c74',
  'migration/cloudflare/legacy-link-router.mjs':'926b3a776f18271036f22b9058a73ae7f439f604',
  'migration/cloudflare/media-gateway.mjs':'a833e679190a0b6a1aade7dabc8b49c33a339408',
@@ -28,8 +28,8 @@ const originalBlobShas={
  'migration/cloudflare/editor-trial-site-client.mjs':'4e9176e8bfd618aef4f32a2df177fbac38292e70',
  'migration/cloudflare/editor-server-draft-api.mjs':'2b4e381ee83416f5f1ed4645f078ec493f4e4a5d',
  'migration/cloudflare/editor-server-sync-client.mjs':'61ab92c0f11c8c6709aa747048f6fea769caf324',
- 'migration/cloudflare/editor-demo-preparation-page.mjs':'0f312ef00223f42bf7145cda839e2ad4df618bbd',
- 'migration/cloudflare/editor-trial-site-page.mjs':'9a516fb30b3f9046d1c3b52a3fdaa36f64b25a3f'
+ 'migration/cloudflare/editor-demo-preparation-page.mjs':'96685a7f3e52aeeb60a1c7df92853cfae4e0d5a7',
+ 'migration/cloudflare/editor-trial-site-page.mjs':'c386b9678c828141b1a5d8912c1345e2e4b8fab4'
 };
 const blobSha=p=>{
  const buffer=readFileSync(p);
@@ -70,7 +70,7 @@ test('M15: no dangling prototype calls or single-use function declarations',()=>
   (content.match(new RegExp('\\b'+name+'\\b','g'))||[]).length===1);
  assert.deepEqual(orphans,[],'no script function is declaration-only');
 });
-test('M15 + M17 + M2 + M4: historic sources and the two deliberately secured Workers are pinned',()=>{
+test('M15 + M17 + M2 + M4 + Nettoyage02: reviewed sources and the two deliberately secured Workers are pinned',()=>{
  assert.equal(Object.keys(originalBlobShas).length,11);
  for(const [path,sha] of Object.entries(originalBlobShas))
   assert.equal(blobSha(path),sha,'legacy/route source changed unexpectedly: '+path);
@@ -82,7 +82,7 @@ test('M15 + M17 + M2 + M4: historic sources and the two deliberately secured Wor
  // reviewed, pinned identity, and its output is compared to the M16 oracle
  // by tests/test_mission17_public_media_merge.mjs (300+ fixtures).
  const apiPath='migration/cloudflare/editor-publication-api.mjs';
- assert.equal(blobSha(apiPath),'670adddff637f44bbd55a144622294525b3bc488');
+ assert.equal(blobSha(apiPath),'71cab88cb54f0ce59bdab7410a640ace8c094dde');
  const api=readFileSync(apiPath,'utf8');
  assert.ok(api.includes("import {mergePublicMediaIndexed}"));
  assert.ok(api.includes("return mergePublicMediaIndexed(...catalogues)"));
