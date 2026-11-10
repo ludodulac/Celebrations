@@ -102,8 +102,9 @@ async function loadTrustedGrants(db, principal, space) {
 function releasedPage(page, id) {
   return page && stable(id) && page.id === id &&
     page.visibility === 'published' &&
-    page.publicationStatus !== 'draft' && page.publicationStatus !== 'hidden' &&
-    page.published !== false && page.isPublished !== false &&
+    (page.publicationStatus == null || page.publicationStatus === 'published') &&
+    (!own(page, 'published') || page.published === true) &&
+    (!own(page, 'isPublished') || page.isPublished === true) &&
     own(page, 'accessPolicy') && !!page.accessPolicy &&
     typeof page.accessPolicy === 'object';
 }
