@@ -143,3 +143,5 @@ jobs:
 
 # M09 release approved: contextual actions, accessibility and reversible whole-section hiding.
 # No stylesheet overlay: only targeted edits to the existing eight CSS layers.
+
+# M09: apply only after full regression checks, exact-version validation and rollback protection.
