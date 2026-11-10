@@ -2,14 +2,14 @@
 
 Site public et administration pour préparer et diffuser les célébrations, les pages et les médias.
 
-> **État au 10 novembre 2026 — important.** Le site officiel est servi par le Worker **Cloudflare** et non par le `main` historique GitHub Pages. La version officiellement publiée le 9 novembre correspond à `production/celebrations-live` (code source de la livraison M5). Les améliorations suivantes se trouvent dans `develop/celebrations-maintenance` et ne sont **PAS encore publiées**. La branche par défaut GitHub reste actuellement `main`, qui est ancienne : ne pas commencer des changements pour le site officiel sur `main`.
+> **État du 10 novembre 2026 : nettoyage M1–M6 PUBLICÉ et vérifié.** Le site officiel est servi par **Cloudflare Worker**, version immuable `081f5367-1f37-421e-bc55-27999cf2562c`, déploiement `51a8bff3-d3cf-4cc1-99e8-af00c9b31443` (GitHub Actions #42813315981 SUCCESS, ordinateur/téléphone, deux domaines, 113 médias, 9 PDF sur chaque domaine). **Source exacte du Worker livré :** `production/celebrations-live` au commit `4dda3de63066ea51e4c99f0ef21255dfb4d0fcb9`. Pour les futures modifications, utiliser `develop/celebrations-maintenance` (et **pas** `main`, ancien GitHub Pages). La préparation du transfert vers le Cloudflare du collègue est documentée mais **le transfert n'a PAS été effectué**. Voir [registre des branches](docs/operations/BRANCHES-ET-LIVRAISONS.md) et [rapport final mission 6](docs/finalisation/CELEBRATIONS-NETTOYAGE-06-2026-11-10.md).
 
 ## Quelle branche utiliser ?
 
 | Besoin | Branche | Statut |
 | --- | --- | --- |
-| Retrouver exactement le code de la version officiellement livrée | `production/celebrations-live` | **Publié sur Cloudflare**, source figée au commit M5 |
-| Faire les prochaines modifications et préparer le transfert Cloudflare | `develop/celebrations-maintenance` | **Base de travail, NON déployée** (nettoyages M1–M4) |
+| Retrouver exactement le code de la version officiellement livrée | `production/celebrations-live` | **Publié sur Cloudflare**, source figée au commit de livraison M6 |
+| Faire les prochaines modifications et préparer le transfert Cloudflare | `develop/celebrations-maintenance` | **Source de développement suivante** (nettoyages M1–M6 publiés, nouveaux changements NON déployés sans validation) |
 | Conserver l'ancien site GitHub Pages/Supabase | `archive/celebrations-old-main-20261110` | Sauvegarde immuable de l'ancien `main` |
 | Ancienne branche GitHub par défaut | `main` | Historique, **ne pas utiliser comme base du Worker Cloudflare** |
 
