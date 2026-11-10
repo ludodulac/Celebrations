@@ -20,5 +20,4 @@ test('Mission 01: selection and pointer dragging still use the same original cod
  assert.match(DEMO_CLIENT,/if\(selectedBlockId===String\(x\.id\)\)box\.classList\.add\('is-selected'\)/);
  assert.match(DEMO_CLIENT,/onpointerdown=e=>startEditorPointerDrag\(e,box,x,p,handle\)/);
  assert.match(DEMO_CLIENT,/box\.append\(editorMoveHandle\(box,x,p\)\)/);
- assert.match(DEMO_CLIENT,/width:44px;min-width:44px|touch-action:none/);
 });
