@@ -113,7 +113,7 @@ test('M009-B preserves historical accounts: email equality never creates a link'
   await seed(ctx.directory);
   assert.equal(await resolveExplicitMemberIdentity(
     ctx.request(participantToken),ctx.env),null);
-  assert.deepEqual(ctx.sqlite.prepare('SELECT email,password_hash,audience FROM celebrations_participants ORDER BY email').all(),[
+  assert.deepEqual(ctx.sqlite.prepare('SELECT email,password_hash,audience FROM celebrations_participants ORDER BY email').all().map(row=>({...row})),[
     {email:'alice@example.org',password_hash:'existing-password-hash',audience:'angel'},
     {email:'bob@example.org',password_hash:'existing-bob-hash',audience:'nonangel'}
   ]);
