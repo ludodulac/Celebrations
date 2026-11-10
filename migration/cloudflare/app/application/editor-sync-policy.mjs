@@ -2,13 +2,15 @@
 // nonce-protected editor client; no request, storage or UI side effect.
 export function createEditorSyncPolicy(){
  const same=(a,b)=>JSON.stringify(a??null)===JSON.stringify(b??null);
- function unchangedRemote(fresh,baseRecord,baseShared,basePlans){
+ function unchangedRemote(fresh,baseRecord,baseShared,basePlans,baseLocalization){
   return same(fresh.record,baseRecord)&&same(fresh.shared,baseShared)&&
-   same(fresh.plans,basePlans);
+   same(fresh.plans,basePlans)&&
+   (arguments.length<5||same(fresh.localization??null,baseLocalization??null));
  }
  function noNewEdits(started,current){return started===current}
- function readbackConfirmed(saved,revision,pageId,record,shared){
+ function readbackConfirmed(saved,revision,pageId,record,shared,localization){
   if(!saved||!Number.isSafeInteger(revision)||!Number.isSafeInteger(saved.revision)||saved.revision<revision)return false;
+  if(arguments.length>=6&&!same(saved.localization??null,localization??null))return false;
   if(!pageId)return true;
   const expected=record.pages.find(p=>p.id===pageId)||
    shared.pages.find(p=>p.id===pageId);
