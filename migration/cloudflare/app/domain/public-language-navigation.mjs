@@ -12,6 +12,8 @@ import {createPublicVisitorModel} from './editor-public-visitor-model.mjs';
 export const LANGUAGE_QUERY_PARAMETER = 'lang';
 const hasOwn=(value,key)=>Object.prototype.hasOwnProperty.call(value,key);
 const mediaOrAdmin=/^\/(?:api|media|letter|__editor|admin)(?:\/|$)/i;
+// Only this legacy __editor path is the PUBLIC visitor renderer, not administration.
+const publicVisitorRoute=path=>path==='/__editor/voir-le-site';
 const fileExtension=/\.(?:pdf|mp3|wav|mp4|webm|mov|jpe?g|png|gif|webp|svg|avif|zip|docx?|xlsx?)(?:$)/i;
 
 export function languageFromUrl(currentUrl) {
@@ -27,7 +29,7 @@ export function withLanguageInInternalLink(href, languageId, currentUrl) {
  try {
   const base=new URL(currentUrl),target=new URL(href,base);
   if(!['http:','https:'].includes(target.protocol)||target.origin!==base.origin||
-     mediaOrAdmin.test(target.pathname)||fileExtension.test(target.pathname))
+     (mediaOrAdmin.test(target.pathname)&&!publicVisitorRoute(target.pathname))||fileExtension.test(target.pathname))
    return href;
   target.searchParams.set(LANGUAGE_QUERY_PARAMETER,languageId);
   return /^[A-Za-z][A-Za-z0-9+.-]*:/.test(href)
