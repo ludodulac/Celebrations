@@ -47,6 +47,7 @@ export default {
    url.searchParams.set("staging","1");
    return Response.redirect(url.toString(),302);
   }
+  // Guard application uploads BEFORE the broad historical /media/ prefix.
   if(path.startsWith("/media/")||path.startsWith("/letter/"))return handleMedia(request,env);
   if(path==="/api/auth")return handleAuth(request,env);
   if(path==="/api/audience")return handleAudience(request,env);
