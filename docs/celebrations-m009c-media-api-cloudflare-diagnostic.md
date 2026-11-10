@@ -56,3 +56,17 @@ Observations vérifiables sur les **checks GitHub**, sans accéder au tableau de
 `tests/test_m009c_public_media_api_security.mjs` emploie des doubles D1/R2/ASSETS pour prouver qu'aucun chargement d'octets n'a lieu en cas de refus, en conservant les consultations publiques historiques.
 
 Workflow sans secrets et sans déploiement : `.github/workflows/celebrations-m009c-public-media-security.yml`, avec syntaxe, tests de mission et suites de non-régression `M008-C`, `M008-D`, ancienne passerelle et éditeur/publication.
+
+
+### 7. Résultat réel des vérifications GitHub
+
+La suite sur la branche M009-C au commit `26b1232edf5a8438f73a6563e3dabcddd4a2b401`
+a été exécutée dans GitHub Actions (run `42919880439`, job `130191734840`)
+et s'est terminée en **SUCCESS : 86 tests réussis sur 86, 0 échec,
+0 test ignoré**. La syntaxe Node, la syntaxe Python, les tests de
+passerelles publiques et les régressions M008-C/M008-D ont réussi.
+Le contrôle `M009C_PRIVATE_ROUTES=NOT_ENABLED` est également passé.
+
+Les checks Cloudflare externes `Workers Builds: celebrations` demeurent
+un sujet **distinct** du résultat de ces tests hors ligne : ce succès
+ne prouve pas l'état du déploiement Cloudflare ni la sécurité d'un domaine R2 public.
