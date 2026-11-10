@@ -223,6 +223,7 @@ export function resolveSpaceLanguage(space, registry, languageId) {
 function copySpace(source, {id, celebrationId, pageIds, usedPages, pageMap}) {
   requireSpace(source);
   const target = draft(source, true);
+  remapPageTargets(target, pageMap); // also rebind internal links in space translations/blocks
   target.id = id;
   target.celebrationId = celebrationId;
   // Inherit PRIVATE/PUBLIC and its type policy unchanged. Never inherit people.
@@ -262,6 +263,7 @@ export function duplicateCelebration(celebration, {
   const usedPages = new Set([...oldPages, ...reservedPageIds.map(asId)]);
   const pageMap = new Map(Object.entries(pageIds));
   const copied = draft(celebration);
+  remapPageTargets(copied, pageMap); // also rebind links in celebration-level content
   copied.id = id;
   copied.pages = (celebration.pages ?? []).map(page =>
     clonePage(page, mappedId(pageIds, page.id, usedPages, 'page'), id, null, pageMap));
