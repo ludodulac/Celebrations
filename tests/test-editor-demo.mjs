@@ -185,7 +185,8 @@ test('image editing has two distinct actions and a safe remove-image-only button
  assert.ok(DEMO_CLIENT.includes("delete x.assetId;x.text='';delete x.widthPct"));
  assert.ok(DEMO_CLIENT.includes("const close=b('×',()=>dialog.close(),'image-picker-close')"));
  assert.match(DEMO_CSS,/\.image-picker-dialog\[open\]/);
- assert.match(DEMO_CSS,/\.stage-editor \.block\.is-selected>\.block-validate-actions\{\s*position:fixed/);
+ assert.doesNotMatch(DEMO_CSS,/\.stage-editor \.block\.is-selected>\.block-validate-actions\{[^}]*position:fixed/s);
+ assert.doesNotMatch(DEMO_CSS,/\.block\.is-selected>\.tools\{[^}]*position:fixed/s);
 });
 
 test('gallery renders bounded thumbnail cards with captions and upload, distinct from site images',()=>{
