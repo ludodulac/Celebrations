@@ -216,5 +216,5 @@ test('M009-A: public French page render preserves default menu and mobile styles
  assert.match(html,/public-language-selector/);
  assert.match(html,/@media\(max-width:600px\)/);
  assert.match(html,/LEGACY_preparation/);
- assert.match(html,/LEGACY_mercredi/);
+ assert.match(html,/LEGACY_jeudi/);
 });
