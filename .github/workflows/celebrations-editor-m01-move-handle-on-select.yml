@@ -129,3 +129,4 @@ jobs:
         run: node scripts/.editor-m01-release-runtime.mjs rollback
       - name: Final report
         run: echo EDITOR_M01_PUBLISHED_SUCCESS_ONLY_MOVE_HANDLE_VISIBILITY_CHANGED
+# Owner-approved M01 only. Later editor missions are deliberately excluded.
