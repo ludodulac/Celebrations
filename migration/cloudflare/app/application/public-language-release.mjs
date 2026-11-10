@@ -3,10 +3,13 @@
 import {createLanguageRegistry,selectLanguage,setPageTranslation,resolvePageTranslation}
  from '../domain/editor-localization.mjs';
 import {activePublicLanguages,languageFromUrl} from '../domain/public-language-navigation.mjs';
+import {eligiblePublicPage,projectPublicPage} from '../domain/editor-public-projection-security.mjs';
 
 const hasOwn=(value,key)=>Object.prototype.hasOwnProperty.call(value,key);
 const clone=value=>structuredClone(value);
-const publicFields=['name','title','label','description','subtitle','text','rich','blocks','documents','media','links','contentIds'];
+// Visitor pages consume names and rendered blocks. Other translation fields
+// are editor-only aggregates and must never be serialized verbatim.
+const publicFields=['name','blocks'];
 
 export function publishedLanguageRegistry(published){
  try{return createLanguageRegistry(published?.languageRegistry)}
@@ -37,7 +40,7 @@ export function localizedPublishedPage(page,registry,languageId,releases={}){
  const rendered={...canonical};
  for(const field of publicFields)
   if(hasOwn(result.content,field))rendered[field]=clone(result.content[field]);
- return rendered;
+ return projectPublicPage(rendered);
 }
 
 export function projectPublishedLanguage(snapshot,published,requestUrl){
@@ -70,7 +73,7 @@ export function publishLanguageCommand(state,published,body){
   throw new TypeError('Commande de traduction invalide');
  const all=[...(published.shared?.pages||[]),
   ...(published.drafts?.[body.celebration]?.pages||[])];
- const page=all.find(p=>p.id===pageId&&p.visibility!=='draft'&&p.visibility!=='hidden');
+ const page=all.find(p=>p.id===pageId&&eligiblePublicPage(p));
  if(!page)throw new RangeError('La page originale doit être publiée auparavant');
  const language=registry.languages.find(lang=>lang.id===languageId&&lang.active);
  const publicRegistry=publishedLanguageRegistry(published);
