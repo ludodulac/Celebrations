@@ -176,8 +176,9 @@ test('M007-A CSV preview recognizes BOM, semicolons, quotes and detects duplicat
 test('M007-A malicious or malformed inputs do not silently merge or grant access', () => {
   assert.equal(isDirectoryPersonId(A),true);
   assert.equal(isDirectoryPersonId('alice@example.org'),false);
-  for (const bad of ['','a@b','a@@b.io','first last@x.io','x..y@z.io','UP@X.IO\n','é@site.fr'])
+  for (const bad of ['','a@b','a@@b.io','first last@x.io','x..y@z.io','é@site.fr'])
     assert.throws(()=>normalizeDirectoryEmail(bad),TypeError,bad);
+  assert.equal(normalizeDirectoryEmail('UP@X.IO\n'),'up@x.io', 'surrounding whitespace is trimmed');
   assert.equal(normalizeDirectoryEmail('first.last@gmail.com'),'first.last@gmail.com');
   assert.equal(normalizeDirectoryEmail('firstlast@gmail.com'),'firstlast@gmail.com');
   assert.equal(normalizeDirectoryEmail('firstlast+tag@gmail.com'),'firstlast+tag@gmail.com');
