@@ -1,36 +1,71 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {CSS_02_BLOCK_CONTROLS} from '../migration/cloudflare/app/styles/admin/02-block-controls.mjs';
 import {CSS_04_SECTION_COMPOSER} from '../migration/cloudflare/app/styles/admin/04-section-composer.mjs';
 import {CSS_07_DRAG_RESOURCES} from '../migration/cloudflare/app/styles/admin/07-drag-resources.mjs';
 import {DEMO_CLIENT} from '../migration/cloudflare/editor-demo-client.mjs';
+import {TRIAL_SITE_CLIENT} from '../migration/cloudflare/editor-trial-site-client.mjs';
 
-test('M02: only selected blocks expose their adjacent blue insertion controls',()=>{
+test('M09: blue plus stays invisible until hover; empty pages always offer one',()=>{
  const css=CSS_04_SECTION_COMPOSER;
  assert.match(css,/\.stage-editor \.section-add-blue\{[^}]*opacity:0;pointer-events:none/s);
- assert.match(css,/\.canvas>\.section-insert:only-child>\.section-add-blue/,'Empty page keeps one visible blue plus');
- assert.match(css,/\.block\.is-selected\+\.section-insert>\.section-add-blue/,'Blue plus after selected block');
- assert.match(css,/\.section-insert:has\(\+\.block\.is-selected\)>\.section-add-blue/,'Blue plus before selected block');
- assert.match(css,/\.content-section:has\(\.block\.is-selected\)\+\.section-insert>\.section-add-blue/);
- assert.match(css,/\.section-insert:has\(\+\.content-section \.block\.is-selected\)>\.section-add-blue/);
- assert.doesNotMatch(css,/\.section-insert:hover \.section-add-blue/,'No on-hover-only insertion button');
- assert.doesNotMatch(css,/@media\(hover:none\)\{\.stage-editor \.section-add-blue/,'Touch does not force every insertion plus visible');
- assert.doesNotMatch(css,/\.section-insert>\.section-add-blue\{[^}]*opacity:1/s,'Phone button retains default hidden state');
- assert.match(css,/\.stage-editor \.section-insert:focus-within>\.section-add-blue/,'Open insertion menu remains operable');
+ assert.match(css,/\.canvas>\.section-insert:only-child>\.section-add-blue/);
+ assert.match(css,/\.canvas>\.section-insert:not\(:first-child\)\{margin-top:-20px/,'Button straddles lower block edge');
+ assert.match(css,/@media\(hover:hover\) and \(pointer:fine\)\{/);
+ assert.match(css,/\.canvas>\.block:hover\+\.section-insert>\.section-add-blue/);
+ assert.match(css,/\.canvas>\.content-section:hover\+\.section-insert>\.section-add-blue/);
+ assert.match(css,/\.canvas>\.section-insert:hover>\.section-add-blue/,'Mouse can travel into the blue button');
+ assert.match(css,/\.section-insert:focus-within>\.section-add-blue/,'The open blue menu stays accessible');
+ assert.match(css,/@media\(hover:none\),\(pointer:coarse\)\{/);
+ assert.match(css,/\.canvas>\.block\.is-selected\+\.section-insert>\.section-add-blue/,'Touch fallback still reveals insert');
+ assert.doesNotMatch(css,/\.section-insert:has\(\+\.block\.is-selected\)>\.section-add-blue/,'No more button above selected block');
 });
-test('M02: selected or empty columns keep green insertion control available',()=>{
+
+test('M09: green plus appears on element hover, with touch and empty-column fallbacks',()=>{
  const css=CSS_04_SECTION_COMPOSER;
  assert.match(css,/\.stage-editor \.section-add-green\{[^}]*opacity:0;pointer-events:none/s);
+ assert.match(css,/\.section-column:has\(>\.block:hover\)>\.section-column-actions>\.section-add-green/);
+ assert.match(css,/\.section-column-actions:hover>\.section-add-green/);
+ assert.match(css,/\.section-column:not\(:has\(>\.block\)\)>\.section-column-actions>\.section-add-green/);
  assert.match(css,/\.section-column:has\(>\.block\.is-selected\)>\.section-column-actions>\.section-add-green/);
- assert.match(css,/\.section-column:not\(:has\(>\.block\)\)>\.section-column-actions>\.section-add-green/,'An empty column must not be a dead end');
- assert.match(css,/\.section-column-actions:focus-within \.section-add-green/,'Open green menu remains operable');
- assert.match(css,/\.canvas>\.block\.is-selected>\.existing-block-add\{display:flex!important\}/,'Single legacy block plus already appears only on selection');
- assert.doesNotMatch(css,/\.content-section:hover \.section-add-green/);
+ assert.match(css,/\.canvas>\.block:hover>\.existing-block-add\{display:flex!important\}/);
+ assert.match(css,/\.canvas>\.block\.is-selected>\.existing-block-add\{display:flex!important\}/);
+ assert.match(css,/\.existing-block-add-button\[aria-expanded="true"\]/);
+ assert.match(css,/\.section-column-actions:focus-within \.section-add-green/);
+ const beginning=DEMO_CLIENT.indexOf('function existingBlockAddControls(');
+ const end=DEMO_CLIENT.indexOf('\nfunction addSection(',beginning);
+ const block=DEMO_CLIENT.slice(beginning,end);
+ assert.ok(block.includes("event.stopPropagation()"));
+ assert.ok(!block.includes('selectBlock(box)'),'Green + no longer opens the editing toolbar');
 });
-test('M03: hidden visitor headings are plainly labeled and greyed, not deleted',()=>{
- assert.match(DEMO_CLIENT,/hidden-on-public/);
- assert.match(DEMO_CLIENT,/👁̸ Invisible aux visiteurs/);
- assert.match(DEMO_CLIENT,/x\.hideOnSite\?'👁':'👁̸'/);
- assert.match(DEMO_CLIENT,/x\.hideOnSite=!x\.hideOnSite;mark\(\);render\(\)/);
- assert.match(CSS_07_DRAG_RESOURCES,/\.block\.hidden-on-public\{\s*opacity:\.7;background:#f0f1f2;filter:grayscale\(1\);/);
- assert.match(CSS_07_DRAG_RESOURCES,/\.block\.hidden-on-public>\.hidden-public-note\{/);
+
+test('M09: image actions on hover, on tap when selected, without exposing the resize slider',()=>{
+ const css=CSS_02_BLOCK_CONTROLS;
+ assert.match(css,/@media\(hover:hover\) and \(pointer:fine\)\{/);
+ assert.match(css,/\.block\[data-kind="image"\]:hover>\.image-direct-actions\{\s*display:flex!important/);
+ assert.match(css,/\.block\.is-selected>\.block-edit-actions\{display:flex !important/);
+ assert.doesNotMatch(css,/\.block\[data-kind="image"\]:hover>\.image-size-control/);
+ const actionStart=DEMO_CLIENT.indexOf("const actions=n('div','block-edit-actions image-direct-actions')");
+ assert.ok(actionStart>0);
+ const actionText=DEMO_CLIENT.slice(actionStart,actionStart+850);
+ assert.match(actionText,/Télécharger une image/);
+ assert.match(actionText,/Images du site/);
+ assert.match(actionText,/Supprimer l’image/);
+ assert.match(actionText,/e\.stopPropagation\(\);startImageUpload\(x\)/);
+ assert.match(actionText,/e\.stopPropagation\(\);showImagePicker\(x\)/);
+});
+
+test('M09: eye icon uses real accessible SVG; section visibility hides all descendants for visitors',()=>{
+ assert.ok(DEMO_CLIENT.includes("document.createElementNS(ns,'svg')"));
+ assert.ok(DEMO_CLIENT.includes("visibilityEyeIcon(x.hideOnSite!==true)"));
+ assert.ok(DEMO_CLIENT.includes("visibilityEyeIcon(!hidden)"));
+ assert.ok(!DEMO_CLIENT.includes('👁̸'),'Ambiguous unicode overlay glyph removed');
+ assert.ok(DEMO_CLIENT.includes("section.hideOnSite=section.hideOnSite!==true"));
+ assert.ok(DEMO_CLIENT.includes("'Bloc entier invisible aux visiteurs'"));
+ assert.ok(DEMO_CLIENT.includes("'Invisible aux visiteurs'"));
+ assert.match(CSS_04_SECTION_COMPOSER,/\.section-settings-fields>\.section-visibility-toggle\{/);
+ assert.match(CSS_07_DRAG_RESOURCES,/\.content-section\.hidden-on-public\{/);
+ assert.match(CSS_07_DRAG_RESOURCES,/\.block\.hidden-on-public\{/);
+ assert.ok(TRIAL_SITE_CLIENT.includes('if(!b||b.hideOnSite===true)return;'),
+  'The existing visitor renderer must omit whole hidden sections and single elements');
 });
