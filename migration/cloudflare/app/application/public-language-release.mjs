@@ -33,7 +33,7 @@ export function localizedPublishedPage(page,registry,languageId,releases={}){
  let result;
  try{result=resolvePageTranslation(withPublished,registry,languageId)}
  catch{return canonical}
- if(!result)return canonical;
+ if(!result)return null; // No active published version: never re-enable a disabled source language.
  const rendered={...canonical};
  for(const field of publicFields)
   if(hasOwn(result.content,field))rendered[field]=clone(result.content[field]);
@@ -45,10 +45,10 @@ export function projectPublishedLanguage(snapshot,published,requestUrl){
  const requested=languageFromUrl(requestUrl);
  const selected=selectLanguage(registry,requested);
  const releases=published?.translationReleases||{};
- const mapPage=page=>localizedPublishedPage(page,registry,selected.languageId,releases);
- const shared={...snapshot.shared,pages:(snapshot.shared?.pages||[]).map(mapPage)};
+ const mapPages=pages=>(pages||[]).map(page=>localizedPublishedPage(page,registry,selected.languageId,releases)).filter(Boolean);
+ const shared={...snapshot.shared,pages:mapPages(snapshot.shared?.pages)};
  const record=snapshot.record?{...snapshot.record,
-  pages:(snapshot.record.pages||[]).map(mapPage)}:null;
+  pages:mapPages(snapshot.record.pages)}:null;
  return {...snapshot,shared,record,publicLanguage:{
   selectedLanguageId:selected.languageId,
   usedFallback:selected.usedFallback,
