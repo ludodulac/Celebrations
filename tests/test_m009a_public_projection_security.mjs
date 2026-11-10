@@ -26,7 +26,8 @@ const hidden={id:'jeudi-101',name:'SECRET_HIDDEN_PAGE',group:'celebration',
  visibility:'hidden',blocks:[{kind:'text',text:'SECRET_DRAFT_TEXT'}]};
 const privatePage={id:'vendredi-101',name:'SECRET_MEMBER_PAGE',group:'celebration',
  visibility:'published',accessPolicy:{mode:'SELECTED_TYPES',typeIds:['member-type:choir']},
- blocks:[{kind:'text',text:'SECRET_MEMBERS_ONLY'}]};
+ blocks:[{kind:'text',text:'SECRET_MEMBERS_ONLY'},
+  {kind:'image',src:'/media/new/member-only.jpg',text:'SECRET_PRIVATE_ASSET'}]};
 const privateSpace={id:'space:101:private',celebrationId:'101',visibility:'PRIVATE',
  accessPolicy:{mode:'PUBLIC'},name:'SECRET_SPACE_NAME',
  pages:[{id:'space-page-1',spaceId:'space:101:private',celebrationId:'101',
@@ -55,7 +56,9 @@ function fixture(){
    {type:'image',src:'/media/new/private.jpg',name:'SECRET_PRIVATE_MEDIA',general:true,
     visibility:'private',accessPolicy:{mode:'SELECTED_TYPES',typeIds:['member-type:choir']}},
    {type:'image',src:'/media/private/member.jpg',name:'SECRET_PRIVATE_PATH',general:true},
-   {type:'image',src:'/media/new/hidden.jpg',name:'SECRET_HIDDEN_UPLOAD',general:false}
+   {type:'image',src:'/media/new/hidden.jpg',name:'SECRET_HIDDEN_UPLOAD',general:false},
+   {type:'image',src:'/media/new/member-only.jpg',
+    name:'SECRET_ASSET_GENERAL_BYPASS',general:true}
   ]};
  return s;
 }
@@ -66,7 +69,8 @@ function noSecrets(value,more=[]){
  'SECRET_SPACE_BODY','SECRET_SHARED','SECRET_RECORD_ADMIN','SECRET_RECORD_LINK',
  'SECRET_DRAFT_PLAN','SECRET_PLAN_METADATA','SECRET_PUBLISHED_DIR',
  'SECRET_UNRELEASED_TRANSLATION','SECRET_PRIVATE_MEDIA','SECRET_PRIVATE_PATH',
- 'SECRET_HIDDEN_UPLOAD','/private/space-123',...more])
+ 'SECRET_HIDDEN_UPLOAD','SECRET_PRIVATE_ASSET','SECRET_ASSET_GENERAL_BYPASS',
+ '/private/space-123',...more])
   assert.equal(serialized.includes(term),false,'anonymous leak: '+term);
 }
 
@@ -83,6 +87,12 @@ test('M009-A: strict public allowlist removes private pages, spaces, relations a
  assert.deepEqual(Object.keys(v.celebrationVisibility).sort(),
   ['101','plan-michael-2027-01-06']);
  assert.equal(v.updatedAt,s.publishedAt,'private editor save time stays private');
+ assert.equal(v.revision,0,'private editor save revision stays private');
+ const changed=structuredClone(s);
+ changed.version+=100;
+ changed.drafts['101'].administratorEmail='SECRET_NEW_DRAFT_METADATA';
+ assert.equal(publicSnapshot(changed,'101').revision,v.revision,
+  'unpublished admin saves cannot alter public revision');
  noSecrets(v);
  assert.equal(JSON.stringify(s),before,'anonymous reads must never mutate stored state');
 });
@@ -94,6 +104,8 @@ test('M009-A: gallery cannot be elevated by private general=true or hidden conte
  assert.ok(!media.some(x=>x.src==='/media/new/private.jpg'));
  assert.ok(!media.some(x=>x.src==='/media/private/member.jpg'));
  assert.ok(!media.some(x=>x.src==='/media/new/hidden.jpg'));
+ assert.ok(!media.some(x=>x.src==='/media/new/member-only.jpg'),
+  'general=true cannot make a member-only asset public');
  noSecrets(media);
 });
 
