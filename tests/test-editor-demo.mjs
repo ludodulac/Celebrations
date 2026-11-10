@@ -176,8 +176,8 @@ test('image editing has two distinct actions and a safe remove-image-only button
  const start=DEMO_CLIENT.indexOf("if(x.kind==='image'){",DEMO_CLIENT.indexOf('function block('));
  const end=DEMO_CLIENT.indexOf("if(box._tools)",start);
  const section=DEMO_CLIENT.slice(start,end);
- assert.ok(section.includes("b('Télécharger une image',()=>startImageUpload(x)"));
- assert.ok(section.includes("b('Images du site',()=>showImagePicker(x)"));
+ assert.ok(section.includes("b('Télécharger une image',e=>{e.stopPropagation();startImageUpload(x)}"));
+ assert.ok(section.includes("b('Images du site',e=>{e.stopPropagation();showImagePicker(x)}"));
  assert.ok(!section.includes("b('Choisir une image'"));
  assert.ok(DEMO_CLIENT.includes("remove.dataset.action='remove-image'"));
  assert.ok(DEMO_CSS.includes('.block[data-kind="image"]>.block-edit-actions.image-direct-actions'));
