@@ -1,0 +1,38 @@
+name: "Célébrations M005-C — validation temporaire, sans déploiement"
+on:
+  push:
+    branches:
+      - feat/celebrations-m005c-consolidation-004-005-20261110
+    paths:
+      - '.github/workflows/celebrations-m005c-checks.yml'
+permissions:
+  contents: read
+jobs:
+  verify-merged-domains:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Native syntax — M002 M003 M004 M005
+        run: |
+          node --check migration/cloudflare/app/domain/member-access.mjs
+          node --check migration/cloudflare/app/domain/editor-localization.mjs
+          node --check migration/cloudflare/app/domain/celebration-spaces.mjs
+          node --check migration/cloudflare/editor-server-draft-api.mjs
+          node --check migration/cloudflare/editor-server-sync-client.mjs
+          node --check migration/cloudflare/app/application/editor-sync-policy.mjs
+      - name: Run M002 M003 M004 M005 and M004 editor regressions
+        run: |
+          node --test \
+            tests/test_mission002_member_access.mjs \
+            tests/test_m003_localization.mjs \
+            tests/test_m004_page_localization.mjs \
+            tests/test_m005_celebration_spaces.mjs \
+            tests/test-editor-server-drafts.mjs \
+            tests/test_mission09_page_lifecycle.mjs \
+            tests/test_editor_m11_mobile_insert_footer_delete.mjs
