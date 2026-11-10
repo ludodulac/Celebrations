@@ -109,7 +109,8 @@ test('M004: private API persists and reads both variants, public snapshot remain
  assert.deepEqual(stored.shared.pages,first.shared.pages);
  assert.equal(stored.localization.pages[footerId].en.name,'Legal notice');
  assert.equal(stored.localization.pages['neutral-accueil-general'].en.blocks[1].href,'/letter/en/booklet.pdf');
- const publicView=publicSnapshot(stored,'101');
+ const publicView=publicSnapshot({...stored,published:{
+  drafts:{'101':first.record},shared:first.shared,plans:[],celebrationVisibility:{}}},'101');
  assert.equal(publicView.shared.pages.find(p=>p.id===footerId).placement,'footer');
  assert.equal(publicView.shared.pages[0].name,'Accueil');
  assert.equal(JSON.stringify(publicView).includes('private translation'),false);
