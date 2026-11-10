@@ -17,6 +17,15 @@ import {handleServerDraft} from "./editor-server-draft-api.mjs";
 import {handleEditorPublication,handleEditorMedia,handleEditorMediaFile} from "./editor-publication-api.mjs";
 import {hasEditorAccess,editorAccessAction,editorLoginPage,editorLogout} from "./editor-site-access.mjs";
 import {isOfficialEditorHost,isReadonlyCandidateHost,isPrivateEditorPath,sameOriginEditorWrite} from "./app/security/editor-route-policy.mjs";
+// Immutable public route aliases. Keep historical links unchanged.
+const DIRECT_PAGES=new Map([
+ ["/programme","preparation"],["/preparation","preparation"],
+ ["/mercredi","mercredi"],["/jeudi","jeudi"],["/vendredi","vendredi"],
+ ["/samedi","samedi"],["/dimanche","dimanche"],
+ ["/apres-celebration","apres-celebration"],
+ ["/bibliotheque","mediatheque"],["/mediatheque","mediatheque"],
+ ["/mediatheque-generale","mediatheque-generale"]
+]);
 export default {
  async fetch(request,env){
   const url=new URL(request.url),path=url.pathname;
@@ -83,26 +92,18 @@ export default {
   // The two official domains now use the same visual visitor/editor interface.
   // All media, old emailed PDF, existing static assets and historic redirects
   // stay on their original production routes and production D1/R2 bindings.
-  const official=isOfficialEditorHost(url.hostname);
   const visualCandidate=url.hostname==="celebrations-visual-candidate.rondes.workers.dev";
-  if((official||visualCandidate)&&env.DB){
+  if((officialHost||visualCandidate)&&env.DB){
    if(path==="/api/editor-publication")return handleEditorPublication(request,env);
    if(path==="/api/editor-media")return handleEditorMedia(request,env);
    if(path==="/api/editor-open-draft")return handleServerDraft(request,env);
    if(path==="/__editor/demo-preparation"||path==="/admin"||path==="/admin.html")
     return handlePreparationDemo(request,env);
    if(path==="/__editor/voir-le-site")return handleTrialSite(request,env);
-   const directPages=new Map([
-    ["/programme","preparation"],["/preparation","preparation"],
-    ["/mercredi","mercredi"],["/jeudi","jeudi"],["/vendredi","vendredi"],
-    ["/samedi","samedi"],["/dimanche","dimanche"],
-    ["/apres-celebration","apres-celebration"],
-    ["/bibliotheque","mediatheque"],["/mediatheque","mediatheque"],
-    ["/mediatheque-generale","mediatheque-generale"]
-   ]);
+   // Routes are defined once at module load, not rebuilt on every request.
    const normalized=path.length>1?path.replace(/\/$/,""):path;
-   if(path==="/"||path==="/index.html"||directPages.has(normalized)){
-    const page=directPages.get(normalized);
+   if(path==="/"||path==="/index.html"||DIRECT_PAGES.has(normalized)){
+    const page=DIRECT_PAGES.get(normalized);
     if(!page)return handleTrialSite(request,env);
     const viewUrl=new URL(request.url);viewUrl.searchParams.set("page",page);
     return handleTrialSite(new Request(viewUrl,request),env);

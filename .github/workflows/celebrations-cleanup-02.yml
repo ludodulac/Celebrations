@@ -1,0 +1,37 @@
+name: Célébrations nettoyage 2 — routes publiques sans régression
+on:
+  push:
+    branches: [cleanup/celebrations-02-routing-20261110]
+permissions:
+  contents: read
+jobs:
+  routing-scope-regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0, persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Confirm no unexpected files changed since cleanup 1
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=c71bcaab910cff0d386b721961ae1da4ebede56b
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD | grep -Ev '^(migration/cloudflare/production-worker\.mjs|tests/test_mission15_legacy_cleanup\.mjs|tests/test_cleanup02_public_routes\.mjs|\.github/workflows/celebrations-cleanup-02\.yml)$' > /tmp/extra-files || true
+          test ! -s /tmp/extra-files || { echo UNEXPECTED_CHANGE_IN_CLEANUP_02; exit 1; }
+          echo CLEANUP02_ONE_ACTIVE_FILE_CHANGED
+      - name: Route behavior and full prior functional regressions
+        run: |
+          node --check migration/cloudflare/production-worker.mjs
+          node --test tests/test_cleanup02_public_routes.mjs tests/test-exit-production-candidate.mjs tests/test_mission12_public_renderer.mjs tests/test_finalisation02_preview_security.mjs
+          node scripts/mission16_editor_regressions.mjs
+      - name: Verify assets still generate from the Cloudflare-only source
+        run: |
+          python scripts/build_production_assets.py
+          python scripts/audit_production_supabase_paths.py
+      - name: No production deployment or database write
+        run: echo CLEANUP02_OFFLINE_ONLY_NO_DEPLOY_NO_D1_NO_R2_WRITES
