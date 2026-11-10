@@ -90,8 +90,8 @@ class Transfer05Test(unittest.TestCase):
     def _file(self,data):
         f=Path(tempfile.mkdtemp(prefix="transfer05-test-"))/"data.json"
         f.write_text(json.dumps(data),encoding="utf-8")
-        self.addCleanup(lambda:f.unlink(missing_ok=True))
         self.addCleanup(lambda:f.parent.rmdir())
+        self.addCleanup(lambda:f.unlink(missing_ok=True))
         return f
 
 if __name__=="__main__":
