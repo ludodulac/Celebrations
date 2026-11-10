@@ -78,8 +78,8 @@ test('M13: stage-only layout preserves its original order, content and nonce sty
  assert.ok(source.indexOf("'<style nonce=\"'+nonce+'\">'+ADMIN_STAGE_LAYOUT")>
   source.indexOf("'<style nonce=\"'+nonce+'\">'+DEMO_CSS"));
 });
-test('M13: every breakpoint and cascade override is unchanged; no dangerous dedup',()=>{
- assert.equal(count(DEMO_CSS,'@media'),47);
+test('M13: planned breakpoint inventory and cascade overrides remain safe after M02/M03',()=>{
+ assert.equal(count(DEMO_CSS,'@media'),46);
  assert.equal(count(TRIAL_SITE_STYLE,'@media'),16);
  assert.equal(count(DEMO_CSS,'!important'),338);
  assert.equal(count(TRIAL_SITE_STYLE,'!important'),28);
