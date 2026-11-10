@@ -1,7 +1,9 @@
 // M009-B — explicit account/person links; no equality-of-email identity fallback.
 // Server-only. The existing participant login and password hashes remain untouched.
-// NOT routed from a production/staging Worker. M008-C must adopt this resolver
-// before any private-member endpoint is enabled (its legacy email join is unsafe).
+// NOT routed from a production/staging Worker. M010-A makes this the sole
+// resolver for the M008-C private gate; no fallback to matching email addresses.
+// Every request requires a live participant session and a currently approved,
+// independently reviewed account-to-person link stored in D1.
 import {authorize} from '../../auth-api.mjs';
 import {isDirectoryPersonId,normalizeDirectoryEmail} from '../domain/contact-directory.mjs';
 
