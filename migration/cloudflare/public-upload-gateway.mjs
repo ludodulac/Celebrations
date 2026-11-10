@@ -9,8 +9,8 @@ import {isPrivateMediaRecord,isPrivateMediaReference,publicMediaBindingsSafe}
   from './app/security/public-media-boundary.mjs';
 
 const uploadPath=/^\/media\/new\/[0-9a-f]{8}-[0-9a-f-]{27}\.(?:jpg|png|webp|pdf|mp3|wav)$/;
-const pubPage=page=>page&&page.visibility!=='hidden'&&
- page.visibility!=='draft'&&canAccessPage(page);
+const pubPage=page=>page&&(page.visibility==null||page.visibility==='published')&&
+ canAccessPage(page);
 function hasReference(value,src){
  if(!value||typeof value!=='object')return false;
  const queue=[value],seen=new Set();
@@ -28,8 +28,12 @@ function publishedPageReferences(state,src){
  const published=state.published;
  if(!published)return false;
  const pages=[...(published.shared?.pages||[])];
- for(const record of Object.values(published.drafts||{}))
+ for(const [id,record] of Object.entries(published.drafts||{})){
+  const plan=published.plans?.find(item=>String(item.id)===id);
+  if((published.celebrationVisibility?.[id]||plan?.visibility||'published')!=='published')
+   continue; // an unpublished celebration cannot grant access to its media
   if(Array.isArray(record?.pages))pages.push(...record.pages);
+ }
  return pages.some(page=>pubPage(page)&&hasReference(page.blocks||[],src));
 }
 function publicRelease(state,src){
