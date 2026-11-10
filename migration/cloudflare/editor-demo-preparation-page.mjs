@@ -6,6 +6,8 @@ import {DEMO_CLIENT} from './editor-demo-client.mjs';
 import {TRIAL_AUDIO_CLIENT} from './editor-trial-audio-client.mjs';
 // SERVER_EDITOR_SYNC is composed explicitly by editor-demo-client.mjs.
 import {fiveColourways} from './editor-celebration-themes.mjs';
+import {eligiblePublicPage,projectPublicPage,eligiblePublicPlan,privatePublicationIds}
+ from './app/domain/editor-public-projection-security.mjs';
 const HOST='celebrations-exit-staging.rondes.workers.dev';
 export const STAGES=[
  {label:'Accueil de la célébration',slug:'accueil-celebration'},
@@ -21,7 +23,7 @@ export const STAGES=[
 const clean=x=>String(x??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 const sort=(a,b)=>Number(a.sort_order??999)-Number(b.sort_order??999)||String(a.event_time??'').localeCompare(String(b.event_time??''),'fr')||String(a.id??'').localeCompare(String(b.id??''),'fr');
 const asText=x=>String(x??'');
-const validStorage=x=>typeof x==='string'&&x.length>0&&x.length<1024&&!x.startsWith('/')&&!x.startsWith('committee/')&&!/^https?:/i.test(x)&&!x.split('/').some(p=>!p||p==='..'||p==='.')&&!/[\\\u0000-\u001f]/.test(x);
+const validStorage=x=>typeof x==='string'&&x.length>0&&x.length<1024&&!x.startsWith('/')&&!x.startsWith('committee/')&&!/(?:^|\/)(?:committee|private|drafts?|members?)(?:\/|$)/i.test(x)&&!/^https?:/i.test(x)&&!x.split('/').some(p=>!p||p==='..'||p==='.')&&!/[\\\u0000-\u001f]/.test(x);
 const safeLink=x=>{
  const v=String(x??'').trim();
  if(!v||v.length>1800||/[\u0000-\u001f\\]/.test(v))return '';
@@ -217,12 +219,26 @@ function celebrationLibrary(events,eventContents,stepContents,steps){
 }
 
 // Public staging rows only. Shared with the site-shaped preview; never writes D1.
-export async function loadSevenStageContent(env,selectedId){
-  const celebrations=await rows(env.DB,'SELECT id,archangel,year,status FROM celebrations_celebrations ORDER BY id');
+export async function loadSevenStageContent(env,selectedId,{publicOnly=false,publishedState=null}={}){
+  const allCelebrations=await rows(env.DB,'SELECT id,archangel,year,status FROM celebrations_celebrations ORDER BY id');
+  const pub=publishedState?.published||null;
+  const visibility=pub?.celebrationVisibility||{};
+  const publicCelebration=c=>{
+   const status=String(c.status||'').toLowerCase();
+   return !['draft','hidden','private','restricted'].includes(status)&&
+    !['draft','hidden','private','restricted'].includes(String(visibility[c.id]||'').toLowerCase());
+  };
+  const celebrations=publicOnly?allCelebrations.filter(publicCelebration)
+   .map(c=>({id:c.id,archangel:c.archangel,year:c.year})):allCelebrations;
   const allowedIds=new Set(celebrations.map(c=>String(c.id)));
   const selected=selectedId;
   const planned=plannedCelebration(selected);
-  if(selected&&!allowedIds.has(selected)&&!planned)throw new Error('Unknown celebration');
+  if(publicOnly&&planned){
+   const released=pub?.plans?.find(p=>String(p.id)===String(selected)&&eligiblePublicPlan(p));
+   if(!released||visibility[selected]&&visibility[selected]!=='published')
+    throw new Error('Unknown celebration');
+  }
+  if(selected&&!allowedIds.has(String(selected))&&!planned)throw new Error('Unknown celebration');
   const celebration=planned?.celebration||celebrations.find(c=>String(c.id)===(selected||'101'))||celebrations[0];
   if(!celebration)throw new Error('No celebration');
   if(planned){
@@ -232,18 +248,41 @@ export async function loadSevenStageContent(env,selectedId){
    return {celebrations,celebration,seed};
   }
   const steps=await rows(env.DB,'SELECT * FROM celebrations_steps WHERE celebration_id=? ORDER BY sort_order,id',celebration.id);
+  // Historic D1 public steps may not republish a deliberately hidden page.
+  const rawEditorPages=publishedState?.drafts?.[String(celebration.id)]?.pages||[];
+  const releasedIds=new Set((pub?.drafts?.[String(celebration.id)]?.pages||[])
+   .filter(eligiblePublicPage).map(p=>p.id));
+  const hiddenIds=new Set(publicOnly?rawEditorPages.filter(p=>
+   ['hidden','draft','private'].includes(String(p.visibility||'').toLowerCase())&&
+   !releasedIds.has(p.id)).map(p=>p.id):[]);
+  const stageOf=record=>STAGES.find(stage=>
+   clean(record.label)===clean(stage.label)||
+   (stage.legacyLabel&&clean(record.label)===clean(stage.legacyLabel))||
+   clean(record.step_key)===stage.slug+'-'+celebration.id);
+  const visibleSteps=publicOnly?steps.filter(record=>{
+   const stage=stageOf(record);
+   return !!stage&&!hiddenIds.has(stage.slug+'-'+celebration.id);
+  }):steps;
+  const visibleStepKeys=new Set(visibleSteps.map(record=>String(record.step_key)));
   // One bulk, read-only fetch per public content table, then exact step-key grouping.
   // No private audience, committee resources, D1 writes, publication or production calls.
   const hasMichaelHome=clean(celebration.archangel)==='michael'&&String(celebration.year||'').includes('2026');
-  const [events,evc,stc,links,homeContent]=await Promise.all([
+  const [allEvents,allEvc,allStc,allLinks,homeContent]=await Promise.all([
    rows(env.DB,"SELECT * FROM celebrations_events WHERE celebration_id=? AND audience='all' ORDER BY sort_order,event_time,id",celebration.id),
    rows(env.DB,"SELECT ec.event_id,ec.sort_order,c.* FROM celebrations_event_contents ec JOIN celebrations_events e ON e.id=ec.event_id JOIN celebrations_contents c ON c.id=ec.content_id WHERE e.celebration_id=? AND e.audience='all' AND c.audience='all' ORDER BY e.sort_order,ec.sort_order,c.id",celebration.id),
    rows(env.DB,"SELECT sc.step_key,sc.sort_order,c.* FROM celebrations_step_contents sc JOIN celebrations_contents c ON c.id=sc.content_id WHERE sc.celebration_id=? AND c.audience='all' ORDER BY sc.step_key,sc.sort_order,c.id",celebration.id),
    rows(env.DB,"SELECT * FROM celebrations_links WHERE celebration_id=? OR event_id IN (SELECT id FROM celebrations_events WHERE celebration_id=? AND audience='all') ORDER BY sort_order,id",celebration.id,celebration.id),
    hasMichaelHome?rows(env.DB,"SELECT * FROM celebrations_contents WHERE audience='all' AND LOWER(category)='accueil' ORDER BY id") : Promise.resolve([])
   ]);
-  const pages=STAGES.map(stage=>{
-   const record=steps.find(s=>clean(s.label)===clean(stage.label)||(stage.legacyLabel&&clean(s.label)===clean(stage.legacyLabel))||clean(s.step_key)===stage.slug+'-'+celebration.id);
+  const events=publicOnly?allEvents.filter(e=>visibleStepKeys.has(String(e.step_key))):allEvents;
+  const eventIds=new Set(events.map(e=>String(e.id)));
+  const evc=publicOnly?allEvc.filter(c=>eventIds.has(String(c.event_id))):allEvc;
+  const stc=publicOnly?allStc.filter(c=>visibleStepKeys.has(String(c.step_key))):allStc;
+  const links=publicOnly?allLinks.filter(l=>l.event_id?
+   eventIds.has(String(l.event_id)):visibleStepKeys.has(String(l.step_key))):allLinks;
+  const pages=STAGES.filter(stage=>!publicOnly||
+   !hiddenIds.has(stage.slug+'-'+celebration.id)).map(stage=>{
+   const record=visibleSteps.find(s=>clean(s.label)===clean(stage.label)||(stage.legacyLabel&&clean(s.label)===clean(stage.legacyLabel))||clean(s.step_key)===stage.slug+'-'+celebration.id);
    const id=stage.slug+'-'+celebration.id;
    if(!record)return {id,name:stage.label,group:'celebration',blocks:[{id:1,kind:'heading',text:stage.label,align:'center'}]};
    const key=record.step_key;
@@ -262,12 +301,15 @@ export async function loadSevenStageContent(env,selectedId){
   pages.unshift(generalHome());
   // All and only the public resources attached to this celebration.
   // Text is already public content of the fetched pages, not a new file in R2.
-  const files=publicFileCatalogue(steps,events,evc,stc);
-  const library=celebrationLibrary(events,evc,stc,steps);
+  const files=publicFileCatalogue(visibleSteps,events,evc,stc);
+  const library=celebrationLibrary(events,evc,stc,visibleSteps);
   const publicAudio=files.filter(f=>f.category==='audios'&&/\.mp3$/i.test(f.src||''))
     .map(f=>({name:f.name,src:f.src,pages:f.pages}));
+  const blocked=publicOnly&&publishedState?
+   privatePublicationIds(publishedState,pub):[];
+  const publicPages=publicOnly?pages.map(p=>projectPublicPage(p,blocked)).filter(Boolean):pages;
   const seed={celebrationId:celebration.id,archangel:celebration.archangel,year:celebration.year||'',
-   palettes:fiveColourways(celebration.archangel),pages,media:publicAudio,files,library,celebrations};
+   palettes:fiveColourways(celebration.archangel),pages:publicPages,media:publicAudio,files,library,celebrations};
   return {celebrations,celebration,seed};
 }
 export async function handlePreparationDemo(request,env){
