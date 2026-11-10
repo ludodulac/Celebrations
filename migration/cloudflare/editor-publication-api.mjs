@@ -7,6 +7,10 @@ import {isOfficialEditorHost,isReadonlyCandidateHost,sameOriginEditorWrite} from
 import {mergePublicMediaIndexed} from './app/domain/editor-public-media-merge.mjs';
 import {canAccessPage} from './app/domain/member-access.mjs';
 import {projectPublishedLanguage,publishLanguageCommand} from './app/application/public-language-release.mjs';
+import {
+ eligiblePublicPage,projectPublicPage,projectPublicPages,projectPublicPlan,
+ projectPublicMediaItem,privatePublicationIds
+} from './app/domain/editor-public-projection-security.mjs';
 
 const PREFIX='editor-trials/uploads/';
 const SITE=new Set(['www.ronde-des-archanges-universelle.eu','ronde-des-archanges-universelle.eu']);
@@ -130,40 +134,49 @@ const validVisibility=x=>['draft','published','hidden'].includes(x);
 export function publiclyVisible(p){return p&&p.visibility!=='hidden'&&p.visibility!=='draft'}
 export function publicSnapshot(state,celebration){
  const published=state.published||initialPublication(state);
+ const privateIds=privatePublicationIds(state,published);
  const visibility=published.celebrationVisibility||{};
  const original=published.drafts?.[celebration]||null;
  const plan=published.plans?.find(p=>p.id===celebration);
- const celebrationVisible=celebrationVisibleFor(celebration,visibility,plan?.visibility);
+ const celebrationVisible=celebrationVisibleFor(celebration,visibility,plan?.visibility)&&
+  (!plan||!!projectPublicPlan(plan));
  const record=celebrationVisible&&original?{
-  ...original,pages:(original.pages||[]).filter(p=>publiclyVisible(p)&&canAccessPage(p))
+  pages:projectPublicPages(original.pages,privateIds)
  }:null;
- const shared=copy(published.shared||{pages:[],homeId:''});
- shared.pages=(shared.pages||[]).filter(p=>publiclyVisible(p)&&canAccessPage(p));
- if(!shared.pages.some(p=>p.id===shared.homeId))
-  shared.homeId=shared.pages[0]?.id||'neutral-accueil-general';
- delete shared.celebrationVisibility;
- const plans=(published.plans||[]).filter(p=>celebrationVisibleFor(p.id,visibility,p.visibility));
+ const pages=projectPublicPages(published.shared?.pages,privateIds);
+ const homeId=pages.some(p=>p.id===published.shared?.homeId)
+  ?published.shared.homeId:(pages[0]?.id||'neutral-accueil-general');
+ const shared={homeId,pages};
+ const plans=(published.plans||[])
+  .filter(p=>celebrationVisibleFor(p.id,visibility,p.visibility))
+  .map(projectPublicPlan).filter(Boolean);
+ // The visibility of a HIDDEN celebration is itself private metadata.
+ const publicVisibility=Object.fromEntries(plans.map(p=>[p.id,'published']));
+ if(celebrationVisible)publicVisibility[celebration]='published';
  return {ok:true,revision:state.version,record,shared,plans,
-  celebrationVisible,celebrationVisibility:visibility,
-  media:publishedMedia(state),
-  updatedAt:state.publishedAt||state.updatedAt||null};
+  celebrationVisible,celebrationVisibility:publicVisibility,
+  media:publishedMedia(state,privateIds),
+  updatedAt:state.publishedAt||null};
 }
-// Visitor library: every file on an actually published page, plus media
-// explicitly released to the general gallery. Draft/hidden resources never
-// become public just because they were uploaded to the admin file manager.
-export function publishedMedia(state){
+// The gallery is computed from sanitized public pages, not admin objects or
+// the private media catalogue. Even general=true never overrides a private ACL.
+export function publishedMedia(state,privateIds){
  const published=state.published||initialPublication(state);
+ const blocked=privateIds||privatePublicationIds(state,published);
  const visibility=published.celebrationVisibility||{};
- const sharedPages=(published.shared?.pages||[]).filter(p=>publiclyVisible(p)&&canAccessPage(p));
+ const sharedPages=projectPublicPages(published.shared?.pages,blocked);
  const drafts={};
  for(const [id,record] of Object.entries(published.drafts||{})){
   const plan=published.plans?.find(x=>String(x.id)===String(id));
-  if(!celebrationVisibleFor(id,visibility,plan?.visibility))continue;
-  drafts[id]={pages:(record.pages||[]).filter(p=>publiclyVisible(p)&&canAccessPage(p))};
+  if(!celebrationVisibleFor(id,visibility,plan?.visibility)||
+     plan&&!projectPublicPlan(plan))continue;
+  drafts[id]={pages:projectPublicPages(record.pages,blocked)};
  }
- const source={mediaCatalogue:(state.mediaCatalogue||[]).filter(m=>m.general===true),
-  shared:{pages:sharedPages},drafts};
- return discoverMedia(source).filter(m=>m.general===true||(m.uses||[]).length>0);
+ const catalogue=(state.mediaCatalogue||[])
+  .filter(m=>m?.general===true).map(m=>projectPublicMediaItem(m,blocked)).filter(Boolean);
+ const source={mediaCatalogue:catalogue,shared:{pages:sharedPages},drafts};
+ return discoverMedia(source).map(m=>projectPublicMediaItem(m,blocked))
+  .filter(m=>m&&(m.general===true||m.uses.length>0));
 }
 const historicMediaType=(source,kind='')=>{
  const path=String(source||'').split(/[?#]/)[0].toLowerCase();
@@ -194,12 +207,14 @@ export async function publicHistoricalMedia(db,state){
  const [events,steps]=await Promise.all(sql.map(q=>db.prepare(q).all()));
  const published=state.published||initialPublication(state);
  const visibility=published.celebrationVisibility||{};
+ const blocked=privatePublicationIds(state,published);
  const pagesByCelebration=new Map();
  for(const [id,record] of Object.entries(published.drafts||{})){
   const plan=published.plans?.find(p=>String(p.id)===String(id));
-  if(!celebrationVisibleFor(id,visibility,plan?.visibility))continue;
+  if(!celebrationVisibleFor(id,visibility,plan?.visibility)||
+     plan&&!projectPublicPlan(plan))continue;
   pagesByCelebration.set(String(id),new Map(
-   (record.pages||[]).filter(p=>publiclyVisible(p)&&canAccessPage(p)).map(p=>[p.id,p])));
+   projectPublicPages(record.pages,blocked).map(p=>[p.id,p])));
  }
  const media=new Map();
  function add(type,url,name,celebration,page){
@@ -225,13 +240,14 @@ export async function publicHistoricalMedia(db,state){
   const video=videoMediaUrl(row.external_url);
   if(video)add('video',video,row.name||'Vidéo',cid,page);
  }
- return [...media.values()];
+ return [...media.values()].map(m=>projectPublicMediaItem(m,blocked)).filter(Boolean);
 }
 export function mergePublicMedia(...catalogues){
  return mergePublicMediaIndexed(...catalogues);
 }
 function celebrationVisibleFor(id,map,planState){
- return (map[id]||planState||'published')==='published';
+ const status=map?.[id]??planState??(String(id).startsWith('plan-')?'draft':'published');
+ return status==='published';
 }
 function hostCheck(request){
  const u=new URL(request.url);
@@ -316,6 +332,9 @@ export async function handleEditorPublication(request,env){
  }else{
   const catalogue=discoverMedia(state),entry=catalogue.find(x=>x.id===body.mediaId);
   if(!entry)return err('Média introuvable',404);
+  if(body.general&&!projectPublicMediaItem({...entry,general:true},
+      privatePublicationIds(state,pub)))
+   return err('Média privé non publiable',409);
   entry.general=body.general;
   state.mediaCatalogue=catalogue;
  }
