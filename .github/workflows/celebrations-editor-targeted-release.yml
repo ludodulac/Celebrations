@@ -1,15 +1,15 @@
-name: "Célébrations — mission 09 : boutons contextuels et masquage entier"
+name: "Célébrations — mission 10 : pages de bas de page, audios, guide et médiathèques"
 on:
   push:
-    branches: [fix/editor-hover-add-controls-and-hide-sections-20261110]
+    branches: [feat/editor-footer-audio-help-public-galleries-20261110]
 permissions:
   contents: read
 concurrency:
   group: celebrations-finalisation-m05-release
   cancel-in-progress: false
 jobs:
-  publish-editor-contextual-actions:
-    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[EDITOR_M09_PUBLISH]') }}
+  publish-editor-pages-audio-gallery:
+    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[EDITOR_M10_PUBLISH]') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     environment: celebrations-staging
@@ -32,14 +32,21 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$GITHUB_REF" = refs/heads/fix/editor-hover-add-controls-and-hide-sections-20261110
+          test "$GITHUB_REF" = refs/heads/feat/editor-footer-audio-help-public-galleries-20261110
           git merge-base --is-ancestor origin/release/celebrations-cleanup-06-20261110 HEAD
           git diff --name-only origin/release/celebrations-cleanup-06-20261110 HEAD | grep -E '^(migration/cloudflare/|admin\.html$|index\.html$|public-|supabase-data\.js)' | sort > /tmp/editor-m04-runtime-delta
-          printf 'migration/cloudflare/app/domain/editor-drag-model.mjs\nmigration/cloudflare/app/styles/admin/02-block-controls.mjs\nmigration/cloudflare/app/styles/admin/04-section-composer.mjs\nmigration/cloudflare/app/styles/admin/05-guide-publication.mjs\nmigration/cloudflare/app/styles/admin/06-library-dialogs.mjs\nmigration/cloudflare/app/styles/admin/07-drag-resources.mjs\nmigration/cloudflare/editor-demo-client.mjs\nmigration/cloudflare/editor-server-sync-client.mjs\n' > /tmp/editor-m04-expected-runtime-delta
+          printf 'migration/cloudflare/app/admin/editor-render.mjs\nmigration/cloudflare/app/application/editor-page-commands.mjs\nmigration/cloudflare/app/domain/editor-drag-model.mjs\nmigration/cloudflare/app/domain/editor-pages.mjs\nmigration/cloudflare/app/styles/admin/02-block-controls.mjs\nmigration/cloudflare/app/styles/admin/04-section-composer.mjs\nmigration/cloudflare/app/styles/admin/05-guide-publication.mjs\nmigration/cloudflare/app/styles/admin/06-library-dialogs.mjs\nmigration/cloudflare/app/styles/admin/07-drag-resources.mjs\nmigration/cloudflare/app/styles/public/02-navigation-library.mjs\nmigration/cloudflare/editor-demo-client.mjs\nmigration/cloudflare/editor-demo-preparation-page.mjs\nmigration/cloudflare/editor-server-sync-client.mjs\nmigration/cloudflare/editor-trial-site-client.mjs\nmigration/cloudflare/editor-trial-site-page.mjs\n' > /tmp/editor-m04-expected-runtime-delta
           diff -u /tmp/editor-m04-expected-runtime-delta /tmp/editor-m04-runtime-delta
-          echo EDITOR_M09_EXISTING_MODULES_ONLY
+          echo EDITOR_M10_EXISTING_MODULES_ONLY
       - name: Targeted regression tests — no additions to the editor
         run: |
+          node --check migration/cloudflare/app/admin/editor-render.mjs
+          node --check migration/cloudflare/app/application/editor-page-commands.mjs
+          node --check migration/cloudflare/app/domain/editor-pages.mjs
+          node --check migration/cloudflare/app/styles/public/02-navigation-library.mjs
+          node --check migration/cloudflare/editor-demo-preparation-page.mjs
+          node --check migration/cloudflare/editor-trial-site-client.mjs
+          node --check migration/cloudflare/editor-trial-site-page.mjs
           node --check migration/cloudflare/app/domain/editor-drag-model.mjs
           node --check migration/cloudflare/app/styles/admin/02-block-controls.mjs
           node --check migration/cloudflare/app/styles/admin/04-section-composer.mjs
@@ -48,7 +55,7 @@ jobs:
           node --check migration/cloudflare/app/styles/admin/07-drag-resources.mjs
           node --check migration/cloudflare/editor-demo-client.mjs
           node --check migration/cloudflare/editor-server-sync-client.mjs
-          node --test tests/test_editor_m01_select_only_move_grip.mjs tests/test_editor_m02_m03_visibility.mjs tests/test_mission13_styles.mjs tests/test_mission11_drag_undo.mjs tests/test-editor-server-drafts.mjs tests/test_mission10_safe_persistence.mjs tests/test_editor_m05_m07_block_controls.mjs tests/test_editor_m08_hover_and_longpress.mjs tests/test_editor_m09_visibility_controls.mjs tests/test-editor-demo.mjs
+          node --test tests/test_editor_m01_select_only_move_grip.mjs tests/test_editor_m02_m03_visibility.mjs tests/test_mission13_styles.mjs tests/test_mission11_drag_undo.mjs tests/test-editor-server-drafts.mjs tests/test_mission10_safe_persistence.mjs tests/test_editor_m05_m07_block_controls.mjs tests/test_editor_m08_hover_and_longpress.mjs tests/test_editor_m09_visibility_controls.mjs tests/test_editor_m10_footer_mp3_public_gallery.mjs tests/test-editor-demo.mjs
           python scripts/build_production_assets.py
           python scripts/audit_production_supabase_paths.py
       - name: Reuse the already-proven exact-version release gate with the CURRENT baseline
@@ -61,16 +68,16 @@ jobs:
           const src='scripts/cleanup06_cloudflare_release.mjs';
           let body=fs.readFileSync(src,'utf8');
           const replacements=[
-            ['refs/heads/release/celebrations-cleanup-06-20261110','refs/heads/fix/editor-hover-add-controls-and-hide-sections-20261110'],
-            ["const original='eccb1274-2ed8-491f-8557-c4330342e4bf';","const original='157737c1-13d2-4bbe-b6b4-7edb3a0c2725';"],
-            ["const originalDeployment='ffdc7b2b-a443-45cf-843d-0419fe71cb8d';","const originalDeployment='ded1a464-5db5-4cad-96e0-9f887a1419ea';"]
+            ['refs/heads/release/celebrations-cleanup-06-20261110','refs/heads/feat/editor-footer-audio-help-public-galleries-20261110'],
+            ["const original='eccb1274-2ed8-491f-8557-c4330342e4bf';","const original='fdaeb582-a9e5-4d58-bf53-2478fed5ad7c';"],
+            ["const originalDeployment='ffdc7b2b-a443-45cf-843d-0419fe71cb8d';","const originalDeployment='8b3a5ab4-5963-4ed0-bf57-f0814ffdcd60';"]
           ];
           for(const [before,after] of replacements){
             assert.equal(body.split(before).length-1,1,'Release gate anchor changed');
             body=body.replace(before,after);
           }
           fs.writeFileSync('scripts/.editor-m04-release-runtime.mjs',body);
-          console.log('EDITOR_M09_REUSE_EXACT_VERSION_GATE');
+          console.log('EDITOR_M10_REUSE_EXACT_VERSION_GATE');
           NODE
       - name: Full Cloudflare preflight with official version, bindings, and security
         run: node scripts/.editor-m04-release-runtime.mjs preflight
@@ -92,7 +99,7 @@ jobs:
           done
           test "$(grep -c 'database_id = "28736d2a-479b-472b-bf82-703ad0affe10"' migration/cloudflare/wrangler.production.toml)" = 2
           if grep -Eq '^[[:space:]]*(route|routes|zone_id|custom_domain)[[:space:]]*=' migration/cloudflare/wrangler.production.toml; then
-            echo EDITOR_M09_DNS_CHANGE_REFUSED; exit 1
+            echo EDITOR_M10_DNS_CHANGE_REFUSED; exit 1
           fi
       - name: Install the same Cloudflare release CLI as mission 06
         run: npm install --no-save --no-package-lock wrangler@4
@@ -104,7 +111,7 @@ jobs:
           WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/editor-m02-m03-wrangler.jsonl
         run: |
           set -euo pipefail
-          npx wrangler versions upload --config wrangler.production.toml --keep-vars --strict --message "Célébrations editor M09: hover-only image controls, blue and green plus, block visibility: $GITHUB_SHA"
+          npx wrangler versions upload --config wrangler.production.toml --keep-vars --strict --message "Célébrations editor M10: footer pages, audio player and progress, admin guide, celebration-only media: $GITHUB_SHA"
           node --input-type=module <<'NODE'
           import assert from 'node:assert/strict';
           import fs from 'node:fs';
@@ -114,7 +121,7 @@ jobs:
           assert.equal(rows.length,1);
           assert.match(rows[0].version_id,/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i);
           fs.appendFileSync(process.env.GITHUB_OUTPUT,'version_id='+rows[0].version_id+'\n');
-          console.log('EDITOR_M09_VERSION_UPLOADED_NOT_LIVE '+rows[0].version_id);
+          console.log('EDITOR_M10_VERSION_UPLOADED_NOT_LIVE '+rows[0].version_id);
           NODE
       - name: Verify immutable candidate bindings and that the old version remains live
         env:
@@ -136,8 +143,8 @@ jobs:
           CLEANUP06_NEW_VERSION_ID: ${{ steps.upload.outputs.version_id }}
         run: node scripts/.editor-m04-release-runtime.mjs rollback
       - name: Final report
-        run: echo EDITOR_M09_PUBLISHED_SUCCESS_CLEAN_EDITOR_DISPLAY_NO_NEW_TOOLS
-# Owner-approved M09 only. No new tools, data writes or changes outside the existing editor.
+        run: echo EDITOR_M10_PUBLISHED_SUCCESS_CLEAN_EDITOR_DISPLAY_NO_NEW_TOOLS
+# Owner-approved M10 only. No new backend or destructive data changes.
 # The editor CSS tests cover the current hover-only movement and contextual insertion controls.
 # All changes are limited to existing editor components; no new public data or services.
 
