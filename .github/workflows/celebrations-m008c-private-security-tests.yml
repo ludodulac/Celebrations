@@ -1,0 +1,56 @@
+name: "CÉLÉBRATIONS M008-C — sécurité privée hors ligne"
+on:
+  push:
+    branches:
+      - feat/celebrations-m008c-private-server-access-20261110
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  private-security-offline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout without persisted credentials
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify exact M007-C ancestry and isolated changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=c976791835fc5f1d7d2c37123face418d0501ca6
+          git merge-base --is-ancestor "$BASE" HEAD
+          test "$(git rev-list --count "${BASE}..HEAD")" -ge 1
+          git diff --name-only "$BASE" HEAD | tee /tmp/m008c-changes
+          if grep -Ev '^(migration/cloudflare/app/security/member-private-access.mjs|tests/test_m008c_private_server_access.mjs|docs/celebrations-m008c-private-server-security.md|\.github/workflows/celebrations-m008c-private-security-tests.yml)$' /tmp/m008c-changes; then
+            echo "UNAUTHORIZED_FILE_MODIFICATION"
+            exit 1
+          fi
+      - name: Node.js 22 (WebCrypto + native test runner)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check new service and tests syntax
+        run: |
+          node --check migration/cloudflare/app/security/member-private-access.mjs
+          node --check tests/test_m008c_private_server_access.mjs
+      - name: Run server security tests and existing membership/session tests
+        run: |
+          node --test \
+            tests/test_m008c_private_server_access.mjs \
+            tests/test_mission002_member_access.mjs \
+            tests/test_m007a_contact_directory.mjs \
+            tests/test_m007b_member_admin.mjs \
+            tests/test_m007c_cross_module_contracts.mjs \
+            tests/test-exit-auth.mjs
+      - name: Confirm no new live private route has been enabled
+        run: |
+          if grep -q 'member-private-access.mjs' migration/cloudflare/production-worker.mjs migration/cloudflare/staging-worker.mjs; then
+            echo "PRIVATE_ENDPOINT_ACTIVATED_UNEXPECTEDLY"
+            exit 1
+          fi
+          echo "M008C_NO_LIVE_PRIVATE_ROUTE"
