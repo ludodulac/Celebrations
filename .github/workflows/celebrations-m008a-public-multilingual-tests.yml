@@ -49,3 +49,9 @@ jobs:
             tests/test-editor-server-drafts.mjs \
             tests/test_mission12_public_renderer.mjs \
             tests/test_mission14_editor_security.mjs
+      - name: Install isolated Chromium for public desktop + Android-sized tests
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Exercise the published visitor UI offline at desktop and smartphone widths
+        run: node scripts/test-m008a-public-language-browser.mjs
