@@ -1,0 +1,36 @@
+name: "Célébrations M007-A — contacts D1, tests locaux sans déploiement"
+
+on:
+  push:
+    branches:
+      - feat/celebrations-m007a-contact-directory-d1-20261110
+    paths:
+      - '.github/workflows/celebrations-m007a-contact-directory-tests.yml'
+      - 'migration/cloudflare/app/domain/contact-directory.mjs'
+      - 'migration/cloudflare/d1-migrations/20261110_007a_contact_directory.sql'
+      - 'migration/cloudflare/d1-rollbacks/20261110_007a_contact_directory.empty-only.sql'
+      - 'tests/test_m007a_contact_directory.mjs'
+      - 'docs/celebrations-m007a-contact-directory.md'
+
+permissions:
+  contents: read
+
+jobs:
+  sqlite-and-domain-integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntaxe du domaine M007-A
+        run: node --check migration/cloudflare/app/domain/contact-directory.mjs
+      - name: Relations D1 éphémères, contrats M002 et M005
+        run: |
+          node --test \
+            tests/test_m007a_contact_directory.mjs \
+            tests/test_mission002_member_access.mjs \
+            tests/test_m005_celebration_spaces.mjs
