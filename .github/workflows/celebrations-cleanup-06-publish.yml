@@ -1,0 +1,121 @@
+name: Célébrations M06 — livraison du code nettoyé avec rollback exact
+on:
+  push:
+    branches: [release/celebrations-cleanup-06-20261110]
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-finalisation-m05-release
+  cancel-in-progress: false
+jobs:
+  publish-cleaned-code:
+    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[CLEANUP06_PUBLISH_OFFICIAL]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      CELEBRATIONS_PROD_D1_ID: 28736d2a-479b-472b-bf82-703ad0affe10
+      CELEBRATIONS_STAGING_D1_ID: 0f761662-241f-42cc-ac94-5c68b4aa7797
+      CELEBRATIONS_PROD_R2_BUCKET: celebrations-exit-production
+      CELEBRATIONS_STAGING_R2_BUCKET: celebrations-exit-staging
+      PROD_D1_ID: 28736d2a-479b-472b-bf82-703ad0affe10
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0, persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Immutable original baseline and narrow runtime diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/release/celebrations-cleanup-06-20261110
+          git merge-base --is-ancestor 0ff82b1162e66f22cfb589e4c0063b1703ab76a8 HEAD
+          git diff --name-only 65caf8d5d03d29882d0de0c0d00cdcfc622e473e HEAD | grep -E '^(migration/cloudflare/|supabase-data\.js$|admin\.html$|index\.html$|public-[^/]+|admin-[^/]+)' | sort > /tmp/runtime-delta
+          printf 'migration/cloudflare/production-worker.mjs\nsupabase-data.js\n' | sort > /tmp/expected-delta
+          diff -u /tmp/expected-delta /tmp/runtime-delta
+          node --check scripts/cleanup06_cloudflare_release.mjs
+          echo CLEANUP06_PUBLISH_SCOPE_SAFE_TWO_FILES_PASS
+      - name: Exact preflight BEFORE any Cloudflare mutation
+        run: node scripts/cleanup06_cloudflare_release.mjs preflight
+      - name: Tests of public/private/editor/rollback and build before upload
+        run: |
+          node --test tests/test_cleanup01_cloudflare_adapter.mjs tests/test_cleanup02_public_routes.mjs tests/test_mission15_legacy_cleanup.mjs tests/test_mission16_release_rollback.mjs tests/test_finalisation02_preview_security.mjs tests/test_finalisation04_visitor_bundled_helper.mjs
+          node scripts/mission16_editor_regressions.mjs
+          python scripts/build_production_assets.py
+          python scripts/audit_production_supabase_paths.py
+      - name: Prepare same existing D1/R2 bindings without any DNS or domain edit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/prepare_production_wrangler.py
+          cat >> migration/cloudflare/wrangler.production.toml <<'TOML'
+          [[r2_buckets]]
+          binding = "EDITOR_BUCKET"
+          bucket_name = "celebrations-exit-staging"
+          TOML
+          sed -i 's/^workers_dev = true$/workers_dev = false/' migration/cloudflare/wrangler.production.toml
+          grep -Fx 'workers_dev = false' migration/cloudflare/wrangler.production.toml
+          grep -Fx 'preview_urls = false' migration/cloudflare/wrangler.production.toml
+          for binding in DB MEDIA_ACL MEDIA_BUCKET EDITOR_BUCKET; do
+            grep -Fq "binding = \"$binding\"" migration/cloudflare/wrangler.production.toml
+          done
+          test "$(grep -c 'database_id = "28736d2a-479b-472b-bf82-703ad0affe10"' migration/cloudflare/wrangler.production.toml)" = 2
+          if grep -Eq '^[[:space:]]*(route|routes|zone_id|custom_domain)[[:space:]]*=' migration/cloudflare/wrangler.production.toml; then
+            echo CLEANUP06_DOMAIN_CHANGE_REFUSED; exit 1
+          fi
+          echo CLEANUP06_EXISTING_DATA_BINDINGS_PRESERVED_PASS
+      - name: Prepare Chromium for official desktop/mobile checks
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2 wrangler@4
+          npx playwright install --with-deps chromium
+      - name: Upload immutable cleaned Worker version WITHOUT deploying
+        id: upload
+        working-directory: migration/cloudflare
+        shell: bash
+        env:
+          WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/cleanup06-wrangler.jsonl
+        run: |
+          set -euo pipefail
+          npx wrangler versions upload --config wrangler.production.toml --keep-vars --strict --message "Célébrations M06: cleaned M1-M5 candidate from GitHub $GITHUB_SHA, not yet live"
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          const records=fs.readFileSync(process.env.WRANGLER_OUTPUT_FILE_PATH,'utf8')
+            .split(/\r?\n/).filter(Boolean).map(x=>JSON.parse(x));
+          const rows=records.filter(x=>x.type==='version-upload'&&x.worker_name==='celebrations-exit-production');
+          assert.equal(rows.length,1,'Expected exactly one version upload');
+          assert.match(rows[0].version_id,/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT,'version_id='+rows[0].version_id+'\n');
+          console.log('CLEANUP06_VERSION_UPLOADED_NOT_LIVE '+JSON.stringify({version:rows[0].version_id,published:false}));
+          NODE
+      - name: Verify uploaded version actual secret/data bindings with original still live
+        env:
+          CLEANUP06_NEW_VERSION_ID: ${{ steps.upload.outputs.version_id }}
+        run: node scripts/cleanup06_cloudflare_release.mjs validate
+      - name: Switch 100% official traffic to proven immutable version, rollback armed
+        id: promote
+        env:
+          CLEANUP06_OWNER_APPROVED: 'yes'
+          CLEANUP06_NEW_VERSION_ID: ${{ steps.upload.outputs.version_id }}
+        run: node scripts/cleanup06_cloudflare_release.mjs promote
+      - name: Verify official desktop and mobile visitor navigation in Chromium
+        env:
+          M04_HOST_SCOPE: official
+        run: node scripts/finalisation04_live_readonly_browser.mjs
+      - name: Verify 113/113 historical media and 9/9 official PDFs
+        run: node scripts/finalisation04_media_pdf_host_audit.mjs
+      - name: Verify exact final Worker version, private drafts and technical host settings
+        env:
+          CLEANUP06_NEW_VERSION_ID: ${{ steps.upload.outputs.version_id }}
+        run: node scripts/cleanup06_cloudflare_release.mjs postcheck
+      - name: IF ANY live verification fails, restore exact original Cloudflare Worker version
+        if: ${{ always() && steps.promote.outputs.attempted == 'yes' && failure() }}
+        env:
+          CLEANUP06_NEW_VERSION_ID: ${{ steps.upload.outputs.version_id }}
+        run: node scripts/cleanup06_cloudflare_release.mjs rollback
+      - name: Confirm successful final publication (only if all live tests pass)
+        run: echo CLEANUP06_FULLY_PUBLISHED_CLEANED_CODE_VERIFIED_SUCCESS
