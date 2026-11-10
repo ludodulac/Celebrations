@@ -3,6 +3,22 @@
 import {loadSevenStageContent,STAGES} from './editor-demo-preparation-page.mjs';
 import {TRIAL_SITE_CLIENT,TRIAL_SITE_STYLE} from './editor-trial-site-client.mjs';
 const HOST='celebrations-exit-staging.rondes.workers.dev';
+// M008-A responsive switcher; uses the existing CSP nonce and M006 DOM component.
+const PUBLIC_LANGUAGE_STYLE=`
+.site-menu-bar{display:flex;align-items:center;justify-content:space-between;gap:12px}
+#public-language-control{margin-left:auto;min-width:0}
+.public-language-selector{position:relative;font-size:.95rem}
+.public-language-selector>summary{cursor:pointer;display:flex;align-items:center;gap:7px;border:1px solid #cbd2d7;border-radius:8px;padding:7px 11px;background:#fff;color:#25313b;list-style:none}
+.public-language-selector>summary::-webkit-details-marker{display:none}
+.public-language-selector>summary::after{content:"▾";margin-left:8px}
+.public-language-options{position:absolute;right:0;top:100%;z-index:60;min-width:150px;max-height:60vh;overflow:auto;background:#fff;border:1px solid #cbd2d7;border-radius:8px;box-shadow:0 5px 18px #0002;padding:5px;margin:5px 0;list-style:none}
+.public-language-options a{display:flex;align-items:center;gap:8px;padding:9px 10px;color:#25313b;text-decoration:none;white-space:nowrap}
+.public-language-options a[aria-current=true]{font-weight:700;background:#f0f5f8}
+.public-language-options a:focus-visible,.public-language-selector>summary:focus-visible{outline:2px solid #194c76;outline-offset:2px}
+.public-language-flag{display:inline-flex;align-items:center;justify-content:center;min-width:1.5em;height:1.3em}
+img.public-language-flag{object-fit:contain}
+@media(max-width:600px){.site-menu-bar{gap:6px;flex-wrap:wrap}.public-language-selector{font-size:.86rem}.public-language-selector>summary{padding:8px}.public-language-options{max-width:90vw}}
+`;
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const safeJson=x=>JSON.stringify(x).replace(/</g,'\\u003c').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029');
 export async function handleTrialSite(request,env){
@@ -19,11 +35,11 @@ export async function handleTrialSite(request,env){
  const isOfficial=['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu'].includes(url.hostname);
  const siteClient=TRIAL_SITE_CLIENT;
  const html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'+(isOfficial?'<title>Célébrations des Archanges</title>':'<meta name="robots" content="noindex,nofollow"><title>Site d’essai — Célébrations</title>')+
- '<style nonce="'+nonce+'">'+TRIAL_SITE_STYLE+'</style></head><body>'+
+ '<style nonce="'+nonce+'">'+TRIAL_SITE_STYLE+PUBLIC_LANGUAGE_STYLE+'</style></head><body>'+
 
 
  '<div class="site-menu-bar"><div class="site-menu-group"><button type="button" class="menu-toggle" id="menu-toggle" aria-expanded="false" aria-haspopup="true" aria-controls="general-navigation">☰ Menu</button>'+
- '<nav id="general-navigation" class="general-navigation" aria-label="Pages hors célébration" hidden></nav></div></div>'+
+ '<nav id="general-navigation" class="general-navigation" aria-label="Pages hors célébration" hidden></nav></div><div id="public-language-control" aria-label="Langues du site"></div></div>'+
  '<nav class="celebration-shortcuts" id="celebration-shortcuts" aria-label="Célébration"></nav>'+
  '<nav class="steps" id="stage-navigation" aria-label="Pages de la célébration"></nav>'+
  '<main class="site-paper" id="site-paper"><div id="stage-main"></div></main>'+
