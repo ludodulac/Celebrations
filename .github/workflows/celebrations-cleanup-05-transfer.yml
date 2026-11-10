@@ -1,0 +1,41 @@
+name: Célébrations nettoyage 5 — transfert Cloudflare préparé hors ligne
+on:
+  push:
+    branches: [cleanup/celebrations-05-cloudflare-transfer-20261110]
+permissions:
+  contents: read
+jobs:
+  preparation-sans-cloudflare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0, persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Only transfer preparation files may change
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=64eb9b09b8cb8988e892679bd8b11d6dfd23c2e3
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD | grep -Ev '^(docs/operations/TRANSFERT-CLOUDFLARE(-EXEMPLE\.json|\.md)|scripts/transfer05_cloudflare_config\.py|tests/test_transfer05_cloudflare_config\.py|\.github/workflows/celebrations-cleanup-05-transfer\.yml|README\.md)$' >/tmp/unexpected || true
+          test ! -s /tmp/unexpected || { echo TRANSFER05_UNEXPECTED_CODE_CHANGE; cat /tmp/unexpected; exit 1; }
+          echo TRANSFER05_NO_ACTIVE_APP_CHANGES_PASS
+      - name: Validate transfer template, duplicate-account/secret protections, and offline config
+        run: |
+          python -m py_compile scripts/transfer05_cloudflare_config.py
+          python -m unittest discover -s tests -p test_transfer05_cloudflare_config.py -v
+          python scripts/transfer05_cloudflare_config.py
+          echo TRANSFER05_TARGET_CONFIG_TESTS_PASS
+      - name: Rebuild source assets and verify old Supabase endpoints absent
+        run: |
+          python scripts/build_production_assets.py
+          python scripts/audit_production_supabase_paths.py
+      - name: Existing security and routing regression checks
+        run: |
+          node --test tests/test_finalisation02_preview_security.mjs tests/test-exit-production-candidate.mjs tests/test_cleanup02_public_routes.mjs
+      - name: No access to cloud credentials / no deploy
+        run: echo TRANSFER05_OFFLINE_ONLY_NO_CLOUDFLARE_D1_R2_DOMAIN_DNS_CHANGES_PASS
