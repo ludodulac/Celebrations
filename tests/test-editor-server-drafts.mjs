@@ -173,3 +173,27 @@ test('M04: une seule confirmation visuelle pour une sauvegarde serveur vérifié
  assert.ok(DEMO_CLIENT.includes("el('editor-save-toast')"),
   'Le retour local propre au mode démonstration n’est pas supprimé');
 });
+
+test('M09: cacher un bloc entier conserve tous ses éléments après sauvegarde serveur',async()=>{
+ const e=env();
+ const media={id:202,kind:'image',src:'/media/conserve.jpg',widthPct:65};
+ const heading={id:203,kind:'heading',text:'Titre de la conférence'};
+ const link={id:204,kind:'button',text:'Voir la conférence',href:'https://example.org/video'};
+ const section={id:201,kind:'section',layout:'columns',hideOnSite:true,
+  columns:[[media],[heading,link]],style:{border:'round',color:'#c0c0c0',shadow:false,width:1}};
+ const payload={...body,record:{...body.record,pages:[
+  {id:'mercredi-101',group:'celebration',name:'Mercredi',blocks:[section]}]}};
+ const saved=await handleServerDraft(req('POST','/api/editor-server-draft',payload),e);
+ assert.equal(saved.status,200);
+ const response=await handleServerDraft(req('GET','/api/editor-server-draft?celebration=101'),e);
+ assert.equal(response.status,200);
+ const first=(await response.json()).record.pages[0].blocks[0];
+ assert.equal(first.hideOnSite,true);
+ assert.equal(first.columns[0][0].src,'/media/conserve.jpg');
+ assert.equal(first.columns[0][0].widthPct,65);
+ assert.equal(first.columns[1][0].text,'Titre de la conférence');
+ assert.equal(first.columns[1][1].href,'https://example.org/video');
+ assert.equal(first.style.border,'round');
+ const visitor=TRIAL_SITE_CLIENT.slice(TRIAL_SITE_CLIENT.indexOf('function appendPageBlock('));
+ assert.match(visitor,/function appendPageBlock\(b,root\)\{\s*if\(!b\|\|b\.hideOnSite===true\)return/);
+});
