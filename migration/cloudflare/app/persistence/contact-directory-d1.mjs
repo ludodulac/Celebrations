@@ -52,7 +52,7 @@ const first = (db,query,...args) => sql(db,query,...args).first();
 async function all(db,query,...args) {
   const result = await sql(db,query,...args).all();
   if (!Array.isArray(result?.results)) throw new Error('Invalid D1 result');
-  return result.results;
+  return result.results.map(row => ({...row}));
 }
 
 export function createContactDirectoryD1(db,{resolveCanonicalSpace}={}) {
