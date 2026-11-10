@@ -5,13 +5,15 @@ import shutil
 ROOT=Path(__file__).resolve().parents[1]
 OUT=ROOT/"staging-public"
 ALLOWED={".html",".css",".js",".png",".jpg",".jpeg",".webp",".svg",".ico",".gif",".woff",".woff2",".mp3",".ogg",".wav"}
-SKIP={".git",".github","migration","tests","scripts","docs","node_modules","staging-public","production-public",".venv"}
+SKIP={".git",".github","migration","tests","scripts","docs","node_modules","staging-public","production-public",".venv",
+      "private-members","private-member","member-private","members-private","private-media"}
 def main():
  if OUT.exists():shutil.rmtree(OUT)
  OUT.mkdir()
  count=0
  for path in ROOT.rglob("*"):
-  if not path.is_file() or any(p in SKIP or p.startswith(".") for p in path.relative_to(ROOT).parts):continue
+  # Never copy protected future media into a public assets bundle.
+  if not path.is_file() or any(p.lower() in SKIP or p.startswith(".") for p in path.relative_to(ROOT).parts):continue
   if path.suffix.lower() not in ALLOWED:continue
   if path.name.startswith(".") or path.name in {"package-lock.json","package.json"}:continue
   target=OUT/path.relative_to(ROOT)
