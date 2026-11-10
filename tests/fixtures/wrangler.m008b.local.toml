@@ -1,0 +1,7 @@
+# CI-only local D1 fixture. NEVER run with --remote.
+name = "celebrations-m008b-test-only"
+compatibility_date = "2026-11-10"
+[[d1_databases]]
+binding = "DB"
+database_name = "celebrations-m008b-local-only"
+database_id = "11111111-1111-4111-8111-111111111111"
