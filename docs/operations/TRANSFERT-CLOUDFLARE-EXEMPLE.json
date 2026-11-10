@@ -1,0 +1,24 @@
+{
+  "schema": "celebrations-transfer-m05.v1",
+  "source": {
+    "account_id": "",
+    "worker": "celebrations-exit-production",
+    "d1_id": "28736d2a-479b-472b-bf82-703ad0affe10",
+    "r2_historical": "celebrations-exit-production",
+    "r2_editor": "celebrations-exit-staging"
+  },
+  "target": {
+    "account_id": "",
+    "worker": "celebrations-transfer-candidate",
+    "d1_id": "",
+    "r2_historical": "celebrations-transfer-media",
+    "r2_editor": "celebrations-transfer-editor"
+  },
+  "readiness": {
+    "backup_passphrase_outside_github": false,
+    "fresh_consistent_backup_completed": false,
+    "admin_secrets_available_for_target": false,
+    "dns_and_email_records_exported": false,
+    "rollback_and_domain_cutover_approved": false
+  }
+}
