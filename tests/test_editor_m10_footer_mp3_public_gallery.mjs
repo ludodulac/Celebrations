@@ -65,6 +65,8 @@ test('M10: there is no public general media gallery, and hidden/unrelated pages 
  assert.match(source,/if\(!block\|\|block\.hideOnSite===true\)continue/);
  const env={
   window:{__PUBLIC_CELEBRATION_VISIBLE__:true},
+  seed:{library:[{type:'image',src:'/media/historical-day.jpg',pages:['Mercredi'],name:'Illustration ancienne'},
+   {type:'image',src:'/media/general-only.jpg',pages:['Accueil'],name:'Photo générale'}]},
   pages:[
    {group:'page',name:'Accueil',blocks:[{kind:'image',src:'/media/general.jpg',text:'Acc'}]},
    {group:'page',placement:'footer',name:'Mentions',blocks:[{kind:'image',src:'/media/footer.jpg',text:'Pied'}]},
@@ -78,8 +80,8 @@ test('M10: there is no public general media gallery, and hidden/unrelated pages 
  };
  vm.runInNewContext(source+'\nthis.entries=galleryEntries;',env);
  const urls=env.entries().map(x=>x.src);
- assert.equal(urls.length,1);
- assert.equal(urls[0],'/media/celebration.jpg');
+ assert.equal(urls.length,2);
+ assert.deepEqual([...urls].sort(),['/media/celebration.jpg','/media/historical-day.jpg'].sort());
  env.window.__PUBLIC_CELEBRATION_VISIBLE__=false;
  assert.equal(env.entries().length,0);
 });
