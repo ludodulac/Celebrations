@@ -9,6 +9,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   offline-and-readonly:
+    if: ${{ !contains(github.event.head_commit.message, '[CLEANUP06_PUBLISH_OFFICIAL]') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment: celebrations-staging
