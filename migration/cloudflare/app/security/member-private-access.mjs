@@ -104,7 +104,8 @@ function releasedPage(page, id) {
     page.visibility === 'published' &&
     page.publicationStatus !== 'draft' && page.publicationStatus !== 'hidden' &&
     page.published !== false && page.isPublished !== false &&
-    own(page, 'accessPolicy') && page.accessPolicy !== null;
+    own(page, 'accessPolicy') && !!page.accessPolicy &&
+    typeof page.accessPolicy === 'object';
 }
 
 // Only an explicitly restricted page or a page inside a PRIVATE space can
