@@ -1,0 +1,73 @@
+name: Célébrations nettoyage 6 — préflight complet et preuves sans publication
+on:
+  push:
+    branches: [release/celebrations-cleanup-06-20261110]
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-cleanup-06-offline
+  cancel-in-progress: false
+jobs:
+  offline-and-readonly:
+    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[CLEANUP06_PREFLIGHT]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      PROD_D1_ID: 28736d2a-479b-472b-bf82-703ad0affe10
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0, persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Confirm exact app changes from official M5 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=65caf8d5d03d29882d0de0c0d00cdcfc622e473e
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD | grep -E '^(migration/cloudflare/|supabase-data\.js$|admin\.html$|index\.html$|public-[^/]+|admin-[^/]+)' | sort > /tmp/runtime-delta
+          printf 'migration/cloudflare/production-worker.mjs\nsupabase-data.js\n' | sort > /tmp/expected-delta
+          diff -u /tmp/expected-delta /tmp/runtime-delta
+          echo CLEANUP06_ONLY_TWO_RUNTIME_FILES_CHANGED_PASS
+      - name: Full node regressions and cleanup contracts
+        run: |
+          node --check scripts/cleanup06_cloudflare_release.mjs
+          node --check migration/cloudflare/production-worker.mjs
+          node --check supabase-data.js
+          node --test tests/test_cleanup01_cloudflare_adapter.mjs tests/test_cleanup02_public_routes.mjs tests/test_mission15_legacy_cleanup.mjs tests/test_mission16_release_rollback.mjs tests/test_finalisation02_preview_security.mjs tests/test_finalisation04_visitor_bundled_helper.mjs
+          node scripts/mission16_editor_regressions.mjs
+      - name: Transfer preparation isolated tests
+        run: python -m unittest discover -s tests -p test_transfer05_cloudflare_config.py -v
+      - name: Compare complete static builds against original M5 release
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/build_production_assets.py
+          python scripts/audit_production_supabase_paths.py
+          git worktree add --detach "$RUNNER_TEMP/m06-original" 65caf8d5d03d29882d0de0c0d00cdcfc622e473e
+          (cd "$RUNNER_TEMP/m06-original" && python scripts/build_production_assets.py && python scripts/audit_production_supabase_paths.py)
+          export OLD_SITE="$RUNNER_TEMP/m06-original/production-public"
+          python - <<'PY'
+          from pathlib import Path
+          import os
+          old=Path(os.environ['OLD_SITE'])
+          new=Path('production-public')
+          a={str(f.relative_to(old)):f for f in old.rglob('*') if f.is_file()}
+          b={str(f.relative_to(new)):f for f in new.rglob('*') if f.is_file()}
+          assert a.keys()==b.keys(),'Asset paths differ from original release'
+          diff=[p for p in sorted(a) if a[p].read_bytes()!=b[p].read_bytes()]
+          assert diff==['supabase-data.js'],('Unexpected static asset change',diff)
+          print('CLEANUP06_ASSETS_FULL_PARITY_PASS',{'total':len(a),
+           'changed':['supabase-data.js'],'all_other_assets_unchanged':True})
+          PY
+      - name: Read-only production metadata and public/private routes
+        run: node scripts/cleanup06_cloudflare_release.mjs preflight
+      - name: Public official PDF and historical media regression
+        run: node scripts/finalisation04_media_pdf_host_audit.mjs
+      - name: Completed preflight with no deployment
+        run: echo CLEANUP06_PREFLIGHT_PASS_NO_DEPLOYMENT_NO_D1_R2_DNS_WRITES

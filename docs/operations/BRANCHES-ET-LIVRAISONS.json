@@ -3,22 +3,24 @@
   "recorded_at": "2026-11-10",
   "production": {
     "branch": "production/celebrations-live",
-    "source_sha": "65caf8d5d03d29882d0de0c0d00cdcfc622e473e",
+    "source_sha": "4dda3de63066ea51e4c99f0ef21255dfb4d0fcb9",
     "worker": "celebrations-exit-production",
-    "worker_version": "eccb1274-2ed8-491f-8557-c4330342e4bf",
-    "deployment_id": "ffdc7b2b-a443-45cf-843d-0419fe71cb8d",
-    "published_at": "2026-11-09",
-    "note": "Last confirmed live at M5; compare Cloudflare immutable Worker version to claim current status"
+    "worker_version": "081f5367-1f37-421e-bc55-27999cf2562c",
+    "deployment_id": "51a8bff3-d3cf-4cc1-99e8-af00c9b31443",
+    "published_at": "2026-11-10",
+    "note": "Verified live through GitHub Actions 42813315981 on both official hosts; production branch points to exact release input SHA; check Cloudflare active version again on future changes"
   },
   "development": {
     "branch": "develop/celebrations-maintenance",
-    "based_on_sha": "a17e235f21a99158ed34ef12cbc52ddbc0ef3f5e",
+    "based_on_sha": "4dda3de63066ea51e4c99f0ef21255dfb4d0fcb9",
     "published": false,
     "planned_cleanups": [
       "M1",
       "M2",
       "M3",
-      "M4"
+      "M4",
+      "M5",
+      "M6"
     ]
   },
   "legacy": {
