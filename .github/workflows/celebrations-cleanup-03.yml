@@ -1,0 +1,81 @@
+name: Célébrations nettoyage 3 — archives GitHub sans perte
+on:
+  push:
+    branches: [cleanup/celebrations-03-workflows-20261110]
+permissions:
+  contents: read
+jobs:
+  archive-and-regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0, persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: 'Archive readback — exact original bytes, no active runtime edits'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import pathlib,subprocess,hashlib
+          BASE='32d1938920faa9165ef282c52643d42b87ed8569'
+          current=pathlib.Path('.github/workflows')
+          archives=pathlib.Path('docs/archive/workflows')
+          files=sorted(archives.glob('*.yml'))
+          assert len(files)==35,('Expected 35 archived workflow YAML files',len(files))
+          for archive in files:
+              source=current/archive.name
+              assert not source.exists(),('Legacy trigger still active',source)
+              original=subprocess.check_output(['git','show',f'{BASE}:.github/workflows/{archive.name}'])
+              actual=archive.read_bytes()
+              assert actual==original,('Historical workflow altered',archive.name)
+              assert len(actual)>80
+          expected_critical=[
+            'celebrations-finalisation-mission-03.yml',
+            'celebrations-finalisation-mission-03-restore.yml',
+            'celebrations-finalisation-mission-03-drive10.yml',
+            'celebrations-finalisation-mission-05-publish.yml',
+            'celebrations-finalisation-mission-05-rollback-drill.yml',
+            'celebrations-cleanup-01.yml',
+            'celebrations-cleanup-02.yml',
+            'celebrations-admin-c-local-tests.yml',
+            'celebrations-admin-login-probe.yml',
+            'pages.yml'
+          ]
+          for name in expected_critical:
+              file=current/name
+              assert file.is_file(),('Critical workflow unexpectedly archived',name)
+              assert file.read_bytes()==subprocess.check_output(['git','show',
+                  f'{BASE}:.github/workflows/{name}']),('Critical workflow modified',name)
+          active=sorted(current.glob('*.yml'))
+          assert len(active)==74,('Unexpected number of runnable workflows',len(active))
+          changes=subprocess.check_output(['git','diff','--name-only',BASE,'HEAD'],
+                      text=True).splitlines()
+          def allowed(p):
+              return (p.startswith('docs/archive/workflows/')
+                  or p.startswith('.github/workflows/')
+                  or p=='docs/finalisation/CELEBRATIONS-NETTOYAGE-03-2026-11-10.md')
+          assert all(map(allowed,changes)),('Unexpected app/scripts/data modification',
+                                            [x for x in changes if not allowed(x)])
+          print('CLEANUP03_EXACT_BYTES_AND_SAFETY_PASS', {
+             'archived_workflows':len(files),
+             'active_workflows_including_this_qa':len(active),
+             'critical_workflows_preserved':len(expected_critical),
+             'archived_exact_same_bytes':True,
+             'application_edits':0,'script_edits':0,'old_workflow_triggers_removed':35
+          })
+          PY
+      - name: 'Regressions du code historique et des protections'
+        run: |
+          node --test tests/test_mission15_legacy_cleanup.mjs tests/test_mission16_release_rollback.mjs tests/test_finalisation02_preview_security.mjs
+          node scripts/mission16_editor_regressions.mjs
+      - name: 'Reconstruction locale de production sans accès Cloudflare'
+        run: |
+          python scripts/build_production_assets.py
+          python scripts/audit_production_supabase_paths.py
+          echo CLEANUP03_CLOUDFLARE_ONLY_ASSETS_STILL_BUILD_PASS
+      - name: 'Fin — aucun déploiement, aucune écriture D1 ou R2'
+        run: echo CLEANUP03_OFFLINE_ONLY_NO_WORKER_OR_D1_R2_DNS_MUTATION
