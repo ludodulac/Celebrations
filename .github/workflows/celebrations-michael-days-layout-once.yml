@@ -1,0 +1,35 @@
+name: Célébrations — ranger jeudi à dimanche Michaël sans modifier le code du site
+on:
+  push:
+    branches: [content/michael-other-days-layout-20261110]
+    paths:
+      - 'scripts/michael-days-content-layout-once.py'
+      - '.github/workflows/celebrations-michael-days-layout-once.yml'
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-visual-official-publish
+  cancel-in-progress: false
+jobs:
+  organize-four-days:
+    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[MICHAEL_DAYS_LAYOUT_ONE_SHOT]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    environment: celebrations-staging
+    env:
+      MICHAEL_DAYS_ONE_SHOT_APPROVED: 'yes'
+      STAGING_R2_BUCKET: celebrations-exit-staging
+      STAGING_R2_ACCESS_KEY_ID: ${{ secrets.CELEBRATIONS_STAGING_R2_ACCESS_KEY_ID }}
+      STAGING_R2_SECRET_ACCESS_KEY: ${{ secrets.CELEBRATIONS_STAGING_R2_SECRET_ACCESS_KEY }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Vérifier le script sans écrire ni modifier le site
+        run: python -m py_compile scripts/michael-days-content-layout-once.py
+      - name: Installer seulement le client R2 côté GitHub Actions
+        run: python -m pip -q install boto3==1.40.57
+      - name: Sauvegarde vérifiée puis réorganisation des quatre pages uniquement
+        run: python scripts/michael-days-content-layout-once.py
