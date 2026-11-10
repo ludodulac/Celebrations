@@ -14,7 +14,9 @@ import {handleStats} from "./stats-api.mjs";
 import {handlePreparationDemo} from "./editor-demo-preparation-page.mjs";
 import {handleTrialSite} from "./editor-trial-site-page.mjs";
 import {handleServerDraft} from "./editor-server-draft-api.mjs";
-import {handleEditorPublication,handleEditorMedia,handleEditorMediaFile} from "./editor-publication-api.mjs";
+import {handleEditorPublication,handleEditorMedia} from "./editor-publication-api.mjs";
+import {handlePublicEditorUpload} from "./public-upload-gateway.mjs";
+import {isBlockedPublicAssetPath,privatePublicAssetNotFound} from "./app/security/public-media-boundary.mjs";
 import {hasEditorAccess,editorAccessAction,editorLoginPage,editorLogout} from "./editor-site-access.mjs";
 import {isOfficialEditorHost,isReadonlyCandidateHost,isPrivateEditorPath,sameOriginEditorWrite} from "./app/security/editor-route-policy.mjs";
 // Immutable public route aliases. Keep historical links unchanged.
@@ -29,6 +31,8 @@ const DIRECT_PAGES=new Map([
 export default {
  async fetch(request,env){
   const url=new URL(request.url),path=url.pathname;
+  // Guard before ANY legacy alias, API, R2 or static-assets fallback.
+  if(isBlockedPublicAssetPath(path))return privatePublicAssetNotFound();
   const isolated=isReadonlyCandidateHost(url.hostname);
   // Before domain cutover the independent candidate is READ-ONLY, by design.
   // This gate prevents public signups, analytics writes and admin mutations.
@@ -87,7 +91,7 @@ export default {
   }
   // Application-owned new uploads live in EDITOR_BUCKET, never MEDIA_BUCKET.
   // Historic /media/ and /letter/ routes remain byte-for-byte untouched.
-  if(path.startsWith("/media/new/"))return handleEditorMediaFile(request,env);
+  if(path.startsWith("/media/new/"))return handlePublicEditorUpload(request,env);
   if(path.startsWith("/media/")||path.startsWith("/letter/"))return handleMedia(request,env);
   // The two official domains now use the same visual visitor/editor interface.
   // All media, old emailed PDF, existing static assets and historic redirects
