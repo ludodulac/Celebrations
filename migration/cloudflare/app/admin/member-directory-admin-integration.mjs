@@ -79,7 +79,10 @@ export function mountMemberDirectoryAdmin(root,{transport}={}) {
     state=createMemberAdminState(incoming);
     if(!state.members.some(p=>p.id===selected)) selected=state.members[0]?.id||'';
     if(ui) ui.setState(state);
-    else ui=mountMemberAccessAdmin(base,{initialState:state,onChange:(next,detail)=>{
+    else ui=mountMemberAccessAdmin(base,{initialState:state,
+      warningText:'Annuaire D1 relié au service administrateur vérifié. ' +
+        'Les autorisations de pages ne sont pas encore sauvegardées dans le moteur éditorial ; ' +
+        'aucun espace privé n’est activé en production.',onChange:(next,detail)=>{
       if(busy || destroyed) return;
       const command=memberCommand(next,detail);
       if(!command) {
@@ -132,6 +135,26 @@ export function mountMemberDirectoryAdmin(root,{transport}={}) {
         (data.celebrations.map(x=>x.celebrationId).join(', ')||'aucune')));
       details.append(node('p','Espaces privés : '+
         (data.enrollments.map(x=>x.spaceId).join(', ')||'aucun')));
+      function removeLink(text,command) {
+        const control=button(text);
+        control.addEventListener('click',async()=>{
+          if(busy)return;
+          busy=true;
+          try {
+            await call({method:'POST',...command});
+            await reload();status('Association retirée par le serveur.');
+          }catch(e){status('Suppression refusée : '+e.message);}
+          finally {busy=false;}
+        });
+        details.append(control);
+      }
+      for(const link of data.enrollments)
+        removeLink('Désinscrire : '+link.spaceId,
+          {action:'remove_enrollment',personId:selected,spaceId:link.spaceId});
+      for(const link of data.celebrations)
+        removeLink('Retirer la participation : '+link.celebrationId,
+          {action:'remove_celebration',personId:selected,
+            celebrationId:link.celebrationId});
     }).catch(()=>{details.textContent='Données non disponibles.';});
     const form=node('form');
     const celebration=node('input');
