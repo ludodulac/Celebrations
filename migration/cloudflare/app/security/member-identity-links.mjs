@@ -19,9 +19,16 @@ export async function resolveExplicitMemberIdentity(request,env) {
   try { normalizeDirectoryEmail(email); } catch { return null; }
   const row = await q(env.DB,
     'SELECT l.person_id AS id FROM celebrations_directory_identity_links l ' +
+    'JOIN celebrations_directory_identity_claims c ON c.claim_id=l.approved_claim_id ' +
+    'AND c.participant_email=l.participant_email AND c.person_id=l.person_id ' +
+    "AND c.status='approved' " +
+    "AND c.verification_method IN ('in_person','independent_records','video_verified') " +
+    'AND c.reviewed_at IS NOT NULL AND c.reviewed_by IS NOT NULL ' +
+    "AND LENGTH(TRIM(c.reviewed_by))>0 " +
     'JOIN celebrations_participants p ON p.email=l.participant_email ' +
+    'AND p.password_hash IS NOT NULL ' +
     'JOIN celebrations_directory_people d ON d.id=l.person_id ' +
-    'WHERE l.participant_email=? AND p.password_hash IS NOT NULL LIMIT 1',email).first();
+    'WHERE l.participant_email=? LIMIT 1',email).first();
   return isDirectoryPersonId(row?.id) ?
     Object.freeze({id:row.id,authenticated:true}) : null;
 }
