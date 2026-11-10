@@ -12,7 +12,8 @@ workers_dev = true
 directory = "../../staging-public"
 binding = "ASSETS"
 # Ensure staging-mode redirect runs before serving the HTML assets.
-run_worker_first = ["/", "/index.html", "/admin.html", "/admin"]
+# Mandatory: security boundary must execute before ASSETS for every URL.
+run_worker_first = true
 
 # Required bindings (fill in after separate staging resources are created):
 # [[d1_databases]]
@@ -26,6 +27,11 @@ run_worker_first = ["/", "/index.html", "/admin.html", "/admin"]
 # [[r2_buckets]]
 # binding = "MEDIA_BUCKET"
 # bucket_name = "STAGING_PRIVATE_BUCKET"
+# Future private members: use a DIFFERENT R2 bucket without public domain,
+# and only bind it to the M008-C authorization service after review.
+# [[r2_buckets]]
+# binding = "PRIVATE_MEMBER_BUCKET"
+# bucket_name = "<SEPARATE_NON_PUBLIC_PRIVATE_BUCKET>"
 
 # Set ADMIN_PASSWORD_HASH and ADMIN_PASSWORD_SALT as protected secrets.
 # Do not expose real participant exports or production admin passwords.

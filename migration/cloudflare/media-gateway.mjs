@@ -1,17 +1,22 @@
 import {participantIdentity} from "./audience-api.mjs";
 import {authorize} from "./auth-api.mjs";
+import {privateNotFound} from "./app/security/member-private-access.mjs";
+import {isPrivateMediaReference,publicMediaBindingsSafe} from "./app/security/public-media-boundary.mjs";
 // Preview-only private R2 media gateway. No route deployed.
 // Bind MEDIA_BUCKET (R2) and MEDIA_ACL (D1). No public R2 bucket.
 const json=(message,status)=>new Response(JSON.stringify({error:message}),{status,headers:{"content-type":"application/json","cache-control":"no-store"}});
 const safeKey=(value)=>typeof value==="string"&&value.length>0&&value.length<1024&&!value.startsWith("/")&&!value.split("/").some(p=>!p||p==="."||p==="..")&&!value.includes("\\")&&!value.includes("\0");
 export async function handleMedia(request,env){
  if(request.method!=="GET"&&request.method!=="HEAD")return json("Method not allowed",405);
- if(!env.MEDIA_BUCKET||!env.MEDIA_ACL)return json("Gateway unavailable",503);
+ if(!env.MEDIA_BUCKET||!env.MEDIA_ACL||!publicMediaBindingsSafe(env))return json("Gateway unavailable",503);
  const u=new URL(request.url);
  const letter=u.pathname.startsWith("/letter/");
  if(!letter&&!u.pathname.startsWith("/media/"))return json("Not found",404);
  let key;try{key=decodeURIComponent(u.pathname.slice(letter?8:7))}catch{return json("Not found",404)}
  if(!safeKey(key))return json("Not found",404);
+ // The legacy public gateway NEVER serves a future private-member namespace,
+ // irrespective of ACL rows, audience labels, admin tokens or R2 key guesses.
+ if(isPrivateMediaReference(key))return privateNotFound();
  // Public media requires an explicit, approved allowlist row.
  // Committee media requires a valid active slug. Never accept a raw committee key.
  const committee=letter;
@@ -19,7 +24,8 @@ export async function handleMedia(request,env){
  if(committee){
   if(key.length>=160)return json("Not found",404);
   const row=await env.MEDIA_ACL.prepare("SELECT storage_path FROM committee_media WHERE slug=? AND revoked_at IS NULL AND published=1").bind(key).first();
-  if(row&&safeKey(row.storage_path)&&row.storage_path.startsWith("committee/")){key=row.storage_path;authorized=true}
+  if(row&&safeKey(row.storage_path)&&row.storage_path.startsWith("committee/")&&
+     !isPrivateMediaReference(row.storage_path)){key=row.storage_path;authorized=true}
  }else{
   if(key.startsWith("committee/"))return json("Not found",404);
   const row=await env.MEDIA_ACL.prepare("SELECT approved,revoked_at FROM public_media WHERE storage_path=?").bind(key).first();
@@ -46,7 +52,7 @@ export async function handleMedia(request,env){
    authorized=!!match;
   }
  }
- if(!authorized)return json("Not found",404);
+ if(!authorized||isPrivateMediaReference(key))return privateNotFound();
  const range=request.headers.get("range");
  if(range&&!/^bytes=\d*-\d*$/.test(range))return json("Invalid range",416);
  let object;
@@ -60,6 +66,18 @@ export async function handleMedia(request,env){
  headers.set("etag",object.httpEtag||"");
  headers.set("x-content-type-options","nosniff");
  headers.set("cache-control","no-store");
+ headers.set("vary","Authorization, Cookie");
+ headers.set("referrer-policy","no-referrer");
+ headers.set("cdn-cache-control","no-store");
+ headers.set("x-robots-tag","noindex, nofollow, noarchive");
+ // A mailed committee PDF is a bearer-capability URL, never a CDN resource.
+ if(committee){headers.delete("etag");headers.delete("last-modified");}
+ if(!/^(?:image\/(?:jpeg|png|webp|gif|svg\+xml)|application\/pdf|audio\/(?:mpeg|ogg|wav)|video\/mp4|application\/octet-stream)$/.test(headers.get("content-type")||"")){
+  headers.set("content-type","application/octet-stream");
+  headers.set("content-disposition","attachment");
+ }
+ if((headers.get("content-type")||"").includes("svg+xml"))
+  headers.set("content-security-policy","default-src 'none'; sandbox");
  if(range&&object.range){
   const offset=object.range.offset??0;
   const length=object.range.length??object.size;
