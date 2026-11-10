@@ -198,3 +198,27 @@ export function projectPageMenu(pages, registry, requestedLanguageId) {
   }
   return menu;
 }
+
+/**
+ * Build-time browser adapter for the existing nonce-protected inline editor.
+ * Serializes this very domain model, not a second translation engine.
+ * The public visitor renderer never uses this source.
+ */
+export function editorLocalizationInlineSource() {
+  const declarations=[
+    'const INITIAL_LANGUAGE_ID='+JSON.stringify(INITIAL_LANGUAGE_ID)+';',
+    'const LOCALIZABLE_FIELDS=Object.freeze('+JSON.stringify(LOCALIZABLE_FIELDS)+');',
+    'const LANGUAGE_ID_PATTERN='+LANGUAGE_ID_PATTERN.toString()+';',
+    'const LOCALIZABLE=new Set(LOCALIZABLE_FIELDS);',
+    'const copy=value=>structuredClone(value);',
+    'const hasOwn=(value,key)=>Object.prototype.hasOwnProperty.call(value,key);'
+  ];
+  return declarations.join('\n')+'\n'+[
+    requireLanguageId,requireLabel,requireIdentity,assertRegistry,withLanguage,
+    createLanguageRegistry,addLanguage,renameLanguage,setLanguageFlag,
+    setLanguageActive,setDefaultLanguage,selectLanguage,validateContent,
+    sourceLanguageOf,sourceContent,withVariant,resolveVariant,
+    setPageTranslation,resolvePageTranslation,setCelebrationSpaceTranslation,
+    resolveCelebrationSpaceTranslation,projectPageMenu
+  ].map(fn=>fn.toString()).join('\n');
+}
