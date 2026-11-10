@@ -183,7 +183,7 @@ test('M008-C: direct URLs cannot skip missing/incorrect canonical space or ACL',
     {...root, accessPolicy: undefined}
   ];
   for (const page of invalidPages) {
-    const render = rendered({...loaders([page]), pageId: page.id});
+    const render = rendered({...loaders([page]), pageId: page.id === 'fake-page' ? inner.id : page.id});
     const response = await handlePrivatePage(req(), scenario().env, render.options);
     assert.equal(response.status, 404, JSON.stringify(page));
     assert.equal(render.count(), 0);
