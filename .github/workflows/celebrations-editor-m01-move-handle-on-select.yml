@@ -1,0 +1,131 @@
+name: Célébrations — mission 01 poignée seulement après sélection
+on:
+  push:
+    branches: [fix/editor-m01-move-handle-selected-only-20261110]
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-finalisation-m05-release
+  cancel-in-progress: false
+jobs:
+  publish-m01:
+    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[EDITOR_M01_PUBLISH]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      CELEBRATIONS_PROD_D1_ID: 28736d2a-479b-472b-bf82-703ad0affe10
+      CELEBRATIONS_PROD_R2_BUCKET: celebrations-exit-production
+      CELEBRATIONS_STAGING_R2_BUCKET: celebrations-exit-staging
+      PROD_D1_ID: 28736d2a-479b-472b-bf82-703ad0affe10
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0, persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Reject any runtime changes except the move-handle CSS layer
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/fix/editor-m01-move-handle-selected-only-20261110
+          git merge-base --is-ancestor origin/release/celebrations-cleanup-06-20261110 HEAD
+          git diff --name-only origin/release/celebrations-cleanup-06-20261110 HEAD | grep -E '^(migration/cloudflare/|admin\.html$|index\.html$|public-|supabase-data\.js)' | sort > /tmp/editor-m01-runtime-delta
+          printf 'migration/cloudflare/app/styles/admin/07-drag-resources.mjs\n' > /tmp/editor-m01-expected-runtime-delta
+          diff -u /tmp/editor-m01-expected-runtime-delta /tmp/editor-m01-runtime-delta
+          echo EDITOR_M01_ONLY_DRAG_CSS_CHANGED
+      - name: Targeted regression tests — no additions to the editor
+        run: |
+          node --check migration/cloudflare/app/styles/admin/07-drag-resources.mjs
+          node --test tests/test_editor_m01_select_only_move_grip.mjs tests/test_mission11_drag_undo.mjs
+          python scripts/build_production_assets.py
+          python scripts/audit_production_supabase_paths.py
+      - name: Reuse the already-proven exact-version release gate with the CURRENT baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          const src='scripts/cleanup06_cloudflare_release.mjs';
+          let body=fs.readFileSync(src,'utf8');
+          const replacements=[
+            ['refs/heads/release/celebrations-cleanup-06-20261110','refs/heads/fix/editor-m01-move-handle-selected-only-20261110'],
+            ["const original='eccb1274-2ed8-491f-8557-c4330342e4bf';","const original='081f5367-1f37-421e-bc55-27999cf2562c';"],
+            ["const originalDeployment='ffdc7b2b-a443-45cf-843d-0419fe71cb8d';","const originalDeployment='51a8bff3-d3cf-4cc1-99e8-af00c9b31443';"]
+          ];
+          for(const [before,after] of replacements){
+            assert.equal(body.split(before).length-1,1,'Release gate anchor changed');
+            body=body.replace(before,after);
+          }
+          fs.writeFileSync('scripts/.editor-m01-release-runtime.mjs',body);
+          console.log('EDITOR_M01_REUSE_EXACT_VERSION_GATE');
+          NODE
+      - name: Full Cloudflare preflight with official version, bindings, and security
+        run: node scripts/.editor-m01-release-runtime.mjs preflight
+      - name: Keep existing D1 and both R2 bindings; do not edit DNS
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/prepare_production_wrangler.py
+          cat >> migration/cloudflare/wrangler.production.toml <<'TOML'
+          [[r2_buckets]]
+          binding = "EDITOR_BUCKET"
+          bucket_name = "celebrations-exit-staging"
+          TOML
+          sed -i 's/^workers_dev = true$/workers_dev = false/' migration/cloudflare/wrangler.production.toml
+          grep -Fx 'workers_dev = false' migration/cloudflare/wrangler.production.toml
+          grep -Fx 'preview_urls = false' migration/cloudflare/wrangler.production.toml
+          for binding in DB MEDIA_ACL MEDIA_BUCKET EDITOR_BUCKET; do
+            grep -Fq "binding = \"$binding\"" migration/cloudflare/wrangler.production.toml
+          done
+          test "$(grep -c 'database_id = "28736d2a-479b-472b-bf82-703ad0affe10"' migration/cloudflare/wrangler.production.toml)" = 2
+          if grep -Eq '^[[:space:]]*(route|routes|zone_id|custom_domain)[[:space:]]*=' migration/cloudflare/wrangler.production.toml; then
+            echo EDITOR_M01_DNS_CHANGE_REFUSED; exit 1
+          fi
+      - name: Install the same Cloudflare release CLI as mission 06
+        run: npm install --no-save --no-package-lock wrangler@4
+      - name: Upload immutable Worker candidate WITHOUT activating it
+        id: upload
+        working-directory: migration/cloudflare
+        shell: bash
+        env:
+          WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/editor-m01-wrangler.jsonl
+        run: |
+          set -euo pipefail
+          npx wrangler versions upload --config wrangler.production.toml --keep-vars --strict --message "Célébrations editor M01 move-handle CSS only: $GITHUB_SHA"
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          const rows=fs.readFileSync(process.env.WRANGLER_OUTPUT_FILE_PATH,'utf8')
+            .split(/\r?\n/).filter(Boolean).map(x=>JSON.parse(x))
+            .filter(x=>x.type==='version-upload'&&x.worker_name==='celebrations-exit-production');
+          assert.equal(rows.length,1);
+          assert.match(rows[0].version_id,/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT,'version_id='+rows[0].version_id+'\n');
+          console.log('EDITOR_M01_VERSION_UPLOADED_NOT_LIVE '+rows[0].version_id);
+          NODE
+      - name: Verify immutable candidate bindings and that the old version remains live
+        env:
+          CLEANUP06_NEW_VERSION_ID: ${{ steps.upload.outputs.version_id }}
+        run: node scripts/.editor-m01-release-runtime.mjs validate
+      - name: Activate the owner-approved change with exact-version rollback armed
+        id: promote
+        env:
+          CLEANUP06_OWNER_APPROVED: 'yes'
+          CLEANUP06_NEW_VERSION_ID: ${{ steps.upload.outputs.version_id }}
+        run: node scripts/.editor-m01-release-runtime.mjs promote
+      - name: Confirm official website and admin entry remain healthy
+        env:
+          CLEANUP06_NEW_VERSION_ID: ${{ steps.upload.outputs.version_id }}
+        run: node scripts/.editor-m01-release-runtime.mjs postcheck
+      - name: Restore exact prior version if any post-activation check fails
+        if: ${{ always() && steps.promote.outputs.attempted == 'yes' && failure() }}
+        env:
+          CLEANUP06_NEW_VERSION_ID: ${{ steps.upload.outputs.version_id }}
+        run: node scripts/.editor-m01-release-runtime.mjs rollback
+      - name: Final report
+        run: echo EDITOR_M01_PUBLISHED_SUCCESS_ONLY_MOVE_HANDLE_VISIBILITY_CHANGED
