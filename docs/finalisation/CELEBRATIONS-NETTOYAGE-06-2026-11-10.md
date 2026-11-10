@@ -35,8 +35,32 @@ Seul le workflow `.github/workflows/celebrations-cleanup-06-publish.yml` peut ef
 
 En cas d'échec après la tentative de bascule, un garde-fou séparé rétablit la version exacte `eccb1274-2ed8-491f-8557-c4330342e4bf`. Aucun rollback de contenu D1/R2 n'est prévu car aucun contenu n'est modifié.
 
-**Statut de ce document au moment de sa création : préflight VALIDÉ, publication non encore confirmée.** La mission ne doit être déclarée publiée que si les journaux du workflow de publication montrent explicitement la nouvelle version Cloudflare active à 100 %, les tests post-publication réussis et aucun rollback.
+**Statut final : MISSION 6 TERMINÉE ET PUBLIÉE.** La livraison a été effectuée et vérifiée, comme détaillé ci-dessous.
 
 ## Limite à conserver honnêtement
 
 Le test d'administration avec le **véritable code d'accès du propriétaire** et une sauvegarde réelle en session connectée exige une vérification humaine sur le site officiel. Les tests automatiques couvrent uniquement les contrôles de refus anonymes, la publication publique et des scénarios isolés.
+
+## Résultat réel de la publication — 10 novembre 2026
+
+**[GitHub Actions #42813315981](https://github.com/ludodulac/Celebrations/actions/runs/42813315981) — SUCCESS.**
+
+- **Version Cloudflare Worker mise en ligne à 100 % :** `081f5367-1f37-421e-bc55-27999cf2562c`
+- **Déploiement final :** `51a8bff3-d3cf-4cc1-99e8-af00c9b31443`
+- **Version précédente préservée pour rollback :** `eccb1274-2ed8-491f-8557-c4330342e4bf`
+- **Source Git exacte ayant produit la version publiée :** `4dda3de63066ea51e4c99f0ef21255dfb4d0fcb9`, copie de référence `production/celebrations-live`. La branche `develop/celebrations-maintenance` a été avancée à ce même commit comme base de nouvelles modifications.
+- **61 contrats Node + 205 régressions = 266 tests Node réussis pendant la publication ;** 6 tests Python du transfert réussis pendant le préflight = **272 tests automatisés validés au total**.
+- **Chromium réel :** 4 contextes sur le site officiel, domaine racine et `www`, résolutions 1280 et 390. Navigation accueil, célébrations, mercredi et menu mobile **PASS** ; 0 erreur JavaScript, 0 échec HTTP serveur.
+- **Médias historiques :** 113/113 disponibles ; **PDF : 9/9** sur le domaine racine et **9/9** sur `www`, sans redirection vers les anciens liens techniques.
+- **Données des visiteurs :** révision publique 117 conservée, huit pages de célébration présentes. **Brouillons privés :** endpoint non authentifié refuse GET et POST (401) sur les deux domaines.
+- **Cloudflare :** deux domaines toujours attachés au Worker officiel ; adresse `workers.dev` et preview URLs désactivées ; bindings `DB`, `MEDIA_ACL`, `MEDIA_BUCKET`, `EDITOR_BUCKET` et secret d'administration préservés.
+- **Actions effectuées sur la production :** une bascule de version Worker uniquement ; **aucune écriture de contenu D1/R2, aucun changement DNS**.
+- **Rollback :** la protection de rollback était prête, mais **n'a pas été exécutée**, car tous les contrôles après publication ont réussi.
+
+## Suite sans nouvelle série de nettoyage
+
+Cette mission **clôt les six missions de rangement demandées** ; la démarche de maintenance n'a pas vocation à ouvrir une autre liste de réparations. La branche GitHub par défaut reste l'ancienne `main` pour protéger le site historique GitHub Pages ; la branche actuelle de développement Cloudflare est `develop/celebrations-maintenance`.
+
+**Reste une vérification humaine simple :** ouvrir l'administration sur le vrai domaine, saisir le véritable code privé, modifier un brouillon fictif ou un bloc de test non publié, vérifier que l'enregistrement persiste et que la publication volontaire fonctionne, sans divulguer le code à ChatGPT. Aucun code administrateur réel n'a été utilisé dans les tests automatisés.
+
+**Le futur transfert vers le compte Cloudflare du collègue est préparé mais non réalisé.** Il exigera une sauvegarde à jour et déchiffrable, la restauration D1 + des deux R2 et une bascule de domaine autorisée, suivant `docs/operations/TRANSFERT-CLOUDFLARE.md`.
