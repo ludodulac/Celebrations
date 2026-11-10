@@ -145,3 +145,5 @@ jobs:
 # No stylesheet overlay: only targeted edits to the existing eight CSS layers.
 
 # M09: apply only after full regression checks, exact-version validation and rollback protection.
+
+# M09 regression: hover-image callbacks retain stopPropagation, preventing editor selection.
