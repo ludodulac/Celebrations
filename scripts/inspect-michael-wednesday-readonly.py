@@ -63,3 +63,26 @@ for idx,b in enumerate(published["blocks"]):
    kinds[leaf.get("kind")]+=1
    print("WEDNESDAY_ITEM "+json.dumps({"root":idx,"side":"root","order":0,**describe(leaf)},ensure_ascii=False))
 print("WEDNESDAY_TYPES "+json.dumps(kinds,ensure_ascii=False))
+
+# Read-only structural comparison for Thursday through Sunday.
+for day in ("jeudi", "vendredi", "samedi", "dimanche"):
+ page_id = f"{day}-101"
+ public_page = next((p for p in state["published"]["drafts"][CID].get("pages", []) if p.get("id") == page_id), None)
+ private_page = next((p for p in state["drafts"][CID].get("pages", []) if p.get("id") == page_id), None)
+ assert public_page is not None and private_page is not None, f"Missing {page_id}"
+ print("DAY_AUDIT_META " + json.dumps({"day": day, "page_id": page_id,
+  "name": public_page.get("name"), "visibility": public_page.get("visibility"),
+  "root_count": len(public_page.get("blocks", [])),
+  "draft_root_count": len(private_page.get("blocks", [])),
+  "draft_matches_public": public_page.get("blocks") == private_page.get("blocks")}, ensure_ascii=False))
+ counts = collections.Counter()
+ for index, block in enumerate(public_page.get("blocks", [])):
+  if block.get("kind") == "section":
+   print("DAY_SECTION " + json.dumps({"day": day, "index": index,
+     "layout": block.get("layout"), "presentation": block.get("presentation"),
+     "columns": [len(c) for c in block.get("columns", [])]}, ensure_ascii=False))
+  for leaf in flatten([block]):
+   counts[leaf.get("kind", "?")] += 1
+   item = describe(leaf)
+   print("DAY_ITEM " + json.dumps({"day": day, "root": index, **item}, ensure_ascii=False))
+ print("DAY_TYPES " + json.dumps({"day": day, "counts": counts}, ensure_ascii=False))
