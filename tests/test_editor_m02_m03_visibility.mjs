@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {CSS_02_BLOCK_CONTROLS} from '../migration/cloudflare/app/styles/admin/02-block-controls.mjs';
+import {CSS_06_LIBRARY_DIALOGS} from '../migration/cloudflare/app/styles/admin/06-library-dialogs.mjs';
 import {CSS_04_SECTION_COMPOSER} from '../migration/cloudflare/app/styles/admin/04-section-composer.mjs';
 import {CSS_07_DRAG_RESOURCES} from '../migration/cloudflare/app/styles/admin/07-drag-resources.mjs';
 import {DEMO_CLIENT} from '../migration/cloudflare/editor-demo-client.mjs';
@@ -10,14 +11,14 @@ test('M09: blue plus stays invisible until hover; empty pages always offer one',
  const css=CSS_04_SECTION_COMPOSER;
  assert.match(css,/\.stage-editor \.section-add-blue\{[^}]*opacity:0;pointer-events:none/s);
  assert.match(css,/\.canvas>\.section-insert:only-child>\.section-add-blue/);
- assert.match(css,/\.canvas>\.section-insert:not\(:first-child\)\{margin-top:-20px/,'Button straddles lower block edge');
+ assert.match(css,/\.canvas>\.block>\.section-insert/,'Insertion button is a child of the block');
  assert.match(css,/@media\(hover:hover\) and \(pointer:fine\)\{/);
- assert.match(css,/\.canvas>\.block:hover\+\.section-insert>\.section-add-blue/);
- assert.match(css,/\.canvas>\.content-section:hover\+\.section-insert>\.section-add-blue/);
- assert.match(css,/\.canvas>\.section-insert:hover>\.section-add-blue/,'Mouse can travel into the blue button');
+ assert.match(css,/\.canvas>\.block:hover>\.section-insert>\.section-add-blue/);
+ assert.match(css,/\.canvas>\.content-section:hover>\.section-insert>\.section-add-blue/);
+ assert.match(css,/\.canvas>\.block>\.section-insert/,'Mouse remains within the block over the blue +');
  assert.match(css,/\.section-insert:focus-within>\.section-add-blue/,'The open blue menu stays accessible');
  assert.match(css,/@media\(hover:none\),\(pointer:coarse\)\{/);
- assert.match(css,/\.canvas>\.block\.is-selected\+\.section-insert>\.section-add-blue/,'Touch fallback still reveals insert');
+ assert.match(css,/\.canvas>\.block\.is-selected>\.section-insert>\.section-add-blue/,'Touch fallback still reveals insert');
  assert.doesNotMatch(css,/\.section-insert:has\(\+\.block\.is-selected\)>\.section-add-blue/,'No more button above selected block');
 });
 
@@ -40,10 +41,11 @@ test('M09: green plus appears on element hover, with touch and empty-column fall
 });
 
 test('M09: image actions on hover, on tap when selected, without exposing the resize slider',()=>{
- const css=CSS_02_BLOCK_CONTROLS;
+ const css=CSS_06_LIBRARY_DIALOGS;
+ assert.match(css,/\.block\[data-kind="image"\]>\.block-edit-actions\.image-direct-actions\{\s*display:none!important/);
  assert.match(css,/@media\(hover:hover\) and \(pointer:fine\)\{/);
- assert.match(css,/\.block\[data-kind="image"\]:hover>\.image-direct-actions\{\s*display:flex!important/);
- assert.match(css,/\.block\.is-selected>\.block-edit-actions\{display:flex !important/);
+ assert.match(css,/\.block\[data-kind="image"\]:hover>\.block-edit-actions\.image-direct-actions\{\s*display:flex!important/);
+ assert.match(css,/\.block\[data-kind="image"\]\.is-selected>\.block-edit-actions\.image-direct-actions/);
  assert.doesNotMatch(css,/\.block\[data-kind="image"\]:hover>\.image-size-control/);
  const actionStart=DEMO_CLIENT.indexOf("const actions=n('div','block-edit-actions image-direct-actions')");
  assert.ok(actionStart>0);
