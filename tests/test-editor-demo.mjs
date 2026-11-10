@@ -62,7 +62,7 @@ test('only the selected block shows editing controls, simplifying the page',()=>
  assert.match(DEMO_CSS,/\.block>\.tools,\.block>\.formatbar,\.block>\.link-line,\.block>\.block-edit-actions\{display:none !important\}/);
  assert.match(DEMO_CSS,/\.block\.is-selected>\.tools/);
  assert.ok(DEMO_CLIENT.includes('function selectBlock('));
- assert.ok(DEMO_CLIENT.includes("box.onclick=()=>selectBlock(box)"));
+ assert.ok(DEMO_CLIENT.includes("box.onclick=e=>{") && DEMO_CLIENT.includes('selectBlock(box)'));
  assert.ok(DEMO_CLIENT.includes('z.onfocus=()=>{') && DEMO_CLIENT.includes('selectBlock(box);'));
 });
 
@@ -334,14 +334,14 @@ test('dragging one block into an existing standalone block groups content withou
  assert.equal(env.group(page,22,22,true),false,'A block cannot be grouped with itself');
 });
 
-test('direct block dragging and drop-into-target are separate from text editing',()=>{
- assert.ok(DEMO_CLIENT.includes('enableDirectBlockDragging(box,x,p)'));
- assert.ok(DEMO_CLIENT.includes("const picture=e.target.closest('.picture,.video-preview,.custom-divider-preview')"));
- assert.ok(DEMO_CLIENT.includes("if(editor&&document.activeElement===editor)return"));
+test('hover grip and touch long press keep dragging separate from editing',()=>{
+ assert.ok(DEMO_CLIENT.includes('enableTouchLongPressDragging(box,x,p)'));
+ assert.ok(DEMO_CLIENT.includes("box.classList.contains('is-selected')"));
  assert.ok(DEMO_CLIENT.includes("moveEditorIntoBlock(state.page,state.sourceId"));
  assert.ok(DEMO_CLIENT.includes("editor-drop-into"));
  assert.ok(DEMO_CSS.includes('.block.editor-drop-into'));
- assert.ok(DEMO_CSS.includes('.block.is-selected>.editor-move-handle'), 'Grip is visible only after selection');
+ assert.ok(DEMO_CSS.includes('.block:not(.is-selected):hover>.editor-move-handle'), 'Only hover on an unselected block displays the grip');
+ assert.ok(!DEMO_CLIENT.includes('enableDirectBlockDragging'), 'Remove unused direct dragging while editing');
 });
 
 test('a chosen divider survives publication, while historic pages get no automatic rules',()=>{
