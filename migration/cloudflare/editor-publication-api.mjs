@@ -5,6 +5,8 @@ import {EDITOR_SNAPSHOT_LIMIT,expectedRevisionMatches} from './app/ports/editor-
 import {readEditorSnapshot,putEditorSnapshot} from './app/adapters/editor-r2-repository.mjs';
 import {isOfficialEditorHost,isReadonlyCandidateHost,sameOriginEditorWrite} from './app/security/editor-route-policy.mjs';
 import {mergePublicMediaIndexed} from './app/domain/editor-public-media-merge.mjs';
+import {canAccessPage} from './app/domain/member-access.mjs';
+import {projectPublishedLanguage,publishLanguageCommand} from './app/application/public-language-release.mjs';
 
 const PREFIX='editor-trials/uploads/';
 const SITE=new Set(['www.ronde-des-archanges-universelle.eu','ronde-des-archanges-universelle.eu']);
@@ -133,10 +135,10 @@ export function publicSnapshot(state,celebration){
  const plan=published.plans?.find(p=>p.id===celebration);
  const celebrationVisible=celebrationVisibleFor(celebration,visibility,plan?.visibility);
  const record=celebrationVisible&&original?{
-  ...original,pages:(original.pages||[]).filter(publiclyVisible)
+  ...original,pages:(original.pages||[]).filter(p=>publiclyVisible(p)&&canAccessPage(p))
  }:null;
  const shared=copy(published.shared||{pages:[],homeId:''});
- shared.pages=(shared.pages||[]).filter(publiclyVisible);
+ shared.pages=(shared.pages||[]).filter(p=>publiclyVisible(p)&&canAccessPage(p));
  if(!shared.pages.some(p=>p.id===shared.homeId))
   shared.homeId=shared.pages[0]?.id||'neutral-accueil-general';
  delete shared.celebrationVisibility;
@@ -152,12 +154,12 @@ export function publicSnapshot(state,celebration){
 export function publishedMedia(state){
  const published=state.published||initialPublication(state);
  const visibility=published.celebrationVisibility||{};
- const sharedPages=(published.shared?.pages||[]).filter(publiclyVisible);
+ const sharedPages=(published.shared?.pages||[]).filter(p=>publiclyVisible(p)&&canAccessPage(p));
  const drafts={};
  for(const [id,record] of Object.entries(published.drafts||{})){
   const plan=published.plans?.find(x=>String(x.id)===String(id));
   if(!celebrationVisibleFor(id,visibility,plan?.visibility))continue;
-  drafts[id]={pages:(record.pages||[]).filter(publiclyVisible)};
+  drafts[id]={pages:(record.pages||[]).filter(p=>publiclyVisible(p)&&canAccessPage(p))};
  }
  const source={mediaCatalogue:(state.mediaCatalogue||[]).filter(m=>m.general===true),
   shared:{pages:sharedPages},drafts};
@@ -197,7 +199,7 @@ export async function publicHistoricalMedia(db,state){
   const plan=published.plans?.find(p=>String(p.id)===String(id));
   if(!celebrationVisibleFor(id,visibility,plan?.visibility))continue;
   pagesByCelebration.set(String(id),new Map(
-   (record.pages||[]).filter(publiclyVisible).map(p=>[p.id,p])));
+   (record.pages||[]).filter(p=>publiclyVisible(p)&&canAccessPage(p)).map(p=>[p.id,p])));
  }
  const media=new Map();
  function add(type,url,name,celebration,page){
@@ -260,12 +262,15 @@ export async function handleEditorPublication(request,env){
   // once per request without exposing unpublished editor drafts or private rows.
   const historic=await publicHistoricalMedia(env.DB,state);
   snapshot.media=mergePublicMedia(snapshot.media,historic);
-  return json(snapshot);
+  return json(projectPublishedLanguage(snapshot,state.published,url.href));
  }
  const denied=await protectedWrite(request,env);if(denied)return denied;
  let body;try{body=await request.json()}catch{return err('JSON invalide',400)}
  if(!body||!celebrationIdOk(body.celebration)||!Number.isSafeInteger(body.expectedRevision))return err('Commande invalide',400);
- if(!['page','celebration','media'].includes(body.kind))return err('Type invalide',400);
+ if(!['page','celebration','media','translation','language-registry'].includes(body.kind))return err('Type invalide',400);
+ if(body.kind==='translation'&&(!pageIdOk(body.pageId)||typeof body.languageId!=='string'||
+    !/^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/.test(body.languageId)||
+    !['published','draft'].includes(body.visibility)))return err('Traduction invalide',400);
  if(body.kind==='page'&&(!pageIdOk(body.pageId)||!validVisibility(body.visibility)))return err('Page ou visibilité invalide',400);
  if(body.kind==='celebration'&&!validVisibility(body.visibility))return err('Statut invalide',400);
  if(body.kind==='media'&&(typeof body.mediaId!=='string'||body.mediaId.length>720||typeof body.general!=='boolean'))return err('Média invalide',400);
@@ -288,7 +293,11 @@ export async function handleEditorPublication(request,env){
     pub.drafts[body.celebration].celebrationDates=copy(draft.celebrationDates||{});
     pub.drafts[body.celebration].celebrationTimes=copy(draft.celebrationTimes||{});
    }
-  }else if(ix>=0)dest.splice(ix,1);
+  }else{
+   if(ix>=0)dest.splice(ix,1);
+   // Hiding the canonical page invalidates its previously released languages.
+   if(pub.translationReleases)delete pub.translationReleases[body.pageId];
+  }
  }else if(body.kind==='celebration'){
   state.shared.celebrationVisibility||={};
   state.shared.celebrationVisibility[body.celebration]=body.visibility;
@@ -301,6 +310,9 @@ export async function handleEditorPublication(request,env){
    const plan=state.plans.find(x=>x.id===body.celebration);
    if(plan&&!pub.plans.some(x=>x.id===plan.id))pub.plans.push(copy(plan));
   }
+ }else if(body.kind==='translation'||body.kind==='language-registry'){
+  try{publishLanguageCommand(state,pub,body)}
+  catch(e){return err(e?.message||'Publication de langue impossible',409)}
  }else{
   const catalogue=discoverMedia(state),entry=catalogue.find(x=>x.id===body.mediaId);
   if(!entry)return err('Média introuvable',404);

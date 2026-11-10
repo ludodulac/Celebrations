@@ -28,18 +28,18 @@ const goodShared=x=>object(x)&&Array.isArray(x.pages)&&x.pages.length<=60&&x.pag
  (x.deletedPageIds===undefined||(Array.isArray(x.deletedPageIds)&&x.deletedPageIds.length<=100&&
  x.deletedPageIds.every(id=>typeof id==='string'&&/^neutral-[0-9a-f-]{30,45}$/.test(id))));
 
-// The registry and ordinary/footer variants belong only to the authenticated
+// The registry and ordinary/footer/celebration variants belong only to the authenticated
 // private editor snapshot. Never put translations in public shared pages.
-function goodLocalization(input,shared){
+function goodLocalization(input,shared,record){
  if(!object(input)||!object(input.registry)||!object(input.pages))return false;
  const ids=Object.keys(input.pages);
  if(ids.length>60)return false;
  let registry;try{registry=createLanguageRegistry(input.registry)}catch{return false}
  if(registry.languages.length>30)return false;
- const canonical=new Map(shared.pages.map(p=>[p.id,p]));
+ const canonical=new Map([...shared.pages,...record.pages].map(p=>[p.id,p]));
  for(const id of ids){
   const page=canonical.get(id),versions=input.pages[id];
-  if(!page||page.group!=='page'||!object(versions))return false;
+  if(!page||!['page','celebration'].includes(page.group)||!object(versions))return false;
   for(const [lang,content] of Object.entries(versions)){
    if(lang==='fr'||!object(content)||!Array.isArray(content.blocks)||
       content.blocks.length>300||!content.blocks.every(b=>object(b)&&
@@ -138,7 +138,7 @@ export async function handleServerDraft(request,env){
    !Number.isSafeInteger(body.expectedRevision)||body.expectedRevision<0)return error('Données de sauvegarde invalides',400);
   const record=sanitizeRecord(body.record,body.celebration);
   if(!record)return error('Pages invalides',400);
-  if(body.localization!==undefined&&!goodLocalization(body.localization,body.shared))
+  if(body.localization!==undefined&&!goodLocalization(body.localization,body.shared,record))
    return error('Traductions ou registre multilingue invalides',400);
   // The selected page must belong to the authenticated celebration/shared pages.
   // An invalid or stale page must never be silently recorded as published.

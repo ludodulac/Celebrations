@@ -56,3 +56,13 @@ export function renderPublicLanguageSelector(container,options,{label='Choisir l
  container.replaceChildren(details);
  return details;
 }
+
+// Serialize the existing M006 DOM component into the nonce-protected visitor
+// script; no duplicate renderer, external script or unsafe HTML injection.
+export function publicLanguageSelectorInlineSource(){
+ return [
+  'const flagImage='+flagImage.toString()+';',
+  appendFlag.toString(),addLanguageLabel.toString(),
+  renderPublicLanguageSelector.toString()
+ ].join('\n');
+}

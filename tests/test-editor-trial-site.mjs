@@ -28,7 +28,8 @@ test('Site trial response contains eight programme pages plus neutral home, a re
  assert.equal(r.status,200);
  const html=await r.text();
  assert.ok(html.includes('Site d’essai'));
- assert.ok(html.includes('<footer class="footer"><a id="back-admin"'));
+ assert.ok(html.includes('<footer class="footer"><nav id="footer-pages"'), 'Published footer pages retain their navigation');
+ assert.ok(html.includes('<a id="back-admin"'), 'Existing admin return link is retained');
  assert.ok(html.includes('>Administration</a></footer>'));
  assert.ok(!html.includes('← Retour à l’administration'));
  assert.ok(!html.includes('Prévisualisation du programme'));
