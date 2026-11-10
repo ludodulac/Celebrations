@@ -173,11 +173,13 @@ for day in EXPECTED:
     published = pub_array[pi]
     assert draft["blocks"] == published["blocks"], (
         f"{day}: Unpublished edits exist. Refuse to replace.")
-    newpage = transform(published, day)
-    assert transform(draft, day) == newpage, f"{day}: draft fields differ"
-    updated["drafts"][CID]["pages"][di] = copy.deepcopy(newpage)
-    updated["published"]["drafts"][CID]["pages"][pi] = copy.deepcopy(newpage)
-    expected_pages[day] = newpage
+    new_public_page = transform(published, day)
+    new_draft_page = transform(draft, day)
+    assert new_draft_page["blocks"] == new_public_page["blocks"], (
+        f"{day}: transformed draft/public structures differ")
+    updated["drafts"][CID]["pages"][di] = new_draft_page
+    updated["published"]["drafts"][CID]["pages"][pi] = new_public_page
+    expected_pages[day] = new_public_page
 
 # Complete structural proof: absolutely no other page or state field was touched.
 for area in ("drafts", "published"):
