@@ -18,7 +18,7 @@ const PAGE_LABELS = Object.freeze({
   [PAGE_KINDS.CELEBRATION]: 'Pages des célébrations'
 });
 
-export function mountMemberAccessAdmin(root, {initialState = {}, onChange = () => {}} = {}) {
+export function mountMemberAccessAdmin(root, {initialState = {}, onChange = () => {}, warningText = null} = {}) {
   if (!root || typeof root.replaceChildren !== 'function' ||
       !root.ownerDocument || typeof onChange !== 'function')
     throw new TypeError('A real DOM root and an optional onChange callback are required');
@@ -65,8 +65,10 @@ export function mountMemberAccessAdmin(root, {initialState = {}, onChange = () =
     const wrap = node('div', 'member-admin-007b');
     wrap.append(node('h2', 'member-admin-heading', 'Types de membres et autorisations'));
     const warning = node('p', 'member-admin-warning',
-      'Préparation uniquement : aucune sauvegarde D1 ni protection serveur active. ' +
-      'Les contenus privés devront être protégés côté serveur, y compris leurs médias.');
+      warningText === null ?
+        'Préparation uniquement : aucune sauvegarde D1 ni protection serveur active. ' +
+        'Les contenus privés devront être protégés côté serveur, y compris leurs médias.' :
+        String(warningText));
     warning.setAttribute('role', 'note');
     wrap.append(warning);
     const grid = node('div', 'member-admin-layout');
