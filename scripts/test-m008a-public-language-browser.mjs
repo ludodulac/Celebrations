@@ -27,7 +27,8 @@ const state={version:1,shared,drafts,plans:[],
  localization:{registry,pages:{
   'neutral-accueil-general':{en:{name:'Home',blocks:[{id:1,kind:'text',text:'WELCOME ENGLISH'}]}},
   [legal]:{en:{name:'Legal notice',blocks:[{id:1,kind:'text',text:'FOOTER ENGLISH'}]}},
-  'mercredi-101':{en:{name:'Wednesday',blocks:[{id:1,kind:'text',text:'DAY ENGLISH'}]}}
+  'mercredi-101':{en:{name:'Wednesday',blocks:[{id:1,kind:'text',text:'DAY ENGLISH'},
+   {id:2,kind:'button',text:'Internal programme',displayAsButton:true,href:'/programme'}]}}
  }},
  published:{shared:structuredClone(shared),drafts:structuredClone(drafts),plans:[],
  celebrationVisibility:{}},mediaCatalogue:[]};
@@ -88,6 +89,9 @@ try{
   assert.match(await selected.innerText(),/English/,profile.name+' selector must show published language');
   assert.ok((await page.locator('#stage-main').innerText()).includes('DAY ENGLISH'),
    profile.name+' must render published EN day');
+  assert.match(await page.locator('a.trial-button').first().getAttribute('href'),
+   /\/programme\?lang=en(?:$|&)/,
+   profile.name+' internal editorial links must preserve language');
   const bounds=await selected.boundingBox();
   assert.ok(bounds&&bounds.x>=0&&bounds.x+bounds.width<=profile.viewport.width+2,
    profile.name+' selector outside the visible screen');
