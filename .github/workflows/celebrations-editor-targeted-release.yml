@@ -140,3 +140,5 @@ jobs:
 # Owner-approved M08 only. No new tools, data writes or changes outside the existing editor.
 # The editor CSS tests include the previous M01-selected-only visibility contract.
 # All three changes limited to existing editor components; owner requested final review together.
+
+# M08 release approved: mouse hover only and mobile long press, without new editor tools.
