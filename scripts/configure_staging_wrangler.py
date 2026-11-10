@@ -18,7 +18,8 @@ workers_dev = true
 [assets]
 directory = "../../staging-public"
 binding = "ASSETS"
-run_worker_first = ["/", "/index.html", "/admin.html", "/admin"]
+# The public API/private-media guard must precede ALL static asset routes.
+run_worker_first = true
 [[d1_databases]]
 binding = "DB"
 database_name = "celebrations-exit-staging"
