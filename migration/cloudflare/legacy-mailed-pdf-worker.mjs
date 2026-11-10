@@ -2,6 +2,7 @@
 // All other visitor pages/assets come from the sanitized PINNED GitHub main.
 // Deliberately no administration or mutation APIs on this historic Worker.
 import {handleLegacyLink} from "./legacy-link-router.mjs";
+import {isBlockedPublicAssetPath,privatePublicAssetNotFound} from "./app/security/public-media-boundary.mjs";
 const stamp=response=>{
  const h=new Headers(response.headers);
  h.set("x-celebrations-legacy-pdf-bridge","mission06-safe-v2");
@@ -12,6 +13,7 @@ const stamp=response=>{
 export default {
  async fetch(request,env){
   const pathname=new URL(request.url).pathname;
+  if(isBlockedPublicAssetPath(pathname))return stamp(privatePublicAssetNotFound());
   // Avoid serving repository internals even on SPA fallback requests.
   if(/^\/(?:\.git|\.github|scripts|tests|migration|node_modules)(?:\/|$)/.test(pathname))
    return stamp(new Response("Not found",{status:404,headers:{"cache-control":"no-store"}}));
