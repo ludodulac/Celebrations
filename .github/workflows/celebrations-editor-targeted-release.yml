@@ -1,4 +1,4 @@
-name: Célébrations — missions 05 à 07 : édition mobile et duplication fidèle
+name: "Célébrations — missions 05 à 07 : édition mobile et duplication fidèle"
 on:
   push:
     branches: [fix/editor-m05-m07-final-controls-20261110]
