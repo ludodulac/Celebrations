@@ -14,17 +14,21 @@ export function createPageModel(){
  }
  function groupPages(pages,group){
   // Never sort: the editor's existing stored order is the only authority.
-  return (pages||[]).filter(page=>page.group===group);
+  return (pages||[]).filter(page=>group==='footer'?
+   page.group==='page'&&page.placement==='footer':
+   group==='page'?page.group==='page'&&page.placement!=='footer':
+   page.group===group);
  }
  function activePageId(pages,group,currentId){
-  return pages.some(p=>p.id===currentId&&p.group===group)?currentId:
-   groupPages(pages,group)[0]?.id??currentId;
+  const visible=groupPages(pages,group);
+  return visible.some(p=>p.id===currentId)?currentId:visible[0]?.id??currentId;
  }
  function createPage(group,name,uid,celebrationId){
   const isCelebration=group==='celebration';
   return {
    id:isCelebration?'extra-'+uid+'-'+String(celebrationId||'demo'):'neutral-'+uid,
-   name,group,visibility:'draft',
+   name,group:group==='footer'?'page':group,
+   ...(group==='footer'?{placement:'footer'}:{}),visibility:'draft',
    blocks:[{id:1,kind:'heading',text:name,align:'center'}]
   };
  }
