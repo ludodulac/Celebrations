@@ -1,0 +1,38 @@
+name: Célébrations — nettoyage 2/6 — hôtes et sécurité centralisés
+on:
+  push:
+    branches: [cleanup/celebrations-02-simplification-code-20261110]
+permissions:
+  contents: read
+jobs:
+  verification-courte:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false, fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Périmètre verrouillé, aucune modification des médias ou pages
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=c71bcaab910cff0d386b721961ae1da4ebede56b
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD | grep -Ev '^(migration/cloudflare/(production-worker\.mjs|editor-demo-preparation-page\.mjs|editor-trial-site-page\.mjs|editor-publication-api\.mjs|app/security/editor-route-policy\.mjs)|tests/test_cleanup02_host_policy\.mjs|\.github/workflows/celebrations-cleanup-02\.yml|docs/finalisation/CELEBRATIONS-NETTOYAGE-02-2026-11-10\.md)$' > /tmp/cleanup02-unexpected || true
+          test ! -s /tmp/cleanup02-unexpected || { echo CLEANUP02_SCOPE_BLOCKED; exit 1; }
+          echo CLEANUP02_ONLY_CANONICAL_HOST_POLICY_CHANGED
+      - name: Contrôle syntaxe du Worker et de ses fonctions
+        run: |
+          node --check migration/cloudflare/production-worker.mjs
+          node --check migration/cloudflare/editor-publication-api.mjs
+          node --check migration/cloudflare/editor-demo-preparation-page.mjs
+          node --check migration/cloudflare/editor-trial-site-page.mjs
+          node --check migration/cloudflare/app/security/editor-route-policy.mjs
+      - name: Tests de sécurité et hôtes principaux
+        run: |
+          node --test tests/test_cleanup02_host_policy.mjs tests/test_mission14_editor_security.mjs tests/test_finalisation02_preview_security.mjs tests/test-exit-production-candidate.mjs tests/test_mission15_legacy_cleanup.mjs tests/test-editor-server-drafts.mjs tests/test-editor-publication-media.mjs
+      - name: Règles et comportements de l'éditeur déjà vérifiés
+        run: node scripts/mission16_editor_regressions.mjs
+      - name: Aucun déploiement ni changement distant
+        run: echo CLEANUP02_NO_PRODUCTION_WORKER_D1_R2_DEPLOY_PASS
