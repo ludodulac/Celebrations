@@ -1,0 +1,64 @@
+name: Célébrations nettoyage 4 — branches de référence sans changement du site
+on:
+  push:
+    branches: [cleanup/celebrations-04-branches-20261110]
+permissions:
+  contents: read
+jobs:
+  branch-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0, persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Verify exact production and legacy ancestry, no main rewrite
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin             refs/heads/production/celebrations-live:refs/remotes/origin/production/celebrations-live             refs/heads/archive/celebrations-old-main-20261110:refs/remotes/origin/archive/celebrations-old-main-20261110             refs/heads/main:refs/remotes/origin/main
+          test "$(git rev-parse refs/remotes/origin/production/celebrations-live)" = 65caf8d5d03d29882d0de0c0d00cdcfc622e473e
+          test "$(git rev-parse refs/remotes/origin/archive/celebrations-old-main-20261110)" = 4b5edd9c19ce989af2eae33445017dd30fcbbe92
+          test "$(git rev-parse refs/remotes/origin/main)" = 4b5edd9c19ce989af2eae33445017dd30fcbbe92
+          git merge-base --is-ancestor 65caf8d5d03d29882d0de0c0d00cdcfc622e473e HEAD
+          git merge-base --is-ancestor a17e235f21a99158ed34ef12cbc52ddbc0ef3f5e HEAD
+          echo CLEANUP04_PRODUCTION_SOURCE_AND_OLD_MAIN_SNAPSHOTTED_PASS
+      - name: Branch policy and no application changes since mission 3
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json,pathlib,subprocess
+          x=json.loads(pathlib.Path('docs/operations/BRANCHES-ET-LIVRAISONS.json').read_text())
+          assert x['production']['branch']=='production/celebrations-live'
+          assert x['production']['source_sha']=='65caf8d5d03d29882d0de0c0d00cdcfc622e473e'
+          assert x['production']['worker_version']=='eccb1274-2ed8-491f-8557-c4330342e4bf'
+          assert x['development']['branch']=='develop/celebrations-maintenance'
+          assert x['development']['published'] is False
+          assert x['legacy']['archive']=='archive/celebrations-old-main-20261110'
+          assert 'NO_AUTOMATIC_DEPLOY_FROM_DEVELOP' in x['release_policy']
+          old='a17e235f21a99158ed34ef12cbc52ddbc0ef3f5e'
+          files=subprocess.check_output(['git','diff','--name-only',old,'HEAD'],text=True).splitlines()
+          permitted={'README.md','docs/operations/BRANCHES-ET-LIVRAISONS.md',
+             'docs/operations/BRANCHES-ET-LIVRAISONS.json',
+             '.github/workflows/celebrations-cleanup-04.yml'}
+          unexpected=set(files)-permitted
+          assert not unexpected,('Unexpected source, test or build change',sorted(unexpected))
+          readme=pathlib.Path('README.md').read_text()
+          assert 'develop/celebrations-maintenance' in readme
+          assert 'production/celebrations-live' in readme
+          assert 'archive/celebrations-old-main-20261110' in readme
+          print('CLEANUP04_DOC_ONLY_NO_RUNTIME_CHANGE_PASS',{'files':files})
+          PY
+      - name: Confirm original Cloudflare application and publishing safeguards still pass
+        run: |
+          node --test tests/test_cleanup01_cloudflare_adapter.mjs tests/test_cleanup02_public_routes.mjs tests/test_finalisation02_preview_security.mjs tests/test_mission16_release_rollback.mjs
+          node scripts/mission16_editor_regressions.mjs
+          python scripts/build_production_assets.py
+          python scripts/audit_production_supabase_paths.py
+          echo CLEANUP04_OFFLINE_BUILD_SECURITY_REGRESSIONS_PASS
+      - name: Never deploy or touch Cloudflare data
+        run: echo CLEANUP04_NO_CLOUDFLARE_DEPLOY_NO_D1_R2_DNS_WRITES
