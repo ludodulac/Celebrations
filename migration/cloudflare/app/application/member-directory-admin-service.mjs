@@ -5,7 +5,8 @@ import {authorize} from '../../auth-api.mjs';
 import {createContactDirectoryD1,toD1CelebrationId}
   from '../persistence/contact-directory-d1.mjs';
 import {isDirectoryPersonId} from '../domain/contact-directory.mjs';
-import {isMemberTypeId} from '../domain/member-access.mjs';
+import {commitAuditedDirectoryAdmin,DirectoryConflictError}
+  from './member-directory-admin-transaction.mjs';
 import {
   listPendingIdentityClaims,reviewIdentityClaim,unlinkIdentity,
   submitVerifiedIdentityClaim
@@ -28,120 +29,88 @@ const invalidId = id => {
 };
 const own = (o,key) => Object.prototype.hasOwnProperty.call(o,key);
 
-async function audit(db,actor,action,target) {
-  if(typeof actor!=='string' || !actor.trim() || actor.length>254)
-    throw new TypeError('Invalid verified admin account');
-  await query(db,'INSERT INTO celebrations_directory_admin_audit ' +
-    '(id,actor_email,action,target_id) VALUES(?,?,?,?)',
-    'audit:'+crypto.randomUUID(),actor,action,target).run();
-}
-
-// The initial view is populated with real D1 IDs; it uses the M007-B model,
-// not a second catalogue or parallel administration. Bounded page for D1 cost.
-async function snapshot(db,directory) {
+// Keyset pagination keeps every contact reachable without offset scans or
+// a misleading first-100 cutoff. Search checks email and names, not identity.
+async function snapshot(db,directory,url) {
+  const params=url.searchParams;
+  const search=(params.get('search')||'').trim().toLowerCase();
+  const cursor=params.get('cursor')||'';
+  const limitRaw=params.get('limit')||'50';
+  if(search.length>120||cursor.length>254||
+      !/^(?:[1-9][0-9]?|100)$/.test(limitRaw))
+    throw new TypeError('Invalid directory pagination');
+  const limit=Number(limitRaw);
   const rows=await query(db,
-    "SELECT id,email_normalized AS emailNormalized," +
-    "COALESCE(NULLIF(display_name,'')," +
-    "NULLIF(trim(COALESCE(given_name,'') || ' ' || COALESCE(family_name,'')),'')," +
-    "email_normalized) AS name FROM celebrations_directory_people " +
-    'ORDER BY email_normalized LIMIT 100').all();
+    `SELECT p.id,p.email_normalized AS emailNormalized,
+     COALESCE(NULLIF(p.display_name,''),
+       NULLIF(trim(COALESCE(p.given_name,'')||' '||
+         COALESCE(p.family_name,'')),''),p.email_normalized) AS name,
+     COALESCE(v.revision,0) AS revision
+     FROM celebrations_directory_people p
+     LEFT JOIN celebrations_directory_admin_revisions v ON v.resource_key=p.id
+     WHERE p.email_normalized > ? COLLATE NOCASE AND
+       (?='' OR instr(p.email_normalized,?)>0 OR
+       instr(lower(COALESCE(p.display_name,'')||' '||
+         COALESCE(p.given_name,'')||' '||COALESCE(p.family_name,'')),?)>0)
+     ORDER BY p.email_normalized COLLATE NOCASE,p.id LIMIT ?`,
+    cursor,search,search,search,limit+1).all();
   if(!Array.isArray(rows?.results)) throw new Error('Invalid people list');
-  const members=rows.results;
+  const hasMorePeople=rows.results.length>limit;
+  const members=rows.results.slice(0,limit);
   let memberships=[];
   if(members.length) {
     const placeholders=members.map(()=>'?').join(',');
-    const found=await query(db,
-      'SELECT person_id AS memberId,type_id AS typeId ' +
-      'FROM celebrations_directory_person_types WHERE person_id IN (' +
-      placeholders + ') ORDER BY person_id,type_id',...members.map(p=>p.id)).all();
-    if(!Array.isArray(found?.results)) throw new Error('Invalid membership list');
+    const found=await query(db,`SELECT person_id AS memberId,type_id AS typeId
+      FROM celebrations_directory_person_types WHERE person_id IN (${placeholders})
+      ORDER BY person_id,type_id`,...members.map(p=>p.id)).all();
+    if(!Array.isArray(found?.results))throw new Error('Invalid memberships');
     memberships=found.results;
   }
-  return {types:await directory.getMemberTypes(),members,memberships,
-    pages:[],spaces:[],enrollments:[],
-    hasMorePeople:members.length===100, // UI must not imply full-corpus coverage
-    pagePolicyWritesEnabled:false};
+  const typeRows=await query(db,`SELECT t.id,COALESCE(v.revision,0) AS revision
+    FROM celebrations_directory_member_types t
+    LEFT JOIN celebrations_directory_admin_revisions v
+      ON v.resource_key=t.id`).all();
+  if(!Array.isArray(typeRows?.results))throw new Error('Invalid type revisions');
+  const revisions=new Map(typeRows.results.map(r=>[r.id,r.revision]));
+  return {types:(await directory.getMemberTypes()).map(t=>({
+      ...t,revision:revisions.get(t.id)??0})),
+    members,memberships,pages:[],spaces:[],enrollments:[],
+    hasMorePeople,nextCursor:hasMorePeople?members.at(-1).emailNormalized:null,
+    search,cursor,limit,pagePolicyWritesEnabled:false};
 }
 
-async function personDetail(directory,personId) {
+async function personDetail(db,directory,personId) {
   const id=invalidId(personId),person=await directory.getPerson(id);
-  if(!person) throw new RangeError('Unknown person');
-  const [types,celebrations,enrollments]=await Promise.all([
+  if(!person)throw new RangeError('Unknown person');
+  const [types,celebrations,enrollments,revisionRow]=await Promise.all([
     directory.getPersonMemberTypes(id),
     directory.getPersonCelebrations(id),
-    directory.getPrivateEnrollments(id)
+    directory.getPrivateEnrollments(id),
+    query(db,`SELECT revision FROM celebrations_directory_admin_revisions
+      WHERE resource_key=?`,id).first()
   ]);
-  return {person,types,celebrations:celebrations.map(link=>({
-    ...link,celebrationId:String(toD1CelebrationId(link.celebrationId))
-  })),enrollments:enrollments.map(link=>({
-    ...link,celebrationId:String(toD1CelebrationId(link.celebrationId))
-  }))};
+  return {person:{...person,revision:revisionRow?.revision??0},types,
+    celebrations:celebrations.map(link=>({
+      ...link,celebrationId:String(toD1CelebrationId(link.celebrationId))
+    })),enrollments:enrollments.map(link=>({
+      ...link,celebrationId:String(toD1CelebrationId(link.celebrationId))
+    }))};
 }
-async function edit(directory,db,actor,b) {
-  if(!b || typeof b!=='object' || Array.isArray(b) ||
-      typeof b.action!=='string') throw new TypeError('Invalid operation');
-  let target, result;
-  switch(b.action) {
-    case 'create_person':
-      result=await directory.createPerson({
-        id:'person:'+crypto.randomUUID(),email:b.email,
-        givenName:b.givenName,familyName:b.familyName,displayName:b.displayName});
-      target=result.id; break;
-    case 'update_person':
-      target=invalidId(b.personId);
-      result=await directory.updatePerson(target,b.changes); break;
-    case 'create_type':
-      result=await directory.createMemberType({id:b.typeId,name:b.name});
-      target=result.id; break;
-    case 'rename_type':
-      if(!isMemberTypeId(b.typeId)) throw new TypeError('Invalid type');
-      result=await directory.renameMemberType(b.typeId,b.name);
-      target=result.id; break;
-    case 'disable_type':
-      if(!isMemberTypeId(b.typeId) || typeof b.disabled!=='boolean')
-        throw new TypeError('Invalid type/disabled flag');
-      await directory.setMemberTypeDisabled(b.typeId,b.disabled);
-      target=b.typeId; result={disabled:b.disabled}; break;
-    case 'set_person_types':
-      target=invalidId(b.personId);
-      if(!Array.isArray(b.typeIds) || b.typeIds.length>100 ||
-         b.typeIds.some(type=>!isMemberTypeId(type)))
-        throw new TypeError('Invalid type list');
-      result={memberships:await directory.replacePersonMemberTypes(target,b.typeIds)};
-      break;
-    case 'add_celebration':
-      target=invalidId(b.personId);
-      result=await directory.addPersonCelebration(target,b.celebrationId); break;
-    case 'remove_celebration':
-      target=invalidId(b.personId);
-      await directory.removePersonCelebration(target,b.celebrationId);
-      result={removed:true}; break;
-    case 'enroll_space':
-      target=invalidId(b.personId);
-      // The M008-B adapter resolves M005 canonical spaces from a trusted SERVER
-      // callback. Browser-provided space objects are explicitly ignored.
-      result=await directory.enrollPersonInPrivateSpace(target,b.spaceId); break;
-    case 'remove_enrollment':
-      target=invalidId(b.personId);
-      await directory.removePrivateEnrollment(target,b.spaceId);
-      result={removed:true}; break;
-    case 'review_claim':
-      // This is NOT identity matching by email: a separately authenticated
-      // participant submitted the claim and the admin independently verifies it.
-      if(b.approve!==true && b.approve!==false) throw new TypeError('Invalid review');
-      return {result:await reviewIdentityClaim(db,{
-        id:b.claimId,approve:b.approve,actorEmail:actor,
-        verificationMethod:b.verificationMethod}),audited:true};
-    case 'unlink_identity':
-      target=invalidId(b.personId);
-      return {result:await unlinkIdentity(db,{personId:target,actorEmail:actor}),
-        audited:true};
-    default: throw new TypeError('Unknown admin operation');
+async function edit(directory,db,actor,b,{resolveCanonicalSpace}={}) {
+  if(!b || typeof b!=='object'||Array.isArray(b)||
+      typeof b.action!=='string')throw new TypeError('Invalid operation');
+  if(b.action==='review_claim') {
+    if(b.approve!==true&&b.approve!==false)throw new TypeError('Invalid review');
+    return {result:await reviewIdentityClaim(db,{
+      id:b.claimId,approve:b.approve,actorEmail:actor,
+      verificationMethod:b.verificationMethod}),audited:true};
   }
-  // Prepared audit sink; current M008-B writer controls its own transactions.
-  // Before production, audit + each write must share one transaction, see docs.
-  await audit(db,actor,b.action,target);
-  return {result,audited:true};
+  if(b.action==='unlink_identity') {
+    const personId=invalidId(b.personId);
+    return {result:await unlinkIdentity(db,{personId,actorEmail:actor}),
+      audited:true};
+  }
+  return commitAuditedDirectoryAdmin(db,directory,actor,b,{resolveCanonicalSpace});
 }
 
 function sameOrigin(request) {
@@ -175,19 +144,20 @@ export async function handleMemberDirectoryAdmin(request,env,{
     if(request.method==='GET') {
       const url=new URL(request.url);
       const action=url.searchParams.get('action')||'snapshot';
-      if(action==='snapshot') return ok({data:await snapshot(env.DB,directory)});
-      if(action==='person_detail') return ok({data:await personDetail(directory,
+      if(action==='snapshot') return ok({data:await snapshot(env.DB,directory,url)});
+      if(action==='person_detail') return ok({data:await personDetail(env.DB,directory,
         url.searchParams.get('personId'))});
       if(action==='pending_claims') return ok({data:await listPendingIdentityClaims(env.DB)});
       return error(400,'Opération inconnue');
     }
     const command=await readBody(request);
-    const updated=await edit(directory,env.DB,actor,command);
+    const updated=await edit(directory,env.DB,actor,command,{resolveCanonicalSpace});
     return ok(updated);
   } catch(e) {
     if(e instanceof SyntaxError || e instanceof TypeError)
       return error(400,'Requête invalide');
     if(e instanceof RangeError) return error(404,'Élément inexistant');
+    if(e instanceof DirectoryConflictError) return error(409,'Conflit de version : rechargez les données.');
     // No SQL details, personal data, grant names, or stack in HTTP response.
     return error(409,'Opération refusée ou données momentanément indisponibles');
   }
