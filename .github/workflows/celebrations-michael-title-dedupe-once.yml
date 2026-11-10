@@ -1,0 +1,35 @@
+name: Célébrations — supprimer les doublons visuels des titres de Michaël
+on:
+  push:
+    branches: [content/michael-hide-duplicate-titles-20261110]
+    paths:
+      - 'scripts/michael-title-dedupe-once.py'
+      - '.github/workflows/celebrations-michael-title-dedupe-once.yml'
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-visual-official-publish
+  cancel-in-progress: false
+jobs:
+  title-dedupe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: celebrations-staging
+    env:
+      TITLE_DEDUPE_MODE: ${{ contains(github.event.head_commit.message, '[APPLY_TITLE_DEDUPE_ONCE]') && 'apply' || 'audit' }}
+      TITLE_DEDUPE_APPROVED: 'yes'
+      STAGING_R2_BUCKET: celebrations-exit-staging
+      STAGING_R2_ACCESS_KEY_ID: ${{ secrets.CELEBRATIONS_STAGING_R2_ACCESS_KEY_ID }}
+      STAGING_R2_SECRET_ACCESS_KEY: ${{ secrets.CELEBRATIONS_STAGING_R2_SECRET_ACCESS_KEY }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Vérification de syntaxe
+        run: python -m py_compile scripts/michael-title-dedupe-once.py
+      - name: Client R2 isolé dans le runner GitHub Actions
+        run: python -m pip -q install boto3==1.40.57
+      - name: Audit ou masquage uniquement des titres vérifiés comme répétés
+        run: python scripts/michael-title-dedupe-once.py
