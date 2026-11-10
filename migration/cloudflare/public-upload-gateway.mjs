@@ -36,10 +36,24 @@ function publishedPageReferences(state,src){
  }
  return pages.some(page=>pubPage(page)&&hasReference(page.blocks||[],src));
 }
+function referencedByPrivateOwner(state,src){
+ const collections=[state.shared?.pages||[],state.published?.shared?.pages||[]];
+ for(const drafts of [state.drafts,state.published?.drafts])
+  for(const record of Object.values(drafts||{}))
+   if(Array.isArray(record?.pages))collections.push(record.pages);
+ for(const pages of collections)
+  for(const page of pages)
+   if(page && (page.private===true||page.visibility==='private'||
+     Object.hasOwn(page,'spaceId')||
+     (page.accessPolicy&&page.accessPolicy.mode!=='PUBLIC')) &&
+     hasReference(page.blocks||[],src))return true;
+ return false;
+}
 function publicRelease(state,src){
  if(!state.published)return false; // drafts NEVER imply publication
  const entry=(state.mediaCatalogue||[]).find(row=>row?.src===src);
  if(entry&&isPrivateMediaRecord(entry))return false;
+ if(referencedByPrivateOwner(state,src))return false;
  if(publishedPageReferences(state,src))return true;
  // Existing admin "general gallery" toggles are explicit public releases,
  // not membership grants. A marked/private file can never be promoted.
