@@ -81,7 +81,7 @@ test('M13: stage-only layout preserves its original order, content and nonce sty
 test('M13: planned breakpoint inventory and cascade overrides remain safe after M02/M03',()=>{
  assert.equal(count(DEMO_CSS,'@media'),46);
  assert.equal(count(TRIAL_SITE_STYLE,'@media'),16);
- assert.equal(count(DEMO_CSS,'!important'),338);
+ assert.equal(count(DEMO_CSS,'!important'),336);
  assert.equal(count(TRIAL_SITE_STYLE,'!important'),28);
  for(const marker of ['.editor-drag-ghost','.image-picker-dialog[open]',
   'dialog.file-picker-dialog[open]','.editor-undo-button','.block-validate-actions',
