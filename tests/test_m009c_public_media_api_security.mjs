@@ -198,6 +198,17 @@ test('M009-C: public editor route refuses private bucket alias and unknown filen
  assert.equal((await handlePublicEditorUpload(new Request(SITE+'/media/new/'+UUID+'.html'),{
   EDITOR_BUCKET:f.bucket})).status,404);
 });
+test('M009-C: hidden or draft celebration cannot release uploaded media through a published page',async()=>{
+ for(const visibility of ['hidden','draft']){
+  const s=state({page:imagePage('/media/other.jpg')});
+  s.published.drafts['41']={pages:[imagePage(JPG)]};
+  s.published.celebrationVisibility['41']=visibility;
+  const f=editorStorage(s);
+  const r=await handlePublicEditorUpload(new Request(SITE+JPG),{EDITOR_BUCKET:f.bucket});
+  assert.equal(r.status,404,visibility);
+  assert.equal(f.calls.some(k=>k.startsWith('editor-trials/uploads/')),false);
+ }
+});
 test('M009-C: route config and static builder cannot bypass the early asset guard',()=>{
  for(const p of ['production','staging']){
   const source=readFileSync(new URL('../migration/cloudflare/wrangler.'+p+'.example.toml',import.meta.url),'utf8');
