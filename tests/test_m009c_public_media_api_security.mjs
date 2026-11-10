@@ -219,6 +219,30 @@ test('M009-C: general gallery cannot publish upload referenced by restricted mem
  assert.equal(f.calls.some(k=>k.startsWith('editor-trials/uploads/')),false,
   'A general gallery flag cannot reveal private page bytes');
 });
+test('M009-C: staging checks /media/new before broad /media rather than using legacy ACL',async()=>{
+ const s=editorStorage(state({page:imagePage(JPG,{visibility:'draft'})}));
+ const env={MEDIA_BUCKET:s.bucket,MEDIA_ACL:{prepare(){throw Error('No legacy media ACL on /media/new')}}};
+ let r=await staging.fetch(new Request('https://test.invalid'+JPG),env);
+ assert.equal(r.status,404);
+ assert.equal(s.calls.some(k=>k.startsWith('editor-trials/uploads/')),false);
+ const publicUpload=editorStorage(state());
+ r=await staging.fetch(new Request('https://test.invalid'+JPG),{
+  ...env,MEDIA_BUCKET:publicUpload.bucket
+ });
+ assert.equal(r.status,200);
+ assert.equal(await r.text(),'JPEG');
+ assert.match(r.headers.get('cache-control'),/no-store/);
+});
+test('M009-C: readonly and legacy Worker reject arbitrary editor upload UUIDs before assets',async()=>{
+ for(const worker of [readonly,legacy]){
+  let assets=0;
+  const r=await worker.fetch(new Request(SITE+JPG),{
+   ASSETS:{async fetch(){assets++;return new Response('LEAKED_DRAFT')}}
+  });
+  assert.equal(r.status,404);
+  assert.equal(assets,0);
+ }
+});
 test('M009-C: route config and static builder cannot bypass the early asset guard',()=>{
  for(const p of ['production','staging']){
   const source=readFileSync(new URL('../migration/cloudflare/wrangler.'+p+'.example.toml',import.meta.url),'utf8');
