@@ -29,7 +29,7 @@ test('M11: composed editor has real ESM drag and undo modules and unchanged publ
   assert.equal(DEMO_CLIENT.split('function '+fn+'(').length-1,1,fn);
  for(const hook of ['editorDragModel.locate(','editorDragModel.move(',
   'editorDragModel.intoBlock(','editorDragModel.pointerIntent(',
-  'editorDragModel.canDirectDrag(','editorUndoPolicy.record(',
+  'editorDragModel.pointerAllowed(','editorUndoPolicy.record(',
   'editorUndoPolicy.restorePages(','undoLastEditorAction()'])
   assert.ok(DEMO_CLIENT.includes(hook),hook);
  assert.ok(DEMO_CLIENT.includes("box.append(editorMoveHandle(box,x,p))"));
@@ -88,15 +88,14 @@ test('M11: into-block groups without cloning or removing texts, images, videos o
  assert.equal(JSON.stringify({title,image,file}),serialized);
  assert.deepEqual(p.blocks[1].columns,[[],[p.blocks[1].columns[1][0]]]);
 });
-test('M11: selection is mandatory for direct block dragging; handle remains explicit',()=>{
- assert.equal(drag.canDirectDrag(null,'picture'),false);
- assert.equal(drag.canDirectDrag('doc','picture'),false);
- assert.equal(drag.canDirectDrag('picture','picture'),true);
- assert.equal(drag.canDirectDrag(42,'42'),true);
+test('M11: deliberate handle and long-press gestures never start in preview',()=>{
  assert.equal(drag.pointerAllowed({pointerType:'mouse',button:0},false),true);
  assert.equal(drag.pointerAllowed({pointerType:'mouse',button:2},false),false);
  assert.equal(drag.pointerAllowed({pointerType:'touch',button:0},true),false);
- assert.ok(DEMO_CLIENT.includes("if(!editorDragModel.canDirectDrag(selectedBlockId,x.id))return;"));
+ assert.equal(drag.pointerAllowed({pointerType:'touch',button:0},false),true);
+ assert.equal('canDirectDrag' in drag,false,'Obsolete direct-drag API has been removed');
+ assert.ok(DEMO_CLIENT.includes('enableTouchLongPressDragging(box,x,p)'));
+ assert.ok(!DEMO_CLIENT.includes('enableDirectBlockDragging'));
 });
 test('M11: mouse threshold and touch long-press intent prevent accidental drags',()=>{
  const mouse={startX:10,startY:10,isTouch:false};
