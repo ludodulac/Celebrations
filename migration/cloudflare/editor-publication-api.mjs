@@ -3,12 +3,10 @@
 import {hasEditorAccess} from './editor-site-access.mjs';
 import {EDITOR_SNAPSHOT_LIMIT,expectedRevisionMatches} from './app/ports/editor-snapshot-contract.mjs';
 import {readEditorSnapshot,putEditorSnapshot} from './app/adapters/editor-r2-repository.mjs';
-import {isOfficialEditorHost,isReadonlyCandidateHost,sameOriginEditorWrite} from './app/security/editor-route-policy.mjs';
+import {isAllowedEditorPageHost,isOfficialEditorHost,isReadonlyCandidateHost,sameOriginEditorWrite} from './app/security/editor-route-policy.mjs';
 import {mergePublicMediaIndexed} from './app/domain/editor-public-media-merge.mjs';
 
 const PREFIX='editor-trials/uploads/';
-const SITE=new Set(['www.ronde-des-archanges-universelle.eu','ronde-des-archanges-universelle.eu']);
-const PREVIEW='celebrations-visual-candidate.rondes.workers.dev';
 const STAGING='celebrations-exit-staging.rondes.workers.dev';
 const err=(message,status=400)=>Response.json({ok:false,error:message},{status,headers:{'cache-control':'no-store','x-content-type-options':'nosniff'}});
 const json=value=>Response.json(value,{headers:{'cache-control':'no-store','x-content-type-options':'nosniff'}});
@@ -233,7 +231,7 @@ function celebrationVisibleFor(id,map,planState){
 }
 function hostCheck(request){
  const u=new URL(request.url);
- return isOfficialEditorHost(u.hostname)||u.hostname===PREVIEW||u.hostname===STAGING;
+ return isAllowedEditorPageHost(u.hostname);
 }
 async function protectedWrite(request,env){
  const url=new URL(request.url);
