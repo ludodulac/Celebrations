@@ -6,7 +6,7 @@ import {DEMO_CLIENT} from './editor-demo-client.mjs';
 import {TRIAL_AUDIO_CLIENT} from './editor-trial-audio-client.mjs';
 // SERVER_EDITOR_SYNC is composed explicitly by editor-demo-client.mjs.
 import {fiveColourways} from './editor-celebration-themes.mjs';
-import {eligiblePublicPage,projectPublicPage,eligiblePublicPlan,privatePublicationIds}
+import {eligiblePublicPage,projectPublicPage,eligiblePublicPlan,privatePublicationIds,allowedPublicLink}
  from './app/domain/editor-public-projection-security.mjs';
 const HOST='celebrations-exit-staging.rondes.workers.dev';
 export const STAGES=[
@@ -242,9 +242,13 @@ export async function loadSevenStageContent(env,selectedId,{publicOnly=false,pub
   const celebration=planned?.celebration||celebrations.find(c=>String(c.id)===(selected||'101'))||celebrations[0];
   if(!celebration)throw new Error('No celebration');
   if(planned){
+   const releasedIds=new Set((pub?.drafts?.[String(celebration.id)]?.pages||[])
+    .filter(eligiblePublicPage).map(p=>p.id));
+   const pages=publicOnly?planned.pages.filter(p=>p.group==='page'||releasedIds.has(p.id))
+    .map(p=>projectPublicPage(p)).filter(Boolean):planned.pages;
    const seed={celebrationId:celebration.id,archangel:celebration.archangel,year:celebration.year,
     start_date:celebration.start_date,end_date:celebration.end_date,
-    palettes:fiveColourways(celebration.archangel),pages:planned.pages,media:[],files:[],library:[],celebrations};
+    palettes:fiveColourways(celebration.archangel),pages,media:[],files:[],library:[],celebrations};
    return {celebrations,celebration,seed};
   }
   const steps=await rows(env.DB,'SELECT * FROM celebrations_steps WHERE celebration_id=? ORDER BY sort_order,id',celebration.id);
@@ -308,8 +312,12 @@ export async function loadSevenStageContent(env,selectedId,{publicOnly=false,pub
   const blocked=publicOnly&&publishedState?
    privatePublicationIds(publishedState,pub):[];
   const publicPages=publicOnly?pages.map(p=>projectPublicPage(p,blocked)).filter(Boolean):pages;
+  const publicLibrary=publicOnly?library.filter(item=>
+   (!item.src||allowedPublicLink(item.src,blocked))&&
+   (!item.cover||allowedPublicLink(item.cover,blocked))&&
+   (!item.external||allowedPublicLink(item.external,blocked))):library;
   const seed={celebrationId:celebration.id,archangel:celebration.archangel,year:celebration.year||'',
-   palettes:fiveColourways(celebration.archangel),pages:publicPages,media:publicAudio,files,library,celebrations};
+   palettes:fiveColourways(celebration.archangel),pages:publicPages,media:publicAudio,files,library:publicLibrary,celebrations};
   return {celebrations,celebration,seed};
 }
 export async function handlePreparationDemo(request,env){
