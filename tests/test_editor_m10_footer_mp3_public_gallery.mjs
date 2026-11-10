@@ -34,8 +34,8 @@ test('M10: footer pages are ordinary shared pages, isolated from the main menu',
 
 test('M10: footer and guide are real admin navigation targets',()=>{
  const html=readFileSync('migration/cloudflare/editor-demo-preparation-page.mjs','utf8');
- assert.match(html,/data-tab=\\"footer\\"/);
- assert.match(html,/data-tab=\\"guide\\"/);
+ assert.ok(html.includes('data-tab="footer"'));
+ assert.ok(html.includes('data-tab="guide"'));
  assert.match(renderEditorFrame.toString(),/tab==='footer'\)footerPages\(\)/);
  assert.match(DEMO_CLIENT,/function footerPages\(\)\{pageWorkspace\('footer'\)\}/);
  assert.match(DEMO_CLIENT,/createPage\('footer'\)/);
@@ -45,7 +45,7 @@ test('M10: footer and guide are real admin navigation targets',()=>{
 test('M10: footer links are generated only for published footer pages',()=>{
  const visitor=TRIAL_SITE_CLIENT;
  const layout=readFileSync('migration/cloudflare/editor-trial-site-page.mjs','utf8');
- assert.match(layout,/id=\\"footer-pages\\"/);
+ assert.ok(layout.includes('id="footer-pages"'));
  assert.match(visitor,/const footerPages=el\('footer-pages'\);footerPages\.replaceChildren\(\)/);
  assert.match(visitor,/p\.group==='page'&&p\.placement==='footer'/);
  assert.match(visitor,/p\.group==='page'&&p\.placement!=='footer'/);
