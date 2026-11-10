@@ -8,7 +8,7 @@ concurrency:
   group: celebrations-finalisation-m05-release
   cancel-in-progress: false
 jobs:
-  publish-m01:
+  publish-editor-visibility:
     if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[EDITOR_M02_M03_PUBLISH]') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 35
@@ -28,19 +28,21 @@ jobs:
         with: {node-version: '22'}
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
-      - name: Reject any runtime changes except the move-handle CSS layer
+      - name: Reject changes outside the three existing editor UI modules
         shell: bash
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = refs/heads/fix/editor-m02-m03-controls-and-hidden-label-20261110
           git merge-base --is-ancestor origin/release/celebrations-cleanup-06-20261110 HEAD
-          git diff --name-only origin/release/celebrations-cleanup-06-20261110 HEAD | grep -E '^(migration/cloudflare/|admin\.html$|index\.html$|public-|supabase-data\.js)' | sort > /tmp/editor-m01-runtime-delta
-          printf 'migration/cloudflare/app/styles/admin/04-section-composer.mjs\nmigration/cloudflare/app/styles/admin/07-drag-resources.mjs\nmigration/cloudflare/editor-demo-client.mjs\n' > /tmp/editor-m01-expected-runtime-delta
-          diff -u /tmp/editor-m01-expected-runtime-delta /tmp/editor-m01-runtime-delta
-          echo EDITOR_M01_ONLY_DRAG_CSS_CHANGED
+          git diff --name-only origin/release/celebrations-cleanup-06-20261110 HEAD | grep -E '^(migration/cloudflare/|admin\.html$|index\.html$|public-|supabase-data\.js)' | sort > /tmp/editor-m02-m03-runtime-delta
+          printf 'migration/cloudflare/app/styles/admin/04-section-composer.mjs\nmigration/cloudflare/app/styles/admin/07-drag-resources.mjs\nmigration/cloudflare/editor-demo-client.mjs\n' > /tmp/editor-m02-m03-expected-runtime-delta
+          diff -u /tmp/editor-m02-m03-expected-runtime-delta /tmp/editor-m02-m03-runtime-delta
+          echo EDITOR_M02_M03_ONLY_DRAG_CSS_CHANGED
       - name: Targeted regression tests — no additions to the editor
         run: |
+          node --check migration/cloudflare/app/styles/admin/04-section-composer.mjs
           node --check migration/cloudflare/app/styles/admin/07-drag-resources.mjs
+          node --check migration/cloudflare/editor-demo-client.mjs
           node --test tests/test_editor_m01_select_only_move_grip.mjs tests/test_editor_m02_m03_visibility.mjs tests/test_mission13_styles.mjs tests/test_mission11_drag_undo.mjs
           python scripts/build_production_assets.py
           python scripts/audit_production_supabase_paths.py
@@ -62,11 +64,11 @@ jobs:
             assert.equal(body.split(before).length-1,1,'Release gate anchor changed');
             body=body.replace(before,after);
           }
-          fs.writeFileSync('scripts/.editor-m01-release-runtime.mjs',body);
-          console.log('EDITOR_M01_REUSE_EXACT_VERSION_GATE');
+          fs.writeFileSync('scripts/.editor-m02-m03-release-runtime.mjs',body);
+          console.log('EDITOR_M02_M03_REUSE_EXACT_VERSION_GATE');
           NODE
       - name: Full Cloudflare preflight with official version, bindings, and security
-        run: node scripts/.editor-m01-release-runtime.mjs preflight
+        run: node scripts/.editor-m02-m03-release-runtime.mjs preflight
       - name: Keep existing D1 and both R2 bindings; do not edit DNS
         shell: bash
         run: |
@@ -85,7 +87,7 @@ jobs:
           done
           test "$(grep -c 'database_id = "28736d2a-479b-472b-bf82-703ad0affe10"' migration/cloudflare/wrangler.production.toml)" = 2
           if grep -Eq '^[[:space:]]*(route|routes|zone_id|custom_domain)[[:space:]]*=' migration/cloudflare/wrangler.production.toml; then
-            echo EDITOR_M01_DNS_CHANGE_REFUSED; exit 1
+            echo EDITOR_M02_M03_DNS_CHANGE_REFUSED; exit 1
           fi
       - name: Install the same Cloudflare release CLI as mission 06
         run: npm install --no-save --no-package-lock wrangler@4
@@ -94,10 +96,10 @@ jobs:
         working-directory: migration/cloudflare
         shell: bash
         env:
-          WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/editor-m01-wrangler.jsonl
+          WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/editor-m02-m03-wrangler.jsonl
         run: |
           set -euo pipefail
-          npx wrangler versions upload --config wrangler.production.toml --keep-vars --strict --message "Célébrations editor M01 move-handle CSS only: $GITHUB_SHA"
+          npx wrangler versions upload --config wrangler.production.toml --keep-vars --strict --message "Célébrations editor M02/M03 contextual plus and clear hidden titles: $GITHUB_SHA"
           node --input-type=module <<'NODE'
           import assert from 'node:assert/strict';
           import fs from 'node:fs';
@@ -107,27 +109,27 @@ jobs:
           assert.equal(rows.length,1);
           assert.match(rows[0].version_id,/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i);
           fs.appendFileSync(process.env.GITHUB_OUTPUT,'version_id='+rows[0].version_id+'\n');
-          console.log('EDITOR_M01_VERSION_UPLOADED_NOT_LIVE '+rows[0].version_id);
+          console.log('EDITOR_M02_M03_VERSION_UPLOADED_NOT_LIVE '+rows[0].version_id);
           NODE
       - name: Verify immutable candidate bindings and that the old version remains live
         env:
           CLEANUP06_NEW_VERSION_ID: ${{ steps.upload.outputs.version_id }}
-        run: node scripts/.editor-m01-release-runtime.mjs validate
+        run: node scripts/.editor-m02-m03-release-runtime.mjs validate
       - name: Activate the owner-approved change with exact-version rollback armed
         id: promote
         env:
           CLEANUP06_OWNER_APPROVED: 'yes'
           CLEANUP06_NEW_VERSION_ID: ${{ steps.upload.outputs.version_id }}
-        run: node scripts/.editor-m01-release-runtime.mjs promote
+        run: node scripts/.editor-m02-m03-release-runtime.mjs promote
       - name: Confirm official website and admin entry remain healthy
         env:
           CLEANUP06_NEW_VERSION_ID: ${{ steps.upload.outputs.version_id }}
-        run: node scripts/.editor-m01-release-runtime.mjs postcheck
+        run: node scripts/.editor-m02-m03-release-runtime.mjs postcheck
       - name: Restore exact prior version if any post-activation check fails
         if: ${{ always() && steps.promote.outputs.attempted == 'yes' && failure() }}
         env:
           CLEANUP06_NEW_VERSION_ID: ${{ steps.upload.outputs.version_id }}
-        run: node scripts/.editor-m01-release-runtime.mjs rollback
+        run: node scripts/.editor-m02-m03-release-runtime.mjs rollback
       - name: Final report
         run: echo EDITOR_M02_M03_PUBLISHED_SUCCESS_CLEAN_EDITOR_DISPLAY_NO_NEW_TOOLS
-# Owner-approved M02+M03 only; no new editor features or data changes.
+# Owner-approved M02/M03 only; reuse versioned rollback and established editor components.
