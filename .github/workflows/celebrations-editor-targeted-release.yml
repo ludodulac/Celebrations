@@ -154,3 +154,5 @@ jobs:
 # M09: apply only after full regression checks, exact-version validation and rollback protection.
 
 # M09 regression: hover-image callbacks retain stopPropagation, preventing editor selection.
+
+# M10 owner approval: footer pages, instruction guide, MP3 upload progress, visible celebration-only media and hover controls.
