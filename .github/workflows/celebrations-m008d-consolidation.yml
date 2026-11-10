@@ -1,0 +1,140 @@
+name: "CÉLÉBRATIONS M008-D — triple merge, intégration hors ligne"
+on:
+  push:
+    branches:
+      - feat/celebrations-m008d-consolidation-008a-008b-008c-20261110
+  pull_request:
+    branches:
+      - feat/celebrations-m007c-consolidation-006-007a-007b-20261110
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  integrated-node:
+    name: History + M002-M008C + editor/publication + cross D1/security
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify exact source ancestry, THREE two-parent merge commits, 24 preserved paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=c976791835fc5f1d7d2c37123face418d0501ca6
+          A=e182ec8c35b441e73cee72e92974a35e52a81a21
+          B=360ac7b8f7bef44486afeb5774b58121c6106821
+          C=5d4789e344e394dfc14cea4c263ff5aff7db1b4a
+          M1=9666111d320c1737fdb47706907b4a7fbcdbe2e2
+          M2=5d9dc5f7ad8068d4bd5361474d10b8a94eed823d
+          M3=abb99c95479fe7c5b06ce7924c448b3a51e0cbe5
+          for sha in "$BASE" "$A" "$B" "$C" "$M1" "$M2" "$M3"; do
+            git merge-base --is-ancestor "$sha" HEAD
+          done
+          test "$(git show -s --format='%P' "$M1")" = "$BASE $A"
+          test "$(git show -s --format='%P' "$M2")" = "$M1 $B"
+          test "$(git show -s --format='%P' "$M3")" = "$M2 $C"
+          test "$(git diff --name-only "$BASE" "$M3" | wc -l)" -eq 24
+          for source in "$A" "$B" "$C"; do
+            while IFS= read -r path; do
+              test "$(git rev-parse "$source:$path")" = "$(git rev-parse "$M3:$path")"
+            done < <(git diff --name-only "$BASE" "$source")
+          done
+          echo "M008D_REAL_MERGE_HISTORY_AND_ALL_SOURCE_BLOBS_PRESERVED"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Source and test syntax
+        run: |
+          for file in \
+            migration/cloudflare/app/security/member-private-access.mjs \
+            migration/cloudflare/app/persistence/contact-directory-d1.mjs \
+            migration/cloudflare/app/application/public-language-release.mjs \
+            migration/cloudflare/editor-publication-api.mjs \
+            migration/cloudflare/editor-trial-site-page.mjs \
+            tests/test_m008d_cross_integration.mjs; do
+            node --check "$file"
+          done
+      - name: Run mission suites M002–M008C and editor/publication non-regression
+        run: |
+          node --test \
+            tests/test_mission002_member_access.mjs \
+            tests/test_m003_localization.mjs \
+            tests/test_m004_page_localization.mjs \
+            tests/test_m005_celebration_spaces.mjs \
+            tests/test_m006_public_language_navigation.mjs \
+            tests/test_m006_language_selector.mjs \
+            tests/test_m007a_contact_directory.mjs \
+            tests/test_m007b_member_admin.mjs \
+            tests/test_m007c_cross_module_contracts.mjs \
+            tests/test_m008a_public_language_integration.mjs \
+            tests/test_m008b_contact_directory_d1.mjs \
+            tests/test_m008c_private_server_access.mjs \
+            tests/test_m008d_cross_integration.mjs \
+            tests/test-editor-publication-media.mjs \
+            tests/test-editor-server-drafts.mjs \
+            tests/test_mission12_public_renderer.mjs \
+            tests/test_mission14_editor_security.mjs \
+            tests/test_mission09_page_lifecycle.mjs \
+            tests/test_editor_m11_mobile_insert_footer_delete.mjs \
+            tests/test-exit-auth.mjs \
+            tests/test-editor-trial-site.mjs \
+            tests/test-exit-media-gateway.mjs
+      - name: Confirm no new member endpoints in production or staging Worker
+        shell: bash
+        run: |
+          if grep -q "member-private-access.mjs" migration/cloudflare/production-worker.mjs migration/cloudflare/staging-worker.mjs; then
+            echo "PRIVATE_ROUTE_ACTIVATED_UNEXPECTEDLY"
+            exit 1
+          fi
+
+  browser-multilingual:
+    name: Offline browser French/multilingual desktop + mobile
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - run: node scripts/test-m008a-public-language-browser.mjs
+
+  isolated-d1:
+    name: Wrangler D1 local (NEVER remote)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply migrations to disposable Wrangler D1 --local ONLY
+        shell: bash
+        env:
+          WRANGLER_SEND_METRICS: 'false'
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/m008d-local-d1"
+          CFG=tests/fixtures/wrangler.m008b.local.toml
+          DB=celebrations-m008b-local-only
+          invoke() {
+            npx --yes wrangler@4 d1 execute "$DB" --local --config "$CFG" \
+              --persist-to "$RUNNER_TEMP/m008d-local-d1" "$@"
+          }
+          invoke --file=migration/cloudflare/celebrations-schema.sql
+          invoke --file=migration/cloudflare/d1-migrations/20261110_007a_contact_directory.sql
+          invoke --file=migration/cloudflare/d1-migrations/20261110_008b_directory_integrity.sql
+          invoke --file=tests/fixtures/m008b-local-smoke.sql
+          invoke --command='PRAGMA foreign_key_check;'
+          echo 'M008D_WRANGLER_ISOLATED_D1_ONLY'
