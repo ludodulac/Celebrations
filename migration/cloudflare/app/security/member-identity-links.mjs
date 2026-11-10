@@ -108,7 +108,7 @@ export async function unlinkIdentity(db,{personId,actorEmail}={}) {
   const results=await db.batch([
     q(db,'DELETE FROM celebrations_directory_identity_links WHERE person_id=?',personId),
     q(db,'INSERT INTO celebrations_directory_admin_audit(id,actor_email,action,target_id) ' +
-      "VALUES(?,?,'identity-unlinked',?)",id,actorEmail,personId)
+      "SELECT ?,?,'identity-unlinked',? WHERE changes()=1",id,actorEmail,personId)
   ]);
   if (Number(results?.[0]?.meta?.changes) !== 1) throw new RangeError('No linked identity');
   // Re-link requires a new, independently reviewed claim; approved claim
