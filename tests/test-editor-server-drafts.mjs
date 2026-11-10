@@ -154,3 +154,22 @@ test('generated editor and preview scripts parse with required integration hooks
  assert.ok(site.includes('await fetchServerPreview()'));
  new Script(site);
 });
+
+test('M04: une seule confirmation visuelle pour une sauvegarde serveur vérifiée',()=>{
+ const start=SERVER_EDITOR_SYNC.indexOf('const live=!!payload.publishedPageId;');
+ const end=SERVER_EDITOR_SYNC.indexOf('  return true;',start);
+ assert.ok(start>=0 && end>start,'L’enregistrement sur le serveur conserve son flux de succès');
+ const confirmation=SERVER_EDITOR_SYNC.slice(start,end);
+ assert.ok(confirmation.includes("button.textContent=label;button.classList.add('save-confirmed')"),
+  'La confirmation verte reste dans le bouton existant');
+ assert.ok(!confirmation.includes("editor-save-toast"),
+  'Aucune deuxième notification verte ne reprend le même message');
+ assert.ok(confirmation.includes("serverMessage(label+' — contenu revérifié après enregistrement.')"),
+  'Le retour accessible et l’état de relecture du serveur sont conservés');
+ assert.ok(SERVER_EDITOR_SYNC.includes('editorSyncPolicy.readbackConfirmed('),
+  'La confirmation reste conditionnée à la vérification du contenu sur le serveur');
+ assert.ok(SERVER_EDITOR_SYNC.includes("button.textContent='Échec — réessayer'"),
+  'Les erreurs restent visibles et permettent de réessayer');
+ assert.ok(DEMO_CLIENT.includes("el('editor-save-toast')"),
+  'Le retour local propre au mode démonstration n’est pas supprimé');
+});
