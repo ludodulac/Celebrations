@@ -250,6 +250,9 @@ test('M009-C: route config and static builder cannot bypass the early asset guar
  }
  const source=readFileSync(new URL('../scripts/build_staging_assets.py',import.meta.url),'utf8');
  assert.match(source,/"private-members"/);
+ const generator=readFileSync(new URL('../scripts/configure_staging_wrangler.py',import.meta.url),'utf8');
+ assert.match(generator,/run_worker_first = true/);
+ assert.doesNotMatch(generator,/run_worker_first = \[/);
  for(const name of ['production-worker.mjs','staging-worker.mjs']){
   const source=readFileSync(new URL('../migration/cloudflare/'+name,import.meta.url),'utf8');
   assert.equal(source.includes('member-private-access.mjs'),false,
