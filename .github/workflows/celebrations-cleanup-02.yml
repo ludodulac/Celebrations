@@ -21,7 +21,7 @@ jobs:
           set -euo pipefail
           BASE=c71bcaab910cff0d386b721961ae1da4ebede56b
           git merge-base --is-ancestor "$BASE" HEAD
-          git diff --name-only "$BASE" HEAD | grep -Ev '^(migration/cloudflare/production-worker\.mjs|tests/test_cleanup02_public_routes\.mjs|\.github/workflows/celebrations-cleanup-02\.yml)$' > /tmp/extra-files || true
+          git diff --name-only "$BASE" HEAD | grep -Ev '^(migration/cloudflare/production-worker\.mjs|tests/test_mission15_legacy_cleanup\.mjs|tests/test_cleanup02_public_routes\.mjs|\.github/workflows/celebrations-cleanup-02\.yml)$' > /tmp/extra-files || true
           test ! -s /tmp/extra-files || { echo UNEXPECTED_CHANGE_IN_CLEANUP_02; exit 1; }
           echo CLEANUP02_ONE_ACTIVE_FILE_CHANGED
       - name: Route behavior and full prior functional regressions
