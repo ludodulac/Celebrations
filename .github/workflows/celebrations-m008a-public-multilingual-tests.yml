@@ -1,0 +1,51 @@
+name: "CÉLÉBRATIONS M008-A — public multilingual integration, offline only"
+on:
+  push:
+    branches:
+      - feat/celebrations-m008a-public-multilingual-integration-20261110
+  pull_request:
+    branches:
+      - feat/celebrations-m007c-consolidation-006-007a-007b-20261110
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  multilingual-offline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout (read-only, no deployment credentials)
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check integration source syntax
+        run: |
+          node --check migration/cloudflare/app/application/public-language-release.mjs
+          node --check migration/cloudflare/app/application/public-language-selector.mjs
+          node --check migration/cloudflare/editor-publication-api.mjs
+          node --check migration/cloudflare/editor-server-draft-api.mjs
+          node --check migration/cloudflare/editor-demo-client.mjs
+          node --check migration/cloudflare/editor-trial-site-client.mjs
+          node --check migration/cloudflare/editor-trial-site-page.mjs
+          node --check migration/cloudflare/editor-server-sync-client.mjs
+      - name: Integrated tests, old French site and cross-module regressions
+        run: |
+          node --test \
+            tests/test_m008a_public_language_integration.mjs \
+            tests/test_mission002_member_access.mjs \
+            tests/test_m003_localization.mjs \
+            tests/test_m004_page_localization.mjs \
+            tests/test_m005_celebration_spaces.mjs \
+            tests/test_m006_public_language_navigation.mjs \
+            tests/test_m006_language_selector.mjs \
+            tests/test_m007c_cross_module_contracts.mjs \
+            tests/test-editor-publication-media.mjs \
+            tests/test-editor-server-drafts.mjs \
+            tests/test_mission12_public_renderer.mjs \
+            tests/test_mission14_editor_security.mjs
