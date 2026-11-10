@@ -25,11 +25,14 @@ export function createEditorPageCommands({model}){
  function deletionPlan(db,page,celebrationId){
   if(!page||!db.pages.includes(page))return {allowed:false,general:false,siblings:[]};
   const {allowed,general}=model.removablePage(page,celebrationId);
-  return {allowed,general,siblings:model.groupPages(db.pages,page.placement==='footer'?'footer':page.group).filter(p=>p!==page)};
+  const siblings=model.groupPages(db.pages,page.placement==='footer'?'footer':page.group)
+   .filter(p=>p!==page);
+  // A footer can be empty. Other sections retain their existing last-page guard.
+  return {allowed:allowed&&(page.placement==='footer'||siblings.length>0),general,siblings};
  }
  function removeConfirmedPage(db,page,currentId,plan){
   // Never call this before the caller has hidden a published page on the server.
-  if(!plan?.allowed||!db.pages.includes(page)||(!plan.siblings.length&&page.placement!=='footer'))return null;
+  if(!plan?.allowed||!db.pages.includes(page))return null;
   if(plan.general&&db.siteHomeId===page.id)
    db.siteHomeId=plan.siblings.find(p=>p.id==='neutral-accueil-general')?.id||plan.siblings[0].id;
   db.pages=db.pages.filter(p=>p!==page);
