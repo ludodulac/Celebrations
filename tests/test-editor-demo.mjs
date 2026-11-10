@@ -341,7 +341,7 @@ test('direct block dragging and drop-into-target are separate from text editing'
  assert.ok(DEMO_CLIENT.includes("moveEditorIntoBlock(state.page,state.sourceId"));
  assert.ok(DEMO_CLIENT.includes("editor-drop-into"));
  assert.ok(DEMO_CSS.includes('.block.editor-drop-into'));
- assert.ok(DEMO_CSS.includes('opacity:.94!important'));
+ assert.ok(DEMO_CSS.includes('.block.is-selected>.editor-move-handle'), 'Grip is visible only after selection');
 });
 
 test('a chosen divider survives publication, while historic pages get no automatic rules',()=>{
