@@ -33,3 +33,4 @@ jobs:
         run: python -m pip -q install boto3==1.40.57
       - name: Inventorier puis, uniquement si approuvé, convertir les aperçus PDF en boutons
         run: python scripts/michael-external-pdf-buttons-once.py
+# One-time approved scope: 10 externally hosted PDF previews on Michaël Thursday–Saturday.
