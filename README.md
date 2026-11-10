@@ -13,7 +13,9 @@ Site public et administration pour préparer et diffuser les célébrations, les
 | Conserver l'ancien site GitHub Pages/Supabase | `archive/celebrations-old-main-20261110` | Sauvegarde immuable de l'ancien `main` |
 | Ancienne branche GitHub par défaut | `main` | Historique, **ne pas utiliser comme base du Worker Cloudflare** |
 
-La procédure de maintenance est documentée dans [**docs/operations/BRANCHES-ET-LIVRAISONS.md**](docs/operations/BRANCHES-ET-LIVRAISONS.md). **Ne jamais publier automatiquement à partir de la branche `develop`** : la sortie en production exige tests, sauvegarde, contrôle de la version Worker active et possibilité de retour arrière.
+La procédure de maintenance est documentée dans [**docs/operations/BRANCHES-ET-LIVRAISONS.md**](docs/operations/BRANCHES-ET-LIVRAISONS.md).
+
+**Transfert futur vers un autre compte Cloudflare :** [guide de transfert et contrôles préalables](docs/operations/TRANSFERT-CLOUDFLARE.md). Le guide décrit les deux buckets R2 (dont celui portant le nom « staging » mais utilisé par la production), D1, les secrets, la sauvegarde et le domaine. **Le transfert n'a pas été effectué.** **Ne jamais publier automatiquement à partir de la branche `develop`** : la sortie en production exige tests, sauvegarde, contrôle de la version Worker active et possibilité de retour arrière.
 
 ## Commencer ici
 
