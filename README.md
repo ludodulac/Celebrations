@@ -2,7 +2,18 @@
 
 Site public et administration pour préparer et diffuser les célébrations, les pages et les médias.
 
-> **État au 9 novembre 2026.** Le dépôt conserve une **version historique GitHub Pages / Supabase** et une **architecture Cloudflare Worker / D1 / R2**. Les missions de refonte M05–M17 sont empilées dans des branches GitHub et des PR en **DRAFT**. Elles ne sont **pas automatiquement présentes sur le site officiel**. Ne pas confondre « tests réussis » et « déploiement effectué ».
+> **État au 10 novembre 2026 — important.** Le site officiel est servi par le Worker **Cloudflare** et non par le `main` historique GitHub Pages. La version officiellement publiée le 9 novembre correspond à `production/celebrations-live` (code source de la livraison M5). Les améliorations suivantes se trouvent dans `develop/celebrations-maintenance` et ne sont **PAS encore publiées**. La branche par défaut GitHub reste actuellement `main`, qui est ancienne : ne pas commencer des changements pour le site officiel sur `main`.
+
+## Quelle branche utiliser ?
+
+| Besoin | Branche | Statut |
+| --- | --- | --- |
+| Retrouver exactement le code de la version officiellement livrée | `production/celebrations-live` | **Publié sur Cloudflare**, source figée au commit M5 |
+| Faire les prochaines modifications et préparer le transfert Cloudflare | `develop/celebrations-maintenance` | **Base de travail, NON déployée** (nettoyages M1–M4) |
+| Conserver l'ancien site GitHub Pages/Supabase | `archive/celebrations-old-main-20261110` | Sauvegarde immuable de l'ancien `main` |
+| Ancienne branche GitHub par défaut | `main` | Historique, **ne pas utiliser comme base du Worker Cloudflare** |
+
+La procédure de maintenance est documentée dans [**docs/operations/BRANCHES-ET-LIVRAISONS.md**](docs/operations/BRANCHES-ET-LIVRAISONS.md). **Ne jamais publier automatiquement à partir de la branche `develop`** : la sortie en production exige tests, sauvegarde, contrôle de la version Worker active et possibilité de retour arrière.
 
 ## Commencer ici
 
