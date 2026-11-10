@@ -48,6 +48,8 @@ export default {
    return Response.redirect(url.toString(),302);
   }
   // Guard application uploads BEFORE the broad historical /media/ prefix.
+  // Uploaded editor files require publication/privileged preview checks before legacy /media.
+  if(path.startsWith("/media/new/"))return handlePublicEditorUpload(request,{...env,EDITOR_BUCKET:env.MEDIA_BUCKET});
   if(path.startsWith("/media/")||path.startsWith("/letter/"))return handleMedia(request,env);
   if(path==="/api/auth")return handleAuth(request,env);
   if(path==="/api/audience")return handleAudience(request,env);
@@ -72,7 +74,6 @@ export default {
   if(path==="/api/editor-trial-audio")return handleTrialAudio(request,env);
   if(path==="/api/editor-publication"&&request.method==="GET")
    return handleEditorPublication(request,{...env,EDITOR_BUCKET:env.MEDIA_BUCKET});
-  if(path.startsWith("/media/new/"))return handlePublicEditorUpload(request,{...env,EDITOR_BUCKET:env.MEDIA_BUCKET});
   if(path==="/api/editor-server-draft")return handleServerDraft(request,env);
   if(path==="/api/editor-open-draft"){
    // Shared production content must not remain writable through this old test host.
