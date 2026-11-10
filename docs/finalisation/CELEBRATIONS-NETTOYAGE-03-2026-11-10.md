@@ -11,7 +11,7 @@
 - **35 workflows historiques déplacés sans changement de contenu**, depuis `.github/workflows/` vers `docs/archive/workflows/` : 15 anciennes étapes B/C/D/E de l'éditeur, 20 workflows des missions de réorganisation 02–21. Tous visaient des anciennes branches de développement, des révisions historiques ou des opérations ponctuelles, et ne sont pas la méthode de publication actuelle.
 - Leurs **35 blobs Git sont identiques** ; aucun fichier n'est perdu. Les scripts et les tests associés restent à leur emplacement original, car ils peuvent servir de documentation, de contrôle ou de récupération.
 - Deux index ajoutés : `.github/workflows/README.md` pour le fonctionnement actuel et `docs/archive/workflows/README.md` avec l'inventaire individuel des 35 chemins et empreintes Git.
-- Nombre de workflows exécutables dans `.github/workflows/` : **108 → 73**, soit 35 fichiers YAML exécutables de moins. Ce n'est PAS une affirmation que les 73 restants sont tous nécessaires : beaucoup sont volontairement conservés en attendant la remise à plat de la branche de référence en mission 4.
+- Nombre de workflows exécutables dans `.github/workflows/` : **108 → 73**, puis **74 avec le nouveau workflow de test M3**, soit un retrait net de 34 fichiers YAML exécutables et **35 anciens workflows archivés**. Ce n'est PAS une affirmation que les 73 restants sont tous nécessaires : beaucoup sont volontairement conservés en attendant la remise à plat de la branche de référence en mission 4.
 - Les workflows de sauvegarde chiffrée/restauration et la preuve de publication des missions de finalisation 03/05 n'ont pas été déplacés.
 - **Aucun fichier de l'application, aucun script de build, aucun test préexistant, aucun média, aucune donnée et aucun secret ne sont modifiés.** Aucun workflow de production n'a été redéployé.
 
@@ -44,3 +44,16 @@
 4. Suite locale des tests d'architecture et de sécurité, génération d'assets Cloudflare, **sans déploiement**.
 
 **La mission 3 porte sur le rangement et les déclencheurs de GitHub, pas sur une réécriture des modules du site.** Les prochaines missions prévoient le choix d'une référence Git unique, la préparation du transfert Cloudflare et la dernière recette.
+
+## Résultat réel du contrôle automatisé
+
+**[GitHub Actions #42771643791](https://github.com/ludodulac/Celebrations/actions/runs/42771643791) : SUCCESS**, le 10 novembre 2026. Les tests ont confirmé :
+
+- **35/35 workflows originaux présents dans leurs archives, strictement identiques octet par octet** au commit de base. Aucun de ces 35 fichiers n'est encore exécutable depuis `.github/workflows/`.
+- **10/10 workflows de secours/production/QA contrôlés inchangés** et toujours présents au chemin GitHub Actions.
+- **74 workflows actifs comme fichiers YAML** (93 après les 15 premiers, puis 73 après les 20 suivants, puis 74 avec le contrôle M3).
+- **255/255 tests Node PASS** : 50 tests sécurité/rollback/compatibilité et 205 régressions de l'éditeur.
+- Le build des assets Cloudflare et l'audit d'absence de liens réseau Supabase sur les assets reconstruits sont **PASS**.
+- **Aucune modification de code applicatif, de script métier ou de test préexistant. Aucun déploiement, changement DNS ni écriture D1/R2.**
+
+**MISSION 3/6 : TERMINÉE dans son périmètre de rangement historique contrôlé.** Les scripts sont intentionnellement conservés lorsqu'une absence de dépendance n'est pas prouvée. Le dépôt garde des workflows historiques qui pourront être rationalisés en mission 4, mais les 35 anciens déclencheurs B–E/M02–M21 ne sont plus exécutables.
