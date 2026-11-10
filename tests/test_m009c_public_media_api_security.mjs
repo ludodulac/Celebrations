@@ -222,11 +222,11 @@ test('M009-C: general gallery cannot publish upload referenced by restricted mem
 test('M009-C: staging checks /media/new before broad /media rather than using legacy ACL',async()=>{
  const s=editorStorage(state({page:imagePage(JPG,{visibility:'draft'})}));
  const env={MEDIA_BUCKET:s.bucket,MEDIA_ACL:{prepare(){throw Error('No legacy media ACL on /media/new')}}};
- let r=await staging.fetch(new Request('https://test.invalid'+JPG),env);
+ let r=await staging.fetch(new Request(SITE+JPG),env);
  assert.equal(r.status,404);
  assert.equal(s.calls.some(k=>k.startsWith('editor-trials/uploads/')),false);
  const publicUpload=editorStorage(state());
- r=await staging.fetch(new Request('https://test.invalid'+JPG),{
+ r=await staging.fetch(new Request(SITE+JPG),{
   ...env,MEDIA_BUCKET:publicUpload.bucket
  });
  assert.equal(r.status,200);
