@@ -35,6 +35,7 @@ jobs:
           node --check migration/cloudflare/legacy-mailed-pdf-worker.mjs
           node --check tests/test_m009c_public_media_api_security.mjs
           python3 -m py_compile scripts/build_staging_assets.py
+          python3 -m py_compile scripts/configure_staging_wrangler.py
       - name: Synthetic direct-access and history tests (NO R2/D1 writes)
         run: |
           node --test \
