@@ -6,7 +6,7 @@ import {DEMO_CLIENT} from './editor-demo-client.mjs';
 import {TRIAL_AUDIO_CLIENT} from './editor-trial-audio-client.mjs';
 // SERVER_EDITOR_SYNC is composed explicitly by editor-demo-client.mjs.
 import {fiveColourways} from './editor-celebration-themes.mjs';
-const HOST='celebrations-exit-staging.rondes.workers.dev';
+import {isAllowedEditorPageHost} from './app/security/editor-route-policy.mjs';
 export const STAGES=[
  {label:'Accueil de la célébration',slug:'accueil-celebration'},
  {label:'Préparation',slug:'preparation'},
@@ -272,7 +272,7 @@ export async function loadSevenStageContent(env,selectedId){
 }
 export async function handlePreparationDemo(request,env){
  const url=new URL(request.url);
- if(url.hostname!==HOST&&!['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu','celebrations-visual-candidate.rondes.workers.dev'].includes(url.hostname))return new Response('Not found',{status:404});
+ if(!isAllowedEditorPageHost(url.hostname))return new Response('Not found',{status:404});
  if(request.method!=='GET'&&request.method!=='HEAD')return new Response('Method not allowed',{status:405});
  if(!env.DB)return new Response('Démonstration momentanément indisponible',{status:503});
  try{
