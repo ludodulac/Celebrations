@@ -1,6 +1,7 @@
 // Read-only visitor renderer. Only the filtered published projection is displayed.
 // Browsing the site never modifies an administrator's locally saved drafts.
 import {loadSevenStageContent,STAGES} from './editor-demo-preparation-page.mjs';
+import {readEditorState} from './editor-publication-api.mjs';
 import {TRIAL_SITE_CLIENT,TRIAL_SITE_STYLE} from './editor-trial-site-client.mjs';
 const HOST='celebrations-exit-staging.rondes.workers.dev';
 // M008-A responsive switcher; uses the existing CSP nonce and M006 DOM component.
@@ -28,8 +29,15 @@ export async function handleTrialSite(request,env){
  if(!env.DB)return new Response('Site d’essai momentanément indisponible',{status:503});
  const slug=url.searchParams.get('page');
  if(slug&&slug!=='celebrations'&&slug!=='mediatheque'&&slug!=='mediatheque-generale'&&!STAGES.some(p=>p.slug===slug)&&slug!=='neutral-accueil-general'&&!/^neutral-[0-9a-f-]{30,45}$/.test(slug)&&!/^extra-[0-9a-f-]{30,45}$/.test(slug))return new Response('Étape introuvable',{status:404});
+ let publishedState=null;
+ if(env.EDITOR_BUCKET){
+  try{({state:publishedState}=await readEditorState(env.EDITOR_BUCKET))}
+  catch{return new Response('Publication temporairement indisponible',{status:503,
+   headers:{'cache-control':'no-store'}})}
+ }
  let result;
- try{result=await loadSevenStageContent(env,url.searchParams.get('celebration'))}
+ try{result=await loadSevenStageContent(env,url.searchParams.get('celebration'),
+  {publicOnly:true,publishedState})}
  catch{return new Response('Célébration introuvable',{status:404,headers:{'cache-control':'no-store'}})}
  const nonce=Array.from(crypto.getRandomValues(new Uint8Array(16)),v=>v.toString(16).padStart(2,'0')).join('');
  const isOfficial=['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu'].includes(url.hostname);

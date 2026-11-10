@@ -1,0 +1,53 @@
+name: "CÉLÉBRATIONS M009-A — sécurité projection publique (local seulement)"
+on:
+  push:
+    branches:
+      - feat/celebrations-m009a-public-projection-security-20261110
+  pull_request:
+    branches:
+      - feat/celebrations-m008d-consolidation-008a-008b-008c-20261110
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  anonymous-projection-offline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout (no write token, no Cloudflare credentials)
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Source syntax (projection, HTML, publication, translations)
+        run: |
+          node --check migration/cloudflare/app/domain/editor-public-projection-security.mjs
+          node --check migration/cloudflare/editor-publication-api.mjs
+          node --check migration/cloudflare/editor-demo-preparation-page.mjs
+          node --check migration/cloudflare/editor-trial-site-page.mjs
+          node --check migration/cloudflare/app/application/public-language-release.mjs
+          node --check tests/test_m009a_public_projection_security.mjs
+      - name: Anonymous privacy sentinels and existing French / multilingual / media regressions
+        run: |
+          node --test \
+            tests/test_m009a_public_projection_security.mjs \
+            tests/test-editor-publication-media.mjs \
+            tests/test-editor-trial-site.mjs \
+            tests/test-editor-demo-preparation.mjs \
+            tests/test_m008a_public_language_integration.mjs \
+            tests/test_m008d_cross_integration.mjs \
+            tests/test_mission12_public_renderer.mjs \
+            tests/test_m006_public_language_navigation.mjs \
+            tests/test_mission002_member_access.mjs \
+            tests/test-editor-server-drafts.mjs
+      - name: Install isolated browser
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Desktop and smartphone public HTML (fully intercepted, no real network)
+        run: node scripts/test-m008a-public-language-browser.mjs
