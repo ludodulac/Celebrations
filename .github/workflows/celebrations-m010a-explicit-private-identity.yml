@@ -1,0 +1,80 @@
+name: "CÉLÉBRATIONS M010-A — identité privée explicite (offline)"
+on:
+  push:
+    branches:
+      - feat/celebrations-m010a-explicit-private-identity-20261111
+  pull_request:
+    branches:
+      - feat/celebrations-m009d-consolidation-009a-009b-009c-20261111
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  identity-and-private-security:
+    name: Explicit approved link + live D1 grants + private content isolation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check M010-A syntax
+        run: |
+          node --check migration/cloudflare/app/security/member-private-access.mjs
+          node --check migration/cloudflare/app/security/member-identity-links.mjs
+          node --check tests/test_m008c_private_server_access.mjs
+          node --check tests/test_m008d_cross_integration.mjs
+          node --check tests/test_m009d_cross_integration.mjs
+          node --check tests/test_m010a_explicit_private_identity.mjs
+      - name: Verify identity regression and full inherited offline contract suite
+        run: |
+          node --test \
+            tests/test_mission002_member_access.mjs \
+            tests/test_m003_localization.mjs \
+            tests/test_m004_page_localization.mjs \
+            tests/test_m005_celebration_spaces.mjs \
+            tests/test_m006_public_language_navigation.mjs \
+            tests/test_m006_language_selector.mjs \
+            tests/test_m007a_contact_directory.mjs \
+            tests/test_m007b_member_admin.mjs \
+            tests/test_m007c_cross_module_contracts.mjs \
+            tests/test_m008a_public_language_integration.mjs \
+            tests/test_m008b_contact_directory_d1.mjs \
+            tests/test_m008c_private_server_access.mjs \
+            tests/test_m008d_cross_integration.mjs \
+            tests/test_m009a_public_projection_security.mjs \
+            tests/test_m009b_member_identity_admin.mjs \
+            tests/test_m009c_public_media_api_security.mjs \
+            tests/test_m009d_cross_integration.mjs \
+            tests/test_m010a_explicit_private_identity.mjs \
+            tests/test-editor-publication-media.mjs \
+            tests/test-editor-server-drafts.mjs \
+            tests/test_mission12_public_renderer.mjs \
+            tests/test_mission14_editor_security.mjs \
+            tests/test_mission09_page_lifecycle.mjs \
+            tests/test_editor_m11_mobile_insert_footer_delete.mjs \
+            tests/test-editor-trial-site.mjs \
+            tests/test-editor-demo-preparation.mjs \
+            tests/test-exit-auth.mjs \
+            tests/test-exit-media-gateway.mjs \
+            tests/test-exit-public-data.mjs \
+            tests/test-exit-production-candidate.mjs
+      - name: Confirm old implicit join is absent and no private route enabled
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -F 'd.email_normalized=?' migration/cloudflare/app/security/member-private-access.mjs; then
+            echo 'UNSAFE_EMAIL_IDENTITY_JOIN'; exit 1
+          fi
+          grep -F 'resolveExplicitMemberIdentity(request, env)' migration/cloudflare/app/security/member-private-access.mjs
+          if grep -E '(member-private-access|member-identity-links|member-directory-admin-service)\.mjs' \
+            migration/cloudflare/production-worker.mjs migration/cloudflare/staging-worker.mjs; then
+            echo 'UNEXPECTED_PRIVATE_ROUTE_ACTIVATION'; exit 1
+          fi
+          echo 'M010A_FAIL_CLOSED_IDENTITY_INTEGRATION_CONFIRMED'
