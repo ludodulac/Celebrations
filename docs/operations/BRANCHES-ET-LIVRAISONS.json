@@ -1,0 +1,31 @@
+{
+  "schema": "celebrations.git-branch-map.v1",
+  "recorded_at": "2026-11-10",
+  "production": {
+    "branch": "production/celebrations-live",
+    "source_sha": "65caf8d5d03d29882d0de0c0d00cdcfc622e473e",
+    "worker": "celebrations-exit-production",
+    "worker_version": "eccb1274-2ed8-491f-8557-c4330342e4bf",
+    "deployment_id": "ffdc7b2b-a443-45cf-843d-0419fe71cb8d",
+    "published_at": "2026-11-09",
+    "note": "Last confirmed live at M5; compare Cloudflare immutable Worker version to claim current status"
+  },
+  "development": {
+    "branch": "develop/celebrations-maintenance",
+    "based_on_sha": "a17e235f21a99158ed34ef12cbc52ddbc0ef3f5e",
+    "published": false,
+    "planned_cleanups": [
+      "M1",
+      "M2",
+      "M3",
+      "M4"
+    ]
+  },
+  "legacy": {
+    "default_branch_at_audit": "main",
+    "archive": "archive/celebrations-old-main-20261110",
+    "original_sha": "4b5edd9c19ce989af2eae33445017dd30fcbbe92",
+    "github_pages_workflow": ".github/workflows/pages.yml"
+  },
+  "release_policy": "NO_AUTOMATIC_DEPLOY_FROM_DEVELOP; PRODUCTION_REF_UPDATE_ONLY_AFTER_LIVE_VERSION_VERIFIED"
+}
