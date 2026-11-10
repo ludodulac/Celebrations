@@ -137,4 +137,5 @@ jobs:
       - name: Final report
         run: echo EDITOR_M05_M07_PUBLISHED_SUCCESS_CLEAN_EDITOR_DISPLAY_NO_NEW_TOOLS
 # Owner-approved M05-M07 only. No new tools, data writes or changes outside the existing editor.
+# The editor CSS tests include the previous M01-selected-only visibility contract.
 # All three changes limited to existing editor components; owner requested final review together.
