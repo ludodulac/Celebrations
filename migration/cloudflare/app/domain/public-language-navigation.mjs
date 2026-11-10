@@ -152,6 +152,7 @@ export function publicLanguageLinksInlineSource(){
   'const LANGUAGE_QUERY_PARAMETER='+JSON.stringify(LANGUAGE_QUERY_PARAMETER)+';',
   'const mediaOrAdmin='+mediaOrAdmin.toString()+';',
   'const fileExtension='+fileExtension.toString()+';',
-  publicVisitorRoute.toString(),withLanguageInInternalLink.toString()
+  'const publicVisitorRoute='+publicVisitorRoute.toString()+';',
+  withLanguageInInternalLink.toString()
  ].join('\n');
 }
