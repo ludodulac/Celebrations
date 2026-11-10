@@ -1,0 +1,36 @@
+name: CELEBRATIONS M007-B member administration isolated tests
+on:
+  push:
+    branches:
+      - feat/celebrations-m007b-member-admin-access-20261110
+    paths:
+      - 'migration/cloudflare/app/admin/member-access-admin-model.mjs'
+      - 'migration/cloudflare/app/admin/member-access-admin-ui.mjs'
+      - 'migration/cloudflare/app/admin/member-access-admin.css'
+      - 'tests/test_m007b_member_admin.mjs'
+      - '.github/workflows/celebrations-m007b-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  member-admin-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax checks
+        run: |
+          node --check migration/cloudflare/app/domain/member-access.mjs
+          node --check migration/cloudflare/app/admin/member-access-admin-model.mjs
+          node --check migration/cloudflare/app/admin/member-access-admin-ui.mjs
+          node --check tests/test_m007b_member_admin.mjs
+      - name: Native domain and administration regression tests
+        run: |
+          node --test tests/test_mission002_member_access.mjs tests/test_m003_localization.mjs tests/test_m004_page_localization.mjs tests/test_m005_celebration_spaces.mjs tests/test_m007b_member_admin.mjs
