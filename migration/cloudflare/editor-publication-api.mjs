@@ -5,10 +5,9 @@ import {EDITOR_SNAPSHOT_LIMIT,expectedRevisionMatches} from './app/ports/editor-
 import {readEditorSnapshot,putEditorSnapshot} from './app/adapters/editor-r2-repository.mjs';
 import {isOfficialEditorHost,isReadonlyCandidateHost,sameOriginEditorWrite} from './app/security/editor-route-policy.mjs';
 import {mergePublicMediaIndexed} from './app/domain/editor-public-media-merge.mjs';
-import {canAccessPage} from './app/domain/member-access.mjs';
 import {projectPublishedLanguage,publishLanguageCommand} from './app/application/public-language-release.mjs';
 import {
- eligiblePublicPage,projectPublicPage,projectPublicPages,projectPublicPlan,
+ eligiblePublicPage,projectPublicPages,projectPublicPlan,
  projectPublicMediaItem,privatePublicationIds
 } from './app/domain/editor-public-projection-security.mjs';
 
@@ -153,10 +152,30 @@ export function publicSnapshot(state,celebration){
  // The visibility of a HIDDEN celebration is itself private metadata.
  const publicVisibility=Object.fromEntries(plans.map(p=>[p.id,'published']));
  if(celebrationVisible)publicVisibility[celebration]='published';
- return {ok:true,revision:state.version,record,shared,plans,
+ return {ok:true,revision:state.publishedRevision??0,record,shared,plans,
   celebrationVisible,celebrationVisibility:publicVisibility,
   media:publishedMedia(state,privateIds),
   updatedAt:state.publishedAt||null};
+}
+// An administrator may mark a file general=true after using it privately.
+// Anonymous media must not inherit a private/draft page's previously listed
+// asset, unless the SAME asset also appears on an actually published page.
+function restrictedMediaSources(state,published){
+ const restricted=new Set();
+ for(const aggregate of [state,published]){
+  const pages=[...(aggregate?.shared?.pages||[])];
+  for(const draft of Object.values(aggregate?.drafts||{})){
+   pages.push(...(draft?.pages||[]));
+   for(const space of draft?.spaces||[])pages.push(...(space?.pages||[]));
+  }
+  for(const page of pages){
+   if(eligiblePublicPage(page)&&!page.spaceId)continue;
+   const scanned=new Map();
+   scanBlocks(page?.blocks,scanned,null,'');
+   for(const m of scanned.values())restricted.add(m.src);
+  }
+ }
+ return restricted;
 }
 // The gallery is computed from sanitized public pages, not admin objects or
 // the private media catalogue. Even general=true never overrides a private ACL.
@@ -172,8 +191,12 @@ export function publishedMedia(state,privateIds){
      plan&&!projectPublicPlan(plan))continue;
   drafts[id]={pages:projectPublicPages(record.pages,blocked)};
  }
+ const visibleMedia=discoverMedia({shared:{pages:sharedPages},drafts});
+ const publicSources=new Set(visibleMedia.map(m=>m.src));
+ const restricted=restrictedMediaSources(state,published);
  const catalogue=(state.mediaCatalogue||[])
-  .filter(m=>m?.general===true).map(m=>projectPublicMediaItem(m,blocked)).filter(Boolean);
+  .filter(m=>m?.general===true&&(!restricted.has(m.src)||publicSources.has(m.src)))
+  .map(m=>projectPublicMediaItem(m,blocked)).filter(Boolean);
  const source={mediaCatalogue:catalogue,shared:{pages:sharedPages},drafts};
  return discoverMedia(source).map(m=>projectPublicMediaItem(m,blocked))
   .filter(m=>m&&(m.general===true||m.uses.length>0));
@@ -339,6 +362,7 @@ export async function handleEditorPublication(request,env){
   state.mediaCatalogue=catalogue;
  }
  state.published=pub;state.publishedAt=new Date().toISOString();
+ state.publishedRevision=(state.publishedRevision||0)+1;
  if(!await writeEditorState(env.EDITOR_BUCKET,current,state))return err('Une sauvegarde simultanée a eu lieu',409);
  return json({ok:true,revision:state.version,visibility:body.visibility||null,general:body.general??null,updatedAt:state.updatedAt});
 }
