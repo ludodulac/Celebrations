@@ -52,7 +52,8 @@ function setup() {
     'celebrations-schema.sql',
     'd1-migrations/20261110_007a_contact_directory.sql',
     'd1-migrations/20261110_008b_directory_integrity.sql',
-    'd1-migrations/20261110_009b_explicit_identity_links.sql'
+    'd1-migrations/20261110_009b_explicit_identity_links.sql',
+    'd1-migrations/20261111_010b_member_admin_revisions.sql'
   ]) sqlite.exec(sql(p));
   sqlite.prepare('INSERT INTO celebrations_celebrations(id,archangel) VALUES(?,?)')
     .run(41,'Gabriel');
@@ -85,8 +86,17 @@ function setup() {
       ...(body?{body:JSON.stringify(body)}:{})
     });
   const admin=async(body)=> {
+    // M010-B: every mutable resource requires its revision from an admin GET.
+    // The dedicated M010-B tests below send stale revisions intentionally.
+    const target=body.personId??body.typeId;
+    const expectedRevision=target&&body.action!=='create_person'&&
+      body.action!=='create_type'&&body.action!=='review_claim'&&
+      body.action!=='unlink_identity' ?
+      (sqlite.prepare('SELECT revision FROM celebrations_directory_admin_revisions WHERE resource_key=?')
+        .get(target)?.revision??0):undefined;
+    const payload=expectedRevision===undefined?body:{...body,expectedRevision};
     const response=await handleMemberDirectoryAdmin(
-      request(adminToken,'POST',body),env,handlers);
+      request(adminToken,'POST',payload),env,handlers);
     return {status:response.status,data:await response.json()};
   };
   const participant=async(personId,token=participantToken)=>{
