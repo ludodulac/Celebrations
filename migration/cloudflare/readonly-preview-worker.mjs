@@ -4,6 +4,7 @@
 import {handlePublicData} from "./public-data-api.mjs";
 import {handleMedia} from "./media-gateway.mjs";
 import {handleLegacyLink} from "./legacy-link-router.mjs";
+import {isBlockedPublicAssetPath,privatePublicAssetNotFound} from "./app/security/public-media-boundary.mjs";
 
 const noIndex=response=>{
  const headers=new Headers(response.headers);
@@ -17,6 +18,7 @@ const deny=(status,message)=>noIndex(new Response(message,{
 export default {
  async fetch(request,env){
   const {pathname}=new URL(request.url);
+  if(isBlockedPublicAssetPath(pathname))return privatePublicAssetNotFound();
   if(request.method!=="GET"&&request.method!=="HEAD")
    return deny(405,"Lecture seule : aucune modification autorisée");
   // /preparation is a REAL programme-day route, unlike old unused redirects.
