@@ -144,3 +144,14 @@ export function preparePublicLanguageNavigation({
   menu
  };
 }
+
+// M008-A — reuse M006's strict same-origin router inside the nonce-protected
+// visitor renderer for page-content buttons. External and media links untouched.
+export function publicLanguageLinksInlineSource(){
+ return [
+  'const LANGUAGE_QUERY_PARAMETER='+JSON.stringify(LANGUAGE_QUERY_PARAMETER)+';',
+  'const mediaOrAdmin='+mediaOrAdmin.toString()+';',
+  'const fileExtension='+fileExtension.toString()+';',
+  publicVisitorRoute.toString(),withLanguageInInternalLink.toString()
+ ].join('\n');
+}
