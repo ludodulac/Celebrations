@@ -61,7 +61,7 @@ function cancellationEditor(){
  const start=DEMO_CLIENT.indexOf('let blockEditSession=null;');
  const end=DEMO_CLIENT.indexOf('// New labels are visual hints',start);
  assert.ok(start>=0&&end>start);
- const script=`let dirty=false,selectedBlockId=null,serverSaving=false;
+ const script=`let dirty=false,selectedBlockId=null,serverSaving=false,preview=false;
  let undoStack=[],undoAnchor=null,lastTyping='',lastTypedAt=0;
  const db=this.db,status=this.status;
  const clone=this.clone,editorElementLocation=this.editorElementLocation;
