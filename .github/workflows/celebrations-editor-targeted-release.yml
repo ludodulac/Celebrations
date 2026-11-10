@@ -160,3 +160,5 @@ jobs:
 # M10 browser JS guide text serialized correctly; run full existing preflight before upload.
 
 # Browser validation now checks correctly escaped MP3 literals and exact template attributes.
+
+# M11 owner-approved: use native centred mobile menus and preserve last-footer deletion without changing page storage.
