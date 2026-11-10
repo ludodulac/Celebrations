@@ -14,10 +14,11 @@ CREATE TABLE celebrations_directory_identity_claims (
   reviewed_by TEXT,
   verification_method TEXT CHECK(verification_method IS NULL OR
     verification_method IN ('in_person','independent_records','video_verified')),
-  UNIQUE(participant_email,person_id),
   FOREIGN KEY(participant_email) REFERENCES celebrations_participants(email) ON DELETE RESTRICT,
   FOREIGN KEY(person_id) REFERENCES celebrations_directory_people(id) ON DELETE RESTRICT
 );
+CREATE UNIQUE INDEX idx_celebrations_directory_claim_one_pending
+  ON celebrations_directory_identity_claims(participant_email) WHERE status='pending';
 CREATE INDEX idx_celebrations_directory_claim_status
   ON celebrations_directory_identity_claims(status,created_at);
 
