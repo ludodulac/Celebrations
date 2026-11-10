@@ -53,6 +53,7 @@ test('Preparation demo includes every public step/event/content/link without dat
  assert.ok(seed.pages[0].blocks.some(b=>b.kind==='image'&&b.src.includes('celebrations-staging-welcome-autumn-2026.jpg')));
  assert.ok(seed.pages.find(p=>p.id==='accueil-celebration-101').blocks.some(b=>b.text==='Le texte authentique de l’accueil'));
  assert.ok(seed.library.some(x=>x.type==='audio')&&seed.library.some(x=>x.type==='pdf'));
+ assert.ok(!seed.library.some(x=>x.type==='text'),'La bibliothèque publique ne doit contenir aucun paragraphe sans fichier');
  assert.ok(seed.media.some(m=>m.src.endsWith('/son.mp3')));
  assert.ok(seed.files.some(f=>f.category==='audios'&&f.pages.includes('Préparation')));
  const jsonResponse=await handlePreparationDemo(new Request(host+'?celebration=101&format=json'),env);
@@ -62,7 +63,7 @@ test('Preparation demo includes every public step/event/content/link without dat
  assert.ok(manifest.seed.files.some(f=>f.src?.endsWith('/son.mp3')));
  assert.equal(jsonResponse.headers.get('x-robots-tag'),'noindex,nofollow,noarchive');
  assert.ok(seed.files.some(f=>f.category==='pdf'&&f.pages.includes('Préparation')));
- assert.ok(seed.files.some(f=>f.category==='autres'&&f.text.includes('Texte source exact')));
+ assert.ok(!seed.files.some(f=>f.text||String(f.id).startsWith('text:')), 'Les paragraphes de la page ne sont pas des fichiers');
  assert.ok(!seed.files.some(f=>f.src?.includes('committee/')));
  assert.ok(!html.includes('NE_PAS_PUBLIER'));
  assert.ok(seed.pages.find(p=>p.name==='Préparation').blocks.some(b=>b.kind==='audio'));

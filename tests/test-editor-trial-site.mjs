@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Script} from 'node:vm';
 import {handleTrialSite} from '../migration/cloudflare/editor-trial-site-page.mjs';
-import {TRIAL_SITE_CLIENT} from '../migration/cloudflare/editor-trial-site-client.mjs';
+import {TRIAL_SITE_CLIENT,TRIAL_SITE_STYLE} from '../migration/cloudflare/editor-trial-site-client.mjs';
 const site='https://celebrations-exit-staging.rondes.workers.dev/__editor/voir-le-site';
 const data={
  celebrations:[{id:101,archangel:'Michaël',year:'2026'}],
@@ -46,14 +46,14 @@ test('Site trial response contains eight programme pages plus neutral home, a re
  assert.equal(seed.pages.find(p=>p.group==='page').name,'Accueil général');
  assert.equal(sqls.length,7);
  assert.ok(sqls.every(q=>q.startsWith('SELECT ')),'read only');
- assert.match(r.headers.get('content-security-policy'),/connect-src 'none'/);
+ assert.match(r.headers.get('content-security-policy'),/connect-src 'self'/);
  const scripts=[...html.matchAll(/<script nonce="[0-9a-f]+">([\s\S]*?)<\/script>/g)];
  assert.equal(scripts.length,2);
  for(const m of scripts)new Script(m[1]);
 });
-test('Trial site denies unknown stages, production host, and POST writes',async()=>{
+test('Trial site rejects invalid stages and POST, but the live official host is allowed',async()=>{
  assert.equal((await handleTrialSite(new Request(site+'?page=invalid'),env)).status,404);
- assert.equal((await handleTrialSite(new Request('https://www.ronde-des-archanges-universelle.eu/__editor/voir-le-site'),env)).status,404);
+ assert.equal((await handleTrialSite(new Request('https://www.ronde-des-archanges-universelle.eu/__editor/voir-le-site'),env)).status,200);
  assert.equal((await handleTrialSite(new Request(site,{method:'POST'}),env)).status,405);
  assert.equal((await handleTrialSite(new Request(site+'?celebration=999'),env)).status,404);
 });
@@ -80,4 +80,46 @@ test('Nouvel aperçu : accueil neutre, menu Célébrations et URL Gabriel planif
  assert.ok(html.includes('celebration-shortcuts'));
  assert.ok(!html.includes('id="celebration-choice"'));
  assert.ok(!html.includes('id="return-celebration"'));
+});
+
+test('video thumbnails have small bold captions under them, not titles in boxed buttons',()=>{
+ assert.ok(TRIAL_SITE_CLIENT.includes("container.append(toggle,title)"),
+  'YouTube/Vimeo caption is outside the player button');
+ assert.ok(TRIAL_SITE_CLIENT.includes("container.append(a,title)"),
+  'External video caption is a sibling below its thumbnail link');
+ assert.ok(!TRIAL_SITE_CLIENT.includes("a.append(title);container.append(a)"),
+  'A video title is no longer inside a linked framed card');
+ assert.match(TRIAL_SITE_STYLE,/\.trial-video-title\{font-size:14px;line-height:1\.4;font-weight:700/);
+ assert.match(TRIAL_SITE_STYLE,/\.trial-video \.trial-site-link\{border:0;/);
+});
+
+test('Visitor dropdown always lists Accueil, Célébrations and Médiathèque générale before custom pages',()=>{
+ const script=TRIAL_SITE_CLIENT;
+ const start=script.indexOf("const general=el('general-navigation');general.replaceChildren();");
+ const end=script.indexOf("const menu=el('menu-toggle')",start);
+ assert.ok(start>=0&&end>start,'Visitor navigation builder is present');
+ const nav=script.slice(start,end);
+ const home=nav.indexOf("general.append(home)");
+ const all=nav.indexOf("general.append(all)");
+ const library=nav.indexOf("general.append(library)");
+ const extras=nav.indexOf("for(const p of pages.filter(p=>p.group==='page'");
+ assert.ok(home>=0&&home<all&&all<library&&library<extras,
+  'Permanent links precede all added visitor pages');
+ assert.ok(!nav.includes("general.prepend(home)"),
+  'Do not insert the homepage afterwards and leave custom pages before the media library');
+ // Exercise the actual DOM builder on two synthetic added visitor pages.
+ const general={children:[],replaceChildren(){this.children=[]},append(item){this.children.push(item)}};
+ const make=(tag,cls,label)=>({tag,cls,label});
+ const mockPages=[
+  {id:'neutral-accueil-general',name:'Accueil',group:'page'},
+  {id:'neutral-page-test-1',name:'Notre histoire',group:'page'},
+  {id:'neutral-page-test-2',name:'Équipe',group:'page'}
+ ];
+ const output=new Function('el','generalPages','pages','slugOf','active','listing','isGeneralGallery','make','go',
+  nav+';return general.children.map(item=>item.label);')(
+   id=>{assert.equal(id,'general-navigation');return general},
+   ()=>({homeId:'neutral-accueil-general'}),mockPages,
+   p=>p.id,'neutral-accueil-general',false,false,make,()=>{}
+  );
+ assert.deepEqual(output,['⌂ Accueil','✧ Célébrations','▧ Médiathèque générale','Notre histoire','Équipe']);
 });

@@ -67,7 +67,83 @@ try{
   }
   assert.ok((await page.locator('a#back-admin').getAttribute('href')).startsWith('/__editor/demo-preparation?celebration=101'),'The admin URL keeps celebration and may include the current page');
   assert.equal(await page.locator('.site-menu-bar').count(),1,'Expected current visual site');
+
+  // The visitor's hamburger is a compact dropdown directly BELOW the button,
+  // not a wide row that shifts the entire page downward.
+  const menuButton=page.locator('#menu-toggle'),dropdown=page.locator('#general-navigation');
+  const paperTopBefore=await page.locator('#site-paper').evaluate(el=>el.getBoundingClientRect().top);
+  await menuButton.click();
+  assert.equal(await dropdown.isVisible(),true,'Hamburger opens its local dropdown');
+  assert.equal(await menuButton.getAttribute('aria-expanded'),'true');
+  // Visitors see the three permanent entries first, followed by any extra
+  // pages they have been allowed to see; order is independent of page count.
+  const visitorItems=await dropdown.locator('button.general-tab').allTextContents();
+  const labels=visitorItems.map(text=>text.replace(/^[⌂✧▧]\s*/, '').trim());
+  assert.deepEqual(labels.slice(0,3),['Accueil','Célébrations','Médiathèque générale'],
+   'Visitor menu must show Accueil, Célébrations and general media first');
+  console.log('CELEBRATIONS_VISITOR_MENU_ORDER_PASS '+JSON.stringify({width,labels}));
+  const menuGeometry=await page.evaluate(()=>{
+   const button=document.querySelector('#menu-toggle').getBoundingClientRect();
+   const menu=document.querySelector('#general-navigation').getBoundingClientRect();
+   return {button:{left:button.left,right:button.right,bottom:button.bottom},
+    dropdown:{left:menu.left,right:menu.right,top:menu.top,width:menu.width},
+    scroll:document.documentElement.scrollWidth,screen:window.innerWidth};
+  });
+  assert.ok(menuGeometry.dropdown.width<=282,'Dropdown must not span the full page');
+  assert.ok(Math.abs(menuGeometry.dropdown.left-menuGeometry.button.left)<=5,
+   'The menu must appear under its own hamburger');
+  assert.ok(menuGeometry.dropdown.top>=menuGeometry.button.bottom-2&&
+   menuGeometry.dropdown.top<menuGeometry.button.bottom+25,
+   'Dropdown must open immediately beneath the hamburger');
+  assert.ok(menuGeometry.dropdown.right<=menuGeometry.screen+1,
+   'Dropdown must stay inside mobile screen');
+  const paperTopOpen=await page.locator('#site-paper').evaluate(el=>el.getBoundingClientRect().top);
+  assert.ok(Math.abs(paperTopOpen-paperTopBefore)<2,'Dropdown must overlay, not move page content');
+  await page.keyboard.press('Escape');
+  assert.equal(await dropdown.isVisible(),false,'Escape closes navigation');
+  assert.equal(await menuButton.getAttribute('aria-expanded'),'false');
+  await menuButton.click();
+  // Click at the far-right edge of the page, outside the small overlay.
+  // The former x=5 hit the open dropdown itself and was intercepted.
+  const paperBox=await page.locator('#site-paper').boundingBox();
+  assert.ok(paperBox&&paperBox.width>100);
+  await page.mouse.click(paperBox.x+paperBox.width-12,paperBox.y+12);
+  assert.equal(await dropdown.isVisible(),false,'Outside click closes navigation');
+  assert.equal(await menuButton.getAttribute('aria-expanded'),'false');
+  console.log('CELEBRATIONS_HAMBURGER_DROPDOWN_PASS width='+width+' compact=true anchored=true dismissible=true stable_layout=true');
+
   assert.ok((await page.title()).endsWith(isOfficial?' — Célébrations des Archanges':' — Site d’essai'),'Page title must identify official or preview site');
+  // The public celebration directory has exactly four grid slots per
+  // desktop row, two on phones, and each archangel uses its true accent colour.
+  const listRes=await page.goto(origin+'/?page=celebrations',{waitUntil:'domcontentloaded'});
+  assert.equal(listRes.status(),200,'Celebration listing route must work');
+  await page.locator('.celebration-choice').first().waitFor({state:'visible',timeout:16000});
+  const colored=await page.evaluate(()=>{
+   const grid=document.querySelector('.celebration-choices');
+   const rows=[...grid.querySelectorAll('.celebration-choice')];
+   return {
+    columns:getComputedStyle(grid).gridTemplateColumns.split(' ').filter(Boolean).length,
+    entries:rows.map(r=>({name:r.textContent.trim().slice(0,80),
+     archangel:r.dataset.archangel,
+     line:getComputedStyle(r,'::after').backgroundColor})),
+    overflowing:document.documentElement.scrollWidth>innerWidth
+   };
+  });
+  assert.equal(colored.columns,width===1280?4:2,
+   'Celebration directory must show 4 cards per desktop row and 2 on mobile');
+  assert.ok(colored.entries.length>=1,'Published celebration cards remain visible');
+  const expectedColors={
+   michael:'rgb(234, 52, 47)',gabriel:'rgb(102, 92, 228)',
+   raphael:'rgb(50, 186, 99)',ouriel:'rgb(239, 187, 31)'
+  };
+  for(const item of colored.entries)if(expectedColors[item.archangel])
+   assert.equal(item.line,expectedColors[item.archangel],
+    'Correct small accent line for '+item.archangel);
+  assert.equal(colored.overflowing,false,'No horizontal scroll from four-column directory');
+  console.log('CELEBRATIONS_ARCHANGEL_GRID_PASS '+JSON.stringify({
+   width,columns:colored.columns,listed:colored.entries.length,
+   colored:colored.entries.filter(x=>expectedColors[x.archangel]).length
+  }));
   res=await page.goto(origin+'/mercredi/',{waitUntil:'domcontentloaded'});
   assert.equal(res.status(),200,'Old Wednesday route must work');
   await page.waitForFunction(()=>document.querySelector('#stage-main')?.textContent?.trim().length>5,null,{timeout:22000});

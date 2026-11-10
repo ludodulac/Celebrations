@@ -128,14 +128,7 @@ function publicFileCatalogue(steps,events,eventContents,stepContents){
   const category=kind(path,type);
   add({id:'file:'+path,category,name:String(name||path.split('/').at(-1)||'Fichier').slice(0,300),src},page);
  };
- for(const step of steps){
-  const page=byKey.get(String(step.step_key));
-  if(step.body_text)add({id:'text:step:'+step.id,category:'autres',name:'Texte — '+page,text:asText(step.body_text)},page);
- }
- for(const e of events){
-  const page=byKey.get(String(e.step_key));if(!page)continue;
-  if(e.description)add({id:'text:event:'+e.id,category:'autres',name:String(e.title||'Texte de rendez-vous'),text:asText(e.description)},page);
- }
+ // Page paragraphs and event descriptions remain on their pages, not in the file catalogue.
  const eventPage=new Map(events.map(e=>[String(e.id),byKey.get(String(e.step_key))]));
  for(const c of [...eventContents,...stepContents]){
   const page=c.event_id!=null?eventPage.get(String(c.event_id)):byKey.get(String(c.step_key));
@@ -143,8 +136,7 @@ function publicFileCatalogue(steps,events,eventContents,stepContents){
   if(clean(c.source_type)==='file')addFile(c.storage_path,c.content_type,c.name||c.file_name,page);
   // A public file can have a separate public cover; it is a reusable image.
   if(c.has_cover&&c.cover_storage_path)addFile(c.cover_storage_path,'image',c.cover_file_name||c.name||'Couverture',page);
-  if(c.inline_text)add({id:'text:content:'+c.id+':inline',category:'autres',name:String(c.name||'Texte'),text:asText(c.inline_text)},page);
-  if(c.description)add({id:'text:content:'+c.id+':description',category:'autres',name:'Description — '+String(c.name||'Document'),text:asText(c.description)},page);
+  // Only actual stored files and their covers enter the media catalogue.
  }
  return [...entries.values()];
 }
@@ -198,7 +190,7 @@ function celebrationLibrary(events,eventContents,stepContents,steps){
   else if(t==='audio'||/\.(?:mp3|wav|m4a|ogg|opus|flac)$/i.test(path))type='audio';
   else if(t==='image'||/\.(?:png|jpe?g|webp|gif|svg)$/i.test(path))type='image';
   else if(t==='pdf'||/\.pdf$/i.test(path))type='pdf';
-  else if(t==='texte'||t==='text'||String(c.inline_text||'').trim())type='text';
+  // Inline page text and event descriptions are never media-library entries.
   if(!type)return;
   const id=String(c.id);
   if(library.has(id)){const old=library.get(id);if(!old.pages.includes(page))old.pages.push(page);return}
@@ -206,7 +198,7 @@ function celebrationLibrary(events,eventContents,stepContents,steps){
   library.set(id,{id,name:String(c.name||c.file_name||'Document').slice(0,280),
    description:String(c.description||'').slice(0,3000),
    type,src:path,cover,external,
-   text:type==='text'?String(c.inline_text||c.description||''):'',
+   text:'',
    chant:clean(c.audio_kind||c.audioKind||c.category).includes('chant')||/^\s*chant\b/i.test(String(c.name||'')),
    pages:[page]});
  }
@@ -308,17 +300,17 @@ for(const official of seed.pages){
   }
  }
 }`)
-   .replace("let tab='celebrations',id='home',dirty=false,preview=false,target=null,selectedBlockId=null,mediaCategory='images';","let tab=(new URLSearchParams(location.search).get('tab')==='pages'?'pages':'celebrations'),id=(seed.pages.find(p=>p.id===String(new URLSearchParams(location.search).get('page'))+'-'+window.__PREPARATION_SEED__.celebrationId||p.id===String(new URLSearchParams(location.search).get('page')))||seed.pages.find(p=>p.group==='celebration')||seed.pages[0]).id,dirty=false,preview=false,target=null,selectedBlockId=null,mediaCategory='images';")
+   .replace("let tab='celebrations',id='home',dirty=false,preview=false,target=null,imageCoverTarget=false,selectedBlockId=null,mediaCategory='images';","let tab=(new URLSearchParams(location.search).get('tab')==='pages'?'pages':'celebrations'),id=(seed.pages.find(p=>p.id===String(new URLSearchParams(location.search).get('page'))+'-'+window.__PREPARATION_SEED__.celebrationId||p.id===String(new URLSearchParams(location.search).get('page')))||seed.pages.find(p=>p.group==='celebration')||seed.pages[0]).id,dirty=false,preview=false,target=null,imageCoverTarget=false,selectedBlockId=null,mediaCategory='images';")
    .replace("Choisir une page d’exemple","Les sept étapes de la célébration")
-   .replace("function render(){","function render(){const see=document.getElementById('view-site-btn');if(see){const current=page();const stage=pageSlug(current);see.href='/__editor/voir-le-site?celebration='+encodeURIComponent(window.__PREPARATION_SEED__.celebrationId)+'&page='+encodeURIComponent(stage);}")
+   .replace("function render(){","function render(){const see=document.getElementById('view-site-btn');if(see){const current=page();const stage=pageSlug(current);see.href='/__editor/voir-le-site?celebration='+encodeURIComponent(window.__PREPARATION_SEED__.celebrationId)+'&page='+encodeURIComponent(stage);see.hidden=stateOfPage(current)!=='published';see.title=see.hidden?'Page en brouillon : utilisez Aperçu ou Publier cette page.':'Voir la page publiée';}")
    .replace("el('save-btn').onclick=save;","el('save-btn').onclick=save;const see=document.getElementById('view-site-btn');if(see)see.onclick=()=>{if(dirty)save()};")
    .replace("localStorage.setItem(SHARED_KEY,JSON.stringify({pages,homeId:db.siteHomeId||'neutral-accueil-general'}));","let previous={};try{previous=JSON.parse(localStorage.getItem(SHARED_KEY)||'{}')}catch{};localStorage.setItem(SHARED_KEY,JSON.stringify({pages,homeId:db.siteHomeId||'neutral-accueil-general',deletedPageIds:Array.isArray(previous.deletedPageIds)?previous.deletedPageIds:[]}));")
    .replace("options.append(commands);row.append(options);","if(/^neutral-[0-9a-f-]{30,45}$/.test(q.id)){const del=b('Supprimer la page',()=>removeCustomPage(q),'sm');del.classList.add('danger');commands.append(del);}\n     options.append(commands);row.append(options);")
    .replace("choose.className='item'+(q.id===p.id?' active':'');list.append(choose);","choose.className='item'+(q.id===p.id?' active':'');if(IS_STAGE&&!preview&&/^extra-[0-9a-f-]{30,45}-/.test(q.id)&&q.id.endsWith('-'+String(window.__PREPARATION_SEED__.celebrationId))){\n     const opts=n('details','page-options'),summary=n('summary','','⋯');\n     summary.setAttribute('aria-label','Options de la page '+q.name);\n     opts.append(summary);const menu=n('div','page-options-menu');\n     const remove=b('Supprimer la page',()=>removeCustomPage(q),'sm');remove.classList.add('danger');menu.append(remove);\n     opts.append(menu);const row=n('div','general-page-row');row.append(choose,opts);list.append(row);\n    }else list.append(choose);")
    .replace("function moveGeneralPage(p,dir){","async function removeCustomPage(q){\n if(!IS_STAGE||!q||!db.pages.some(p=>p.id===q.id))return;\n const suffix='-'+String(window.__PREPARATION_SEED__?.celebrationId||'');\n const general=q.group==='page'&&/^neutral-[0-9a-f-]{30,45}$/.test(q.id);\n const extra=q.group==='celebration'&&/^extra-[0-9a-f-]{30,45}-/.test(q.id)&&q.id.endsWith(suffix);\n if(!general&&!extra)return;\n if(!confirm('Supprimer la page « '+q.name+' » ? Cette suppression sera enregistrée sur le serveur.'))return;\n const siblings=db.pages.filter(p=>p.group===q.group&&p.id!==q.id);\n if(!siblings.length){alert('Impossible de supprimer la dernière page de cette section.');return}\n if(stateOfPage(q)==='published'){\n  const hidden=await serverPublish({kind:'page',pageId:q.id,visibility:'hidden'});\n  if(!hidden){alert('La page est encore publique. Suppression annulée.');return}\n }\n if(general){\n  let original={};try{original=JSON.parse(localStorage.getItem(SHARED_KEY)||'{}')}catch{}\n  const deleted=[...new Set([...(Array.isArray(original.deletedPageIds)?original.deletedPageIds:[]),q.id])].slice(-100);\n  localStorage.setItem(SHARED_KEY,JSON.stringify({...original,deletedPageIds:deleted}));\n  if(db.siteHomeId===q.id)db.siteHomeId=siblings.find(p=>p.id==='neutral-accueil-general')?.id||siblings[0].id;\n }\n db.pages=db.pages.filter(p=>p.id!==q.id);\n if(id===q.id)id=siblings[0].id;\n selectedBlockId=null;mark();save();render();\n void serverSave();\n}\n"+"\nfunction moveGeneralPage(p,dir){")
-   .replace("function mark(){dirty=true;",SERVER_EDITOR_SYNC+"\nfunction mark(){db._serverPending=true;dirty=true;")
+   .replace("function mark(){dirty=true;",SERVER_EDITOR_SYNC+"\nfunction mark(){serverLocalEditCounter++;db._serverPending=true;dirty=true;")
    .replace("el('save-btn').onclick=()=>save(true);","el('save-btn').onclick=()=>{save();void serverSave();};")
-   .replace("render();loadFiles();","await serverLoad();render();loadFiles();")
+   .replace("render();loadFiles();","window.addEventListener('beforeunload',e=>{if(db._serverPending||serverSaving){e.preventDefault();e.returnValue=''}});await serverLoad();render();loadFiles();")
    .replace("status.textContent='✓ Titre enregistré dans ce navigateur';","db._serverPending=true;localStorage.setItem(KEY,JSON.stringify(db));status.textContent='Titre modifié : cliquez sur Enregistrer pour le serveur';")
    .replace('z.innerText.slice(0,5000)','z.innerText.slice(0,50000)');
   if(!client.includes("window.__PREPARATION_SEED__.pages")||!client.includes("for(const archived of seed.pages)"))throw Error('Demo client adapter failed');
@@ -326,7 +318,7 @@ for(const official of seed.pages){
   const choices=celebrations.map(c=>'<option value="'+escapeHtml(c.id)+'"'+(String(c.id)===String(celebration.id)?' selected':'')+'>'+escapeHtml(c.archangel+' '+(c.year||''))+'</option>').join('')+(plannedCelebration(String(celebration.id))?'<option value="'+escapeHtml(celebration.id)+'" selected>'+escapeHtml(celebration.archangel+' · '+celebration.start_date+' (brouillon)')+'</option>':'');
   const html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Pages de la célébration — atelier Célébrations</title><style nonce="'+nonce+'">'+DEMO_CSS+'</style></head><body>'+
   '<div class="shell stage-editor"><aside class="rail"><div class="brand"><div class="mark">✦</div><div><strong>Administration</strong></div></div><nav aria-label="Navigation"><button class="navbtn" data-tab="pages">▤ Pages</button><button class="navbtn active" data-tab="celebrations">✧ Célébrations</button><button class="navbtn" data-tab="media">▧ Médiathèque globale</button></nav></aside>'+
-  '<div class="content"><header class="topbar"><div></div><div class="actions"><button id="preview-btn" class="btn sm">Aperçu</button><button id="save-btn" class="btn primary">Enregistrer</button><a id="view-site-btn" class="btn view-site-btn" href="/__editor/voir-le-site" target="_blank" rel="noopener noreferrer">Voir le site</a></div></header>'+
+  '<div class="content"><header class="topbar"><div></div><div class="actions"><button id="preview-btn" class="btn sm" title="Voir la page en brouillon, sans publication">Aperçu du brouillon</button><button id="save-btn" class="btn primary">Enregistrer</button><a id="view-site-btn" class="btn view-site-btn" href="/__editor/voir-le-site" target="_blank" rel="noopener noreferrer">Voir le site</a></div></header>'+
   '<main class="main"><div id="workspace"></div><p class="status" id="status" role="status" aria-live="polite"></p></main></div></div>'+
   '<div id="editor-save-toast" class="editor-save-toast" role="status" aria-live="polite" hidden></div>'+ 
   '<input id="image-input" type="file" accept="image/jpeg,image/png,image/webp" hidden>'+

@@ -1,0 +1,53 @@
+name: Célébrations — réorganiser UNIQUEMENT Préparation Michaël (sauvegarde obligatoire)
+on:
+  push:
+    branches: [fix/celebrations-inline-validation-20261105]
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-visual-official-publish
+  cancel-in-progress: false
+jobs:
+  apply:
+    if: ${{ contains(github.event.head_commit.message, '[APPLY_MICHAEL_LAYOUT_ONCE]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    environment: celebrations-staging
+    env:
+      STAGING_R2_BUCKET: celebrations-exit-staging
+      STAGING_R2_ACCESS_KEY_ID: ${{ secrets.CELEBRATIONS_STAGING_R2_ACCESS_KEY_ID }}
+      STAGING_R2_SECRET_ACCESS_KEY: ${{ secrets.CELEBRATIONS_STAGING_R2_SECRET_ACCESS_KEY }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate content-preserving transformation before any remote write
+        run: |
+          set -euo pipefail
+          node --check scripts/transform-michael-preparation-page.mjs
+          node --test tests/test-editor-michael-preparation-layout.mjs
+          python -m py_compile scripts/apply-michael-preparation-layout.py
+      - name: Check official public frontend using same Node fetch as successful deployment verification
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const response=await fetch('https://ronde-des-archanges-universelle.eu/',{cache:'no-store'});
+          assert.equal(response.status,200);
+          const html=await response.text();
+          assert.ok(html.includes('trial-document-item'),'Document list renderer is not deployed');
+          assert.ok(html.includes('data-presentation'),'Resource cards are not deployed');
+          console.log('MICHAEL_LAYOUT_FRONTEND_READY');
+          NODE
+      - name: Backup exact live editor state, conditionally update Michaël ONLY and verify public rendering
+        run: |
+          python -m pip -q install boto3==1.40.57
+          python scripts/apply-michael-preparation-layout.py
+      - name: Confirm all 70 original public items and 23 sections through the actual visitor API
+        run: node scripts/verify-michael-public-layout.mjs
