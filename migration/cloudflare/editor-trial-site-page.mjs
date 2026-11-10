@@ -2,12 +2,12 @@
 // Browsing the site never modifies an administrator's locally saved drafts.
 import {loadSevenStageContent,STAGES} from './editor-demo-preparation-page.mjs';
 import {TRIAL_SITE_CLIENT,TRIAL_SITE_STYLE} from './editor-trial-site-client.mjs';
-const HOST='celebrations-exit-staging.rondes.workers.dev';
+import {isAllowedEditorPageHost,isOfficialEditorHost} from './app/security/editor-route-policy.mjs';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const safeJson=x=>JSON.stringify(x).replace(/</g,'\\u003c').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029');
 export async function handleTrialSite(request,env){
  const url=new URL(request.url);
- if(url.hostname!==HOST&&!['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu','celebrations-visual-candidate.rondes.workers.dev'].includes(url.hostname))return new Response('Not found',{status:404});
+ if(!isAllowedEditorPageHost(url.hostname))return new Response('Not found',{status:404});
  if(request.method!=='GET'&&request.method!=='HEAD')return new Response('Method not allowed',{status:405});
  if(!env.DB)return new Response('Site d’essai momentanément indisponible',{status:503});
  const slug=url.searchParams.get('page');
@@ -16,7 +16,7 @@ export async function handleTrialSite(request,env){
  try{result=await loadSevenStageContent(env,url.searchParams.get('celebration'))}
  catch{return new Response('Célébration introuvable',{status:404,headers:{'cache-control':'no-store'}})}
  const nonce=Array.from(crypto.getRandomValues(new Uint8Array(16)),v=>v.toString(16).padStart(2,'0')).join('');
- const isOfficial=['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu'].includes(url.hostname);
+ const isOfficial=isOfficialEditorHost(url.hostname);
  const siteClient=TRIAL_SITE_CLIENT;
  const html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'+(isOfficial?'<title>Célébrations des Archanges</title>':'<meta name="robots" content="noindex,nofollow"><title>Site d’essai — Célébrations</title>')+
  '<style nonce="'+nonce+'">'+TRIAL_SITE_STYLE+'</style></head><body>'+
