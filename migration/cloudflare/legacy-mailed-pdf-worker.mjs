@@ -17,6 +17,9 @@ export default {
   // Avoid serving repository internals even on SPA fallback requests.
   if(/^\/(?:\.git|\.github|scripts|tests|migration|node_modules)(?:\/|$)/.test(pathname))
    return stamp(new Response("Not found",{status:404,headers:{"cache-control":"no-store"}}));
+  // The historical mailed-PDF Worker never serves editor draft upload UUIDs.
+  if(pathname.startsWith("/media/new/"))
+   return stamp(new Response("Not found",{status:404,headers:{"cache-control":"no-store"}}));
   const legacy=await handleLegacyLink(request,env);
   if(legacy)return stamp(legacy);
   if(!env.ASSETS)return stamp(new Response("Site indisponible",{status:503}));
