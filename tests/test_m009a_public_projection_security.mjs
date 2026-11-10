@@ -141,7 +141,7 @@ function mockDB(){
    label:'SECRET_HIDDEN_D1_LINK'}]
  };
  const queries=[];
- return {queries,prepare(sql){queries.push(sql);return {bind(){return {async all(){
+ return {queries,prepare(sql){queries.push(sql);const all=async()=>{
   if(sql.includes('FROM celebrations_celebrations'))return {results:data.celebrations};
   if(sql.includes('FROM celebrations_steps'))return {results:data.steps};
   if(sql.includes('FROM celebrations_events WHERE'))return {results:data.events};
@@ -151,7 +151,7 @@ function mockDB(){
   if(sql.includes("FROM celebrations_contents WHERE audience='all'"))return {results:[]};
   if(sql.includes('SELECT e.celebration_id')||sql.includes('SELECT sc.celebration_id'))return {results:[]};
   throw new Error('unexpected SQL '+sql);
- }}}}}}};
+ };return {all,bind(){return {all}}};}};
 }
 
 test('M009-A: public seven-stage projection hides private D1 stages and celebration listings',async()=>{
