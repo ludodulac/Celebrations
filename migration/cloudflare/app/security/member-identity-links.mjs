@@ -91,7 +91,7 @@ export async function reviewIdentityClaim(db,{id,approve,verificationMethod,acto
       "WHERE claim_id=? AND status='pending'",'rejected',actorEmail,id),
     q(db,'INSERT INTO celebrations_directory_admin_audit(id,actor_email,action,target_id) ' +
       "SELECT ?,?,'identity-rejected',person_id FROM celebrations_directory_identity_claims " +
-      "WHERE claim_id=? AND status='rejected' AND reviewed_by=?",
+      "WHERE claim_id=? AND status='rejected' AND reviewed_by=? AND changes()=1",
       auditId,actorEmail,id,actorEmail)
   ];
   // D1.batch is atomic; uniqueness, foreign keys, and failures roll back all.
