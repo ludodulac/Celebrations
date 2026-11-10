@@ -52,11 +52,6 @@ export function createEditorDragModel({createSection}){
   p.blocks.splice(index,1,section);
   return true;
  }
- function canDirectDrag(selectedId,blockId){
-  // A casual mouse-down on an unselected image/title is just selection.
-  // The explicit ⠿ handle remains an intentional drag affordance.
-  return selectedId!==null&&selectedId!==undefined&&String(selectedId)===String(blockId);
- }
  function pointerIntent(state,event){
   const distance=Math.hypot(event.clientX-state.startX,event.clientY-state.startY);
   if(state.isTouch)return distance>12?'cancel':'wait';
@@ -65,5 +60,5 @@ export function createEditorDragModel({createSection}){
  function pointerAllowed(event,preview){
   return !preview&&(event.pointerType!=='mouse'||event.button===0);
  }
- return {locate,move,intoBlock,canDirectDrag,pointerIntent,pointerAllowed};
+ return {locate,move,intoBlock,pointerIntent,pointerAllowed};
 }
