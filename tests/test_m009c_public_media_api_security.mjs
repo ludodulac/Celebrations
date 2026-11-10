@@ -209,6 +209,16 @@ test('M009-C: hidden or draft celebration cannot release uploaded media through 
   assert.equal(f.calls.some(k=>k.startsWith('editor-trials/uploads/')),false);
  }
 });
+test('M009-C: general gallery cannot publish upload referenced by restricted member page',async()=>{
+ const s=state({page:imagePage(JPG,{accessPolicy:{
+  mode:'SELECTED_TYPES',typeIds:['member-type:chorale']}}),
+  catalogue:[{src:JPG,source:'uploaded',general:true}]});
+ const f=editorStorage(s);
+ const res=await handlePublicEditorUpload(new Request(SITE+JPG),{EDITOR_BUCKET:f.bucket});
+ assert.equal(res.status,404);
+ assert.equal(f.calls.some(k=>k.startsWith('editor-trials/uploads/')),false,
+  'A general gallery flag cannot reveal private page bytes');
+});
 test('M009-C: route config and static builder cannot bypass the early asset guard',()=>{
  for(const p of ['production','staging']){
   const source=readFileSync(new URL('../migration/cloudflare/wrangler.'+p+'.example.toml',import.meta.url),'utf8');
