@@ -4,6 +4,8 @@
 // handlePrivateMedia after checking the canonical published owner and grants.
 // Keep this module independent of legacy audience labels: all/angel/nonangel
 // are NEVER an authorization for an M002 private page or private file.
+// Reuse M008-C's uniform 404 and private anti-cache headers (no new route).
+export {privateNotFound as privatePublicAssetNotFound} from './member-private-access.mjs';
 const PRIVATE_SEGMENT=/(?:^|\/)(?:private-members|private-member|member-private|members-private|private-media)(?:\/|$)/i;
 export function isPrivateMediaReference(value){
  if(typeof value!=='string')return false;
