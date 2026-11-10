@@ -69,6 +69,7 @@ TEXT_EDITS={
   82:("Voir : Cérémonie de l’Érable — vidéo","Cérémonie de l’Érable")
  },
  "vendredi":{
+  10:("11:30 — Temple","11:30 — Temple : Psaume 28 — Construis en toi la pyramide de lumière avec les 4 éléments magiques"),
   14:("Ps.28 de l'Archange Michaël - Construis en toi la pyramide de lumière avec les 4 éléments magiques.","Psaume 28 de l’Archange Michaël"),
   19:("Voir : Arcana du sens de l’Amour","Arcana du sens de l’Amour"),
   29:("Voir : Voir la conférence sur YouTube","Conférence de Loïc Air")
