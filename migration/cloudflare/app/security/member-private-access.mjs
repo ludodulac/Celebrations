@@ -1,11 +1,10 @@
 // M008-C — read-only, fail-closed member authorization for FUTURE Cloudflare routes.
 // NOT imported by production/staging entrypoints: no private endpoint is enabled.
 // Reuse the existing participant session verifier and M002 domain rules.
-import {authorize} from '../../auth-api.mjs';
+import {resolveExplicitMemberIdentity} from './member-identity-links.mjs';
 import {canAccessPage, ACCESS_MODES, SPACE_VISIBILITIES, isMemberTypeId}
   from '../domain/member-access.mjs';
-import {isDirectoryPersonId, normalizeDirectoryEmail}
-  from '../domain/contact-directory.mjs';
+
 
 const own = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
 const stable = value => typeof value === 'string' && value.length > 0 &&
@@ -40,25 +39,13 @@ export const privateNotFound = () => secure(new Response('Introuvable', {status:
 const unavailable = () => secure(new Response('Service indisponible', {status: 503}), 'GET');
 const methodDenied = () => secure(new Response('Méthode interdite', {status: 405}), 'GET');
 
-// Reuses authorize(..., false): only the participant Bearer token, hashed by
-// auth-api.mjs, in celebrations_participant_sessions, before expiry. Admin
-// password/admin session and legacy audience labels are NEVER entitlements.
-// Additional DB join requires an active registered participant and a matching
-// permanent directory person. No identity/email/type from request body/query.
+// The single identity trust boundary: M009-B verifies a participant (never an
+// administrator) session, its expiry, and an independently reviewed permanent
+// person/account link in D1. Matching email addresses alone grant NO identity.
+// Keep the M008-C public name for existing server callers; do not replicate
+// session or linkage logic here.
 export async function resolveVerifiedMember(request, env) {
-  if (!env?.DB || typeof env.DB.prepare !== 'function') throw Error('D1 unavailable');
-  const emailFromSession = await authorize(request, env, false);
-  if (!emailFromSession) return null;
-  let email;
-  try { email = normalizeDirectoryEmail(emailFromSession); } catch { return null; }
-  const row = await env.DB.prepare(
-    'SELECT d.id AS person_id, d.email_normalized AS email_normalized ' +
-    'FROM celebrations_directory_people d ' +
-    'JOIN celebrations_participants p ON p.email=d.email_normalized ' +
-    'WHERE d.email_normalized=? AND p.password_hash IS NOT NULL LIMIT 1'
-  ).bind(email).first();
-  if (!isDirectoryPersonId(row?.person_id) || row.email_normalized !== email) return null;
-  return Object.freeze({id: row.person_id, authenticated: true});
+  return resolveExplicitMemberIdentity(request, env);
 }
 
 // Security read view of proposed M007-A tables. M008-B retains ownership of
