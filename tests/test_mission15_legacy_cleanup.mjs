@@ -19,7 +19,7 @@ const OLD=[
  'showInsertDialog','attachPublicAudio','attachCloudAudio','audioWorkbench'
 ];
 const originalBlobShas={
- 'migration/cloudflare/production-worker.mjs':'3ff02de49a8b1a0d81a78dac79ed562565774537',
+ 'migration/cloudflare/production-worker.mjs':'8f74c613ce1a7850543df7044f9351b456f7e404',
  'migration/cloudflare/staging-worker.mjs':'1201803b2f7f824de9ee2171d15af434f6068c74',
  'migration/cloudflare/legacy-link-router.mjs':'926b3a776f18271036f22b9058a73ae7f439f604',
  'migration/cloudflare/media-gateway.mjs':'a833e679190a0b6a1aade7dabc8b49c33a339408',
