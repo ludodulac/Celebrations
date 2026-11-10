@@ -46,7 +46,8 @@ function localSetup(){
   const sqlite=new DatabaseSync(':memory:');
   sqlite.exec('PRAGMA foreign_keys=ON');
   for(const relative of ['celebrations-schema.sql','d1-migrations/20261110_007a_contact_directory.sql',
-    'd1-migrations/20261110_008b_directory_integrity.sql'])
+    'd1-migrations/20261110_008b_directory_integrity.sql',
+    'd1-migrations/20261110_009b_explicit_identity_links.sql'])
     sqlite.exec(readFileSync(new URL('../migration/cloudflare/'+relative,import.meta.url),'utf8'));
   sqlite.prepare('INSERT INTO celebrations_celebrations(id,archangel) VALUES(?,?)').run(41,'Gabriel');
   const db=dbFacade(sqlite);
@@ -76,6 +77,17 @@ test('M008-D: D1 adapter writes are read by M008-C real server guard, with revoc
       .run('alice@example.org','all','synthetic-nonlogin-hash');
     s.sqlite.prepare('INSERT INTO celebrations_participant_sessions(token_hash,participant_email,expires_at) VALUES(?,?,?)')
       .run(await sha256(TOKEN),'alice@example.org','2099-01-01T00:00:00.000Z');
+    assert.equal(await resolveVerifiedMember(s.req(),s.env),null,
+      'a matching account email is insufficient without an approved identity link');
+    assert.equal((await handlePrivatePage(s.req(),s.env,s.options)).status,404);
+    s.sqlite.prepare('INSERT INTO celebrations_directory_identity_claims ' +
+      '(claim_id,participant_email,person_id,status,reviewed_at,reviewed_by,verification_method) ' +
+      'VALUES(?,?,?,\'approved\',?,?,?)')
+      .run('claim:550e8400-e29b-41d4-a716-446655440000','alice@example.org',
+        PERSON,'2026-11-10T22:00:00.000Z','admin@example.org','video_verified');
+    s.sqlite.prepare('INSERT INTO celebrations_directory_identity_links ' +
+      '(participant_email,person_id,approved_claim_id) VALUES(?,?,?)')
+      .run('alice@example.org',PERSON,'claim:550e8400-e29b-41d4-a716-446655440000');
     assert.deepEqual(await resolveVerifiedMember(s.req(),s.env),
       {id:PERSON,authenticated:true});
     assert.equal((await handlePrivatePage(s.req(),s.env,s.options)).status,404);
@@ -98,6 +110,12 @@ test('M008-D: D1 adapter writes are read by M008-C real server guard, with revoc
     await s.directory.setMemberTypeDisabled(TYPE,false);
     await s.directory.removePrivateEnrollment(PERSON,SPACE);
     assert.equal((await handlePrivatePage(s.req(),s.env,s.options)).status,404);
+    await s.directory.enrollPersonInPrivateSpace(PERSON,SPACE);
+    s.sqlite.prepare('DELETE FROM celebrations_directory_identity_links WHERE person_id=?')
+      .run(PERSON);
+    assert.equal(await resolveVerifiedMember(s.req(),s.env),null);
+    assert.equal((await handlePrivatePage(s.req(),s.env,s.options)).status,404,
+      'revoked identity must deny even while membership and enrollment are still active');
     assert.equal((await handlePrivatePage(s.req(null),s.env,s.options)).status,404);
     assert.equal(s.sqlite.prepare('PRAGMA foreign_key_check').all().length,0);
   }finally{s.sqlite.close();}
