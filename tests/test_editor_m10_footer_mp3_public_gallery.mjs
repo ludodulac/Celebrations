@@ -105,3 +105,5 @@ test('M10: MP3 transfers report actual bytes and keep images on the existing fet
  assert.ok(source.includes("mediaCategory==='audios'?'＋ Importer un MP3'"));
  assert.ok(!source.includes("record.general?'Retirer de la médiathèque générale':'Afficher aux visiteurs'"));
 });
+
+test('M10: delivered browser scripts parse without injection or malformed string escapes',()=>{new vm.Script(DEMO_CLIENT);new vm.Script(TRIAL_SITE_CLIENT)});
