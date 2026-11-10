@@ -73,10 +73,10 @@ test('Nouvel aperçu : accueil neutre, menu Célébrations et URL Gabriel planif
  const html=await home.text();
  assert.ok(html.includes('☰ Menu'));
  assert.ok(html.includes('Ronde des Archanges Universelle'));
+ // M009-A: planned draft pages belong to the authenticated editor, never HTML
+ // served anonymously to visitors. The editor preparation preview is unchanged.
  const planned=await handleTrialSite(new Request(site+'?celebration=plan-gabriel-2026-11-04&page=mercredi'),env);
- assert.equal(planned.status,200);
- const txt=await planned.text();
- assert.ok(txt.includes('Date : 2026-11-04'));
+ assert.equal(planned.status,404);
  assert.equal((await handleTrialSite(new Request(site+'?celebration=101&page=celebrations'),env)).status,200);
  assert.equal((await handleTrialSite(new Request(site+'?celebration=101&page=mediatheque'),env)).status,200);
  assert.ok(html.includes('celebration-shortcuts'));
