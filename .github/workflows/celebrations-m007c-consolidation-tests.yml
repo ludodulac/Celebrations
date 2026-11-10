@@ -1,0 +1,68 @@
+name: "CÉLÉBRATIONS M007-C — consolidation, tests locaux uniquement"
+on:
+  push:
+    branches:
+      - feat/celebrations-m007c-consolidation-006-007a-007b-20261110
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  consolidation-offline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Read-only checkout with full Git history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify the mandatory base and all three source commits are ancestors
+        shell: bash
+        run: |
+          set -euo pipefail
+          for commit in \
+            f02e520a8ed8e8793ac69bd42f30d836a2438302 \
+            5370be262c301eecd367218dd46bcc83112d8f2c \
+            a0f9caba6f78d99accfe47bd131a340a3e50e1a4 \
+            511d68e3c99700f84d134e1266e07ed1a7ccf785; do
+            git merge-base --is-ancestor "$commit" HEAD
+          done
+          BASE=f02e520a8ed8e8793ac69bd42f30d836a2438302
+          test -z "$(git diff --name-only --diff-filter=CDMRTUXB "$BASE" HEAD)"
+          COUNT="$(git diff --name-only --diff-filter=A "$BASE" HEAD |
+            grep -v -e '^.github/workflows/celebrations-m007c-consolidation-tests.yml$' \
+                    -e '^tests/test_m007c_cross_module_contracts.mjs$' | wc -l)"
+          test "$COUNT" -eq 18
+          echo "M007C_HISTORY_4_ANCESTORS_AND_18_SOURCE_FILES_OK"
+      - name: Node.js 22 for native domain and offline SQLite tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax checks for preserved M002-M007 modules
+        run: |
+          node --check migration/cloudflare/app/domain/member-access.mjs
+          node --check migration/cloudflare/app/domain/editor-localization.mjs
+          node --check migration/cloudflare/app/domain/celebration-spaces.mjs
+          node --check migration/cloudflare/app/domain/public-language-navigation.mjs
+          node --check migration/cloudflare/app/application/public-language-selector.mjs
+          node --check migration/cloudflare/app/domain/contact-directory.mjs
+          node --check migration/cloudflare/app/admin/member-access-admin-model.mjs
+          node --check migration/cloudflare/app/admin/member-access-admin-ui.mjs
+          node --check tests/test_m007c_cross_module_contracts.mjs
+      - name: Run M002 M003 M004 M005 M006 M007-A M007-B and cross-module tests
+        run: |
+          node --test \
+            tests/test_mission002_member_access.mjs \
+            tests/test_m003_localization.mjs \
+            tests/test_m004_page_localization.mjs \
+            tests/test_m005_celebration_spaces.mjs \
+            tests/test_m006_public_language_navigation.mjs \
+            tests/test_m006_language_selector.mjs \
+            tests/test_m007a_contact_directory.mjs \
+            tests/test_m007b_member_admin.mjs \
+            tests/test_m007c_cross_module_contracts.mjs \
+            tests/test-editor-server-drafts.mjs \
+            tests/test_mission09_page_lifecycle.mjs \
+            tests/test_editor_m11_mobile_insert_footer_delete.mjs
