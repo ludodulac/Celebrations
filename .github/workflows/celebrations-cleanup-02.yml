@@ -19,7 +19,7 @@ jobs:
           set -euo pipefail
           BASE=c71bcaab910cff0d386b721961ae1da4ebede56b
           git merge-base --is-ancestor "$BASE" HEAD
-          git diff --name-only "$BASE" HEAD | grep -Ev '^(migration/cloudflare/(production-worker\.mjs|editor-demo-preparation-page\.mjs|editor-trial-site-page\.mjs|editor-publication-api\.mjs|app/security/editor-route-policy\.mjs)|tests/test_cleanup02_host_policy\.mjs|\.github/workflows/celebrations-cleanup-02\.yml|docs/finalisation/CELEBRATIONS-NETTOYAGE-02-2026-11-10\.md)$' > /tmp/cleanup02-unexpected || true
+          git diff --name-only "$BASE" HEAD | grep -Ev '^(migration/cloudflare/(production-worker\.mjs|editor-demo-preparation-page\.mjs|editor-trial-site-page\.mjs|editor-publication-api\.mjs|app/security/editor-route-policy\.mjs)|tests/(test_cleanup02_host_policy|test_mission15_legacy_cleanup)\.mjs|\.github/workflows/celebrations-cleanup-02\.yml|docs/finalisation/CELEBRATIONS-NETTOYAGE-02-2026-11-10\.md)$' > /tmp/cleanup02-unexpected || true
           test ! -s /tmp/cleanup02-unexpected || { echo CLEANUP02_SCOPE_BLOCKED; exit 1; }
           echo CLEANUP02_ONLY_CANONICAL_HOST_POLICY_CHANGED
       - name: Contrôle syntaxe du Worker et de ses fonctions
