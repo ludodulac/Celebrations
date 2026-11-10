@@ -54,19 +54,19 @@ const env={DB:{prepare(sql){
 
 test('M13: all eight admin layers rejoin exactly into the current approved editor CSS bytes',async()=>{
  const chunks=await layers('admin',adminNames);
- assert.deepEqual(chunks.map(x=>x.length),[7690,5433,15255,24476,11635,11868,8280,12868]);
+ assert.deepEqual(chunks.map(x=>x.length),[7690,5597,15255,24665,11635,12704,8280,12868]);
  assert.equal(chunks.join(''),ADMIN_STYLE);
  assert.equal(DEMO_CSS,ADMIN_STYLE);
- assert.equal(DEMO_CSS.length,97505);
- assert.equal(fnv64(DEMO_CSS),'97d11a5b6fd3fa9d');
+ assert.equal(DEMO_CSS.length,98694);
+ assert.equal(fnv64(DEMO_CSS),'9a608118124f4e8c');
 });
 test('M13: all six public layers rejoin exactly into M12 CSS bytes',async()=>{
  const chunks=await layers('public',publicNames);
- assert.deepEqual(chunks.map(x=>x.length),[2933,7615,4205,4204,7037,1412]);
+ assert.deepEqual(chunks.map(x=>x.length),[2933,7829,4205,4204,7037,1412]);
  assert.equal(chunks.join(''),PUBLIC_STYLE);
  assert.equal(TRIAL_SITE_STYLE,PUBLIC_STYLE);
- assert.equal(TRIAL_SITE_STYLE.length,27406);
- assert.equal(fnv64(TRIAL_SITE_STYLE),'072384896a5db2c8');
+ assert.equal(TRIAL_SITE_STYLE.length,27620);
+ assert.equal(fnv64(TRIAL_SITE_STYLE),'2bcf7be6afdf4a72');
 });
 test('M13: stage-only layout preserves its original order, content and nonce style tag',()=>{
  assert.equal(ADMIN_STAGE_LAYOUT.length,390);
@@ -79,9 +79,9 @@ test('M13: stage-only layout preserves its original order, content and nonce sty
   source.indexOf("'<style nonce=\"'+nonce+'\">'+DEMO_CSS"));
 });
 test('M13: planned breakpoint inventory and cascade overrides remain safe after M02/M03',()=>{
- assert.equal(count(DEMO_CSS,'@media'),53);
+ assert.equal(count(DEMO_CSS,'@media'),54);
  assert.equal(count(TRIAL_SITE_STYLE,'@media'),16);
- assert.equal(count(DEMO_CSS,'!important'),317);
+ assert.equal(count(DEMO_CSS,'!important'),316);
  assert.equal(count(TRIAL_SITE_STYLE,'!important'),28);
  for(const marker of ['.editor-drag-ghost','.image-picker-dialog[open]',
   'dialog.file-picker-dialog[open]','.editor-undo-button','.block-validate-actions',
