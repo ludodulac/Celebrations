@@ -10,6 +10,7 @@ export function mountMemberDirectoryAdmin(root,{transport}={}) {
      typeof transport!=='function') throw new TypeError('Admin root/transport required');
   const document=root.ownerDocument;
   let ui=null, state=null, selected='', destroyed=false, busy=false;
+  let search='',pageCursors=[''],pageInfo={hasMorePeople:false,nextCursor:null};
   const node=(tag,text='')=>{
     const n=document.createElement(tag);
     n.textContent=text;
@@ -23,6 +24,8 @@ export function mountMemberDirectoryAdmin(root,{transport}={}) {
     '.member-directory-009b .member-admin-card{min-width:0}',
     '.member-directory-009b .member-dir-tools{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:1rem}',
     '.member-directory-009b fieldset{min-width:0}',
+    '.member-directory-009b .member-dir-pager{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center}',
+    '.member-directory-009b .member-dir-search{display:flex;flex-wrap:wrap;gap:.6rem}',
     '@media(max-width:720px){.member-directory-009b .member-dir-tools{display:block}.member-directory-009b button{min-height:44px}}'
   ].join('\n');
   const wrapper=node('section');
@@ -30,10 +33,11 @@ export function mountMemberDirectoryAdmin(root,{transport}={}) {
   const heading=node('h2','Annuaire et droits des membres');
   const message=node('p','Chargement de l’annuaire…');
   message.setAttribute('role','status');
+  const searchTools=node('div');
   const base=node('div');
   const tools=node('div');
   tools.className='member-dir-tools';
-  wrapper.append(heading,message,base,tools);
+  wrapper.append(heading,message,searchTools,base,tools);
   root.replaceChildren(style,wrapper);
 
   const call=async command=>{
@@ -59,7 +63,8 @@ export function mountMemberDirectoryAdmin(root,{transport}={}) {
     }
     if(kind==='type-renamed') {
       const t=next.types.find(t=>state.types.some(old=>old.id===t.id && old.name!==t.name));
-      if(t) return {action:'rename_type',typeId:t.id,name:t.name};
+      if(t) return {action:'rename_type',typeId:t.id,name:t.name,
+        expectedRevision:state.types.find(old=>old.id===t.id).revision??0};
     }
     if(kind==='membership-updated') {
       const changed=next.members.find(person=>{
@@ -68,14 +73,18 @@ export function mountMemberDirectoryAdmin(root,{transport}={}) {
         return JSON.stringify(old)!==JSON.stringify(current);
       });
       if(changed) return {action:'set_person_types',personId:changed.id,
-        typeIds:next.memberships.filter(m=>m.memberId===changed.id).map(m=>m.typeId)};
+        typeIds:next.memberships.filter(m=>m.memberId===changed.id).map(m=>m.typeId),
+        expectedRevision:changed.revision??0};
     }
     // Page policy writes are intentionally blocked until the canonical
     // publication pipeline and per-page optimistic-lock contracts are ready.
     return null;
   }
   async function reload() {
-    const incoming=await call({method:'GET',action:'snapshot'});
+    const incoming=await call({method:'GET',action:'snapshot',search,
+      cursor:pageCursors.at(-1),limit:50});
+    pageInfo={hasMorePeople:!!incoming.hasMorePeople,
+      nextCursor:incoming.nextCursor??null};
     state=createMemberAdminState(incoming);
     if(!state.members.some(p=>p.id===selected)) selected=state.members[0]?.id||'';
     if(ui) ui.setState(state);
@@ -99,7 +108,44 @@ export function mountMemberDirectoryAdmin(root,{transport}={}) {
         status('Écriture refusée : '+error.message);
       }).finally(()=>{busy=false;});
     }});
+    renderSearchTools();
     renderTools();
+  }
+  function renderSearchTools() {
+    searchTools.replaceChildren();
+    const form=node('form');form.className='member-dir-search';
+    const input=node('input');
+    input.type='search';input.value=search;input.maxLength=120;
+    input.placeholder='Nom ou adresse e-mail';input.setAttribute('aria-label','Rechercher une personne');
+    form.append(input,button('Rechercher','submit'));
+    form.addEventListener('submit',async event=>{
+      event.preventDefault();if(busy)return;
+      busy=true;search=input.value.trim();pageCursors=[''];
+      try{await reload();status('Résultats de la recherche actualisés.');}
+      catch(e){status('Recherche indisponible : '+e.message);}
+      finally{busy=false;}
+    });
+    const pager=node('div');pager.className='member-dir-pager';
+    const previous=button('Page précédente');
+    previous.disabled=pageCursors.length===1;
+    previous.addEventListener('click',async()=>{
+      if(busy||pageCursors.length===1)return;
+      busy=true;const old=pageCursors.pop();
+      try{await reload();}catch(e){pageCursors.push(old);status(e.message);}
+      finally{busy=false;}
+    });
+    const next=button('Page suivante');
+    next.disabled=!pageInfo.hasMorePeople||!pageInfo.nextCursor;
+    next.addEventListener('click',async()=>{
+      if(busy||!pageInfo.nextCursor)return;
+      busy=true;pageCursors.push(pageInfo.nextCursor);
+      try{await reload();}catch(e){pageCursors.pop();status(e.message);}
+      finally{busy=false;}
+    });
+    const position=node('span','Page '+pageCursors.length+
+      ' · '+state.members.length+' personnes affichées');
+    pager.append(previous,position,next);
+    searchTools.append(form,pager);
   }
   async function refreshDetails(target) {
     if(!target) return null;
@@ -107,6 +153,29 @@ export function mountMemberDirectoryAdmin(root,{transport}={}) {
   }
   function renderTools() {
     tools.replaceChildren();
+    const createCard=node('section');createCard.className='member-admin-card';
+    createCard.append(node('h3','Créer un contact'));
+    const createForm=node('form');
+    const email=node('input');email.type='email';email.required=true;
+    email.placeholder='prenom@exemple.fr';
+    const given=node('input');given.maxLength=120;
+    const family=node('input');family.maxLength=120;
+    const display=node('input');display.maxLength=120;
+    const createError=node('p');createError.setAttribute('role','alert');
+    createForm.append(label('Adresse e-mail',email),label('Prénom',given),
+      label('Nom',family),label('Nom affiché',display),
+      button('Créer la personne','submit'),createError);
+    createForm.addEventListener('submit',async event=>{
+      event.preventDefault();if(busy)return;busy=true;
+      try{
+        await call({method:'POST',action:'create_person',email:email.value,
+          givenName:given.value,familyName:family.value,displayName:display.value});
+        search=email.value.trim();pageCursors=[''];
+        await reload();status('Personne créée avec un identifiant permanent.');
+      }catch(e){createError.textContent=e.message;}
+      finally{busy=false;}
+    });
+    createCard.append(createForm);tools.append(createCard);
     const card=node('section');
     card.className='member-admin-card';
     card.append(node('h3','Participations et espaces privés'));
@@ -131,6 +200,31 @@ export function mountMemberDirectoryAdmin(root,{transport}={}) {
       if(destroyed || selected!==data.person.id) return;
       details.replaceChildren();
       details.append(node('p','Identifiant permanent : '+data.person.id));
+      const editForm=node('form');
+      const contactEmail=node('input');contactEmail.type='email';contactEmail.required=true;
+      contactEmail.value=data.person.emailNormalized??'';
+      const contactGiven=node('input');contactGiven.maxLength=120;
+      contactGiven.value=data.person.givenName??'';
+      const contactFamily=node('input');contactFamily.maxLength=120;
+      contactFamily.value=data.person.familyName??'';
+      const contactDisplay=node('input');contactDisplay.maxLength=120;
+      contactDisplay.value=data.person.displayName??'';
+      const editError=node('p');editError.setAttribute('role','alert');
+      editForm.append(label('Courriel',contactEmail),label('Prénom',contactGiven),
+        label('Nom',contactFamily),label('Nom affiché',contactDisplay),
+        button('Mettre à jour la personne','submit'),editError);
+      editForm.addEventListener('submit',async event=>{
+        event.preventDefault();if(busy)return;busy=true;
+        try {
+          await call({method:'POST',action:'update_person',personId:data.person.id,
+            expectedRevision:data.person.revision??0,
+            changes:{email:contactEmail.value,givenName:contactGiven.value,
+              familyName:contactFamily.value,displayName:contactDisplay.value}});
+          await reload();status('Fiche mise à jour.');
+        }catch(e){editError.textContent=e.message;}
+        finally{busy=false;}
+      });
+      details.append(editForm);
       details.append(node('p','Célébrations : '+
         (data.celebrations.map(x=>x.celebrationId).join(', ')||'aucune')));
       details.append(node('p','Espaces privés : '+
@@ -141,7 +235,7 @@ export function mountMemberDirectoryAdmin(root,{transport}={}) {
           if(busy)return;
           busy=true;
           try {
-            await call({method:'POST',...command});
+            await call({method:'POST',expectedRevision:data.person.revision??0,...command});
             await reload();status('Association retirée par le serveur.');
           }catch(e){status('Suppression refusée : '+e.message);}
           finally {busy=false;}
@@ -170,6 +264,7 @@ export function mountMemberDirectoryAdmin(root,{transport}={}) {
       busy=true;
       try {
         await call({method:'POST',action:'add_celebration',personId:selected,
+          expectedRevision:selectedPerson()?.revision??0,
           celebrationId:celebration.value});
         await reload();status('Participation ajoutée.');
       } catch(e) {formError.textContent=e.message;}
@@ -187,7 +282,7 @@ export function mountMemberDirectoryAdmin(root,{transport}={}) {
       busy=true;
       try {
         await call({method:'POST',action:'enroll_space',personId:selected,
-          spaceId:space.value});
+          expectedRevision:selectedPerson()?.revision??0,spaceId:space.value});
         await reload();status('Inscription vérifiée par le serveur.');
       } catch(e) {enrollError.textContent=e.message;}
       finally {busy=false;}
@@ -204,7 +299,7 @@ export function mountMemberDirectoryAdmin(root,{transport}={}) {
         if(busy)return;busy=true;
         try {
           await call({method:'POST',action:'disable_type',typeId:type.id,
-            disabled:!type.disabled});
+            expectedRevision:type.revision??0,disabled:!type.disabled});
           await reload();status('Catalogue D1 actualisé.');
         }catch(e){status('Écriture refusée : '+e.message);}
         finally {busy=false;}
