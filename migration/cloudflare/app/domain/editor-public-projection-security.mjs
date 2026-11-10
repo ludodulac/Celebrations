@@ -131,12 +131,18 @@ export function projectPublicMediaItem(item,blockedIds=[]){
 }
 
 export function privatePublicationIds(state,published){
- const blocked=new Set();
+ const blocked=new Set(),publicPageIds=new Set(),publicPlanIds=new Set();
+ for(const page of published?.shared?.pages||[])
+  if(eligiblePublicPage(page))publicPageIds.add(page.id);
+ for(const record of Object.values(published?.drafts||{}))
+  for(const page of record?.pages||[])
+   if(eligiblePublicPage(page))publicPageIds.add(page.id);
+ for(const plan of published?.plans||[])
+  if(eligiblePublicPlan(plan))publicPlanIds.add(plan.id);
  const inspect=(p,owner)=>{
-  if(!p||typeof p.id!=='string')return;
+  if(!p||typeof p.id!=='string'||publicPageIds.has(p.id))return;
   if(!eligiblePublicPage(p)){
    blocked.add(p.id);
-   // Extra pages have a unique public route slug too.
    if(p.id.startsWith('extra-')&&owner&&p.id.endsWith('-'+owner))
     blocked.add(p.id.slice(0,-owner.length-1));
   }
@@ -151,7 +157,8 @@ export function privatePublicationIds(state,published){
    }
   }
   for(const plan of aggregate?.plans||[])
-   if(!eligiblePublicPlan(plan)&&typeof plan?.id==='string')blocked.add(plan.id);
+   if(!eligiblePublicPlan(plan)&&typeof plan?.id==='string'&&!publicPlanIds.has(plan.id))
+    blocked.add(plan.id);
  }
  return [...blocked];
 }
