@@ -21,10 +21,13 @@ import {handlePreparationDemo} from "./editor-demo-preparation-page.mjs";
 import {handleTrialSite} from "./editor-trial-site-page.mjs";
 import {handleTrialAudio} from "./editor-trial-audio-api.mjs";
 import {handleServerDraft} from "./editor-server-draft-api.mjs";
-import {handleEditorPublication,handleEditorMediaFile} from "./editor-publication-api.mjs";
+import {handleEditorPublication} from "./editor-publication-api.mjs";
+import {handlePublicEditorUpload} from "./public-upload-gateway.mjs";
+import {isBlockedPublicAssetPath,privatePublicAssetNotFound} from "./app/security/public-media-boundary.mjs";
 export default {
  async fetch(request,env){
   const url=new URL(request.url),path=url.pathname;
+  if(isBlockedPublicAssetPath(path))return privatePublicAssetNotFound();
   // FINALISATION 2: the obsolete staging hostname is now PUBLIC-ONLY.
   // Its editor has moved to the official authenticated domain. Keep public
   // visitors and historic media working, but deny every private/admin route
@@ -44,6 +47,9 @@ export default {
    url.searchParams.set("staging","1");
    return Response.redirect(url.toString(),302);
   }
+  // Guard application uploads BEFORE the broad historical /media/ prefix.
+  // Uploaded editor files require publication/privileged preview checks before legacy /media.
+  if(path.startsWith("/media/new/"))return handlePublicEditorUpload(request,{...env,EDITOR_BUCKET:env.MEDIA_BUCKET});
   if(path.startsWith("/media/")||path.startsWith("/letter/"))return handleMedia(request,env);
   if(path==="/api/auth")return handleAuth(request,env);
   if(path==="/api/audience")return handleAudience(request,env);
@@ -68,7 +74,6 @@ export default {
   if(path==="/api/editor-trial-audio")return handleTrialAudio(request,env);
   if(path==="/api/editor-publication"&&request.method==="GET")
    return handleEditorPublication(request,{...env,EDITOR_BUCKET:env.MEDIA_BUCKET});
-  if(path.startsWith("/media/new/"))return handleEditorMediaFile(request,{...env,EDITOR_BUCKET:env.MEDIA_BUCKET});
   if(path==="/api/editor-server-draft")return handleServerDraft(request,env);
   if(path==="/api/editor-open-draft"){
    // Shared production content must not remain writable through this old test host.

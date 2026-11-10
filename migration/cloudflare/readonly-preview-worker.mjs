@@ -4,6 +4,7 @@
 import {handlePublicData} from "./public-data-api.mjs";
 import {handleMedia} from "./media-gateway.mjs";
 import {handleLegacyLink} from "./legacy-link-router.mjs";
+import {isBlockedPublicAssetPath,privatePublicAssetNotFound} from "./app/security/public-media-boundary.mjs";
 
 const noIndex=response=>{
  const headers=new Headers(response.headers);
@@ -17,6 +18,7 @@ const deny=(status,message)=>noIndex(new Response(message,{
 export default {
  async fetch(request,env){
   const {pathname}=new URL(request.url);
+  if(isBlockedPublicAssetPath(pathname))return privatePublicAssetNotFound();
   if(request.method!=="GET"&&request.method!=="HEAD")
    return deny(405,"Lecture seule : aucune modification autorisée");
   // /preparation is a REAL programme-day route, unlike old unused redirects.
@@ -27,6 +29,8 @@ export default {
   if(pathname==="/robots.txt")
    return noIndex(new Response("User-agent: *\nDisallow: /\n",{
     headers:{"content-type":"text/plain; charset=utf-8"}}));
+  // No direct editor upload UUIDs on a public-only preview host.
+  if(pathname.startsWith("/media/new/"))return deny(404,"Not found");
   if(pathname.startsWith("/api/")){
    if(pathname==="/api/public-data"&&request.method==="GET")
     return noIndex(await handlePublicData(request,env));

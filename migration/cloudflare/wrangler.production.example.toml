@@ -10,7 +10,9 @@ workers_dev = true
 [assets]
 directory = "../../production-public"
 binding = "ASSETS"
-run_worker_first = ["/", "/index.html", "/admin.html", "/admin"]
+# All requests MUST pass the Worker first: private media path checks cannot
+# protect files served directly by the assets layer before the Worker runs.
+run_worker_first = true
 
 # The following binding examples are deliberately COMMENTED OUT.
 # [[d1_databases]]
@@ -24,3 +26,8 @@ run_worker_first = ["/", "/index.html", "/admin.html", "/admin"]
 # [[r2_buckets]]
 # binding = "MEDIA_BUCKET"
 # bucket_name = "celebrations-exit-production"
+# New member-only media needs a SECOND, completely private bucket and binding,
+# provisioned ONLY after explicit supervisor approval (not by this template).
+# [[r2_buckets]]
+# binding = "PRIVATE_MEMBER_BUCKET"
+# bucket_name = "<SEPARATE_NON_PUBLIC_PRIVATE_BUCKET>"

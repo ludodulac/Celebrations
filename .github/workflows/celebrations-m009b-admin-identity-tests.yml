@@ -1,0 +1,65 @@
+name: "CÉLÉBRATIONS M009-B — identity + single admin, isolated"
+on:
+  push:
+    branches:
+      - feat/celebrations-m009b-member-admin-identity-integration-20261110
+  pull_request:
+    branches:
+      - feat/celebrations-m008d-consolidation-008a-008b-008c-20261110
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  isolated-node-d1:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check syntax
+        run: |
+          node --check migration/cloudflare/app/security/member-identity-links.mjs
+          node --check migration/cloudflare/app/application/member-directory-admin-service.mjs
+          node --check migration/cloudflare/app/admin/member-directory-admin-integration.mjs
+          node --check tests/test_m009b_member_identity_admin.mjs
+      - name: M009-B and mandatory previous contracts (SQLite in memory only)
+        run: |
+          node --test tests/test_m009b_member_identity_admin.mjs \
+            tests/test_mission002_member_access.mjs \
+            tests/test_m005_celebration_spaces.mjs \
+            tests/test_m007a_contact_directory.mjs \
+            tests/test_m007b_member_admin.mjs \
+            tests/test_m008b_contact_directory_d1.mjs \
+            tests/test_m008c_private_server_access.mjs \
+            tests/test_m008d_cross_integration.mjs
+      - name: Verify no Worker routes or live migrations activated
+        shell: bash
+        run: |
+          if grep -E 'member-directory-admin-service|member-identity-links' \
+            migration/cloudflare/production-worker.mjs migration/cloudflare/staging-worker.mjs; then
+            echo "PRIVATE_OR_ADMIN_ROUTE_ACTIVATED"; exit 1
+          fi
+          # M009-D compatibility: check the untouched M009-B SOURCE against M008-D,
+          # not combined HEAD (M009-A/C intentionally harden public worker files).
+          # The separate M009-D history job verifies every A/B/C source blob.
+          test "$(git diff --name-only 61e699e5a90350239d2b7df25c147dbfa01e459a 679277abb23027ccc551c425b08d1e39ce768437 |
+            grep -Ec '^(migration/cloudflare/(production-worker|staging-worker|media-gateway|public-data-api)|migration/cloudflare/editor-publication-api)' || true)" -eq 0
+  chromium-admin-responsive:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - run: node scripts/test-m009b-admin-mobile-browser.mjs

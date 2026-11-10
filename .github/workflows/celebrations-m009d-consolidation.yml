@@ -1,0 +1,166 @@
+name: "CÉLÉBRATIONS M009-D — triple consolidation sécurisée (offline)"
+on:
+  push:
+    branches:
+      - feat/celebrations-m009d-consolidation-009a-009b-009c-20261111
+  pull_request:
+    branches:
+      - feat/celebrations-m008d-consolidation-008a-008b-008c-20261110
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  merge-ancestry:
+    name: Three two-parent Git merges + exact source blob preservation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check source history, parents, and merged tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=61e699e5a90350239d2b7df25c147dbfa01e459a
+          A=62501ea1e68538010bc3658e825a6a75c92884aa
+          B=679277abb23027ccc551c425b08d1e39ce768437
+          C=468b0dc4efc82dd8e01938f2185f0fc162b97f2c
+          M1=0e6eec092afa29a38ae6c31b4bf1fcff6acf0d8a
+          M2=59c3c49fd75c99ca4e79c3c3a8cd389f138d3fc4
+          M3=96a6e98822d2e34f5c4fdb66aeba1f217d449b7d
+          for sha in "$BASE" "$A" "$B" "$C" "$M1" "$M2" "$M3"; do
+            git merge-base --is-ancestor "$sha" HEAD
+          done
+          test "$(git show -s --format='%P' "$M1")" = "$BASE $A"
+          test "$(git show -s --format='%P' "$M2")" = "$M1 $B"
+          test "$(git show -s --format='%P' "$M3")" = "$M2 $C"
+          test "$(git diff --name-only "$BASE" "$M3" | wc -l)" -eq 35
+          for source in "$A" "$B" "$C"; do
+            while IFS= read -r path; do
+              test "$(git rev-parse "$source:$path")" = "$(git rev-parse "$M3:$path")"
+            done < <(git diff --name-only "$BASE" "$source")
+          done
+          echo "M009D_THREE_REAL_MERGES_AND_ALL_SOURCE_BLOBS_PRESERVED"
+  integrated-node:
+    name: M002-M009D + editor/publication + French/multilingual + private/media
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax checks
+        run: |
+          for file in \
+            migration/cloudflare/app/security/member-identity-links.mjs \
+            migration/cloudflare/app/security/member-private-access.mjs \
+            migration/cloudflare/app/security/public-media-boundary.mjs \
+            migration/cloudflare/app/domain/editor-public-projection-security.mjs \
+            migration/cloudflare/app/application/public-language-release.mjs \
+            migration/cloudflare/media-gateway.mjs \
+            migration/cloudflare/public-data-api.mjs \
+            migration/cloudflare/public-upload-gateway.mjs \
+            migration/cloudflare/editor-publication-api.mjs \
+            migration/cloudflare/production-worker.mjs \
+            migration/cloudflare/staging-worker.mjs \
+            tests/test_m009d_cross_integration.mjs; do
+            node --check "$file"
+          done
+      - name: Run combined local Node suites
+        run: |
+          node --test \
+            tests/test_mission002_member_access.mjs \
+            tests/test_m003_localization.mjs \
+            tests/test_m004_page_localization.mjs \
+            tests/test_m005_celebration_spaces.mjs \
+            tests/test_m006_public_language_navigation.mjs \
+            tests/test_m006_language_selector.mjs \
+            tests/test_m007a_contact_directory.mjs \
+            tests/test_m007b_member_admin.mjs \
+            tests/test_m007c_cross_module_contracts.mjs \
+            tests/test_m008a_public_language_integration.mjs \
+            tests/test_m008b_contact_directory_d1.mjs \
+            tests/test_m008c_private_server_access.mjs \
+            tests/test_m008d_cross_integration.mjs \
+            tests/test_m009a_public_projection_security.mjs \
+            tests/test_m009b_member_identity_admin.mjs \
+            tests/test_m009c_public_media_api_security.mjs \
+            tests/test_m009d_cross_integration.mjs \
+            tests/test-editor-publication-media.mjs \
+            tests/test-editor-server-drafts.mjs \
+            tests/test_mission12_public_renderer.mjs \
+            tests/test_mission14_editor_security.mjs \
+            tests/test_mission09_page_lifecycle.mjs \
+            tests/test_editor_m11_mobile_insert_footer_delete.mjs \
+            tests/test-editor-trial-site.mjs \
+            tests/test-editor-demo-preparation.mjs \
+            tests/test-exit-auth.mjs \
+            tests/test-exit-media-gateway.mjs \
+            tests/test-exit-public-data.mjs \
+            tests/test-exit-production-candidate.mjs
+      - name: Never activate the legacy/private member routers
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -E '(member-private-access|member-identity-links|member-directory-admin-service)\.mjs' \
+            migration/cloudflare/production-worker.mjs migration/cloudflare/staging-worker.mjs; then
+            echo "UNEXPECTED_PRIVATE_ROUTE_ACTIVATED"
+            exit 1
+          fi
+          echo "M009D_MEMBER_PRIVATE_ROUTES_NOT_ENABLED"
+  browser-desktop-mobile:
+    name: Offline Chromium French/translated site + member admin desktop/mobile
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Site public FR/EN with isolated browser
+        run: node scripts/test-m008a-public-language-browser.mjs
+      - name: Member admin desktop + Android-sized isolated browser
+        run: node scripts/test-m009b-admin-mobile-browser.mjs
+  d1-local-only:
+    name: Disposable Wrangler D1 schema + directory + member identities
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Execute migrations in LOCAL ephemeral D1, never --remote
+        shell: bash
+        env:
+          WRANGLER_SEND_METRICS: 'false'
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/m009d-d1-local-only"
+          CFG=tests/fixtures/wrangler.m008b.local.toml
+          DB=celebrations-m008b-local-only
+          invoke() {
+            npx --yes wrangler@4 d1 execute "$DB" --local --config "$CFG" \
+              --persist-to "$RUNNER_TEMP/m009d-d1-local-only" "$@"
+          }
+          invoke --file=migration/cloudflare/celebrations-schema.sql
+          invoke --file=migration/cloudflare/d1-migrations/20261110_007a_contact_directory.sql
+          invoke --file=migration/cloudflare/d1-migrations/20261110_008b_directory_integrity.sql
+          invoke --file=migration/cloudflare/d1-migrations/20261110_009b_explicit_identity_links.sql
+          invoke --file=tests/fixtures/m008b-local-smoke.sql
+          invoke --command='PRAGMA foreign_key_check;'
+          echo "M009D_D1_LOCAL_ONLY_SCHEMA_AND_INTEGRITY_PASS"
