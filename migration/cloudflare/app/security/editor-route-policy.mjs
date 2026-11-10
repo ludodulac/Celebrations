@@ -17,6 +17,14 @@ const privatePaths=new Set([
  '/api/editor-open-draft','/api/editor-server-draft',
  '/api/editor-media','/api/editor-access','/api/editor-logout'
 ]);
+// One canonical allowlist for the historical staging editor and current visitor/admin
+// rendering hosts. The retired production workers.dev hostname is NOT allowed.
+const editorPageHosts=new Set([
+ ...OFFICIAL_EDITOR_HOSTS,
+ 'celebrations-exit-staging.rondes.workers.dev',
+ 'celebrations-visual-candidate.rondes.workers.dev'
+]);
+export function isAllowedEditorPageHost(host){return editorPageHosts.has(host)}
 export function isOfficialEditorHost(host){return official.has(host)}
 export function isReadonlyCandidateHost(host){return readonly.has(host)}
 export function isPrivateEditorPath(path){return privatePaths.has(path)}

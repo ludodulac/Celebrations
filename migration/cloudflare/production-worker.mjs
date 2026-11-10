@@ -83,9 +83,8 @@ export default {
   // The two official domains now use the same visual visitor/editor interface.
   // All media, old emailed PDF, existing static assets and historic redirects
   // stay on their original production routes and production D1/R2 bindings.
-  const official=isOfficialEditorHost(url.hostname);
   const visualCandidate=url.hostname==="celebrations-visual-candidate.rondes.workers.dev";
-  if((official||visualCandidate)&&env.DB){
+  if((officialHost||visualCandidate)&&env.DB){
    if(path==="/api/editor-publication")return handleEditorPublication(request,env);
    if(path==="/api/editor-media")return handleEditorMedia(request,env);
    if(path==="/api/editor-open-draft")return handleServerDraft(request,env);
