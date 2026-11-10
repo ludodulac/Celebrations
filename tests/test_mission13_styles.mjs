@@ -52,13 +52,13 @@ const env={DB:{prepare(sql){
  }}}};
 }}};
 
-test('M13: all eight admin layers rejoin exactly into the M12 CSS bytes',async()=>{
+test('M13: all eight admin layers rejoin exactly into the approved M02/M03 CSS bytes',async()=>{
  const chunks=await layers('admin',adminNames);
- assert.deepEqual(chunks.map(x=>x.length),[7690,5666,15255,22478,11202,13354,8351,12868]);
+ assert.deepEqual(chunks.map(x=>x.length),[7690,5666,15255,22591,11202,13354,8221,12868]);
  assert.equal(chunks.join(''),ADMIN_STYLE);
  assert.equal(DEMO_CSS,ADMIN_STYLE);
- assert.equal(DEMO_CSS.length,96864);
- assert.equal(fnv64(DEMO_CSS),'fbb9a8bb3172d2e1');
+ assert.equal(DEMO_CSS.length,96847);
+ assert.equal(fnv64(DEMO_CSS),'0f80f54dbcfbb323');
 });
 test('M13: all six public layers rejoin exactly into M12 CSS bytes',async()=>{
  const chunks=await layers('public',publicNames);
