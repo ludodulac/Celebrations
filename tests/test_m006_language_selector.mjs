@@ -33,7 +33,7 @@ test('M006 UI: native details selector shows active flags and names, and accessi
  assert.equal(links.length,2);
  assert.deepEqual(links.map(n=>n.attrs.hreflang),['fr','en']);
  assert.equal(links[1].attrs['aria-current'],'true');
- assert.equal(links[1].attrs.href,'/mercredi?x=1&lang=en');
+ assert.equal(links[1].attrs.href,'https://www.ronde-des-archanges-universelle.eu/mercredi?x=1&lang=en');
  assert.ok(elements.some(n=>n.textContent==='English'));
  assert.ok(elements.some(n=>n.textContent==='🇬🇧'));
  assert.ok(elements.some(n=>n.attrs['aria-label']==='Choisir la langue'));

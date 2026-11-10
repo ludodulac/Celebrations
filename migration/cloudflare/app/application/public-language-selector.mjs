@@ -1,6 +1,6 @@
 // M006 — Accessible, optional public language selector.
 // Prepared DOM component; not injected into the shared public renderer yet.
-// No innerHTML, global event listener, private storage or editor API.
+// No HTML string injection, global event listener, private storage or editor API.
 const flagImage=/^(?:\/)?(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+\.(?:svg|png|webp|gif)$/i;
 
 function appendFlag(parent,flag,doc) {

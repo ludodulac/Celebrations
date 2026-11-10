@@ -41,7 +41,7 @@ test('M006: active names and flags only; selector URL preserves query and anchor
  assert.deepEqual(opts.map(x=>x.id),['fr']);
  assert.equal(opts[0].flag,'🇫🇷');
  assert.equal(opts[0].selected,true);
- assert.equal(opts[0].href,'/mercredi?src=1&lang=fr#jour');
+ assert.equal(opts[0].href,SITE+'/mercredi?src=1&lang=fr#jour');
  assert.equal(LANGUAGE_QUERY_PARAMETER,'lang');
  assert.equal(languageFromUrl(SITE+'/mercredi?lang=en'),'en');
 });
