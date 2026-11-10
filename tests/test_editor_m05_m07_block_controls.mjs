@@ -23,7 +23,7 @@ test('M07: le duplicata conserve la taille réelle, sans devenir un nouveau titr
  const end=DEMO_CLIENT.indexOf('// Keep the user\'s selection',start);
  assert.ok(start>=0&&end>start);
  const env={editorBlockCommands:createEditorBlockCommands({model:createBlockModel()}),
-  clone:v=>JSON.parse(JSON.stringify(v)),uniqueBlockId:()=>98765,marked:0,rendered:0};
+  clone:v=>JSON.parse(JSON.stringify(v)),uniqueBlockId:(()=>{let id=98764;return()=>++id})(),marked:0,rendered:0};
  const src=`const BLOCK_SIZES=[14,16,18,20,24,28,32,40];let selectedBlockId=null;
  function mark(){this.marked++}function render(){this.rendered++}
  ${DEMO_CLIENT.slice(start,end)}
