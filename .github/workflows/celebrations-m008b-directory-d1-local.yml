@@ -1,0 +1,49 @@
+name: "CÉLÉBRATIONS M008-B — Annuaire D1 local isolé"
+on:
+  push:
+    branches:
+      - feat/celebrations-m008b-directory-d1-integration-20261110
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  d1-isolated-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate adapter and SQLite-backed D1 contract
+        run: |
+          node --check migration/cloudflare/app/persistence/contact-directory-d1.mjs
+          node --check tests/test_m008b_contact_directory_d1.mjs
+          node --test \
+            tests/test_mission002_member_access.mjs \
+            tests/test_m005_celebration_spaces.mjs \
+            tests/test_m007a_contact_directory.mjs \
+            tests/test_m007b_member_admin.mjs \
+            tests/test_m007c_cross_module_contracts.mjs \
+            tests/test_m008b_contact_directory_d1.mjs
+      - name: Wrangler D1 true local smoke test (no secrets, no remote deployment)
+        shell: bash
+        env:
+          WRANGLER_SEND_METRICS: 'false'
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/m008b-local-d1"
+          CFG=tests/fixtures/wrangler.m008b.local.toml
+          DB=celebrations-m008b-local-only
+          invoke() {
+            npx --yes wrangler@4 d1 execute "$DB" --local --config "$CFG" \
+              --persist-to "$RUNNER_TEMP/m008b-local-d1" "$@"
+          }
+          invoke --file=migration/cloudflare/celebrations-schema.sql
+          invoke --file=migration/cloudflare/d1-migrations/20261110_007a_contact_directory.sql
+          invoke --file=migration/cloudflare/d1-migrations/20261110_008b_directory_integrity.sql
+          invoke --file=tests/fixtures/m008b-local-smoke.sql
+          invoke --command='PRAGMA foreign_key_check;'
+          echo 'M008B_ISOLATED_D1_LOCAL_SMOKE_OK'
