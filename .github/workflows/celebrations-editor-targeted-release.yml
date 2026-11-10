@@ -34,15 +34,16 @@ jobs:
           set -euo pipefail
           test "$GITHUB_REF" = refs/heads/fix/editor-m04-single-save-confirmation-20261110
           git merge-base --is-ancestor origin/release/celebrations-cleanup-06-20261110 HEAD
-          git diff --name-only origin/release/celebrations-cleanup-06-20261110 HEAD | grep -E '^(migration/cloudflare/|admin\.html$|index\.html$|public-|supabase-data\.js)' | sort > /tmp/editor-m02-m03-runtime-delta
-          printf 'migration/cloudflare/app/styles/admin/04-section-composer.mjs\nmigration/cloudflare/app/styles/admin/07-drag-resources.mjs\nmigration/cloudflare/editor-demo-client.mjs\nmigration/cloudflare/editor-server-sync-client.mjs\n' > /tmp/editor-m02-m03-expected-runtime-delta
-          diff -u /tmp/editor-m02-m03-expected-runtime-delta /tmp/editor-m02-m03-runtime-delta
+          git diff --name-only origin/release/celebrations-cleanup-06-20261110 HEAD | grep -E '^(migration/cloudflare/|admin\.html$|index\.html$|public-|supabase-data\.js)' | sort > /tmp/editor-m04-runtime-delta
+          printf 'migration/cloudflare/app/styles/admin/04-section-composer.mjs\nmigration/cloudflare/app/styles/admin/07-drag-resources.mjs\nmigration/cloudflare/editor-demo-client.mjs\nmigration/cloudflare/editor-server-sync-client.mjs\n' > /tmp/editor-m04-expected-runtime-delta
+          diff -u /tmp/editor-m04-expected-runtime-delta /tmp/editor-m04-runtime-delta
           echo EDITOR_M04_EXISTING_MODULES_ONLY
       - name: Targeted regression tests — no additions to the editor
         run: |
           node --check migration/cloudflare/app/styles/admin/04-section-composer.mjs
           node --check migration/cloudflare/app/styles/admin/07-drag-resources.mjs
-          node --check migration/cloudflare/editor-demo-client.mjs\n          node --check migration/cloudflare/editor-server-sync-client.mjs
+          node --check migration/cloudflare/editor-demo-client.mjs
+          node --check migration/cloudflare/editor-server-sync-client.mjs
           node --test tests/test_editor_m01_select_only_move_grip.mjs tests/test_editor_m02_m03_visibility.mjs tests/test_mission13_styles.mjs tests/test_mission11_drag_undo.mjs tests/test-editor-server-drafts.mjs tests/test_mission10_safe_persistence.mjs
           python scripts/build_production_assets.py
           python scripts/audit_production_supabase_paths.py
@@ -64,11 +65,11 @@ jobs:
             assert.equal(body.split(before).length-1,1,'Release gate anchor changed');
             body=body.replace(before,after);
           }
-          fs.writeFileSync('scripts/.editor-m02-m03-release-runtime.mjs',body);
+          fs.writeFileSync('scripts/.editor-m04-release-runtime.mjs',body);
           console.log('EDITOR_M04_REUSE_EXACT_VERSION_GATE');
           NODE
       - name: Full Cloudflare preflight with official version, bindings, and security
-        run: node scripts/.editor-m02-m03-release-runtime.mjs preflight
+        run: node scripts/.editor-m04-release-runtime.mjs preflight
       - name: Keep existing D1 and both R2 bindings; do not edit DNS
         shell: bash
         run: |
@@ -114,22 +115,22 @@ jobs:
       - name: Verify immutable candidate bindings and that the old version remains live
         env:
           CLEANUP06_NEW_VERSION_ID: ${{ steps.upload.outputs.version_id }}
-        run: node scripts/.editor-m02-m03-release-runtime.mjs validate
+        run: node scripts/.editor-m04-release-runtime.mjs validate
       - name: Activate the owner-approved change with exact-version rollback armed
         id: promote
         env:
           CLEANUP06_OWNER_APPROVED: 'yes'
           CLEANUP06_NEW_VERSION_ID: ${{ steps.upload.outputs.version_id }}
-        run: node scripts/.editor-m02-m03-release-runtime.mjs promote
+        run: node scripts/.editor-m04-release-runtime.mjs promote
       - name: Confirm official website and admin entry remain healthy
         env:
           CLEANUP06_NEW_VERSION_ID: ${{ steps.upload.outputs.version_id }}
-        run: node scripts/.editor-m02-m03-release-runtime.mjs postcheck
+        run: node scripts/.editor-m04-release-runtime.mjs postcheck
       - name: Restore exact prior version if any post-activation check fails
         if: ${{ always() && steps.promote.outputs.attempted == 'yes' && failure() }}
         env:
           CLEANUP06_NEW_VERSION_ID: ${{ steps.upload.outputs.version_id }}
-        run: node scripts/.editor-m02-m03-release-runtime.mjs rollback
+        run: node scripts/.editor-m04-release-runtime.mjs rollback
       - name: Final report
         run: echo EDITOR_M04_PUBLISHED_SUCCESS_CLEAN_EDITOR_DISPLAY_NO_NEW_TOOLS
 # Owner-approved M04 only; reuse exact-version rollback and existing save confirmation.
