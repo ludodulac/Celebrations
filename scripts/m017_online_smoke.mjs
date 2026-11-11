@@ -22,7 +22,7 @@ try {
  const first=await page.goto(origin+'/admin',{waitUntil:'domcontentloaded',timeout:30000});
  assert.equal(first.status(),200);
  assert.ok(await page.locator('input[name="code"]').count(),'Normal browser must show PIN login');
- const unauth=await page.evaluate(()=>fetch('/api/editor-open-draft?celebration=90000001').then(r=>r.status));
+ const unauth=(await fetch(origin+'/api/editor-open-draft?celebration=90000001',{signal:AbortSignal.timeout(25000)})).status;
  assert.equal(unauth,401);
  const memberDenied=await fetch(origin+'/api/admin/member-directory?action=snapshot',{signal:AbortSignal.timeout(25000)});
  assert.equal(memberDenied.status,401);
