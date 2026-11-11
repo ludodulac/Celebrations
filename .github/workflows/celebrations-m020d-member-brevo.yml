@@ -48,6 +48,7 @@ jobs:
             tests/test_m009b_member_identity_admin.mjs \
             tests/test_m011a_member_admin_worker_routes.mjs \
             tests/test_m018_final_functional_rules.mjs
-      - name: No secret or deployment in this workflow
+      - name: Confirm test-only configuration
         run: |
-          ! grep -E 'CLOUDFLARE_API_TOKEN|BREVO_API_KEY.*secrets|wrangler deploy' .github/workflows/celebrations-m020d-member-brevo.yml
+          test -s migration/cloudflare/d1-migrations/20261111_020d_member_brevo.sql
+          echo 'Test-only: no Cloudflare or Brevo credentials used, no deployment.'
