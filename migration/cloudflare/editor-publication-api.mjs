@@ -352,8 +352,16 @@ export async function handleEditorPublication(request,env){
    const saved=state.drafts[body.celebration];
    if(saved&&!pub.drafts[body.celebration])
     pub.drafts[body.celebration]={...copy(legacyRecord(saved)),pages:[]};
-   const plan=state.plans.find(x=>x.id===body.celebration);
-   if(plan&&!pub.plans.some(x=>x.id===plan.id))pub.plans.push(copy(plan));
+  }
+  // Explicit release must update the plan itself, not only the visibility index.
+  // Otherwise the public projection correctly rejects the stale draft plan.
+  const plan=state.plans.find(x=>x.id===body.celebration);
+  if(plan){
+   plan.visibility=body.visibility;
+   const ix=pub.plans.findIndex(x=>x.id===plan.id);
+   if(body.visibility==='published'){
+    if(ix<0)pub.plans.push(copy(plan));else pub.plans[ix]=copy(plan);
+   }else if(ix>=0)pub.plans.splice(ix,1);
   }
  }else if(body.kind==='translation'||body.kind==='language-registry'){
   try{publishLanguageCommand(state,pub,body)}
