@@ -130,7 +130,8 @@ try{
  await db.prepare('INSERT INTO celebrations_directory_private_space_enrollments(person_id,celebration_id,space_id) VALUES(?,?,?)').bind(personId,41,sid).run();
  // RECETTE B — existing visitor, historical participant auth, real private APIs.
  const {context:memberContext,page:member}=await localBrowser(390);
- await member.goto(ORIGIN+'/__editor/voir-le-site?celebration=41&page=member-area');
+ const memberResponse=await member.goto(ORIGIN+'/__editor/voir-le-site?celebration=41&page=member-area');
+ console.log('M015_DIAGNOSTIC_MEMBER_SITE',JSON.stringify({http:memberResponse?.status(),view:await member.evaluate(()=>({enabled:window.__MEMBER_SITE_ENABLED__,title:document.title,body:document.body.innerText.slice(0,500)})),errors}));
  await member.getByLabel('Adresse e-mail membre').fill('participant@example.test');
  await member.getByLabel('Mot de passe membre').fill(password);
  await member.getByRole('button',{name:'Se connecter',exact:true}).click();
