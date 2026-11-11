@@ -1,0 +1,32 @@
+name: "Célébrations M018-B — langues et visiteurs (sans déploiement)"
+on:
+  push:
+    branches: [feat/m018b-languages-visitors-20261111]
+  pull_request:
+    branches: [feat/celebrations-m018-official-release-prep-20261111]
+permissions:
+  contents: read
+jobs:
+  visitor-and-language-regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check visitor modules and existing M016 Chromium journey syntax
+        run: |
+          node --check migration/cloudflare/app/domain/member-visitor-navigation.mjs
+          node --check migration/cloudflare/editor-trial-site-client.mjs
+          node --check scripts/m018_existing_preprod_online.mjs
+      - name: Offline language / Gabriel two categories / visitor navigation tests
+        run: |
+          node --test tests/test_m018b_visitor_language_navigation.mjs \
+            tests/test_m018_final_functional_rules.mjs \
+            tests/test_m006_language_selector.mjs \
+            tests/test_m006_public_language_navigation.mjs
+      - name: Declare no access to live data or official deployment
+        run: echo M018B_VISITOR_OFFLINE_PASS official_unchanged=true external_writes=0

@@ -187,7 +187,14 @@ try{
  await form.locator('input[type=email]').fill('m018-cat1@example.test');
  await form.locator('input[type=password]').fill(fakePassword);
  await form.locator('button[type=submit]').click();
- await visitor.waitForFunction(()=>document.body?.innerText.includes('English m018-cat1'),{timeout:30000});
+ // M018-B: the previous 30-second Chromium wait timed out because the public
+ // Michaël celebration ID was incorrectly used to filter authorized Gabriel pages.
+ const groups=visitor.locator('.member-celebration-group');
+ await groups.getByRole('button',{name:'Catégorie 1 — fictive · English m018-cat1'}).waitFor({timeout:15000});
+ assert.equal(await groups.count(),1,'One Gabriel menu group, not six celebrations');
+ assert.match(await groups.first().getByRole('heading').innerText(),/Gabriel/);
+ assert.equal(await groups.getByRole('button',{name:/m018-cat2/}).count(),0,
+  'The other category must not appear in the participant menu');
  assert.ok((await visitor.locator('body').innerText()).includes('Mes espaces autorisés'));
  assert.deepEqual(browserErrors,[],'Visitor browser script errors');
  await visitor.close();await visitCtx.close();
