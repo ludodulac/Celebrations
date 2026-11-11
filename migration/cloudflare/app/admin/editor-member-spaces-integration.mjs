@@ -439,18 +439,18 @@ export function mountExistingEditorMemberSpaces(root,{
     const create=node('form');create.className='card member-spaces-create';
     create.append(node('h3','Préparer un espace pour cette célébration'));
     const name=field('text','Nom de l’espace',120);name.required=true;
-    const visibility=node('select');
-    for(const [value,text] of [['PRIVATE','Privé — par inscription'],['PUBLIC','Public']]){
-      const option=node('option',text);option.value=value;visibility.append(option);
-    }
+    const access=accessOptions({policy:{mode:ACCESS_MODES.PUBLIC},visibility:SPACE_VISIBILITIES.PRIVATE});
+    access.value='REGISTERED';
     const add=button('Créer dans le brouillon');add.type='submit';if(canonical)add.disabled=!ready();
-    create.append(label('Nom',name),label('Visibilité',visibility),add);
+    create.append(label('Nom',name),label('Public / Privé et catégorie',access),add);
     create.addEventListener('submit',event=>{
       event.preventDefault();if(canonical&&!ready())return;
-      try {
-        workspace.addSpace(celebrationId,{name:name.value,visibility:visibility.value});
-        renderSpaces('Espace préparé : non enregistré, non publié.');
-      }catch(e){renderSpaces('Création refusée : '+e.message);}
+      try{
+        const chosen=accessPolicyFromChoice(access.value);
+        workspace.addSpace(celebrationId,{name:name.value,visibility:chosen.visibility,
+          mode:chosen.mode,typeIds:chosen.typeIds,accessScope:'CELEBRATION'});
+        renderSpaces('Version préparée pour cette célébration : pas une deuxième célébration.');
+      }catch(e){renderSpaces('Création refusée : '+e.message)}
     });
     spaces.append(create);
   }
