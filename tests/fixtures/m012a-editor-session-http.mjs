@@ -8,13 +8,14 @@ export const DIRECTORY='/api/admin/member-directory?action=snapshot';
 export const PARTICIPANT='a'.repeat(64);
 export const SALT='0123456789abcdef'.repeat(4);
 const PASSWORD='synthetic-only M012-A password';
+export const CHALLENGE_SECRET='9'.repeat(64);
 export const SECRET=pbkdf2Sync(PASSWORD,SALT,180000,32,'sha256').toString('hex');
 export const hash=v=>createHash('sha256').update(v).digest('hex');
 const sign=(key,msg)=>createHmac('sha256',key).update(msg).digest('hex');
 export const flags={
  MEMBER_DIRECTORY_API_ENABLED:'true',MEMBER_DIRECTORY_API_HOST:HOST,
  EDITOR_D1_SESSION_API_ENABLED:'true',
- ADMIN_PASSWORD_HASH:SECRET,ADMIN_PASSWORD_SALT:SALT
+ ADMIN_PASSWORD_HASH:SECRET,ADMIN_PASSWORD_SALT:SALT,EDITOR_D1_CHALLENGE_SECRET:CHALLENGE_SECRET
 };
 export const schemaFiles=[
  'celebrations-schema.sql',
@@ -52,7 +53,7 @@ export const signedEditorCookie=()=>{
 };
 export function expiredChallenge(){
  const payload=(Date.now()-180000)+'.'+'c'.repeat(64);
- return payload+'.'+sign(SECRET,'celebrations-admin-challenge-v1:'+ORIGIN+':'+payload);
+ return payload+'.'+sign(CHALLENGE_SECRET,'celebrations-admin-challenge-v1:'+ORIGIN+':'+payload);
 }
 export async function seedParticipant(db){
  await db.prepare('INSERT INTO celebrations_participants(email,password_hash,audience) VALUES(?,?,?)')
@@ -73,6 +74,9 @@ export async function challenge(fetch){
  assert.equal(r.status,200);assert.equal(r.json.ok,true);
  assert.equal(r.json.iterations,180000);assert.equal(r.json.expires_in,120);
  assert.equal(r.json.salt,SALT);assert.notEqual(r.json.challenge,SECRET);
+ const payload=r.json.challenge.split('.').slice(0,2).join('.');
+ assert.equal(r.json.challenge.split('.')[2],sign(CHALLENGE_SECRET,'celebrations-admin-challenge-v1:'+ORIGIN+':'+payload));
+ assert.notEqual(r.json.challenge.split('.')[2],sign(SECRET,'celebrations-admin-challenge-v1:'+ORIGIN+':'+payload));
  return r.json;
 }
 export async function login(fetch,old){

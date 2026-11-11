@@ -327,7 +327,10 @@ export async function handleEditorAdminSession(request,env){
   }
   if(b.action!=="challenge"&&b.action!=="login")return editorDenied(400,"Opération inconnue");
   const secret=env.ADMIN_PASSWORD_HASH,salt=env.ADMIN_PASSWORD_SALT;
-  if(!hex64(secret)||typeof salt!=="string"||!salt||salt.length>256)
+  // Independent server-only challenge signer: never publish a known-message
+  // HMAC under the password-derived verifier (offline guessing oracle).
+  const challengeSecret=env.EDITOR_D1_CHALLENGE_SECRET;
+  if(!hex64(secret)||!hex64(challengeSecret)||equal(challengeSecret,secret)||typeof salt!=="string"||!salt||salt.length>256)
    return editorDenied(503,"Service indisponible");
   if(await blocked(env.DB,"admin"))return editorDenied(429,"Réessayez plus tard");
   if(b.action==="challenge"){
@@ -339,7 +342,7 @@ export async function handleEditorAdminSession(request,env){
   // A participant, legacy token, or fabricated Authorization is never enough.
   if(request.headers.has("authorization")&&(!raw||!await authorize(request,env,true)))
    return editorDenied(401,"Session administrateur requise");
-  const challengeExpiry=await checkEditorChallenge(origin,secret,b.challenge);
+  const challengeExpiry=await checkEditorChallenge(origin,challengeSecret,b.challenge);
   if(!challengeExpiry||!hex64(b.response)||
       !equal(b.response,await editorHmac(secret,responseMessage(origin,b.challenge)))){
    await failure(env.DB,"admin");

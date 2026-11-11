@@ -76,6 +76,8 @@ for(const [name,worker] of [['production',production],['staging',staging]]){
    assert.equal((await f.fetch(request(),{DB:undefined})).status,503);
    assert.equal((await f.fetch(request(),{ADMIN_PASSWORD_HASH:undefined})).status,503);
    assert.equal((await f.fetch(request(),{ADMIN_PASSWORD_SALT:undefined})).status,503);
+   assert.equal((await f.fetch(request(),{EDITOR_D1_CHALLENGE_SECRET:undefined})).status,503);
+   assert.equal((await f.fetch(request(),{EDITOR_D1_CHALLENGE_SECRET:SECRET})).status,503);
   }finally{f.close()}
  });
  test(name+' M012-A existing D1 auth login still uses same session table and M011-A accepts it',async()=>{

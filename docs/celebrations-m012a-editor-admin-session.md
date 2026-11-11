@@ -14,6 +14,11 @@ Pas de liaison automatique par email ni de changement de droits.
 - Pour test isolé seulement, les trois variables doivent être explicitement définies :
   MEMBER_DIRECTORY_API_ENABLED=true, MEMBER_DIRECTORY_API_HOST=<hôte isolé exact>,
   EDITOR_D1_SESSION_API_ENABLED=true.
+- Secret serveur obligatoire EDITOR_D1_CHALLENGE_SECRET : 32 octets aléatoires
+  indépendants (64 hex minuscules), conservés dans les secrets Worker, jamais
+  envoyés au client. Ne pas réutiliser ADMIN_PASSWORD_HASH. Le défi est signé
+  avec cette clé distincte pour ne pas publier un vérificateur du mot de passe.
+  Aucun secret réel configuré dans cette mission.
 - Les deux hôtes officiels, les candidats read-only et l'ancien staging restent
   exclus, même avec tous les drapeaux. Le staging Worker permet de servir le
   véritable HTML /__editor/demo-preparation sur un hôte isolé; le production
@@ -26,7 +31,7 @@ Pas de liaison automatique par email ni de changement de droits.
 
 1. POST {action:"challenge"} sans Authorization. Réponse 200 :
    {ok:true,salt,challenge,iterations:180000,expires_in:120}. Défi aléatoire,
-   signé, valable 120 s, lié à l'origine HTTPS, sans écriture D1 à l'émission.
+   signé par le secret serveur indépendant, valable 120 s, lié à l'origine HTTPS, sans écriture D1 à l'émission.
 2. Dans la mémoire de l'interface, dériver **le même** PBKDF2-SHA256 que
    auth-api.mjs : password UTF-8, salt UTF-8 (ne pas décoder le sel hex),
    180000 itérations, 256 bits, puis hexadécimal minuscule. Le résultat est
