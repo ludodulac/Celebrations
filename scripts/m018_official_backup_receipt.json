@@ -1,0 +1,25 @@
+{
+  "title": "Célébrations M016 — archive chiffrée de production vérifiée hors Cloudflare",
+  "source_sha256": "c76ebed0ae87a88e6eba520757ff502194f8e3e3afbbcdb71cb1b858c09a508e",
+  "encrypted_outer_zip_bytes": 841491475,
+  "pieces": 9,
+  "pieces_bytes": [
+    98566144,
+    98566144,
+    98566144,
+    98566144,
+    98566144,
+    98566144,
+    98566144,
+    98566144,
+    52962323
+  ],
+  "recovery_verification": "Original encrypted archive ZIP reconstructed from nine pieces; every piece SHA-256 and reconstructed original SHA-256 matched the manifest.",
+  "private_offcloud_copy": true,
+  "private_folder_access": "Only owner's Google Drive account; unshared, verified via Drive metadata.",
+  "file_count_in_private_folder": 10,
+  "source_backup_verified_offline_restore": true,
+  "source_backup_artifact_id": "13843552502",
+  "exported_on": "2026-11-11",
+  "warning": "Cryptographic passphrase must be retained separately. No passwords or private Drive IDs are committed in this public repository."
+}
