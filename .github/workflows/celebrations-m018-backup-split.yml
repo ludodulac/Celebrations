@@ -1,0 +1,82 @@
+name: "Célébrations M018 — sauvegarde chiffrée M016 hors Cloudflare"
+on:
+  push:
+    branches: [feat/celebrations-m018-official-release-prep-20261111]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  split-existing-encrypted-artifact:
+    if: ${{ contains(github.event.head_commit.message, '[M018_BACKUP_SPLIT]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ORIGINAL_ARTIFACT_ID: '13843552502'
+    steps:
+      - name: Download only existing GitHub encrypted archive, no production services
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/celebrations-m018
+          info="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${ORIGINAL_ARTIFACT_ID}" --jq '[.id,.name,.expired,.size_in_bytes,.expires_at] | @tsv')"
+          IFS=$'\t' read -r id name expired expected expires <<< "$info"
+          test "$id" = '13843552502'
+          test "$name" = 'celebrations-m016-crypted-live-full-20261111'
+          test "$expired" = 'false'
+          test "$expected" -gt 10000000
+          test "$expected" -lt 2000000000
+          curl --fail --location --silent --show-error --retry 3 \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${id}/zip" \
+            -o /tmp/celebrations-m018/m016-source.zip
+          test "$(stat -c%s /tmp/celebrations-m018/m016-source.zip)" = "$expected"
+          unzip -tq /tmp/celebrations-m018/m016-source.zip >/dev/null
+          sha256sum /tmp/celebrations-m018/m016-source.zip > /tmp/celebrations-m018/source.sha256
+          split --bytes=220M --numeric-suffixes=0 --suffix-length=2 \
+            --additional-suffix=.part \
+            /tmp/celebrations-m018/m016-source.zip /tmp/celebrations-m018/backup-m016.zip.
+          for n in 00 01 02 03; do test -s "/tmp/celebrations-m018/backup-m016.zip.$n.part"; done
+          sha256sum /tmp/celebrations-m018/backup-m016.zip.*.part > /tmp/celebrations-m018/parts.sha256
+          cat /tmp/celebrations-m018/backup-m016.zip.*.part | sha256sum | \
+            cut -d' ' -f1 > /tmp/celebrations-m018/reconstructed.sha256
+          test "$(cut -d' ' -f1 /tmp/celebrations-m018/source.sha256)" = "$(cat /tmp/celebrations-m018/reconstructed.sha256)"
+          echo "M018_M016_ENCRYPTED_ARCHIVE_VERIFIED sha256=$(cut -d' ' -f1 /tmp/celebrations-m018/source.sha256) size=$expected parts=4 expires_original=$expires"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: celebrations-m016-archive-part-00
+          path: /tmp/celebrations-m018/backup-m016.zip.00.part
+          retention-days: 90
+          compression-level: 0
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: celebrations-m016-archive-part-01
+          path: /tmp/celebrations-m018/backup-m016.zip.01.part
+          retention-days: 90
+          compression-level: 0
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: celebrations-m016-archive-part-02
+          path: /tmp/celebrations-m018/backup-m016.zip.02.part
+          retention-days: 90
+          compression-level: 0
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: celebrations-m016-archive-part-03
+          path: /tmp/celebrations-m018/backup-m016.zip.03.part
+          retention-days: 90
+          compression-level: 0
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: celebrations-m016-archive-sha256-manifest
+          path: |
+            /tmp/celebrations-m018/source.sha256
+            /tmp/celebrations-m018/parts.sha256
+            /tmp/celebrations-m018/reconstructed.sha256
+          retention-days: 90
+          if-no-files-found: error
