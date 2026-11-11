@@ -227,7 +227,10 @@ export async function loadSevenStageContent(env,selectedId,{publicOnly=false,pub
   const visibility=pub?.celebrationVisibility||{};
   const publicCelebration=c=>{
    const status=String(c.status||'').toLowerCase();
-   return !['draft','hidden','private','restricted'].includes(status)&&
+   // One canonical celebration may have private category+language variants.
+   const access=pub?.celebrationAccessPolicies?.[String(c.id)];
+   return (!access||access.mode==='PUBLIC') &&
+    !['draft','hidden','private','restricted'].includes(status)&&
     !['draft','hidden','private','restricted'].includes(String(visibility[c.id]||'').toLowerCase());
   };
   const celebrations=publicOnly?allCelebrations.filter(publicCelebration)
