@@ -71,6 +71,14 @@ export async function handleAuth(request,env){
  let b;try{b=await request.json()}catch{return result({ok:false,error:"Invalid JSON"},400)}
  if(!b||typeof b!=="object")return result({ok:false,error:"Invalid request"},400);
  const action=String(b.action||"");
+ // M021-A: no synthetic test identity may ever authenticate on the official domain.
+ // Defense in depth, even if an isolated D1 backup were mistakenly re-bound.
+ const hostname=new URL(request.url).hostname;
+ if(['ronde-des-archanges-universelle.eu',
+      'www.ronde-des-archanges-universelle.eu'].includes(hostname) &&
+    action.startsWith('participant_') &&
+    /^m021-[0-9a-f]{32}@test[.]invalid$/.test(email(b.email)))
+   return result({ok:false,error:'Compte indisponible'},403);
  try{
   // Cloudflare Workers Free caps PBKDF2 at 100k per invocation. Supabase
   // historical hashes require 180k; the browser computes this unchanged.
