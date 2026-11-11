@@ -23,11 +23,11 @@ try{
  const db=await mf.getD1Database('DB'),bucket=await mf.getR2Bucket('EDITOR_BUCKET');
  for(const file of [...schemaFiles,'d1-migrations/20261111_012c_private_release_fences.sql']){
   let statement='';
-  for(const line of schema(file).split('\\n')){
+  for(const line of schema(file).split('\n')){
    if(!line.trim()||line.trimStart().startsWith('--'))continue;
-   statement+=(statement?'\\n':'')+line;
+   statement+=(statement?'\n':'')+line;
    if(!line.trimEnd().endsWith(';'))continue;
-   if(/^CREATE TRIGGER/i.test(statement)&&!/\\bEND;\\s*$/i.test(statement))continue;
+   if(/^CREATE TRIGGER/i.test(statement)&&!/\bEND;\s*$/i.test(statement))continue;
    await db.prepare(statement).run();statement='';
   }
   assert.equal(statement,'','unfinished schema: '+file);
