@@ -42,3 +42,4 @@ M019_OWNER_PIN_ENABLED = "true"
 # M021-A: disposable members only; exact-host server guard ALSO required.
 M021_DEMO_MEMBERS_ENABLED = "true"
 M021_DEMO_D1_ISOLATED = "true"
+M021_PREPROD_ACCESS_GATE_ENABLED = "true"
