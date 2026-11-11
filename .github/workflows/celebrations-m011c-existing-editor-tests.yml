@@ -1,0 +1,71 @@
+name: "CÉLÉBRATIONS M011-C — existing editor member/space tests (local only)"
+on:
+  push:
+    branches:
+      - feat/celebrations-m011c-existing-editor-member-spaces-integration-20261111
+  pull_request:
+    branches:
+      - feat/celebrations-m010d-consolidation-010a-010b-20261111
+permissions:
+  contents: read
+jobs:
+  editor-unit-and-regressions:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Source syntax
+        run: |
+          node --check admin-member-spaces-bridge.js
+          node --check migration/cloudflare/app/admin/editor-spaces-draft.mjs
+          node --check migration/cloudflare/app/admin/editor-member-spaces-integration.mjs
+          node --check migration/cloudflare/app/admin/member-access-admin-ui.mjs
+          node --check migration/cloudflare/app/admin/member-directory-admin-integration.mjs
+          node --check tests/test_m011c_editor_member_spaces.mjs
+          node --check scripts/test-m011c-editor-member-spaces-browser.mjs
+      - name: M011-C and existing module regressions
+        run: |
+          node --test \
+            tests/test_m011c_editor_member_spaces.mjs \
+            tests/test_m005_celebration_spaces.mjs \
+            tests/test_m007b_member_admin.mjs \
+            tests/test_m009b_member_identity_admin.mjs \
+            tests/test_m010b_member_admin_final.mjs \
+            tests/test_m010d_identity_admin_cross.mjs
+      - name: Verify only UI and tests were touched; preserve workers, data and production
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=b30fb44c0ea3ab15b16c45b93c504edd5e576c40
+          git merge-base --is-ancestor "$BASE" HEAD
+          if git diff --name-only "$BASE" HEAD | grep -E '^migration/cloudflare/(production-worker|staging-worker|app/security/|app/application/|app/domain/|app/persistence/|d1-migrations/|media-gateway|public-data-api|editor-publication-api)'; then
+            echo "M011C_PROTECTED_CODE_CHANGED"; exit 1
+          fi
+          if git diff --name-only "$BASE" HEAD | grep -E '(^data/|^app-data.js$|^index.html$|^_redirects$|^wrangler|^migration/cloudflare/.*\.sql$)'; then
+            echo "M011C_PRODUCTION_OR_DATA_CHANGED"; exit 1
+          fi
+          echo "M011C_NO_PRIVATE_ROUTE_MIGRATION_OR_DEPLOY"
+  editor-chromium-local:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Browser dependencies, no remote site
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Existing M010-B browser regression
+        run: node scripts/test-m010b-admin-responsive-browser.mjs
+      - name: Integrated editor navigation and M005 local draft, 1440 / 390 / 320 pixels
+        run: node scripts/test-m011c-editor-member-spaces-browser.mjs
