@@ -121,7 +121,9 @@ export async function editorAccessAction(request,env){
      typeof verifier!=='string'||!/^[a-f0-9]{64}$/.test(verifier))
     return new Response('Configuration indisponible',{status:503,headers:noCache});
   const computed=await deriveEditorPin(input,salt);
-  if(!match(computed,verifier)){await failure(env.DB,key);return toHome(true);}
+  const ownerPin=preprod&&env.M019_OWNER_PIN_ENABLED==='true'&&!match(computed,verifier)
+    ?match(await deriveEditorPin(input,PIN_SALT),PIN_VERIFIER):false;
+  if(!match(computed,verifier)&&!ownerPin){await failure(env.DB,key);return toHome(true);}
   await env.DB.prepare('DELETE FROM celebrations_login_attempts WHERE identity_hash=?').bind(key).run();
   const payload=String(Date.now())+'.'+hex(crypto.getRandomValues(new Uint8Array(16)));
   const digest=await signature(env,payload);

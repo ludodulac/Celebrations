@@ -2419,7 +2419,7 @@ function attachPagePublicationControls(list,group){
   let menu=opts.querySelector('.page-options-menu');
   if(!menu){menu=n('div','page-options-menu');opts.append(menu)}
   menu.append(publicationActions('page',p));
-menu.append(b('Dupliquer la page',()=>m018DuplicatePage(p),'sm'));
+
    menu.append(b('Public / Privé',()=>editAccess('page',p),'sm'));
   if(group==='celebration'&&/^extra-[0-9a-f-]{30,45}-/.test(p.id)&&
     p.id.endsWith('-'+String(window.__PREPARATION_SEED__?.celebrationId))){
@@ -2524,6 +2524,7 @@ function pageWorkspace(group,mount=w){
 
 
  head.append(info);right.append(head);
+ if(IS_STAGE&&!privateEdit&&!preview)right.append(b('Dupliquer en brouillon',()=>m018DuplicatePage(canonicalPage()),'sm'));
  if(IS_STAGE&&!privateEdit&&!preview&&['page','celebration'].includes(p.group)){
   const row=n('div','editor-language-row'),label=n('label','editor-language-choice','Langue');
   const picker=n('select');picker.setAttribute('aria-label','Langue');
@@ -3304,6 +3305,7 @@ function privatePageWorkspace(){
 }
 function render(){
  const inMembers=['members-spaces','participants','languages-categories'].includes(tab);
+ document.querySelector('.stage-editor')?.classList.toggle('is-catalogue',inMembers);
  const result=renderEditorFrame({IS_STAGE,document,STAGE_SEED,page,pageSlug,stateOfPage,editorDragState,editorDragFinish,undoAnchor,resetUndoHistory,ensureUndoButton,applyPalette,w,tab,preview,el,pages,footerPages,celebrations:privateEdit?privatePageWorkspace:celebrations,media,userGuide,settings,memberSpaces});
  for(const key of ['save-btn','preview-btn','undo-btn','status']){
   const control=el(key);if(control)control.hidden=inMembers||!!privateEdit&&key==='save-btn';

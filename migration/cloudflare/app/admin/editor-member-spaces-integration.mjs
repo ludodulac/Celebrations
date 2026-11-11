@@ -18,7 +18,7 @@ export function mountExistingEditorMemberSpaces(root,{
     return el;
   };
   const button=(text)=>{const el=node('button',text);el.type='button';el.className='btn';return el;};
-  const label=(text,control)=>{const el=node('label');el.className='field';
+  const label=(text,control)=>{control.setAttribute('aria-label',text);const el=node('label');el.className='field';
     el.append(node('span',text),control);return el;};
   const field=(type,placeholder='',maxLength=120)=>{
     const el=node('input');el.type=type;el.placeholder=placeholder;el.maxLength=maxLength;return el;};
@@ -293,6 +293,14 @@ export function mountExistingEditorMemberSpaces(root,{
     const fields=[{name:'title',label:'Titre de la page',value:source?.name||pageTitle,required:true,maxLength:160},
       {name:'category',label:'Catégorie',value:categoryId,options:[['','Tous les inscrits'],...activeTypes().map(t=>[t.id,t.name])]},
       {name:'language',label:'Langue',options:languages.map(l=>[l.id,l.name]),value:sourceLanguage}];
+    if(source){
+      const options=[];
+      for(const s of workspace.spaces(celebrationId))for(const p of s.pages){
+        options.push([p.id+'|fr',s.name+' — '+p.name+' — Français']);
+        for(const [id,version]of Object.entries(p.translations||{}))options.push([p.id+'|'+id,s.name+' — '+version.name+' — '+(languages.find(l=>l.id===id)?.name||id)]);
+      }
+      fields.unshift({name:'source',label:'Version à copier',value:source.id+'|'+sourceLanguage,options});
+    }
     const answer=await adminDialog(doc,{title:source?'Dupliquer en brouillon':'Ajouter une version',fields,confirm:'Créer le brouillon'});
     if(!answer)return;
     try{
@@ -307,7 +315,8 @@ export function mountExistingEditorMemberSpaces(root,{
       }
       // Copies contain content only. Category is the administrator's explicit
       // target selection; people, enrollment and release ledgers are untouched.
-      const content=sourceLanguage==='fr'?source:source?.translations?.[sourceLanguage];
+      let content;
+      if(answer.source){const [pid,lang]=answer.source.split('|');const page=workspace.spaces(celebrationId).flatMap(s=>s.pages).find(p=>p.id===pid);content=lang==='fr'?page:page?.translations?.[lang];}
       const next=workspace.spaces(celebrationId);
       const targetSpace=next.find(s=>s.id===target.id);
       let page=targetSpace.pages.find(p=>p.name===answer.title);
@@ -336,6 +345,8 @@ export function mountExistingEditorMemberSpaces(root,{
       return;
     }
     const add=button('＋ Ajouter une version');add.disabled=!ready();add.onclick=()=>void createVersion();spaces.append(add);
+    const source=workspace.spaces(celebrationId).flatMap(s=>s.pages)[0];
+    if(source){const duplicate=button('Dupliquer en brouillon');duplicate.disabled=!ready();duplicate.onclick=()=>void createVersion(source);spaces.append(duplicate);}
     if(!snapshot.privateReleaseReady&&snapshot.pageReleases.length){
       spaces.append(node('p','La publication doit encore être confirmée avant de donner accès aux membres.'));
       const retry=button('Terminer la publication');retry.onclick=()=>void mutate('reconcile');spaces.append(retry);
@@ -351,7 +362,7 @@ export function mountExistingEditorMemberSpaces(root,{
           const name=lang.id==='fr'?page.name:page.translations[lang.id].name;
           const open=button(name+' — '+lang.name+' · '+(released?'Publiée':'Brouillon'));
           open.onclick=()=>openCanonicalPage(space.id,page.id,lang.id);open.disabled=!ready();row.append(open);
-          const copy=button('Dupliquer en brouillon');copy.onclick=()=>void createVersion(page,lang.id);copy.disabled=!ready();row.append(copy);
+
           const release=button(released?'Dépublier':'Publier');release.disabled=!ready();
           release.onclick=async()=>{
             if(!await adminDialog(doc,{title:released?'Dépublier la page':'Publier la page',message:released?'Retirer cette page et ses versions du site ?':'Publier les versions rédigées de cette page ?',confirm:released?'Dépublier':'Publier'}))return;

@@ -278,7 +278,7 @@ try{
  await admin.locator('[data-tab="celebrations"]').click();
  await admin.getByRole('button',{name:'Versions par catégorie',exact:true}).click();
  await admin.getByRole('button',{name:'＋ Ajouter une version',exact:true}).waitFor();
- await admin.locator('.member-spaces-version').first().getByRole('button',{name:'Dupliquer en brouillon',exact:true}).click();
+ await admin.locator('#member-spaces-workspace').getByRole('button',{name:'Dupliquer en brouillon',exact:true}).click();
  await modal.getByLabel('Titre de la page',{exact:true}).fill('Copie M019 retrouvable');
  await modal.getByLabel('Catégorie',{exact:true}).selectOption({label:category});
  await modal.getByLabel('Langue',{exact:true}).selectOption('en');

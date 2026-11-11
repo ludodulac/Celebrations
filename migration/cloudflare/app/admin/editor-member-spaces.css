@@ -59,3 +59,7 @@
 .admin-dialog input[type=radio],.admin-dialog input[type=checkbox]{width:auto;min-height:24px;flex:0 0 auto}
 .member-spaces-version{display:flex;flex-wrap:wrap;gap:.4rem;border-top:1px solid #eee;padding:.6rem 0}
 .member-spaces-version>button:first-child{flex:1 1 100%;text-align:left}
+
+.m019-categories .card{flex-direction:row;justify-content:flex-start;padding:.7rem}
+.m019-categories .card strong{flex:1 1 100%;text-align:left}
+.stage-editor.is-catalogue .topbar{display:none}

@@ -4,7 +4,7 @@ export function mountMemberDirectoryAdmin(root,{transport,styleNonce,celebration
  const doc=root.ownerDocument;
  const n=(tag,text)=>{const e=doc.createElement(tag);if(text!==undefined)e.textContent=text;return e};
  const b=(text,action)=>{const e=n('button',text);e.type='button';e.className='btn';e.onclick=action;return e};
- const label=(text,input)=>{const e=n('label');e.className='field';e.append(n('span',text),input);return e};
+ const label=(text,input)=>{input.setAttribute('aria-label',text);const e=n('label');e.className='field';e.append(n('span',text),input);return e};
  const input=(type='text',value='')=>{const e=n('input');e.type=type;e.value=value;e.maxLength=120;return e};
  const select=(items,value='')=>{const e=n('select');for(const [id,name]of items){const o=n('option',name);o.value=id;e.append(o)}e.value=value;return e};
  const names=celebrations.filter(c=>/^\d+$/.test(String(c.id))).map(c=>[String(c.id),c.title||[c.archangel,c.year].filter(Boolean).join(' ')]);
@@ -37,6 +37,7 @@ export function mountMemberDirectoryAdmin(root,{transport,styleNonce,celebration
   const save=b('Enregistrer');save.type='submit';
   form.append(label('Prénom',given),label('Nom',family),label('E-mail',email),label('Catégorie',category),label('Célébration',celebration),save);
   form.onsubmit=event=>{event.preventDefault();if(!form.reportValidity())return;
+   if(!given.value.trim()||!family.value.trim()){status.textContent='Renseignez le prénom et le nom.';return;}
    void run(async()=>{
     const result=await call({method:'POST',action:'create_person',givenName:given.value.trim(),familyName:family.value.trim(),email:email.value.trim(),displayName:'',typeIds:category.value?[category.value]:[],celebrationId:celebration.value});
     selected=result.result?.id||'';search='';cursor='';cursors=[];celebrationId=celebration.value;typeId=category.value;
@@ -54,7 +55,7 @@ export function mountMemberDirectoryAdmin(root,{transport,styleNonce,celebration
   filter.append(label('Célébration',chosen),query,find);people.append(filter);
   const list=n('div');list.className='m019-member-list';
   if(!members.length)list.append(n('p','Aucun membre inscrit'),b('Ajouter un membre',()=>given.focus()));
-  for(const member of members){const row=n('div');row.className='card';row.append(n('strong',member.name||member.emailNormalized),n('p',member.emailNormalized),b('Modifier',()=>void editPerson(member.id)));list.append(row)}
+  for(const member of members){const row=n('div');row.className='card';row.append(n('strong',member.name||member.emailNormalized),n('p',member.emailNormalized),b('Modifier',()=>void editPerson(member.id)),b('Inscriptions',()=>void showAssignments(member.id).catch(e=>status.textContent=e.message)));list.append(row)}
   people.append(list);
   if(cursors.length||next){const pager=n('div');const back=b('Précédent',()=>{cursor=cursors.pop()||'';void reload().catch(e=>status.textContent=e.message)});back.disabled=!cursors.length;
    const forward=b('Suivant',()=>{cursors.push(cursor);cursor=next;void reload().catch(e=>status.textContent=e.message)});forward.disabled=!next;pager.append(back,forward);people.append(pager)}
@@ -67,7 +68,8 @@ export function mountMemberDirectoryAdmin(root,{transport,styleNonce,celebration
    const result=await adminDialog(doc,{title:'Modifier le membre',fields:[
     {name:'givenName',label:'Prénom',value:person.givenName,required:true},{name:'familyName',label:'Nom',value:person.familyName,required:true},
     {name:'email',label:'E-mail',type:'email',value:person.emailNormalized,required:true}],confirm:'Enregistrer'});
-   if(result)await run(()=>call({method:'POST',action:'update_person',personId:id,expectedRevision:person.revision,changes:result}),'Fiche enregistrée.');
+   if(!result)return;
+   await run(()=>call({method:'POST',action:'update_person',personId:id,expectedRevision:person.revision,changes:result}),'Fiche enregistrée.');
    // A single expandable sheet keeps advanced multiple assignments out of creation.
    await showAssignments(id);
   }catch(e){status.textContent=e.message}

@@ -19,6 +19,7 @@ export function adminDialog(document,{title='Confirmer',message='',fields=[],con
    const input=document.createElement(f.options?'select':'input');
    if(f.options)for(const [value,name] of f.options){const o=document.createElement('option');o.value=value;o.textContent=name;input.append(o)}
    else input.type=f.type||'text';
+   input.setAttribute('aria-label',f.label||title);
    input.value=f.value??'';input.required=!!f.required;
    if(f.maxLength)input.maxLength=f.maxLength;
    controls[f.name]=input;label.append(caption,input);form.append(label);
