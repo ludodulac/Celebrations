@@ -343,7 +343,7 @@ jobs:
            assert.equal(binds.get(name)?.type,'secret_text','Preserve secret '+name);
           console.log('M018_EXISTING_M016_SECRET_AND_BINDINGS_PRESERVED');
           NODE
-      - name: Chromium + real Cloudflare D1/R2: one Gabriel, 2 categories, 3 languages and access limits
+      - name: "Chromium + real Cloudflare D1/R2 : une célébration, deux catégories, trois langues"
         run: |
           npm install --no-save --no-package-lock playwright@1.58.2
           npx playwright install --with-deps chromium
