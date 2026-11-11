@@ -3,6 +3,7 @@
 // Uses the historical D1-backed admin/participant bearer sessions; the site-editor
 // cookie and browser-supplied roles are NEVER accepted as API authorization.
 import {authorize,handleEditorAdminSession} from '../../auth-api.mjs';
+import {hasEditorAccess} from '../../editor-site-access.mjs';
 import {
   handleMemberDirectoryAdmin,handleMemberIdentityClaim
 } from '../application/member-directory-admin-service.mjs';
@@ -76,7 +77,7 @@ export async function routeMemberAdminWorkerRequest(request,env,{
      typeof env.DB.batch!=='function')
     return denied(503,'Service indisponible');
   try {
-    if(editorSession)return await handleEditorAdminSession(request,env);
+    if(editorSession)return await handleEditorAdminSession(request,env,{hasEditorAccess});
     if(privateEditor)return await handlePrivateEditorCommand(request,env);
     // Check the correct historical session before service invocation; the
     // service checks it AGAIN at the actual read/write boundary.
