@@ -25,10 +25,10 @@ const editorPageCommands=createEditorPageCommands({model:editorPageModel});
 const editorSyncPolicy=createEditorSyncPolicy();
 // M004: page translations are private editor drafts, never public snapshots.
 const LOCALIZATION_KEY='celebrations-demo-localization-v1';
-const emptyLocalization=()=>({registry:createLanguageRegistry(),pages:{}});
+const emptyLocalization=()=>({registry:createPreparedLanguageRegistry(),pages:{}});
 function normalizeLocalization(saved){
  if(!saved)return emptyLocalization();
- const registry=createLanguageRegistry(saved.registry);
+ const registry=createPreparedLanguageRegistry(saved.registry);
  const pages=saved.pages&&typeof saved.pages==='object'&&!Array.isArray(saved.pages)?clone(saved.pages):{};
  return {registry,pages};
 }
@@ -3103,7 +3103,7 @@ function settings(){const box=n('section','settings-actions');box.append(b('Réi
 function m018LanguagesCategories(){
   const panel=n('section','m018-language-panel');
   panel.append(n('h2','','Langues'));
-  panel.append(n('p','','Contenus rédigés par l’administrateur, sans traduction automatique.'));
+  panel.append(n('p','','Les huit langues sont prêtes. Une langue apparaît sur le site dès qu’un contenu publié est accessible. Les textes des pages sont rédigés par l’administrateur.'));
   const form=n('form','m018-language-form');
   const input=n('input');input.type='text';input.required=true;input.maxLength=120;
   input.placeholder='Nom de la langue';input.setAttribute('aria-label','Nom de la nouvelle langue');
@@ -3116,7 +3116,7 @@ function m018LanguagesCategories(){
    const key=name.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
    const code=labels[key]||'und-'+crypto.randomUUID().replaceAll('-','').slice(0,8);
    try{
-    editorLocalization.registry=addLanguage(editorLocalization.registry,{id:code,name,flag:'',active:false});
+    editorLocalization.registry=addLanguage(editorLocalization.registry,{id:code,name,flag:'',active:true});
     mark();save();void serverSave();render();
    }catch(e){siteNotice(e.message||String(e))}
   };
@@ -3132,14 +3132,7 @@ function m018LanguagesCategories(){
      mark();save();void serverSave();render();
     }catch(e){siteNotice(e.message||String(e))}
    },'sm');
-   const active=b(language.active?'Désactiver':'Activer',()=>{
-    try{
-     editorLocalization.registry=setLanguageActive(editorLocalization.registry,language.id,!language.active);
-     mark();save();void serverSave();render();
-    }catch(e){siteNotice(e.message||String(e))}
-   },'sm');
-   if(language.id===editorLocalization.registry.defaultLanguageId)active.disabled=true;
-   row.append(name,rename,active);rows.append(row);
+   row.append(name,rename);rows.append(row);
   }
   panel.append(rows);
   w.append(panel);
