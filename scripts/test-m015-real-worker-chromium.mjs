@@ -5,12 +5,16 @@ import {mkdtemp,rm} from 'node:fs/promises';
 import {createHash,pbkdf2Sync} from 'node:crypto';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
+import {createInterface} from 'node:readline';
 import {Miniflare} from 'miniflare';
 import {build} from 'esbuild';
 import {chromium} from 'playwright';
 import {flags,schemaFiles,schema,ORIGIN,request,login,seedParticipant} from '../tests/fixtures/m012a-editor-session-http.mjs';
 import {EDITOR_SNAPSHOT_KEY} from '../migration/cloudflare/app/ports/editor-snapshot-contract.mjs';
 
+const DEMO=process.argv.includes('--demo');
+// CI-only headed smoke check. The public --demo mode never closes itself.
+const DEMO_SMOKE=DEMO&&process.env.CELEBRATIONS_M015_DEMO_SMOKE==='1';
 const temp=await mkdtemp(join(tmpdir(),'celebrations-m015-'));
 let mf,browser;
 try{
@@ -48,7 +52,7 @@ try{
   ...(req.method==='POST'?{body:req.body,duplex:'half'}:{})});
  const admin=await login(dispatch),api='/api/admin/private-editor';
  const get=()=>dispatch(request(api+'?celebration=41',{method:'GET',token:admin.token}));
- browser=await chromium.launch({headless:true,args:['--host-resolver-rules=MAP * ~NOTFOUND','--disable-background-networking']});
+ browser=await chromium.launch({headless:!DEMO,args:['--host-resolver-rules=MAP * ~NOTFOUND','--disable-background-networking']});
  const errors=[];
  async function localBrowser(width){
   const context=await browser.newContext({viewport:{width,height:900},serviceWorkers:'block'});
@@ -64,6 +68,137 @@ try{
   page.on('dialog',dialog=>dialog.accept());
   return {context,page};
  }
+
+ // The interactive demo uses exactly the same Worker/D1/R2 and visual components
+ // as the automated recipes. Only fixtures and terminal controls differ.
+ async function runDemo(){
+  const memberType='member-type:m015';
+  const claim='claim:550e8400-e29b-41d4-a716-446655440099';
+  await db.prepare('INSERT INTO celebrations_directory_member_types(id,name) VALUES(?,?)')
+   .bind(memberType,'Membre fictif (démo)').run();
+  await db.prepare("INSERT INTO celebrations_directory_identity_claims(claim_id,participant_email,person_id,status,reviewed_at,reviewed_by,verification_method) VALUES(?,?,?,'approved',?,'synthetic-reviewer','in_person')")
+   .bind(claim,'participant@example.test',personId,new Date().toISOString()).run();
+  await db.prepare('INSERT INTO celebrations_directory_identity_links(participant_email,person_id,approved_claim_id) VALUES(?,?,?)')
+   .bind('participant@example.test',personId,claim).run();
+  await db.prepare('INSERT INTO celebrations_directory_person_types(person_id,type_id) VALUES(?,?)')
+   .bind(personId,memberType).run();
+
+  // Two tabs of ONE real headed Chromium window, never a parallel visitor UI.
+  const {context,page:editor}=await localBrowser(1330);
+  const visitor=await context.newPage();
+  visitor.setDefaultTimeout(25000);
+  visitor.on('pageerror',error=>errors.push(String(error)));
+  visitor.on('dialog',dialog=>dialog.accept());
+  await editor.goto(ORIGIN+'/__editor/demo-preparation?celebration=41');
+  await editor.locator('[data-tab="members-spaces"]').click();
+  await editor.getByLabel('Mot de passe administrateur D1').fill('synthetic-only M012-A password');
+  await editor.getByRole('button',{name:'Se connecter à D1',exact:true}).click();
+  await editor.getByText('Session D1 confirmée.',{exact:true}).waitFor();
+  await editor.getByRole('button',{name:'Espaces des célébrations'}).click();
+  await editor.getByText(/Espaces chargés depuis R2/).waitFor();
+  await visitor.goto(ORIGIN+'/__editor/voir-le-site?celebration=41&page=member-area');
+  await visitor.getByLabel('Adresse e-mail membre').fill('participant@example.test');
+  await visitor.getByLabel('Mot de passe membre').fill(password);
+  await editor.bringToFront();
+
+  const demoHelp=[
+   '',
+   '🌸 CÉLÉBRATIONS M015 — DÉMONSTRATION LOCALE INTERACTIVE',
+   'Deux onglets Chromium ouverts : ADMINISTRATION et MES ESPACES.',
+   'Aucun réseau externe, aucune donnée réelle, aucun déploiement.',
+   '',
+   '1. ADMINISTRATION : créer un espace PRIVÉ, puis une page.',
+   '2. Pour la page : politique SELECTED_TYPES et type '+memberType+'.',
+   '3. Préparer les droits, puis Enregistrer les espaces.',
+   '4. Ouvrir l’édition de page : ajouter / modifier des blocs, Enregistrer dans R2.',
+   '5. Publier la célébration (visibilité), publier l’espace, puis publier la page.',
+   '6. Dans CE terminal, taper g puis Entrée : accorder l’accès au membre fictif.',
+   '7. Onglet MES ESPACES : cliquer Se connecter (identifiants déjà saisis).',
+   '8. Ouvrir la page. Terminal : r puis Entrée pour révoquer (contrôle serveur).',
+   '',
+   'Commandes terminal : g = autoriser ; r = révoquer ; h = aide ; q = quitter.',
+   'Pour terminer : fermer Chromium, taper q ou Ctrl+C.',
+   'Compte fictif : participant@example.test / '+password,
+   'Le domaine .test ne s’ouvre que dans ce Chromium intercepté.',
+   ''
+  ].join('\n');
+  console.log(demoHelp);
+
+  async function refreshVisibleVisitor(){
+   if(visitor.isClosed())return;
+   const refresh=visitor.getByRole('button',{name:'Actualiser mes accès',exact:true});
+   if(await refresh.isVisible().catch(()=>false)){
+    await refresh.click();
+    await visitor.getByText('Vérification des droits…').waitFor({state:'hidden'});
+   }
+  }
+  async function changeGrant(grant){
+   const result=await (await get()).json();
+   if(!result.ok||!Array.isArray(result.record?.spaces))
+    throw Error('Impossible de lire le brouillon R2 canonique');
+   const spaces=result.record.spaces.filter(s=>s.visibility==='PRIVATE'&&s.pages?.length);
+   if(grant){
+    const chosen=spaces.at(-1);
+    if(!chosen){console.log('Créez et enregistrez d’abord un espace privé avec une page.');return}
+    if(!result.pageReleases?.some(p=>p.spaceId===chosen.id))
+     console.log('⚠️ Publiez la page ET l’espace avant la consultation membre.');
+    await db.prepare('INSERT OR IGNORE INTO celebrations_directory_private_space_enrollments(person_id,celebration_id,space_id) VALUES(?,?,?)')
+     .bind(personId,41,chosen.id).run();
+    console.log('✅ Accès fictif accordé dans D1 local : '+chosen.name);
+   }else{
+    const done=await db.prepare('DELETE FROM celebrations_directory_private_space_enrollments WHERE person_id=? AND celebration_id=?')
+     .bind(personId,41).run();
+    console.log('⛔ Accès révoqué dans D1 local ('+(done.meta?.changes??0)+' inscription(s)).');
+   }
+   // Existing visitor UI refreshes via the REAL guarded private list endpoint.
+   await refreshVisibleVisitor();
+  }
+  // Keep the local Worker alive until the browser is closed or the terminal exits.
+  let finish;
+  const closed=new Promise(resolve=>{finish=resolve});
+  const stop=reason=>finish(reason);
+  const browserClosed=()=>stop('navigateur fermé');
+  const interrupted=()=>stop('interruption clavier');
+  browser.once('disconnected',browserClosed);
+  process.once('SIGINT',interrupted);
+  process.once('SIGTERM',interrupted);
+  const terminal=createInterface({input:process.stdin,output:process.stdout,terminal:!!process.stdin.isTTY});
+  terminal.on('SIGINT',interrupted);
+  let commandBusy=false;
+  terminal.on('line',line=>{
+   const cmd=line.trim().toLowerCase();
+   if(cmd==='q'){stop('arrêt demandé');return}
+   if(cmd==='h'){console.log(demoHelp);return}
+   if(cmd!=='g'&&cmd!=='r')return;
+   if(commandBusy){console.log('Commande précédente encore en cours.');return}
+   commandBusy=true;
+   void changeGrant(cmd==='g').catch(e=>console.error('Commande refusée :',e.message))
+    .finally(()=>{commandBusy=false});
+  });
+  try{
+   if(DEMO_SMOKE){
+    assert.equal(await editor.getByRole('button',{name:'Espaces des célébrations'}).isVisible(),true);
+    assert.equal(await visitor.getByLabel('Adresse e-mail membre').isVisible(),true);
+    await new Promise(resolve=>setTimeout(resolve,600));
+    assert.equal(browser.isConnected(),true,'Chromium must stay open until user closes it');
+    await browser.close();
+    console.log('M015_DEMO_HEADED_INTERACTIVE_LIFECYCLE_PASS');
+   }
+   const reason=await closed;
+   console.log('Démo terminée ('+reason+'). Nettoyage de D1/R2 locaux.');
+  }finally{
+   terminal.close();
+   terminal.removeListener('SIGINT',interrupted);
+   browser.removeListener('disconnected',browserClosed);
+   process.removeListener('SIGINT',interrupted);
+   process.removeListener('SIGTERM',interrupted);
+   await context.close().catch(()=>{});
+  }
+ }
+
+ if(DEMO){
+  await runDemo();
+ }else{
  const {context:adminContext,page}=await localBrowser(1440);
  const button=name=>page.getByRole('button',{name,exact:true});
  await page.goto(ORIGIN+'/__editor/demo-preparation?celebration=41');
@@ -163,4 +298,5 @@ try{
  console.log('M015_RECIPE_B_MEMBER_GRANTS_REVOKED_CHROMIUM_PASS');
  assert.deepEqual(errors,[]);
  await memberContext.close();await adminContext.close();
+ }
 }finally{await browser?.close();await mf?.dispose();await rm(temp,{recursive:true,force:true})}

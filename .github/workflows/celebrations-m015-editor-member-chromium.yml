@@ -36,5 +36,7 @@ jobs:
       - run: npm install --no-save --no-package-lock miniflare@4 esbuild@0.25 playwright@1.58.2
       - run: npx playwright install --with-deps chromium
       - run: node scripts/test-m015-real-worker-chromium.mjs
+      - name: Interactive demo starts headed, stays open, then shuts down locally
+        run: xvfb-run -a env CELEBRATIONS_M015_DEMO_SMOKE=1 node scripts/test-m015-real-worker-chromium.mjs --demo
       - run: node scripts/test-m012d-real-worker-editor.mjs
       - run: node scripts/test-m013-public-worker-editor.mjs
