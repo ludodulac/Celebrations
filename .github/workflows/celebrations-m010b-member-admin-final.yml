@@ -1,0 +1,73 @@
+name: "CÉLÉBRATIONS M010-B — atomic member admin / local-only"
+on:
+  push:
+    branches:
+      - feat/celebrations-m010b-member-admin-final-integration-20261111
+  pull_request:
+    branches:
+      - feat/celebrations-m009d-consolidation-009a-009b-009c-20261111
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  sqlite-admin:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: |
+          node --check migration/cloudflare/app/application/member-directory-admin-service.mjs
+          node --check migration/cloudflare/app/application/member-directory-admin-transaction.mjs
+          node --check migration/cloudflare/app/admin/member-directory-admin-integration.mjs
+          node --check tests/test_m010b_member_admin_final.mjs
+      - name: Synthetic SQLite D1 transactions and M002/M005/M007/M008/M009 regressions
+        run: |
+          node --test tests/test_m010b_member_admin_final.mjs \
+            tests/test_m009b_member_identity_admin.mjs \
+            tests/test_mission002_member_access.mjs \
+            tests/test_m005_celebration_spaces.mjs \
+            tests/test_m007a_contact_directory.mjs \
+            tests/test_m007b_member_admin.mjs \
+            tests/test_m008b_contact_directory_d1.mjs \
+            tests/test_m008c_private_server_access.mjs \
+            tests/test_m008d_cross_integration.mjs
+      - name: No private/admin worker route activated; no deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -E 'member-directory-admin-service|member-directory-admin-transaction|member-directory-admin-integration' \
+            migration/cloudflare/production-worker.mjs migration/cloudflare/staging-worker.mjs
+          BASE=8a9a2940d27c018fd6ea46b2603485e9ab24ce3b
+          SOURCE_B=9f6cad9fdb1e6c6322c968b1759933c07ed9e722
+          git merge-base --is-ancestor "$BASE" "$SOURCE_B"
+          git merge-base --is-ancestor "$SOURCE_B" HEAD
+          if git diff --name-only "$BASE" "$SOURCE_B" | \
+            grep -E '^(migration/cloudflare/(production-worker|staging-worker|media-gateway|public-data-api|app/security/member-private-access.mjs|app/security/member-identity-links.mjs)|migration/cloudflare/editor-publication-api)'; then
+            echo "M010B_SOURCE_CHANGED_PROTECTED_FILES"; exit 1
+          fi
+          echo "M010B_SOURCE_SAFE_AND_NO_MEMBER_ROUTE_ACTIVATION"
+  chromium-existing-admin:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Local browser test dependencies
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Existing M009-B responsive regression
+        run: node scripts/test-m009b-admin-mobile-browser.mjs
+      - name: M010-B pagination, search, responsive CRUD
+        run: node scripts/test-m010b-admin-responsive-browser.mjs

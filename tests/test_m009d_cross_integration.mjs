@@ -14,7 +14,7 @@ const SITE='https://www.ronde-des-archanges-universelle.eu';
 const source=path=>readFileSync(new URL('../migration/cloudflare/'+path,import.meta.url),'utf8');
 const personId='person:550e8400-e29b-41d4-a716-446655440000';
 
-test('M009-D BLOCKER: M008-C old email equality would authenticate; M009-B explicit link denies',async()=>{
+test('M009-D regression: M008-C now rejects email equality without an approved identity link',async()=>{
   const token='t'.repeat(64),email='synthetic@example.org';
   const queries=[];
   const db={prepare(sql){
@@ -31,12 +31,13 @@ test('M009-D BLOCKER: M008-C old email equality would authenticate; M009-B expli
   }};
   const request=new Request(SITE+'/private/fixture',{headers:{authorization:'Bearer '+token}});
   const env={DB:db};
-  assert.deepEqual(await resolveVerifiedMember(request,env),{id:personId,authenticated:true},
-    'legacy M008-C still conflates matching email with verified permanent person');
+  assert.equal(await resolveVerifiedMember(request,env),null,
+    'matching participant and directory email cannot grant member identity');
   assert.equal(await resolveExplicitMemberIdentity(request,env),null,
-    'new M009-B denies without explicitly approved identity link');
-  assert.ok(queries.some(q=>q.includes('d.email_normalized=?')));
+    'no independent administrative approval means no identity');
+  assert.equal(queries.some(q=>q.includes('d.email_normalized=?')),false);
   assert.ok(queries.some(q=>q.includes('celebrations_directory_identity_links')));
+  assert.ok(queries.some(q=>q.includes('celebrations_directory_identity_claims')));
   for(const worker of ['production-worker.mjs','staging-worker.mjs']){
     const code=source(worker);
     assert.equal(code.includes('member-private-access.mjs'),false);

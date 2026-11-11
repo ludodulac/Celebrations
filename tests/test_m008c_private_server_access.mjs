@@ -29,13 +29,15 @@ const req = (token = TOKEN, path = '/private/page:privee', method = 'GET', heade
     method, headers: {...(token ? {authorization: 'Bearer ' + token} : {}), ...headers}
   });
 
-// fakeDb responds ONLY to the exact read surfaces used by M008-C and the
-// existing participant session verifier. It models revocation between requests.
+// fakeDb responds ONLY to the exact read surfaces used by the private guard,
+// the M009-B explicitly approved identity link and participant session verifier.
+// It models revocation between consecutive requests.
 function scenario(overrides = {}) {
   const state = {
     sessionToken: TOKEN, email: EMAIL, sessionExpiry: '2099-01-01T00:00:00.000Z',
-    personId: PERSON, registered: true, disabled: 0, types: [TYPE],
-    enrolled: true, dbError: false, ...overrides
+    personId: PERSON, registered: true, approvedLink: true,
+    linkedEmail: EMAIL, claimApproved: true, claimReviewed: true,
+    disabled: 0, types: [TYPE], enrolled: true, dbError: false, ...overrides
   };
   const queries = [];
   const db = {
@@ -48,9 +50,10 @@ function scenario(overrides = {}) {
             if (sql.includes('FROM celebrations_participant_sessions'))
               return args[0] === await sha256(state.sessionToken) ?
                 {email: state.email, expires_at: state.sessionExpiry} : null;
-            if (sql.includes('FROM celebrations_directory_people'))
-              return state.registered && state.personId && args[0] === EMAIL ?
-                {person_id: state.personId, email_normalized: EMAIL} : null;
+            if (sql.includes('FROM celebrations_directory_identity_links'))
+              return state.registered && state.approvedLink && state.claimApproved &&
+                state.claimReviewed && state.linkedEmail === args[0] ?
+                {id: state.personId} : null;
             if (sql.includes('FROM celebrations_directory_private_space_enrollments'))
               return state.enrolled && args[0] === PERSON &&
                 args[1] === SPACE && args[2] === 43 ? {enrolled: 1} : null;
@@ -97,12 +100,16 @@ function noLeak(response, text) {
   });
 }
 
-test('M008-C: real participant session maps to UUID person, not admin or legacy audience', async () => {
+test('M008-C: only an approved link maps participant session to permanent person', async () => {
   const {env, queries} = scenario();
   assert.deepEqual(await resolveVerifiedMember(req(), env),
     {id: PERSON, authenticated: true});
   assert.ok(queries.some(x => x.sql.includes('celebrations_participant_sessions')));
+  assert.ok(queries.some(x => x.sql.includes('FROM celebrations_directory_identity_links')));
+  assert.ok(queries.some(x => x.sql.includes('JOIN celebrations_directory_identity_claims')));
+  assert.ok(queries.some(x => x.sql.includes("c.status='approved'")));
   assert.ok(queries.some(x => x.sql.includes('JOIN celebrations_participants')));
+  assert.ok(!queries.some(x => x.sql.includes('d.email_normalized=?')));
   assert.ok(!queries.some(x => x.sql.includes('celebrations_admin_sessions')));
   assert.ok(!queries.some(x => x.sql.includes('celebrations_groups')));
 });
@@ -113,6 +120,9 @@ test('M008-C: visitor, forged token, expired session, unmapped person and invali
     [scenario(), req('fake'.repeat(16))],
     [scenario({sessionExpiry: '2000-01-01T00:00:00Z'}), req()],
     [scenario({registered: false}), req()],
+    [scenario({approvedLink: false}), req()], // equal email alone never approves
+    [scenario({claimApproved: false}), req()],
+    [scenario({claimReviewed: false}), req()],
     [scenario({personId: 'test-person-not-uuid'}), req()],
     [scenario({email: 'old@example.org'}), req()]
   ];
@@ -299,5 +309,6 @@ test('M008-C: no private routes added to live worker or existing public renderer
   for (const original of [production, staging])
     assert.equal(original.includes('member-private-access.mjs'), false);
   assert.equal(source.includes("canAccessPage(page, context)"), true);
-  assert.equal(source.includes('authorize(request, env, false)'), true);
+  assert.equal(source.includes('resolveExplicitMemberIdentity(request, env)'), true);
+  assert.equal(source.includes('d.email_normalized=?'), false);
 });
