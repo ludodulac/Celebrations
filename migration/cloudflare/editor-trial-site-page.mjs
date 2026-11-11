@@ -3,11 +3,20 @@ import {visitorText} from './app/domain/visitor-ui-translations.mjs';
 // Browsing the site never modifies an administrator's locally saved drafts.
 import {loadSevenStageContent,STAGES} from './editor-demo-preparation-page.mjs';
 import {readEditorState} from './editor-publication-api.mjs';
+import {normalizedSiteIdentity} from './site-identity-api.mjs';
 import {mayUseIsolatedMemberApi,isReadonlyCandidateHost} from './app/security/editor-route-policy.mjs';
 import {TRIAL_SITE_CLIENT,TRIAL_SITE_STYLE} from './editor-trial-site-client.mjs';
 const HOST='celebrations-exit-staging.rondes.workers.dev';
 // M008-A responsive switcher; uses the existing CSP nonce and M006 DOM component.
 export const PUBLIC_LANGUAGE_STYLE=`
+.m021-site-identity{isolation:isolate;position:relative;display:flex;align-items:center;justify-content:center;min-height:72px;max-height:100px;overflow:hidden;background:#24404f;color:#fff;padding:14px 24px;text-align:center}
+.m021-site-image{position:absolute;z-index:-2;inset:0;width:100%;height:100%;object-fit:cover}
+.m021-site-identity:after{content:'';position:absolute;z-index:-1;inset:0;background:linear-gradient(90deg,#0b1d2fbd,#122e40ad,#0b1d2fbd)}
+.m021-site-title{font-size:clamp(1.05rem,2.7vw,1.65rem);line-height:1.25;font-weight:650;letter-spacing:.01em;text-shadow:0 2px 8px #0009;max-width:850px}
+.m021-site-identity.is-home{min-height:clamp(155px,22vw,270px);max-height:none}
+.m021-site-identity.is-home .m021-site-title{font-size:clamp(1.45rem,3.3vw,2.6rem)}
+@media(max-width:600px){.m021-site-identity{min-height:62px;max-height:100px;padding:8px 12px}.m021-site-identity.is-home{min-height:140px;max-height:190px}.m021-site-title{font-size:clamp(1rem,4.4vw,1.35rem)}.m021-site-identity.is-home .m021-site-title{font-size:clamp(1.25rem,5vw,1.75rem)}}
+
 .site-menu-bar{display:flex;align-items:center;justify-content:space-between;gap:12px}
 #public-language-control{margin-left:auto;min-width:0}
 #member-connection{border:1px solid #35734d;background:#fff;color:#275638;padding:8px 12px;border-radius:8px;cursor:pointer;font:600 .95rem system-ui}
@@ -45,10 +54,16 @@ export async function handleTrialSite(request,env){
   {publicOnly:true,publishedState})}
  catch{return new Response(visitorText(url.searchParams.get('lang'),'Célébration introuvable'),{status:404,headers:{'cache-control':'no-store'}})}
  const nonce=Array.from(crypto.getRandomValues(new Uint8Array(16)),v=>v.toString(16).padStart(2,'0')).join('');
+ const identity=normalizedSiteIdentity(publishedState?.siteIdentity);
+ const language=(url.searchParams.get('lang')||'fr').toLowerCase().split('-')[0];
+ const identityTitle=identity.titles[language]||identity.title;
+ const identityHtml=identityTitle||identity.imageSrc?'<header id="site-identity" class="m021-site-identity" aria-label="Identité du site">'+
+  (identity.imageSrc?'<img class="m021-site-image" src="'+esc(identity.imageSrc)+'" alt="'+esc(identity.imageAlt)+'" style="object-position:'+identity.positionX+'% '+identity.positionY+'%">':'')+
+  (identityTitle?'<strong class="m021-site-title">'+esc(identityTitle)+'</strong>':'')+'</header>':'';
  const isOfficial=['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu'].includes(url.hostname);
  const siteClient=TRIAL_SITE_CLIENT;
  const html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'+(isOfficial?'<title>Célébrations des Archanges</title>':'<meta name="robots" content="noindex,nofollow"><title>Site d’essai — Célébrations</title>')+
- '<style nonce="'+nonce+'">'+TRIAL_SITE_STYLE+PUBLIC_LANGUAGE_STYLE+'</style></head><body data-member-site="'+(memberSite?'1':'0')+'">'+
+ '<style nonce="'+nonce+'">'+TRIAL_SITE_STYLE+PUBLIC_LANGUAGE_STYLE+'</style></head><body data-member-site="'+(memberSite?'1':'0')+'">'+identityHtml+
 
 
  '<div class="site-menu-bar"><div class="site-menu-group"><button type="button" class="menu-toggle" id="menu-toggle" aria-expanded="false" aria-haspopup="true" aria-controls="general-navigation">☰ Menu</button>'+
