@@ -361,6 +361,7 @@ function publishOrRevoke(state,cid,b,known,registry){
     ...(b.spaceId?{spaceId:b.spaceId}:{}),publication:'published'};
   }
  }else{
+  if(b.action==='unpublish'&&!isSpace){if(b.visibility!==undefined&&!['draft','hidden'].includes(b.visibility))invalid();item.visibility=b.visibility||'draft';item.publicationStatus='draft';}
   if(isSpace)removeSpace(pub,cid,item.id);else removePage(pub,cid,item.id);
   if(b.action==='delete'){
    if(isSpace)r.spaces=r.spaces.filter(s=>s.id!==item.id);
@@ -452,7 +453,7 @@ export async function handlePrivateEditorCommand(request,env){
   let b;try{b=JSON.parse(raw)}catch{invalid()}
   if(!obj(b)||!['save','publish','unpublish','delete','celebration-visibility','celebration-access','duplicate','reconcile','page-access','create-celebration','change-version'].includes(b.action))invalid();
   safeJSON(b);
-  const fields={save:['spaces','pages'],publish:['kind','id','spaceId'],unpublish:['kind','id','spaceId'],
+  const fields={save:['spaces','pages'],publish:['kind','id','spaceId'],unpublish:['kind','id','spaceId','visibility'],
    delete:['kind','id','spaceId'],'celebration-visibility':['visibility'],'celebration-access':['accessPolicy'],duplicate:['targetCelebration'],reconcile:[],'page-access':['id','accessPolicy'],'create-celebration':['archangel','date','title','copy'],'change-version':['spaceId','pageId','languageId','targetLanguageId','typeIds']};
   keysOnly(b,['action','celebration','expectedRevision',...fields[b.action]]);
   if(!expectedRevisionMatches(b.expectedRevision,current.state.version))conflict();

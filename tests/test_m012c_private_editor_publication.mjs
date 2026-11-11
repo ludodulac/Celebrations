@@ -300,3 +300,17 @@ test('M020-B full duplication accepts past and future calendar dates including n
   assert.equal((await f.send({action:'create-celebration',archangel:'Gabriel',date:'2027-02-30',title:'Impossible',copy:true})).status,400);
  }finally{f.close()}
 });
+
+
+test('M020-B hidden and draft remain distinct from private access after reload',async()=>{
+ const f=await fixture();try{
+  const ids=await f.create();await f.publish('space',ids.sid);await f.publish('page',ids.pid,ids.sid);
+  const result=await f.send({action:'unpublish',kind:'page',id:ids.pid,spaceId:ids.sid,visibility:'hidden'});
+  assert.equal(result.status,200);const page=result.record.spaces.find(s=>s.id===ids.sid).pages.find(p=>p.id===ids.pid);
+  assert.equal(page.visibility,'hidden');assert.equal(page.accessPolicy.mode,'PUBLIC');
+  assert.equal((await f.member(ids.pid)).status,404);
+  assert.equal((await f.publish('page',ids.pid,ids.sid)).status,200);
+  const draft=await f.send({action:'unpublish',kind:'page',id:ids.pid,spaceId:ids.sid,visibility:'draft'});
+  assert.equal(draft.record.spaces.find(s=>s.id===ids.sid).pages.find(p=>p.id===ids.pid).visibility,'draft');
+ }finally{f.close()}
+});

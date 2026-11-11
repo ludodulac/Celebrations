@@ -276,7 +276,7 @@ export function mountExistingEditorMemberSpaces(root,{
         return localized(find());
       },
       publish:async()=>{if(!snapshot.spaceReleases.some(s=>s.spaceId===spaceId))await command('publish',{kind:'space',id:spaceId});return command('publish',{kind:'page',id:pageId,spaceId})},
-      unpublish:()=>command('unpublish',{kind:'page',id:pageId,spaceId}),
+      unpublish:(visibility='draft')=>command('unpublish',{kind:'page',id:pageId,spaceId,visibility}),
       isPublished:()=>!!snapshot?.pageReleases?.some(x=>x.pageId===pageId)
     });
   }
@@ -348,7 +348,6 @@ export function mountExistingEditorMemberSpaces(root,{
     const search=field('search','Rechercher une version');search.setAttribute('aria-label','Rechercher une version');spaces.append(search);
     search.oninput=()=>{const query=search.value.trim().toLocaleLowerCase();for(const card of spaces.querySelectorAll('.member-spaces-card')){for(const row of card.querySelectorAll('.member-spaces-version'))row.hidden=!row.textContent.toLocaleLowerCase().includes(query);card.hidden=!!query&&![...card.querySelectorAll('.member-spaces-version')].some(row=>!row.hidden)}};
     const add=button('＋ Ajouter une version');add.disabled=!ready();add.onclick=()=>void createVersion();spaces.append(add);
-    const source=workspace.spaces(celebrationId).flatMap(s=>s.pages)[0];
 
     if(!snapshot.privateReleaseReady&&snapshot.pageReleases.length){
       spaces.append(node('p','La publication doit encore être confirmée avant de donner accès aux membres.'));

@@ -46,7 +46,7 @@ try{
  const hash=createHash('sha256').update(verifier).digest('hex');
  await db.prepare('UPDATE celebrations_participants SET password_salt=?,password_hash=? WHERE email=?')
   .bind('client180:'+salt,hash,'participant@example.test').run();
- await bucket.put(EDITOR_SNAPSHOT_KEY,JSON.stringify({version:1,drafts:{'41':{pages:[]}},
+ await bucket.put(EDITOR_SNAPSHOT_KEY,JSON.stringify({version:1,drafts:{'41':{pages:[],celebrationDates:{wednesday:'2026-10-07',preparationDates:[]}}},
   shared:{pages:[],homeId:'',celebrationVisibility:{'41':'published'}},plans:[],mediaCatalogue:[]}));
  const dispatch=req=>mf.dispatchFetch(req.url,{method:req.method,headers:[...req.headers],
   ...(req.method==='POST'?{body:req.body,duplex:'half'}:{})});
@@ -106,9 +106,27 @@ try{
  await row.getByRole('button',{name:'Dépublier',exact:true}).click();
  await page.getByRole('dialog').getByRole('button',{name:'Dépublier',exact:true}).click();
  await row.getByRole('button',{name:'Publier',exact:true}).waitFor();
+ await row.getByRole('button',{name:'Langue / catégorie',exact:true}).click();
+ await page.getByRole('dialog').getByLabel('Catégorie',{exact:true}).selectOption('');
+ await page.getByRole('dialog').getByRole('button',{name:'Valider',exact:true}).click();
+ await page.getByRole('dialog').getByText(/PDA.*Tous les inscrits/).waitFor();
+ await page.getByRole('dialog').getByRole('button',{name:'Modifier',exact:true}).click();
+ await page.getByRole('button',{name:/Tous les inscrits — Français/}).waitFor();
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,'no smartphone overflow');
  await page.screenshot({path:process.env.M020B_SCREENSHOT||'/tmp/m020b-smartphone.png',fullPage:true});
+ await page.getByRole('button',{name:'← Célébrations',exact:true}).click();
+ await page.locator('.celebration-publication-controls').getByRole('button',{name:'Dupliquer',exact:true}).click();
+ await page.getByRole('dialog').getByLabel('Dupliquer toute la célébration',{exact:true}).check();
+ await page.getByRole('dialog').getByRole('button',{name:'Continuer',exact:true}).click();
+ assert.equal(await page.getByRole('dialog').getByLabel('Date du mercredi :',{exact:true}).inputValue(),'2026-10-07');
+ await page.getByRole('dialog').getByLabel('Date du mercredi :',{exact:true}).fill('1999-01-01');
+ await page.getByRole('dialog').getByLabel('Titre',{exact:true}).fill('Gabriel 1999 copie fictive');
+ await page.getByRole('dialog').getByRole('button',{name:'Créer le brouillon',exact:true}).click();
+ await page.waitForURL(url=>url.searchParams.get('celebration')!=='41');
+ const copies=await db.prepare("SELECT id FROM celebrations_celebrations WHERE year='1999'").all();
+ assert.equal(copies.results.length,1);
+ assert.equal((await db.prepare('SELECT count(*) AS n FROM celebrations_directory_person_celebrations WHERE celebration_id=?').bind(copies.results[0].id).first()).n,0);
  assert.deepEqual(errors,[]);
- console.log('M020-B Chromium 390px PASS: category acronym, settings, duplication, search/open version, publish/unpublish; real local Worker/D1/R2');
+ console.log('M020-B Chromium 390px PASS: category acronym, settings, version/full duplication, search/open/change version, publish/unpublish, no copied enrollment; real local Worker/D1/R2');
  await context.close();
 }finally{await browser?.close();await mf?.dispose();await rm(temp,{recursive:true,force:true})}

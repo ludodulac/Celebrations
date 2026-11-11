@@ -2384,6 +2384,7 @@ function celebrationState(entry){
 function publicationActions(kind,q){
  const outer=n('div','publication-status-controls');
  const state=kind==='page'?stateOfPage(q):celebrationState(q);
+ const stateBadge=n('span','publication-badge state-'+state);stateBadge.setAttribute('role','img');stateBadge.setAttribute('aria-label',VISIBILITY_LABELS[state]);outer.append(stateBadge);
  const field=n('label','editor-language-choice','Visibilité'),select=n('select');select.setAttribute('aria-label','Visibilité '+(kind==='page'?'de la page':'de la célébration'));
  for(const [value,label]of [['draft','Brouillon'],['published','Visible'],['hidden','Masqué']]){const option=n('option','',label);option.value=value;select.append(option)}select.value=state;
  const apply=b(state==='published'?'Mettre à jour le site':'Appliquer',async()=>{
@@ -3162,7 +3163,7 @@ async function openManagedPage(pageId,language='fr'){
   openPrivatePage({languageId:language,page:localized(),
    save:async({name,blocks})=>{const original=clone(canonical());if(language==='fr'){original.name=name;original.blocks=blocks}else original.translations={...original.translations,[language]:{name,blocks}};return command('save',{pages:[original]})},
    reload:async()=>{await refreshPrivateCatalogue();return localized()},
-   publish:()=>command('publish',{kind:'page',id:pageId}),unpublish:()=>command('unpublish',{kind:'page',id:pageId}),
+   publish:()=>command('publish',{kind:'page',id:pageId}),unpublish:(visibility='draft')=>command('unpublish',{kind:'page',id:pageId,visibility}),
    isPublished:()=>privateCatalogue.pageReleases.some(r=>r.pageId===pageId)});
  }catch(e){siteNotice(e.message)}
 }
@@ -3246,11 +3247,11 @@ async function reloadPrivatePage(){
  catch(e){status.textContent='❌ Rechargement refusé : '+(e.message||e)}
  finally{privateBusy=false;render();}
 }
-async function publishPrivatePage(action){
+async function publishPrivatePage(action,visibility='draft'){
  if(!privateEdit||privateBusy)return;
  if(dirty&&!await savePrivatePage())return;
  privateBusy=true;
- try{await privateEdit[action]();render();status.textContent=action==='publish'?'✓ Page publiée explicitement.':'✓ Page dépubliée.';}
+ try{await privateEdit[action](visibility);if(action==='unpublish')page().visibility=visibility;render();status.textContent=action==='publish'?'✓ Page publiée explicitement.':'✓ Page dépubliée.';}
  catch(e){status.textContent='❌ Publication refusée : '+(e.message||e)}
  finally{privateBusy=false;render();}
 }
@@ -3261,8 +3262,8 @@ function privatePageWorkspace(){
  lang.onchange=async()=>{if(dirty&&!await savePrivatePage())return;const language=lang.value,title=page().name,type=privateCatalogue.record.spaces.find(s=>s.id===page().spaceId)?.accessPolicy.typeIds?.[0]||'',pid=page().id,sid=page().spaceId;await closePrivatePage(true);if(sid)await memberPanel.openVersion(type,language,title);else await openManagedPage(pid,language)};
  langLabel.append(lang);selectors.append(langLabel,accessControls('page',page()));
  const visibilityLabel=n('label','editor-language-choice','Visibilité'),visibility=n('select');visibility.setAttribute('aria-label','Visibilité de la page');
- for(const [value,label]of [['draft','Brouillon'],['published','Visible'],['hidden','Masqué']]){const option=n('option','',label);option.value=value;visibility.append(option)}visibility.value=privateEdit.isPublished()?'published':'draft';
- visibility.onchange=()=>void publishPrivatePage(visibility.value==='published'?'publish':'unpublish');visibilityLabel.append(visibility);selectors.prepend(visibilityLabel);w.append(selectors);
+ for(const [value,label]of [['draft','Brouillon'],['published','Visible'],['hidden','Masqué']]){const option=n('option','',label);option.value=value;visibility.append(option)}visibility.value=privateEdit.isPublished()?'published':page().visibility==='hidden'?'hidden':'draft';
+ visibility.onchange=()=>void publishPrivatePage(visibility.value==='published'?'publish':'unpublish',visibility.value);visibilityLabel.append(visibility);selectors.prepend(visibilityLabel);w.append(selectors);
  const actions=n('div','member-spaces-actions');
  const back=b('← Célébrations',()=>closePrivatePage());
  const saveButton=b('Enregistrer',()=>void savePrivatePage());
