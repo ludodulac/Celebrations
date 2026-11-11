@@ -59,7 +59,9 @@ async function safeBlock(block,pageId,loaders,blockedIds,depth=0) {
       copy.mediaId=block.mediaId;
     }
     for(const key of ['href','src','cover']){
-      if(typeof block[key]!=='string')continue;
+      // Empty default href/src/cover are absence of a link, not a reason
+      // to drop legitimate text blocks. Nonempty references remain gated.
+      if(typeof block[key]!=='string'||block[key]==='')continue;
       if(isPrivateMediaReference(block[key])||!allowedPublicLink(block[key],blockedIds))
         return null; // never publish a raw private key or public gateway bypass
       copy[key]=block[key];
