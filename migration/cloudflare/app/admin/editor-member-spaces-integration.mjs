@@ -390,11 +390,17 @@ export function mountExistingEditorMemberSpaces(root,{
       for(const page of space.pages){
         const row=node('p',(page.title||page.name||page.id)+' — brouillon / '+
           'contenu et langues conservés');
-        const editPage=button('Ouvrir l’édition de page');
+        const language=node('select');
+        const configured=snapshot?.languageRegistry?.languages??[{id:'fr',name:'Français'}];
+        for(const entry of configured){
+          const option=node('option',entry.name+(entry.active?'':' (brouillon)'));
+          option.value=entry.id;language.append(option);
+        }
+        const editPage=button('Rédiger dans cette langue');
         editPage.disabled=!canonical||!ready()||workspace.changed||page.id.startsWith('draft-page:')||typeof onEditPage!=='function';
-        editPage.title=editPage.disabled?'Enregistrez d’abord la page et vérifiez la session D1.':'Modifier avec le véritable éditeur de blocs';
-        editPage.addEventListener('click',()=>openCanonicalPage(space.id,page.id));
-        row.append(' ',editPage);
+        editPage.title=editPage.disabled?'Enregistrez d’abord la page et vérifiez la session D1.':'Même éditeur de blocs, contenu indépendant par langue';
+        editPage.addEventListener('click',()=>openCanonicalPage(space.id,page.id,language.value));
+        row.append(' ',label('Langue de la page',language),editPage);
         if(canonical){
           const released=snapshot.pageReleases?.some(x=>x.pageId===page.id);
           row.append(node('span',released?' · publication enregistrée':' · non publiée'));
