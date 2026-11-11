@@ -22,7 +22,7 @@ const EMAIL='alice@example.org', TOKEN='x'.repeat(64),ADMIN='a'.repeat(64);
 const TYPE='member-type:chant',OTHER='member-type:visitor';
 const ROOT='page:41:private-root',INNER='page:41:chapelle';
 const SPACE='space:41:chapelle',MEDIA='private-asset:pdf-41';
-const URL='https://www.ronde-des-archanges-universelle.eu';
+const SITE_URL='https://www.ronde-des-archanges-universelle.eu';
 const policy={mode:'SELECTED_TYPES',typeIds:[TYPE]};
 const page=(id,more={})=>({id,celebrationId:'41',
   name:id===ROOT?'Cantique autorisé':'Chapelle interdite',
@@ -74,7 +74,7 @@ function makeD1(db,queries){
  }}}};
 }
 function req(token=TOKEN,path='/private/read',method='GET',headers={}){
- return new Request(URL+path,{method,headers:{
+ return new Request(SITE_URL+path,{method,headers:{
   ...(token?{authorization:'Bearer '+token}:{}),...headers
  }});
 }
