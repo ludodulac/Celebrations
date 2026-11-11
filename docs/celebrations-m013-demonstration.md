@@ -59,3 +59,6 @@ pas déduite de l'existence du script. Les fichiers audio et PDF synthétiques d
 recette vérifient le transfert, pas leur décodage multimédia.
 Les pages d'espaces restent non raccordées à l'éditeur de blocs, et la lecture
 publique/privée des espaces reste désactivée. Ne pas les présenter comme livrées.
+
+## Complément M013 : droits de pages et lecture isolée
+Les politiques de chaque page d’espace peuvent être préparées dans le panneau existant, puis enregistrées par le service canonique. Les routes de lecture `GET /api/participant/space-page?pageId=…` et `GET /api/participant/space-pages?celebration=…` réutilisent les contrôles de lecture existants, uniquement sur l’hôte isolé configuré et avec `MEMBER_PAGE_READ_API_ENABLED=true`. Elles restent interdites sur le domaine officiel et les candidats en lecture seule. Le français seul est demandé; aucun endpoint de média privé n’est ouvert. La navigation des visiteurs et l’éditeur de blocs des pages d’espace ne sont pas raccordés par cette modification. Ne pas activer en production avant validation spécifique.

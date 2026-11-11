@@ -16,7 +16,7 @@ try{
  const outfile=join(temp,'staging.mjs');
  await build({entryPoints:['migration/cloudflare/staging-worker.mjs'],bundle:true,platform:'node',format:'esm',target:'es2022',outfile,external:['node:*']});
  mf=new Miniflare({modules:true,modulesRoot:temp,scriptPath:outfile,compatibilityDate:'2026-08-06',
-  compatibilityFlags:['nodejs_compat'],bindings:flags,
+  compatibilityFlags:['nodejs_compat'],bindings:{...flags,MEMBER_PAGE_READ_API_ENABLED:'true'},
   d1Databases:{DB:'11111111-1111-4111-8111-111111111111'},d1Persist:false,
   r2Buckets:{EDITOR_BUCKET:'isolated-editor',MEDIA_BUCKET:'isolated-media'},r2Persist:false,port:0});
  const db=await mf.getD1Database('DB'),bucket=await mf.getR2Bucket('EDITOR_BUCKET');
@@ -128,8 +128,34 @@ try{
  const grant=await dispatch(request(directory,{token:admin.token,body:{action:'enroll_space',personId,spaceId:sid,expectedRevision:detail.data.person.revision}}));
  assert.equal(grant.status,200,await grant.text());
  assert.equal((await db.prepare('SELECT space_id FROM celebrations_directory_private_space_enrollments WHERE person_id=?').bind(personId).first()).space_id,sid);
+ // M013: actual Worker private-read route, using the existing canonical service.
+ const pageRoute='/api/participant/space-page?pageId='+encodeURIComponent(pid);
+ const listRoute='/api/participant/space-pages?celebration=41';
+ const read=(path,token,host)=>dispatch(request(path,{method:'GET',token,host}));
+ assert.equal((await read(pageRoute)).status,404);
+ assert.equal((await read(pageRoute,admin.token)).status,404);
+ assert.equal((await read(pageRoute,PARTICIPANT)).status,404,'session alone is not a verified identity');
+ const claim='claim:550e8400-e29b-41d4-a716-446655440099';
+ await db.prepare("INSERT INTO celebrations_directory_identity_claims(claim_id,participant_email,person_id,status,reviewed_at,reviewed_by,verification_method) VALUES(?,?,?,'approved',?,'synthetic-reviewer','in_person')").bind(claim,'participant@example.test',personId,new Date().toISOString()).run();
+ await db.prepare('INSERT INTO celebrations_directory_identity_links(participant_email,person_id,approved_claim_id) VALUES(?,?,?)').bind('participant@example.test',personId,claim).run();
+ assert.equal((await read(pageRoute,PARTICIPANT)).status,404,'enrollment alone cannot bypass page type');
+ await db.prepare('INSERT INTO celebrations_directory_person_types(person_id,type_id) VALUES(?,?)').bind(personId,'member-type:demo').run();
+ const readable=await read(pageRoute,PARTICIPANT);
+ assert.equal(readable.status,200,await readable.clone().text());
+ assert.match(readable.headers.get('cache-control'),/no-store/);
+ const payload=await readable.json();assert.equal(payload.id,pid);assert.equal(payload.name,'Accueil Démo');
+ assert.equal(payload.accessPolicy,undefined);
+ const listing=await (await read(listRoute,PARTICIPANT)).json();assert.deepEqual(listing.pages.map(p=>p.id),[pid]);
+ assert.deepEqual((await (await read(listRoute)).json()).pages,[]);
+ for(const host of ['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu','celebrations-visual-candidate.rondes.workers.dev']){
+  assert.equal((await read(pageRoute,PARTICIPANT,host)).status,404);
+ }
+ await db.prepare('DELETE FROM celebrations_directory_person_types WHERE person_id=? AND type_id=?').bind(personId,'member-type:demo').run();
+ assert.equal((await read(pageRoute,PARTICIPANT)).status,404,'live revocation');
+ await db.prepare('INSERT INTO celebrations_directory_person_types(person_id,type_id) VALUES(?,?)').bind(personId,'member-type:demo').run();
  await button('Dépublier cet espace').click();await page.getByText(/Commande confirmée/).waitFor();
  const revoked=await (await get(admin.token)).json();assert.equal(revoked.spaceReleases.length,0);assert.equal(revoked.pageReleases.length,0);
+ assert.equal((await read(pageRoute,PARTICIPANT)).status,404,'unpublication immediately blocks the canonical read');
  for(const width of [390,320]){
   await page.setViewportSize({width,height:900});
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)<=1);
