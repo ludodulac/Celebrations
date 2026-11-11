@@ -245,11 +245,12 @@ try{
  await admin.locator('[data-tab="languages-categories"]').click();
  await admin.getByRole('button',{name:'Catégories',exact:true}).click();
  const previousTypes=ok(await get('/api/admin/member-directory?action=snapshot&limit=1',adminToken),'read fictional category fixtures').data.types;
- for(const t of previousTypes.filter(t=>!t.disabled&&(t.name.startsWith('M019 Essai ')||t.name==='Équipe Gabriel — essai')))
+ for(const t of previousTypes.filter(t=>!t.disabled&&(t.name.startsWith('M019 Essai ')||t.name.startsWith('Équipe Gabriel — essai'))))
   ok(await api('/api/admin/member-directory',{action:'disable_type',typeId:t.id,expectedRevision:t.revision,disabled:true},adminToken),'retain old fictional category as inactive history');
- const category='Équipe Gabriel — essai',email='m019-'+Date.now()+'@example.test';
+ const category='Équipe Gabriel — essai '+(previousTypes.filter(t=>t.name.startsWith('Équipe Gabriel — essai')).length+1),email='m019-'+Date.now()+'@example.test';
  await admin.getByLabel('Nouvelle catégorie',{exact:true}).fill(category);
  await admin.locator('.m019-categories form').getByRole('button',{name:'Ajouter',exact:true}).click();
+ await admin.getByText('Catégorie ajoutée.',{exact:true}).waitFor();
  await admin.locator('.m019-categories .card:visible strong').filter({hasText:category}).waitFor();
  await admin.screenshot({path:'docs/m019-smartphone/02-categories.png',fullPage:true});
  await admin.getByRole('button',{name:'Langues',exact:true}).click();

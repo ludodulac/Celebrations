@@ -18,8 +18,8 @@ export function mountMemberDirectoryAdmin(root,{transport,styleNonce,celebration
  const call=async command=>{const r=await transport(command);if(!r?.ok)throw Object.assign(Error(r?.error||'Enregistrement impossible. Réessayez.'),{status:r?.status});return r.data??r.result??r};
  const activeTypes=()=>types.filter(t=>!t.disabled).map(t=>[t.id,t.name]);
  async function run(action,message='Enregistré.'){
-  if(busy)return;busy=true;shell.setAttribute('aria-busy','true');status.textContent='Enregistrement…';
-  try{await action();await reload();status.textContent=message}catch(e){status.textContent=e.message}finally{busy=false;shell.removeAttribute('aria-busy')}
+  if(busy)return;busy=true;shell.inert=true;shell.setAttribute('aria-busy','true');status.textContent='Enregistrement…';
+  try{await action();await reload();status.textContent=message}catch(e){status.textContent=e.message}finally{busy=false;shell.inert=false;shell.removeAttribute('aria-busy')}
  }
  async function reload(){
   const attempt=++epoch;
