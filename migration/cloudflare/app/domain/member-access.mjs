@@ -88,9 +88,13 @@ export function canAccessSpace(space, context = {}) {
   // A public space must really be public; individual pages may still be private.
   return space.accessPolicy.mode === ACCESS_MODES.PUBLIC;
  }
- // Every PRIVATE space requires individual enrollment, including when its
- // type policy is PUBLIC (meaning "any explicitly invited member").
- if (!signedIn(context.principal) || !Array.isArray(context.enrollments)) return false;
+ // Category-based variants reuse the existing celebration enrollment,
+ // while historical invitation-only spaces keep their individual enrollments.
+ if (!signedIn(context.principal)) return false;
+ if (space.accessScope === 'CELEBRATION')
+  return context.celebrationEnrolled === true &&
+   canAccessPolicy(space.accessPolicy, context);
+ if (!Array.isArray(context.enrollments)) return false;
  const enrolled = context.enrollments.some(link =>
   link?.memberId === context.principal.id && link.spaceId === space.id);
  return enrolled && canAccessPolicy(space.accessPolicy, context);
