@@ -112,10 +112,13 @@ try{
   await visibility.click();await page.getByText(/Commande confirmée/).waitFor();
  }
  await button('Publier cet espace').click();await page.getByText(/Commande confirmée/).waitFor();
+ const beforePagePublish=await (await get()).json();
+ console.log('M015_DRAFT_BEFORE_PAGE_PUBLISH',JSON.stringify(beforePagePublish.record.spaces[0].pages[0].blocks));
  await button('Ouvrir l’édition de page').click();
  await button('Publier cette page').click();
  await page.waitForFunction(()=>document.querySelector('#status')?.textContent?.includes('Page publiée explicitement'));
  const released=await (await get()).json();
+ console.log('M015_DRAFT_AFTER_PAGE_PUBLISH',JSON.stringify(released.record.spaces[0].pages[0].blocks));
  assert.equal(released.pageReleases.some(p=>p.pageId===pid),true);
  assert.equal(released.spaceReleases.some(s=>s.spaceId===sid),true);
  assert.equal(released.privateReleaseReady,true);
