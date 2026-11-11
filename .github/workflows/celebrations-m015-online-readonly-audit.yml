@@ -1,0 +1,86 @@
+name: "Célébrations M015 — audit Internet en lecture seule"
+on:
+  push:
+    branches: [ops/celebrations-m015-online-audit-20261111]
+permissions:
+  contents: read
+jobs:
+  official-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Browser setup (no app deployment)
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Ordinary anonymous Chromium smoke — official root and www
+        run: |
+          node --input-type=module <<'NODE'
+          import {chromium} from 'playwright';
+          const browser=await chromium.launch({headless:true});
+          const cases=[
+            ['official_root','https://ronde-des-archanges-universelle.eu/'],
+            ['official_www','https://www.ronde-des-archanges-universelle.eu/'],
+            ['official_admin_login','https://ronde-des-archanges-universelle.eu/admin'],
+            ['official_publication','https://ronde-des-archanges-universelle.eu/api/editor-publication']
+          ];
+          for (const [label,url] of cases){
+            const page=await browser.newPage({viewport:{width:390,height:844}});
+            const errors=[]; page.on('pageerror',e=>errors.push(e.message.slice(0,150)));
+            try {
+              const response=await page.goto(url,{waitUntil:'domcontentloaded',timeout:25000});
+              console.log('LIVE_BROWSER '+JSON.stringify({
+                label,http_status:response?.status()??null,
+                final_host:new URL(page.url()).host,
+                title:(await page.title()).slice(0,150),
+                js_error_count:errors.length,
+                first_js_errors:errors.slice(0,2)
+              }));
+            }catch(e){console.log('LIVE_BROWSER '+JSON.stringify({label,error:String(e).slice(0,180)}));}
+            await page.close();
+          }
+          await browser.close();
+          NODE
+  cloudflare-readonly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    environment: celebrations-staging
+    env:
+      CF_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CF_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+    steps:
+      - name: Read live Cloudflare deployments and binding names (never secrets)
+        run: |
+          node --input-type=module <<'NODE'
+          const account=process.env.CF_ACCOUNT_ID,token=process.env.CF_API_TOKEN;
+          if(!account || !token){
+            console.log('CF_READONLY '+JSON.stringify({connection:'missing_credentials_in_environment',no_changes:true}));
+            process.exit(0);
+          }
+          const base='https://api.cloudflare.com/client/v4/accounts/'+encodeURIComponent(account)+'/workers/scripts/';
+          for (const worker of ['celebrations-exit-production','celebrations']) {
+            for (const part of ['deployments','settings']) {
+              try {
+                const response=await fetch(base+worker+'/'+part,{
+                  headers:{authorization:'Bearer '+token,accept:'application/json'},
+                  signal:AbortSignal.timeout(20000)
+                });
+                const data=await response.json().catch(()=>({}));
+                const result=data.result??{};
+                let report={worker,endpoint:part,http_status:response.status,api_success:data.success===true,no_changes:true};
+                if(part==='deployments'){
+                  report.deployments=(result.deployments??[]).slice(0,3).map(d=>({
+                    id:d.id,created_on:d.created_on,
+                    versions:(d.versions??[]).map(v=>({version_id:v.version_id,percentage:v.percentage}))
+                  }));
+                }else{
+                  report.bindings=(result.bindings??[]).map(b=>({name:b.name,type:b.type}));
+                  report.worker_compatibility_date=result.compatibility_date??null;
+                }
+                console.log('CF_READONLY '+JSON.stringify(report));
+              }catch(e){
+                console.log('CF_READONLY '+JSON.stringify({worker,endpoint:part,error:e.name||'error',no_changes:true}));
+              }
+            }
+          }
+          NODE
