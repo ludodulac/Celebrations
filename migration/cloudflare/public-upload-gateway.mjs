@@ -59,6 +59,7 @@ function publicRelease(state,src){
  const entry=(state.mediaCatalogue||[]).find(row=>row?.src===src);
  if(entry&&isPrivateMediaRecord(entry))return false;
  if(referencedByPrivateOwner(state,src))return false;
+ if(state.siteIdentity?.imageSrc===src&&entry?.type==='image')return true;
  if(publishedPageReferences(state,src))return true;
  // Existing admin "general gallery" toggles are explicit public releases,
  // not membership grants. A marked/private file can never be promoted.
