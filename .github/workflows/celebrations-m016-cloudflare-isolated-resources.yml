@@ -1,0 +1,58 @@
+name: "Célébrations M016 — provisionnement Cloudflare totalement indépendant"
+on:
+  push:
+    branches:
+      - feat/celebrations-m016-online-service-safe-backup-20261111
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: celebrations-m016-separated-cloudflare-preprod
+  cancel-in-progress: false
+jobs:
+  create-only-isolated-d1-r2:
+    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M016_PROVISION_CLOUD_ONLY]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Pin successful complete encrypted backup and full isolated restore before ANY Cloudflare creation
+        run: |
+          python - <<'PY'
+          import json,os,urllib.request
+          assert os.environ['GITHUB_REF']=='refs/heads/feat/celebrations-m016-online-service-safe-backup-20261111'
+          base='https://api.github.com/repos/ludodulac/Celebrations'
+          headers={'Authorization':'Bearer '+os.environ['GITHUB_TOKEN'],'Accept':'application/vnd.github+json'}
+          def get(path):
+              with urllib.request.urlopen(urllib.request.Request(base+path,headers=headers),timeout=20) as r:
+                  return json.load(r)
+          run=get('/actions/runs/42994959783')
+          assert run['conclusion']=='success' and run['status']=='completed'
+          assert run['head_sha']=='663b38a31827e822bab41997e351c22cb2bcc60f'
+          artifacts=get('/actions/runs/42994959783/artifacts')['artifacts']
+          valid=[a for a in artifacts if a['id']==13843552502
+                  and a['name']=='celebrations-m016-crypted-live-full-20261111'
+                  and not a['expired'] and a['size_in_bytes']>800_000_000]
+          assert len(valid)==1,'Backup artifact unavailable or expired'
+          print('M016_VERIFIED_BACKUP_GATE_PASS run=42994959783 artifact=13843552502')
+          PY
+      - name: Enforce exact script grammar and immutable known targets
+        run: |
+          python -m py_compile scripts/m016_provision_independent_preprod.py
+          grep -Fq 'celebrations-m016-admin-preprod' scripts/m016_provision_independent_preprod.py
+      - name: Install pinned Cloudflare HTTP read/provision dependency
+        run: python -m pip -q install requests==2.32.5
+      - name: Only create separate EMPTY preproduction resources on Cloudflare
+        env:
+          M016_PROVISION_ONLY: 'yes'
+        run: python scripts/m016_provision_independent_preprod.py
+      - name: Confirm no production routing, data import or Worker deployment
+        run: echo M016_EMPTY_D1_AND_TWO_EMPTY_R2_ONLY_NO_WORKER_DEPLOY_OR_DNS_CHANGES

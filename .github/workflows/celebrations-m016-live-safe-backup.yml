@@ -1,0 +1,77 @@
+name: "Célébrations M016 — sauvegarde Cloudflare réelle, récupération vérifiée"
+on:
+  push:
+    branches:
+      - feat/celebrations-m016-online-service-safe-backup-20261111
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-m016-one-real-production-backup
+  cancel-in-progress: false
+jobs:
+  actual-source-backup-only:
+    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M016_BACKUP_ONLY]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      PROD_D1_ID: 28736d2a-479b-472b-bf82-703ad0affe10
+      STAGING_R2_BUCKET: celebrations-exit-staging
+      PROD_R2_BUCKET: celebrations-exit-production
+      STAGING_R2_ACCESS_KEY_ID: ${{ secrets.CELEBRATIONS_STAGING_R2_ACCESS_KEY_ID }}
+      STAGING_R2_SECRET_ACCESS_KEY: ${{ secrets.CELEBRATIONS_STAGING_R2_SECRET_ACCESS_KEY }}
+      CELEBRATIONS_PROD_R2_ACCESS_KEY_ID: ${{ secrets.CELEBRATIONS_PROD_R2_ACCES_KEY_ID }}
+      CELEBRATIONS_PROD_R2_SECRET_ACCESS_KEY: ${{ secrets.CELEBRATIONS_PROD_R2_SECRET_ACCES_KEY }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      CELEBRATIONS_BACKUP_PASSPHRASE: ${{ secrets.CELEBRATIONS_BACKUP_PASSPHRASE }}
+      BACKUP_ARTIFACT_FOLDER: artifacts/celebrations-m016-encrypted-20261111
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Confirm exact M016 branch and files, no production writes or deployments
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/feat/celebrations-m016-online-service-safe-backup-20261111'
+          test "$GITHUB_EVENT_NAME" = 'push'
+          test "$PROD_D1_ID" = '28736d2a-479b-472b-bf82-703ad0affe10'
+          test "$STAGING_R2_BUCKET" = 'celebrations-exit-staging'
+          test "$PROD_R2_BUCKET" = 'celebrations-exit-production'
+          test "${#CELEBRATIONS_BACKUP_PASSPHRASE}" -ge 32
+          test ! -e "$BACKUP_ARTIFACT_FOLDER"
+          python -m py_compile scripts/m016_live_safe_backup.py scripts/finalisation03_portable_recovery.py
+      - name: Install read-only source clients and local crypto
+        run: python -m pip -q install boto3==1.40.57 cryptography==46.0.2 requests==2.32.5
+      - name: Verify legacy backup & restore contracts
+        run: |
+          python -m unittest discover -s tests -p 'test_finalisation03_portable_recovery.py' -v
+          python -m unittest discover -s tests -p 'test_finalisation03_restore_offline.py' -v
+          python -m unittest discover -s tests -p 'test_mission20_d1_logical_backup.py' -v
+      - name: Read current production D1, both live R2 buckets, official Worker; encrypt and verify
+        env:
+          M016_BACKUP_ONLY: 'yes'
+        run: python scripts/m016_live_safe_backup.py
+      - name: Restore all encrypted files to an independent temporary local folder and reconstruct SQLite
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          trap 'rm -rf /tmp/celebrations-m016-restore-probe' EXIT
+          python scripts/finalisation03_restore_offline.py --archive-folder "$BACKUP_ARTIFACT_FOLDER" --new-destination /tmp/celebrations-m016-restore-probe
+          test -s /tmp/celebrations-m016-restore-probe/recovered-production-d1.sqlite
+          test -s /tmp/celebrations-m016-restore-probe/production-worker-script-actual-multipart
+          echo M016_FULL_LOCAL_RESTORE_CHECK_PASS_NO_REMOTE_WRITES
+      - name: Archive encrypted files ONLY outside Cloudflare (30-day GitHub Actions retention)
+        uses: actions/upload-artifact@v4
+        with:
+          name: celebrations-m016-crypted-live-full-20261111
+          path: artifacts/celebrations-m016-encrypted-20261111/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+      - name: Final safety marker
+        run: echo M016_FULL_BACKUP_DONE_NO_PRODUCTION_D1_R2_WORKER_OR_DNS_WRITES

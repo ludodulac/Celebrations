@@ -20,7 +20,7 @@ import {isBlockedPublicAssetPath,privatePublicAssetNotFound} from "./app/securit
 import {isMemberAdminWorkerRoute,routeMemberAdminWorkerRequest} from "./app/security/member-admin-worker-routes.mjs";
 import {mayUseIsolatedMemberApi} from "./app/security/editor-route-policy.mjs";
 import {hasEditorAccess,editorAccessAction,editorLoginPage,editorLogout} from "./editor-site-access.mjs";
-import {isOfficialEditorHost,isReadonlyCandidateHost,isPrivateEditorPath,sameOriginEditorWrite} from "./app/security/editor-route-policy.mjs";
+import {isOfficialEditorHost,isReadonlyCandidateHost,isM016AdminPreprodHost,isPrivateEditorPath,sameOriginEditorWrite} from "./app/security/editor-route-policy.mjs";
 // Immutable public route aliases. Keep historical links unchanged.
 const DIRECT_PAGES=new Map([
  ["/programme","preparation"],["/preparation","preparation"],
@@ -35,6 +35,10 @@ export default {
   const url=new URL(request.url),path=url.pathname;
   // Guard before ANY legacy alias, API, R2 or static-assets fallback.
   if(isBlockedPublicAssetPath(path))return privatePublicAssetNotFound();
+  const workingPreprod=isM016AdminPreprodHost(url.hostname,env);
+  // Do not serve ANY route if the exact new Worker loses its two opt-ins.
+  if(url.hostname==='celebrations-m016-admin-preprod.rondes.workers.dev'&&!workingPreprod)
+   return new Response('Preproduction unavailable',{status:503,headers:{'cache-control':'no-store','x-robots-tag':'noindex'}});
   const isolated=isReadonlyCandidateHost(url.hostname);
   // Before domain cutover the independent candidate is READ-ONLY, by design.
   // This gate prevents public signups, analytics writes and admin mutations.
@@ -61,12 +65,12 @@ export default {
   // Gate the administration itself AND every server write. Public viewing and
   // old mailed PDF/media addresses remain accessible without signing in.
   const officialHost=isOfficialEditorHost(url.hostname);
-  if(officialHost){
+  if(officialHost||workingPreprod){
    if(path==="/api/editor-access")return editorAccessAction(request,env);
    if(path==="/api/editor-logout"){
     if(request.method!=="POST")return new Response("Méthode interdite",{status:405});
     if(!sameOriginEditorWrite(request))return new Response("Origine interdite",{status:403});
-    return editorLogout();
+    return editorLogout(request);
    }
    const editorPage=path==="/admin"||path==="/admin.html"||
     path==="/__editor/demo-preparation";
@@ -106,7 +110,7 @@ export default {
   // All media, old emailed PDF, existing static assets and historic redirects
   // stay on their original production routes and production D1/R2 bindings.
   const visualCandidate=url.hostname==="celebrations-visual-candidate.rondes.workers.dev";
-  if((officialHost||visualCandidate||isolated)&&env.DB){
+  if((officialHost||visualCandidate||isolated||workingPreprod)&&env.DB){
    if(path==="/api/editor-publication")return handleEditorPublication(request,env);
    if(path==="/api/editor-media")return handleEditorMedia(request,env);
    if(path==="/api/editor-open-draft")return handleServerDraft(request,env);
@@ -141,7 +145,7 @@ export default {
   headers.set("x-content-type-options","nosniff");
   headers.set("referrer-policy","strict-origin-when-cross-origin");
   headers.set("x-frame-options","SAMEORIGIN");
-  if(isolated){
+  if(isolated||workingPreprod){
    headers.set("x-robots-tag","noindex,nofollow,noarchive");
    headers.set("cache-control","no-store");
   }

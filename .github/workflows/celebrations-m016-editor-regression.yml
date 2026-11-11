@@ -1,0 +1,41 @@
+name: "Célébrations M016 — sécurité éditeur avant activation"
+on:
+  push:
+    branches: [feat/celebrations-m016-online-service-safe-backup-20261111]
+  pull_request:
+    branches: [feat/celebrations-m015-public-preproduction-20261111]
+permissions:
+  contents: read
+jobs:
+  offline-branch-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Compiles and existing security regression suite (no Cloudflare account)
+        run: |
+          node --check migration/cloudflare/production-worker.mjs
+          node --check migration/cloudflare/editor-site-access.mjs
+          node --check migration/cloudflare/editor-publication-api.mjs
+          node --check migration/cloudflare/editor-server-draft-api.mjs
+          node --check migration/cloudflare/app/security/editor-route-policy.mjs
+          node --test tests/test_m009a_public_projection_security.mjs tests/test_m009c_public_media_api_security.mjs tests/test_mission14_editor_security.mjs tests/test_m011b_private_content_integration.mjs
+      - name: Exact candidate and official host separation
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {isWritableEditorHost,isReadonlyCandidateHost,isOfficialEditorHost} from './migration/cloudflare/app/security/editor-route-policy.mjs';
+          const h='celebrations-m016-admin-preprod.rondes.workers.dev';
+          const good={M016_PREPROD_WRITE_ENABLED:'true',M016_ADMIN_PREPROD_HOST:h};
+          assert.equal(isWritableEditorHost(h,good),true);
+          assert.equal(isWritableEditorHost(h,{}),false);
+          assert.equal(isWritableEditorHost(h,{...good,M016_PREPROD_WRITE_ENABLED:'false'}),false);
+          assert.equal(isOfficialEditorHost(h),false);
+          assert.equal(isReadonlyCandidateHost(h),false);
+          assert.equal(isReadonlyCandidateHost('celebrations-m015-public-preprod.rondes.workers.dev'),true);
+          assert.equal(isWritableEditorHost('ronde-des-archanges-universelle.eu',{}),true);
+          console.log('M016_EDITOR_HOST_BOUNDARY_OFFLINE_PASS');
+          NODE
