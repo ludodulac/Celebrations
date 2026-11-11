@@ -69,7 +69,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mapfile -t suites < <(find tests -maxdepth 1 -type f -regextype posix-extended -regex '.*/test_m[0-9]{3}.*\\.mjs' | sort)
+          mapfile -t suites < <(find tests -maxdepth 1 -type f -name 'test_m0*.mjs' | sort)
+          test "${#suites[@]}" -ge 20
           node --test "${suites[@]}" tests/test_mission002_member_access.mjs | tee "$RUNNER_TEMP/m011d-node.tap"
           grep -E '^# (tests|pass|fail|cancelled|skipped) ' "$RUNNER_TEMP/m011d-node.tap"
 
