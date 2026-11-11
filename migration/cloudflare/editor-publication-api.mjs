@@ -1,5 +1,6 @@
 // Separate published website from the admin draft. Do not modify original
 // MEDIA_BUCKET or historic URLs. Both snapshots live in the existing editor R2.
+import {legacyEditorView,legacyRecord,managedPage,managedPageId,managedCelebration} from './app/security/private-editor-boundary.mjs';
 import {hasEditorAccess} from './editor-site-access.mjs';
 import {EDITOR_SNAPSHOT_LIMIT,expectedRevisionMatches} from './app/ports/editor-snapshot-contract.mjs';
 import {readEditorSnapshot,putEditorSnapshot} from './app/adapters/editor-r2-repository.mjs';
@@ -115,18 +116,19 @@ export function discoverMedia(state){
    index.set(r.type+'|'+src,{...r,id:r.type+'|'+src,uses:[]});
   }
  }
- for(const p of state.shared?.pages||[])scanBlocks(p.blocks,index,p,'');
+ for(const p of state.shared?.pages||[])if(!managedPage(p))scanBlocks(p.blocks,index,p,'');
  for(const [id,draft] of Object.entries(state.drafts||{}))
-  for(const p of draft?.pages||[])scanBlocks(p.blocks,index,p,id);
+  for(const p of draft?.pages||[])if(!managedPage(p))scanBlocks(p.blocks,index,p,id);
  // An older published revision can still display a file removed from its draft.
  // Count this use too, so files visible to visitors are never marked 'unused'.
- for(const p of state.published?.shared?.pages||[])scanBlocks(p.blocks,index,p,'');
+ for(const p of state.published?.shared?.pages||[])if(!managedPage(p))scanBlocks(p.blocks,index,p,'');
  for(const [id,draft] of Object.entries(state.published?.drafts||{}))
-  for(const p of draft?.pages||[])scanBlocks(p.blocks,index,p,id);
+  for(const p of draft?.pages||[])if(!managedPage(p))scanBlocks(p.blocks,index,p,id);
  return [...index.values()].slice(0,1800);
 }
 export function initialPublication(state){
- return {drafts:copy(state.drafts||{}),shared:copy(state.shared||{pages:[],homeId:''}),
+ return {drafts:copy(Object.fromEntries(Object.entries(state.drafts||{}).map(([id,r])=>[id,legacyRecord(r)]))),
+  shared:copy(legacyRecord(state.shared||{pages:[],homeId:''})),
   plans:copy(state.plans||[]),celebrationVisibility:copy(state.shared?.celebrationVisibility||{})};
 }
 const validVisibility=x=>['draft','published','hidden'].includes(x);
@@ -315,6 +317,9 @@ export async function handleEditorPublication(request,env){
  if(body.kind==='media'&&(typeof body.mediaId!=='string'||body.mediaId.length>720||typeof body.general!=='boolean'))return err('Média invalide',400);
  const current=await readEditorState(env.EDITOR_BUCKET);
  if(!expectedRevisionMatches(body.expectedRevision,current.state.version))return err('Une nouvelle version du serveur existe. Rechargez.',409);
+ if((body.kind==='page'||body.kind==='translation')&&managedPageId(current.state,body.celebration,body.pageId)||
+    body.kind==='celebration'&&managedCelebration(current.state,body.celebration))
+  return err('Commande privée : session D1 et service dédiés requis',403);
  const state=copy(current.state),pub=state.published||initialPublication(state);
  if(body.kind==='page'){
   const isShared=body.pageId.startsWith('neutral-');
@@ -345,7 +350,7 @@ export async function handleEditorPublication(request,env){
   if(body.visibility==='published'){
    const saved=state.drafts[body.celebration];
    if(saved&&!pub.drafts[body.celebration])
-    pub.drafts[body.celebration]={...copy(saved),pages:[]};
+    pub.drafts[body.celebration]={...copy(legacyRecord(saved)),pages:[]};
    const plan=state.plans.find(x=>x.id===body.celebration);
    if(plan&&!pub.plans.some(x=>x.id===plan.id))pub.plans.push(copy(plan));
   }
@@ -382,7 +387,7 @@ export async function handleEditorMedia(request,env){
  if(request.method==='GET'){
   if(!await hasEditorAccess(request,env))return err('Code administrateur nécessaire',401);
   const {state}=await readEditorState(env.EDITOR_BUCKET);
-  return json({ok:true,items:discoverMedia(state)});
+  return json({ok:true,items:discoverMedia(legacyEditorView(state))});
  }
  if(request.method!=='POST')return err('Méthode interdite',405);
  const denied=await protectedWrite(request,env);if(denied)return denied;
@@ -443,6 +448,8 @@ export async function handleEditorMedia(request,env){
        Array.isArray(p.blocks)&&p.blocks.length<300))return err('Pages non enregistrées',400);
    record={pages:copy(candidate.pages),celebrationDates:{},celebrationTimes:{}};
   }
+  if(managedPageId(state,input.celebration,input.pageId)||record.pages.some(managedPage)&&!state.drafts[input.celebration])
+   return err('Commande privée : session D1 requise',403);
   const page=record.pages.find(p=>p.id===input.pageId&&p.group==='celebration');
   if(!page||page.blocks.length>=290)return err('Page introuvable ou pleine',404);
   const mediaKind=input.mediaType==='image'?'image':input.mediaType==='audio'?'audio':

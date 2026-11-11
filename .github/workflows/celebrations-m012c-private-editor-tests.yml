@@ -1,0 +1,31 @@
+name: Celebrations M012-C private editorial persistence (local only)
+on:
+  pull_request:
+    branches:
+      - feat/celebrations-m011d-consolidation-011a-011b-011c-20261111
+    paths:
+      - 'tests/test_m012c_private_editor_publication.mjs'
+      - 'migration/cloudflare/app/application/private-editor-publication-service.mjs'
+      - '.github/workflows/celebrations-m012c-private-editor-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  local-sqlite-r2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: M012-C full lifecycle and failure tests
+        run: node --test tests/test_m012c_private_editor_publication.mjs
+      - name: Full active missions M002 through M012-C
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t suites < <(find tests -maxdepth 1 -name 'test_m0*.mjs' | sort)
+          node --test "${suites[@]}" tests/test_mission002_member_access.mjs

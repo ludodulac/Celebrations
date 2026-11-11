@@ -1,5 +1,6 @@
 // Isolated staging server drafts: no publication, no historical D1 writes.
 // Authenticated JSON snapshots are persisted in the staging-only R2 bucket.
+import {legacyEditorView,mergeLegacyRecord,managedPageId} from './app/security/private-editor-boundary.mjs';
 import {authorize} from './auth-api.mjs';
 import {hasEditorAccess} from './editor-site-access.mjs';
 import {createLanguageRegistry,setPageTranslation} from './app/domain/editor-localization.mjs';
@@ -126,9 +127,10 @@ export async function handleServerDraft(request,env){
    const id=url.searchParams.get('celebration');
    if(!goodId(id))return error('Célébration invalide',400);
    const {state}=await stored(draftBucket);
-   return json({ok:true,revision:state.version,record:state.drafts[id]||null,plans:state.plans,shared:state.shared,
-    localization:state.localization||null,
-    mediaCatalogue:discoverMedia(state),updatedAt:state.updatedAt||null});
+   const view=legacyEditorView(state);
+   return json({ok:true,revision:state.version,record:view.drafts[id]||null,plans:state.plans,shared:view.shared,
+    localization:view.localization||null,
+    mediaCatalogue:discoverMedia(view),updatedAt:state.updatedAt||null});
   }
   if((request.headers.get('content-type')||'').split(';')[0]!=='application/json')return error('Format invalide',415);
   const raw=await request.text();
@@ -136,7 +138,7 @@ export async function handleServerDraft(request,env){
   let body;try{body=JSON.parse(raw)}catch{return error('JSON invalide',400)}
   if(!object(body)||!goodId(body.celebration)||!goodPlans(body.plans)||!goodShared(body.shared)||
    !Number.isSafeInteger(body.expectedRevision)||body.expectedRevision<0)return error('Données de sauvegarde invalides',400);
-  const record=sanitizeRecord(body.record,body.celebration);
+  let record=sanitizeRecord(body.record,body.celebration);
   if(!record)return error('Pages invalides',400);
   if(body.localization!==undefined&&!goodLocalization(body.localization,body.shared,record))
    return error('Traductions ou registre multilingue invalides',400);
@@ -149,13 +151,23 @@ export async function handleServerDraft(request,env){
    return error('Page à mettre à jour introuvable',400);
   const current=await stored(draftBucket);
   if(!expectedRevisionMatches(body.expectedRevision,current.state.version))return error('Une version plus récente existe sur le serveur. Rechargez sans effacer votre brouillon local.',409);
+  // Legacy saves cannot replace private pages, spaces, or their ACLs.
+  try{
+   if(Object.hasOwn(body.record,'spaces')||
+     record.pages.some(p=>managedPageId(current.state,body.celebration,p.id))||
+     body.shared.pages.some(p=>managedPageId(current.state,body.celebration,p.id))||
+     publishPageId&&managedPageId(current.state,body.celebration,publishPageId))
+    throw Error('private command');
+   record=mergeLegacyRecord(current.state.drafts[body.celebration],record);
+   body.shared=mergeLegacyRecord(current.state.shared,body.shared);
+  }catch{return error('Commande privée : session D1 et service dédiés requis',403)}
   const drafts=Object.assign(Object.create(null),current.state.drafts);
   drafts[body.celebration]=record;
   const updatedAt=new Date().toISOString(),version=current.state.version+1;
   // Keep unrelated published pages intact. The selected already-public page
   // gets updated atomically with the private draft on the OFFICIAL domain only.
   const previouslyPublished=current.state.published||initialPublication(current.state);
-  const catalogue=discoverMedia({...current.state,drafts,plans:body.plans,shared:body.shared});
+  const catalogue=discoverMedia(legacyEditorView({...current.state,drafts,plans:body.plans,shared:body.shared}));
   const state={...current.state,version,updatedAt,drafts,plans:body.plans,
    shared:body.shared,published:previouslyPublished,mediaCatalogue:catalogue,
    ...(body.localization!==undefined?{localization:body.localization}:{})};
