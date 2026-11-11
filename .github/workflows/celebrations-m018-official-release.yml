@@ -364,3 +364,5 @@ jobs:
             --message "M018 isolated M016 functional proof failed; restore prior M016 Worker"
 
 # Owner final rules verified on one M016 site only; never touches official domain.
+
+# M018: retester le contrat liste canonique existant, aucune action officielle.
