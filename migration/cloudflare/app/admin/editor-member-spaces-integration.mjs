@@ -35,11 +35,43 @@ export function mountExistingEditorMemberSpaces(root,{
   const activeTypes=()=>memberTypes.filter(t=>t.disabled!==true&&t.disabled!==1);
   function accessChoice(policy,visibility){
     if(visibility===SPACE_VISIBILITIES.PUBLIC)return 'PUBLIC';
-    if(policy?.mode===ACCESS_MODES.SELECTED_TYPES&&policy.typeIds?.length===1)
-      return 'CATEGORY:'+policy.typeIds[0];
+    if(policy?.mode===ACCESS_MODES.SELECTED_TYPES)
+      return policy.typeIds?.length===1?'CATEGORY:'+policy.typeIds[0]:'MULTI';
     return 'REGISTERED';
   }
-  function accessPolicyFromChoice(value){
+  function pagePolicyChoice(policy){
+    if(policy?.mode===ACCESS_MODES.SELECTED_TYPES)
+      return policy.typeIds?.length===1?'CATEGORY:'+policy.typeIds[0]:'MULTI';
+    return policy?.mode===ACCESS_MODES.ALL_PRIVATE_TYPES?'REGISTERED':'PUBLIC';
+  }
+  function pagePolicyFromChoice(value,previous){
+    if(value==='PUBLIC')return {mode:ACCESS_MODES.PUBLIC};
+    if(value==='REGISTERED')return {mode:ACCESS_MODES.ALL_PRIVATE_TYPES};
+    if(value==='MULTI'&&previous?.mode===ACCESS_MODES.SELECTED_TYPES)
+      return {mode:ACCESS_MODES.SELECTED_TYPES,typeIds:[...previous.typeIds]};
+    if(value.startsWith('CATEGORY:')){
+      const typeId=value.slice(9);
+      if(!activeTypes().some(t=>t.id===typeId))throw Error('Catégorie inconnue');
+      return {mode:ACCESS_MODES.SELECTED_TYPES,typeIds:[typeId]};
+    }
+    throw Error('Visibilité inconnue');
+  }
+  function pagePolicyOptions(previous){
+    const select=node('select'),current=pagePolicyChoice(previous);
+    const options=[['PUBLIC','Public'],['REGISTERED','Privé — Tous les inscrits']];
+    if(current==='MULTI')options.push(['MULTI',
+      'Privé — '+(previous.typeIds||[]).map(id=>memberTypes.find(t=>t.id===id)?.name||'Catégorie conservée').join(' + ')]);
+    options.push(...activeTypes().map(t=>['CATEGORY:'+t.id,'Privé — '+t.name]));
+    for(const [key,title] of options){
+      const option=node('option',title);option.value=key;option.selected=key===current;select.append(option);
+    }
+    return select;
+  }
+  function accessPolicyFromChoice(value,previous){
+    if(value==='MULTI'&&previous?.mode===ACCESS_MODES.SELECTED_TYPES)
+      return {visibility:SPACE_VISIBILITIES.PRIVATE,
+        mode:ACCESS_MODES.SELECTED_TYPES,typeIds:[...previous.typeIds]};
+
     if(value==='PUBLIC')return {visibility:SPACE_VISIBILITIES.PUBLIC,
       mode:ACCESS_MODES.PUBLIC,typeIds:[]};
     if(value==='REGISTERED')return {visibility:SPACE_VISIBILITIES.PRIVATE,
@@ -55,8 +87,11 @@ export function mountExistingEditorMemberSpaces(root,{
   function accessOptions({policy,visibility}){
     const select=node('select');
     const value=accessChoice(policy,visibility);
-    for(const [key,title] of [['PUBLIC','Public'],['REGISTERED','Privé — Tous les inscrits'],
-      ...activeTypes().map(t=>['CATEGORY:'+t.id,'Privé — '+t.name])]){
+    const options=[['PUBLIC','Public'],['REGISTERED','Privé — Tous les inscrits']];
+    if(value==='MULTI')options.push(['MULTI','Privé — '+(policy.typeIds||[])
+      .map(id=>memberTypes.find(t=>t.id===id)?.name||'Catégorie conservée').join(' + ')]);
+    options.push(...activeTypes().map(t=>['CATEGORY:'+t.id,'Privé — '+t.name]));
+    for(const [key,title] of options){
       const option=node('option',title);option.value=key;option.selected=key===value;
       select.append(option);
     }
