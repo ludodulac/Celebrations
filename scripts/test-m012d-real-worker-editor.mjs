@@ -9,6 +9,7 @@ import {build} from 'esbuild';
 import {chromium} from 'playwright';
 import {flags,schemaFiles,schema,ORIGIN,request,login,PARTICIPANT,seedParticipant} from '../tests/fixtures/m012a-editor-session-http.mjs';
 import {EDITOR_SNAPSHOT_KEY} from '../migration/cloudflare/app/ports/editor-snapshot-contract.mjs';
+const demo=process.argv.includes('--demo');
 const temp=await mkdtemp(join(tmpdir(),'celebrations-m012d-'));
 let mf,browser;
 try{
@@ -47,9 +48,9 @@ try{
  for(const host of ['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu','celebrations-visual-candidate.rondes.workers.dev']){
   assert.equal((await dispatch(request(api+'?celebration=41',{method:'GET',token:admin.token,host}))).status,404);
  }
- browser=await chromium.launch({headless:true});
+ browser=await chromium.launch({headless:!demo});
  const page=await browser.newPage({viewport:{width:1440,height:900}});
- const errors=[];page.on('pageerror',e=>errors.push(String(e)));page.on('dialog',d=>d.accept());
+ const errors=[];page.on('pageerror',e=>errors.push(String(e)));if(!demo)page.on('dialog',d=>d.accept());
  await page.route('**/*',async route=>{
   const req=route.request(),url=new URL(req.url());
   if(url.origin!==ORIGIN)return route.abort();
@@ -67,6 +68,10 @@ try{
   await page.getByText('Page 1 · 1 personnes affichées').waitFor();
  }
  await page.goto(ORIGIN+'/__editor/demo-preparation?celebration=41');
+ if(demo){
+  console.log('DÉMO ISOLÉE – données fictives uniquement. Onglet Membres et espaces. Mot de passe : synthetic-only M012-A password. Fermer la fenêtre pour arrêter.');
+  await new Promise(resolve=>page.once('close',resolve));
+ }else{
  await connect();
  await page.getByRole('searchbox',{name:'Rechercher une personne'}).fill('Camille');
  await button('Rechercher').click();
@@ -110,4 +115,5 @@ try{
  }
  assert.deepEqual(errors,[]);
  console.log('M012D_REAL_CHROMIUM_WORKER_D1_R2_PASS');
+ }
 }finally{await browser?.close();await mf?.dispose();await rm(temp,{recursive:true,force:true})}
