@@ -102,11 +102,15 @@ try{
  await button('Créer dans le brouillon').click();
  await page.getByPlaceholder('Titre de la nouvelle page').fill('Accueil Démo');
  await button('Préparer une page').click();
+ await page.getByLabel('Politique de la page Accueil Démo').selectOption('SELECTED_TYPES');
+ await page.getByLabel('Types autorisés de la page').fill('member-type:demo');
+ await button('Préparer les droits de la page').click();
  await button('Enregistrer les espaces').click();
  await page.getByText(/Brouillon enregistré, identifiants serveur/).waitFor();
  const first=await (await get(admin.token)).json();
  const space=first.record.spaces[0],sid=space.id,pid=space.pages[0].id;
  assert.match(sid,/^space:/);assert.match(pid,/^page:/);
+ assert.deepEqual(space.pages[0].accessPolicy,{mode:'SELECTED_TYPES',typeIds:['member-type:demo']});
  assert.equal(first.spaceReleases.length,0);
  const conflict=await command({action:'save',expectedRevision:1,spaces:[]});
  assert.equal(conflict.status,409);

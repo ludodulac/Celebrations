@@ -65,7 +65,7 @@ export function createMediaCatalogue({validHref}){
   // Same three source families as before: R2/D1 historical, local IndexedDB,
   // server mediaCatalogue. Historical URLs take display precedence.
   const local=[...fileRecords].sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
-  const remote=(globalMedia||[]).filter(item=>['images','pdf','audios','videos','autres'].includes(mediaCategoryOf(item)));
+  const remote=(globalMedia||[]).filter(item=>['image','pdf','audio','video','file'].includes(item?.type));
   const usedUrls=new Set(historical.map(item=>item.src));
   const countFor=category=>historical.filter(item=>item.category===category).length+
    local.filter(item=>categoryOfLocal(item)===category).length+

@@ -101,6 +101,19 @@ export function createSpacesDraftWorkspace(celebrations = [], {allocateId = newI
       });
       return id;
     },
+    updatePagePolicy(celebrationId,spaceId,pageId,{mode,typeIds=[]}={}) {
+      const {space}=lookup(celebrationId,spaceId);
+      if(!space.pages.some(p=>p.id===pageId))throw new RangeError('Page inconnue');
+      if(!Object.values(ACCESS_MODES).includes(mode)||
+        (mode===ACCESS_MODES.SELECTED_TYPES&&(!Array.isArray(typeIds)||!typeIds.length||!typeIds.every(isMemberTypeId))))
+        throw new TypeError('Politique de page invalide');
+      const accessPolicy=policyFor(SPACE_VISIBILITIES.PRIVATE,mode,typeIds);
+      const nextSpace=createCelebrationSpace({...space,pages:space.pages.map(p=>p.id===pageId?{...p,accessPolicy}:p)});
+      change(items=>{const c=items[index(celebrationId)];
+        c.spaces=c.spaces.map(s=>s.id===spaceId?nextSpace:s);
+        getCelebrationSpaces(c);
+      });
+    },
     // M005 owns cloning, ID remapping, translation and media references,
     // draft lifecycle, and removal of every individual member enrollment.
     duplicate(celebrationId) {
