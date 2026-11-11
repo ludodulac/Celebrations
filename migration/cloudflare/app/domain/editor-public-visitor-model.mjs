@@ -38,6 +38,14 @@ export function createPublicVisitorModel(){
   return {
    record,shared,
    plans:Array.isArray(result.plans)?result.plans:[],
+   // Title-only entries are already sanitized by the server. Never hydrate
+   // private pages through the anonymous public snapshot.
+   titleOnlyCelebrations:(Array.isArray(result.titleOnlyCelebrations)?
+     result.titleOnlyCelebrations:[]).filter(p=>p?.titleOnly===true&&
+     typeof p.id==='string'&&/^plan-[a-z0-9-]{5,90}$/.test(p.id))
+    .map(p=>({id:p.id,title:typeof p.title==='string'?p.title.slice(0,160):'',
+     archangel:typeof p.archangel==='string'?p.archangel.slice(0,80):'',
+     year:typeof p.year==='string'?p.year.slice(0,30):'',titleOnly:true})),
    ids:[...(record?.pages||[]),...shared.pages,...spaces.flatMap(s=>s.pages)].map(page=>page.id),
    visible:result.celebrationVisible===true,
    visibility:result.celebrationVisibility||{},

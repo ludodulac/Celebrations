@@ -21,7 +21,7 @@ const SPACE = 'space:41:chapelle';
 const PAGE = 'page:privee';
 const PAGE_SPACE = 'page:chapelle';
 const secret = 'SECRET_PRIVATE_010A';
-const root = {id: PAGE, visibility: 'published',
+const root = {id: PAGE, celebrationId: '41', visibility: 'published',
   accessPolicy: {mode:'SELECTED_TYPES',typeIds:[T]},
   blocks:[{text:secret}], translations:{en:{text:'SECRET_TRANSLATION_010A'}}};
 const interior = {id:PAGE_SPACE, spaceId:SPACE, celebrationId:'41',
@@ -198,6 +198,21 @@ test('M010-A private space requires live individual enrollment and same celebrat
     f.sqlite.prepare('INSERT INTO celebrations_directory_private_space_enrollments(person_id,celebration_id,space_id) VALUES(?,?,?)')
       .run(P,41,SPACE);
     assert.equal((await handlePrivatePage(f.req(),f.env,f.pageOptions({...interior,celebrationId:'999'}))).status,404);
+  }finally{f.close();}
+});
+test('M018-A: revoking celebration enrollment blocks private root and space immediately',async()=>{
+  const f=await setup();
+  try {
+    f.approve();
+    assert.equal((await handlePrivatePage(f.req(),f.env,f.pageOptions(root))).status,200);
+    assert.equal((await handlePrivatePage(f.req(),f.env,f.pageOptions(interior))).status,200);
+    // The D1 foreign key requires withdrawing space grants before enrollment.
+    f.sqlite.prepare('DELETE FROM celebrations_directory_private_space_enrollments WHERE person_id=?')
+      .run(P);
+    f.sqlite.prepare('DELETE FROM celebrations_directory_person_celebrations WHERE person_id=?')
+      .run(P);
+    assert.equal((await handlePrivatePage(f.req(),f.env,f.pageOptions(root))).status,404);
+    assert.equal((await handlePrivatePage(f.req(),f.env,f.pageOptions(interior))).status,404);
   }finally{f.close();}
 });
 test('M010-A permissions and identity are reloaded from D1 for every request',async()=>{

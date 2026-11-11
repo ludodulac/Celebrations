@@ -44,11 +44,36 @@ export function mountExistingEditorMemberSpaces(root,{
       return policy.typeIds?.length===1?'CATEGORY:'+policy.typeIds[0]:'MULTI';
     return policy?.mode===ACCESS_MODES.ALL_PRIVATE_TYPES?'REGISTERED':'PUBLIC';
   }
-  function pagePolicyFromChoice(value,previous){
+  function selectedTypeIds(choices,previous){
+    const ids=[...new Set(choices??previous?.typeIds??[])];
+    if(!ids.length)throw Error('Sélectionnez au moins une catégorie');
+    if(ids.some(id=>!activeTypes().some(type=>type.id===id)&&!(previous?.typeIds||[]).includes(id)))
+      throw Error('Catégorie inconnue ou désactivée');
+    return ids;
+  }
+  function categoryChecks(previous){
+    const area=node('fieldset');area.className='member-spaces-category-checks';
+    area.append(node('legend','Catégories sélectionnées (choix multiples)'));
+    const selected=new Set(previous?.typeIds||[]),inputs=[];
+    for(const type of memberTypes){
+      const entry=node('label'),check=node('input');
+      check.type='checkbox';check.value=type.id;check.checked=selected.has(type.id);
+      check.disabled=type.disabled===true||type.disabled===1;
+      entry.append(check,doc.createTextNode(' '+type.name+(check.disabled?' (désactivée)':'')));
+      area.append(entry);inputs.push(check);
+    }
+    return {area,
+      selected:()=>inputs.filter(x=>x.checked).map(x=>x.value),
+      attach:select=>{
+        const toggle=()=>{area.hidden=select.value!=='MULTI';};
+        select.addEventListener('change',toggle);toggle();
+      }};
+  }
+  function pagePolicyFromChoice(value,previous,choices){
     if(value==='PUBLIC')return {mode:ACCESS_MODES.PUBLIC};
     if(value==='REGISTERED')return {mode:ACCESS_MODES.ALL_PRIVATE_TYPES};
-    if(value==='MULTI'&&previous?.mode===ACCESS_MODES.SELECTED_TYPES)
-      return {mode:ACCESS_MODES.SELECTED_TYPES,typeIds:[...previous.typeIds]};
+    if(value==='MULTI')
+      return {mode:ACCESS_MODES.SELECTED_TYPES,typeIds:selectedTypeIds(choices,previous)};
     if(value.startsWith('CATEGORY:')){
       const typeId=value.slice(9);
       if(!activeTypes().some(t=>t.id===typeId))throw Error('Catégorie inconnue');
@@ -59,8 +84,7 @@ export function mountExistingEditorMemberSpaces(root,{
   function pagePolicyOptions(previous){
     const select=node('select'),current=pagePolicyChoice(previous);
     const options=[['PUBLIC','Public'],['REGISTERED','Privé — Tous les inscrits']];
-    if(current==='MULTI')options.push(['MULTI',
-      'Privé — '+(previous.typeIds||[]).map(id=>memberTypes.find(t=>t.id===id)?.name||'Catégorie conservée').join(' + ')]);
+    options.push(['MULTI','Privé — catégories sélectionnées']);
     if(current.startsWith('CATEGORY:')&&!activeTypes().some(t=>t.id===current.slice(9)))
       options.push([current,'Privé — catégorie existante conservée']);
     options.push(...activeTypes().map(t=>['CATEGORY:'+t.id,'Privé — '+t.name]));
@@ -69,10 +93,10 @@ export function mountExistingEditorMemberSpaces(root,{
     }
     return select;
   }
-  function accessPolicyFromChoice(value,previous){
-    if(value==='MULTI'&&previous?.mode===ACCESS_MODES.SELECTED_TYPES)
+  function accessPolicyFromChoice(value,previous,choices){
+    if(value==='MULTI')
       return {visibility:SPACE_VISIBILITIES.PRIVATE,
-        mode:ACCESS_MODES.SELECTED_TYPES,typeIds:[...previous.typeIds]};
+        mode:ACCESS_MODES.SELECTED_TYPES,typeIds:selectedTypeIds(choices,previous)};
 
     if(value==='PUBLIC')return {visibility:SPACE_VISIBILITIES.PUBLIC,
       mode:ACCESS_MODES.PUBLIC,typeIds:[]};
@@ -90,8 +114,7 @@ export function mountExistingEditorMemberSpaces(root,{
     const select=node('select');
     const value=accessChoice(policy,visibility);
     const options=[['PUBLIC','Public'],['REGISTERED','Privé — Tous les inscrits']];
-    if(value==='MULTI')options.push(['MULTI','Privé — '+(policy.typeIds||[])
-      .map(id=>memberTypes.find(t=>t.id===id)?.name||'Catégorie conservée').join(' + ')]);
+    options.push(['MULTI','Privé — catégories sélectionnées']);
     if(value.startsWith('CATEGORY:')&&!activeTypes().some(t=>t.id===value.slice(9)))
       options.push([value,'Privé — catégorie existante conservée']);
     options.push(...activeTypes().map(t=>['CATEGORY:'+t.id,'Privé — '+t.name]));
@@ -317,15 +340,17 @@ export function mountExistingEditorMemberSpaces(root,{
           .replace(/[\u0300-\u036f]/g,'').toLowerCase().includes('michael');
         const policyForm=node('form');policyForm.className='member-spaces-form';
         const overall=pagePolicyOptions(snapshot.celebrationAccessPolicy);
+        const overallCategories=categoryChecks(snapshot.celebrationAccessPolicy);
+        overallCategories.attach(overall);
         overall.disabled=!ready()||workspace.changed||michael;
         const apply=button('Enregistrer la visibilité');apply.type='submit';
         apply.disabled=overall.disabled;
-        policyForm.append(label('Célébration : Public ou Privé',overall),apply);
+        policyForm.append(label('Célébration : Public ou Privé',overall),overallCategories.area,apply);
         if(michael)policyForm.append(node('p','Michaël reste public dans les langues préparées.'));
         policyForm.addEventListener('submit',event=>{
           event.preventDefault();if(!ready()||workspace.changed||michael)return;
           try{
-            const accessPolicy=pagePolicyFromChoice(overall.value,snapshot.celebrationAccessPolicy);
+            const accessPolicy=pagePolicyFromChoice(overall.value,snapshot.celebrationAccessPolicy,overallCategories.selected());
             void mutate('celebration-access',{accessPolicy});
           }catch(e){renderSpaces('Visibilité refusée : '+e.message)}
         });
@@ -373,15 +398,16 @@ export function mountExistingEditorMemberSpaces(root,{
       const edit=node('form');edit.className='member-spaces-form';
       const title=field('text','Nom',120);title.value=space.name||'';
       const access=accessOptions({policy:space.accessPolicy,visibility:space.visibility});
+      const categories=categoryChecks(space.accessPolicy);categories.attach(access);
       const saveSpace=button('Préparer ces choix');saveSpace.type='submit';
       if(canonical)saveSpace.disabled=!ready();
-      edit.append(label('Nom',title),label('Public / Privé et catégorie',access),saveSpace);
+      edit.append(label('Nom',title),label('Public / Privé et catégorie',access),categories.area,saveSpace);
       if(space.visibility==='PRIVATE'&&space.accessScope!=='CELEBRATION')
         edit.append(node('small','Espace historique : inscription individuelle conservée.'));
       edit.addEventListener('submit',event=>{
         event.preventDefault();if(canonical&&!ready())return;
         try{
-          const selected=accessPolicyFromChoice(access.value,space.accessPolicy);
+          const selected=accessPolicyFromChoice(access.value,space.accessPolicy,categories.selected());
           workspace.updateSpace(celebrationId,space.id,{
             name:title.value,visibility:selected.visibility,mode:selected.mode,
             typeIds:selected.typeIds
@@ -419,15 +445,16 @@ export function mountExistingEditorMemberSpaces(root,{
         if(canonical){
           const policyForm=node('form');policyForm.className='member-spaces-form';
           const accessPage=pagePolicyOptions(page.accessPolicy??{mode:ACCESS_MODES.PUBLIC});
+          const pageCategories=categoryChecks(page.accessPolicy);pageCategories.attach(accessPage);
           accessPage.disabled=!ready();
           const prepare=button('Préparer les droits de la page');prepare.type='submit';prepare.disabled=!ready();
-          policyForm.append(label('Page : Public ou Privé / catégorie',accessPage),prepare);
+          policyForm.append(label('Page : Public ou Privé / catégorie',accessPage),pageCategories.area,prepare);
           if(space.visibility==='PRIVATE')policyForm.append(node('small',
             'Cette page reste réservée aux personnes autorisées à la célébration et à cet espace.'));
           policyForm.addEventListener('submit',event=>{
             event.preventDefault();if(!ready())return;
             try{
-              const selected=pagePolicyFromChoice(accessPage.value,page.accessPolicy);
+              const selected=pagePolicyFromChoice(accessPage.value,page.accessPolicy,pageCategories.selected());
               workspace.updatePagePolicy(celebrationId,space.id,page.id,{
                 mode:selected.mode,typeIds:selected.typeIds??[]
               });
@@ -470,12 +497,13 @@ export function mountExistingEditorMemberSpaces(root,{
     const name=field('text','Nom de l’espace',120);name.required=true;
     const access=accessOptions({policy:{mode:ACCESS_MODES.PUBLIC},visibility:SPACE_VISIBILITIES.PRIVATE});
     access.value='REGISTERED';
+    const categories=categoryChecks();categories.attach(access);
     const add=button('Créer dans le brouillon');add.type='submit';if(canonical)add.disabled=!ready();
-    create.append(label('Nom',name),label('Public / Privé et catégorie',access),add);
+    create.append(label('Nom',name),label('Public / Privé et catégorie',access),categories.area,add);
     create.addEventListener('submit',event=>{
       event.preventDefault();if(canonical&&!ready())return;
       try{
-        const chosen=accessPolicyFromChoice(access.value);
+        const chosen=accessPolicyFromChoice(access.value,null,categories.selected());
         workspace.addSpace(celebrationId,{name:name.value,visibility:chosen.visibility,
           mode:chosen.mode,typeIds:chosen.typeIds,accessScope:'CELEBRATION'});
         renderSpaces('Version préparée pour cette célébration : pas une deuxième célébration.');

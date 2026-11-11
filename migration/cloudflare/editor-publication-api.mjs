@@ -157,12 +157,22 @@ export function publicSnapshot(state,celebration){
  const plans=(published.plans||[])
   .filter(p=>mayDisplayCelebration(p.id)&&celebrationVisibleFor(p.id,visibility,p.visibility))
   .map(projectPublicPlan).filter(Boolean);
+ // Only explicitly visible private PLANS publish a minimal title. Never
+ // include their pages, access policy, drafts, translations or media.
+ const titleOnlyCelebrations=(published.plans||[])
+  .filter(p=>['ALL_PRIVATE_TYPES','SELECTED_TYPES'].includes(
+    published.celebrationAccessPolicies?.[String(p?.id)]?.mode)&&
+    celebrationVisibleFor(p.id,visibility,p.visibility))
+  .map(projectPublicPlan).filter(Boolean)
+  .map(p=>({id:p.id,title:typeof p.title==='string'?p.title.slice(0,160):'',
+    archangel:typeof p.archangel==='string'?p.archangel.slice(0,80):'',
+    year:typeof p.year==='string'?p.year.slice(0,30):'',titleOnly:true}));
  // The visibility of a HIDDEN celebration is itself private metadata.
  const publicVisibility=Object.fromEntries(plans.map(p=>[p.id,'published']));
  if(celebrationVisible)publicVisibility[celebration]='published';
  return {ok:true,revision:state.publishedRevision??0,record,shared,plans,
   celebrationVisible,celebrationVisibility:publicVisibility,
-  media:publishedMedia(state,privateIds),
+  titleOnlyCelebrations,media:publishedMedia(state,privateIds),
   updatedAt:state.publishedAt||null};
 }
 // M014 — same canonical release index, fence and access rules as member reads.

@@ -15,7 +15,7 @@ const TYPE = 'member-type:chorale';
 const TYPE_OTHER = 'member-type:visiteur';
 const SPACE = 'space:43:chapelle';
 const policy = {mode: 'SELECTED_TYPES', typeIds: [TYPE]};
-const root = {id: 'page:privee', visibility: 'published',
+const root = {id: 'page:privee', celebrationId: '43', visibility: 'published',
   accessPolicy: policy, blocks: [{text: 'SECRET_CANONIQUE'}],
   translations: {en: {text: 'SECRET_TRADUIT'}}};
 const space = {id: SPACE, celebrationId: '43', visibility: 'PRIVATE',
@@ -37,7 +37,8 @@ function scenario(overrides = {}) {
     sessionToken: TOKEN, email: EMAIL, sessionExpiry: '2099-01-01T00:00:00.000Z',
     personId: PERSON, registered: true, approvedLink: true,
     linkedEmail: EMAIL, claimApproved: true, claimReviewed: true,
-    disabled: 0, types: [TYPE], enrolled: true, dbError: false, ...overrides
+    disabled: 0, types: [TYPE], celebrationEnrolled: true, enrolled: true,
+    dbError: false, ...overrides
   };
   const queries = [];
   const db = {
@@ -54,6 +55,9 @@ function scenario(overrides = {}) {
               return state.registered && state.approvedLink && state.claimApproved &&
                 state.claimReviewed && state.linkedEmail === args[0] ?
                 {id: state.personId} : null;
+            if (sql.includes('FROM celebrations_directory_person_celebrations'))
+              return state.celebrationEnrolled && args[0] === PERSON &&
+                args[1] === 43 ? {enrolled: 1} : null;
             if (sql.includes('FROM celebrations_directory_private_space_enrollments'))
               return state.enrolled && args[0] === PERSON &&
                 args[1] === SPACE && args[2] === 43 ? {enrolled: 1} : null;
@@ -264,6 +268,37 @@ test('M008-C: media denies unknown, unowned, public-key and unauthenticated requ
   for (const [request, opts] of options)
     assert.equal((await handlePrivateMedia(request, f.env, opts)).status, 404);
   assert.equal(gets, 0);
+});
+
+test('M018-A: no celebration registration denies root and private space before rendering', async () => {
+  const f = scenario({celebrationEnrolled: false});
+  for (const pageId of [root.id, inner.id]) {
+    const renderer = rendered({...loaders(), pageId});
+    const response = await handlePrivatePage(req(), f.env, renderer.options);
+    assert.equal(response.status, 404);
+    assert.equal(renderer.count(), 0);
+    await noLeak(response, 'SECRET');
+  }
+  f.state.celebrationEnrolled = true;
+  assert.equal((await handlePrivatePage(req(), f.env,
+    rendered({...loaders(), pageId: root.id}).options)).status, 200);
+  assert.ok(f.queries.some(q =>
+    q.sql.includes('FROM celebrations_directory_person_celebrations')));
+});
+
+test('M018-A: malformed or mismatched celebration ownership fails closed with 404', async () => {
+  for (const page of [
+    {...root, celebrationId: undefined},
+    {...root, celebrationId: '00043'},
+    {...root, celebrationId: 'invalid'},
+    {...root, celebrationId: '9007199254740993'},
+    {...inner, celebrationId: '999'}
+  ]) {
+    const renderer = rendered({...loaders([page]), pageId: page.id});
+    const response = await handlePrivatePage(req(), scenario().env, renderer.options);
+    assert.equal(response.status, 404, JSON.stringify(page));
+    assert.equal(renderer.count(), 0);
+  }
 });
 
 test('M008-C: private PDF bytes are only read after permission, not public bucket', async () => {
