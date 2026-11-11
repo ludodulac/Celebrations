@@ -199,6 +199,11 @@ export function createCanonicalPrivateLoaders(env) {
       const data=await index();
       return data?{languageRegistry:data.published.languageRegistry,
         privateTranslationReleases:data.published.privateTranslationReleases}:null;
+    },
+    async loadPublishedCelebrationPolicy(celebrationId){
+      const data=await index();
+      if(!data||!cid(celebrationId))return null;
+      return data.published.celebrationAccessPolicies?.[celebrationId]??{mode:ACCESS_MODES.PUBLIC};
     }
   });
 }
