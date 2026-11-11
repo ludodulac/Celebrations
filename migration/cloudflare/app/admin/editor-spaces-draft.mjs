@@ -59,7 +59,7 @@ export function createSpacesDraftWorkspace(celebrations = [], {allocateId = newI
     get canUndo() { return undo.length > 0; },
     get canRedo() { return redo.length > 0; },
     addSpace(celebrationId,{name,visibility=SPACE_VISIBILITIES.PRIVATE,
-      mode=ACCESS_MODES.PUBLIC,typeIds=[]}={}) {
+      accessScope='CELEBRATION',mode=ACCESS_MODES.PUBLIC,typeIds=[]}={}) {
       if(typeof name !== 'string' || !name.trim() || name.trim().length > 120)
         throw new TypeError('Nom d’espace requis (120 caractères maximum)');
       const id = requiredId(allocateId('space'));
