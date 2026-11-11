@@ -6,7 +6,7 @@ import {createSpacesDraftWorkspace} from './editor-spaces-draft.mjs';
 import {ACCESS_MODES,SPACE_VISIBILITIES} from '../domain/member-access.mjs';
 
 export function mountExistingEditorMemberSpaces(root,{
-  transport,privateTransport,isConnected=()=>false,celebrations=[],currentCelebrationId=null,allocateId,styleNonce,canDuplicate=()=>true
+  transport,privateTransport,isConnected=()=>false,celebrations=[],currentCelebrationId=null,allocateId,styleNonce,canDuplicate=()=>true,onEditPage
 }={}) {
   if(!root?.ownerDocument||typeof root.replaceChildren!=='function' ||
      typeof transport!=='function')throw new TypeError('Existing editor root and admin transport required');
@@ -79,20 +79,21 @@ export function mountExistingEditorMemberSpaces(root,{
     if(!canonical||!isConnected()||busy||!celebrationId)return;
     if(workspace.changed&&!doc.defaultView.confirm('Recharger depuis le serveur et abandonner les modifications locales ?'))return;
     const attempt=++epoch;busy=true;renderSpaces('Chargement canonique…');
-    let message;
+    let message,loaded=null;
     try{
       const result=await privateTransport({method:'GET',celebration:celebrationId});
       if(attempt!==epoch)return;
       if(!result.ok)throw Error(result.error||'Chargement refusé');
-      applySnapshot(result);
+      applySnapshot(result);loaded=snapshot;
       message='Espaces chargés depuis R2 — révision '+snapshot.revision+'.';
     }catch(e){if(attempt!==epoch)return;needsReload=true;message='Chargement impossible : '+e.message;}
     finally{if(attempt===epoch){busy=false;renderSpaces(message);}}
+    return loaded;
   }
   async function mutate(action,fields={}){
     if(!ready())return;
     const attempt=++epoch;busy=true;renderSpaces('Commande serveur en cours…');
-    let message;
+    let message,outcome={ok:false,error:'Commande interrompue'};
     try{
       const result=await privateTransport({method:'POST',action,celebration:celebrationId,expectedRevision:snapshot.revision,...fields});
       if(attempt!==epoch)return;
@@ -100,11 +101,56 @@ export function mountExistingEditorMemberSpaces(root,{
         needsReload=true;
         throw Error((result.saved?'R2 a enregistré la commande ; confirmation D1 incomplète. ':'')+(result.error||'Commande refusée')+' — Rechargez avant toute nouvelle tentative.');
       }
-      applySnapshot(result);
+      applySnapshot(result);outcome=result;
       message=action==='save'?'Brouillon enregistré, identifiants serveur et révision '+snapshot.revision+' confirmés.':
         'Commande confirmée — révision '+snapshot.revision+(snapshot.privateReleaseReady?' ; confirmation D1 obtenue.':' ; accès privé non confirmé.');
-    }catch(e){if(attempt!==epoch)return;needsReload=true;message='Commande non confirmée : '+e.message;}
+    }catch(e){if(attempt!==epoch)return;needsReload=true;message='Commande non confirmée : '+e.message;outcome={ok:false,error:e.message};}
     finally{if(attempt===epoch){busy=false;renderSpaces(message);}}
+    return outcome;
+  }
+
+  // The visual editor owns the block controls. This adapter only exposes the
+  // already-authorized canonical R2 command, with server revision arbitration.
+  function openCanonicalPage(spaceId,pageId) {
+    if(!ready()||workspace.changed||typeof onEditPage!=='function')return;
+    const cid=celebrationId;
+    const find=()=>workspace.spaces(cid).find(s=>s.id===spaceId)?.pages.find(p=>p.id===pageId);
+    const page=find();
+    if(!page||page.id.startsWith('draft-page:'))return;
+    const check=()=>{
+      if(destroyed||cid!==celebrationId||!ready()||workspace.changed||!find())
+        throw Error('Session ou révision indisponible : rechargez les espaces.');
+    };
+    const command=async(action,fields)=>{
+      check();
+      const result=await mutate(action,fields);
+      if(!result?.ok)throw Error(result?.error||'Commande canonique non confirmée');
+      return clone(find());
+    };
+    onEditPage({
+      page:clone(page),
+      save:async({name,blocks})=>{
+        check();
+        if(typeof name!=='string'||!name.trim()||!Array.isArray(blocks))
+          throw Error('Page ou blocs invalides');
+        const spaces=workspace.spaces(cid);
+        const space=spaces.find(s=>s.id===spaceId);
+        const position=space?.pages.findIndex(p=>p.id===pageId);
+        if(position<0||position===undefined)throw Error('Page inconnue');
+        // Replace only the canonical page content, never its identity or ACL.
+        space.pages[position]={...space.pages[position],name:name.trim(),blocks:clone(blocks)};
+        return command('save',{spaces});
+      },
+      reload:async()=>{
+        if(!isConnected()||cid!==celebrationId)throw Error('Session expirée');
+        const result=await loadCanonical();
+        if(!result||!find())throw Error('Rechargement impossible');
+        return clone(find());
+      },
+      publish:()=>command('publish',{kind:'page',id:pageId,spaceId}),
+      unpublish:()=>command('unpublish',{kind:'page',id:pageId,spaceId}),
+      isPublished:()=>!!snapshot?.pageReleases?.some(x=>x.pageId===pageId)
+    });
   }
   function sessionChanged(active){
     if(!canonical)return;
@@ -245,7 +291,9 @@ export function mountExistingEditorMemberSpaces(root,{
         const row=node('p',(page.title||page.name||page.id)+' — brouillon / '+
           'contenu et langues conservés');
         const editPage=button('Ouvrir l’édition de page');
-        editPage.disabled=true;editPage.title='Raccordement au moteur de pages et sauvegarde sécurisée requis';
+        editPage.disabled=!canonical||!ready()||workspace.changed||page.id.startsWith('draft-page:')||typeof onEditPage!=='function';
+        editPage.title=editPage.disabled?'Enregistrez d’abord la page et vérifiez la session D1.':'Modifier avec le véritable éditeur de blocs';
+        editPage.addEventListener('click',()=>openCanonicalPage(space.id,page.id));
         row.append(' ',editPage);
         if(canonical){
           const released=snapshot.pageReleases?.some(x=>x.pageId===page.id);

@@ -18,6 +18,7 @@ import {handleEditorPublication,handleEditorMedia} from "./editor-publication-ap
 import {handlePublicEditorUpload} from "./public-upload-gateway.mjs";
 import {isBlockedPublicAssetPath,privatePublicAssetNotFound} from "./app/security/public-media-boundary.mjs";
 import {isMemberAdminWorkerRoute,routeMemberAdminWorkerRequest} from "./app/security/member-admin-worker-routes.mjs";
+import {mayUseIsolatedMemberApi} from "./app/security/editor-route-policy.mjs";
 import {hasEditorAccess,editorAccessAction,editorLoginPage,editorLogout} from "./editor-site-access.mjs";
 import {isOfficialEditorHost,isReadonlyCandidateHost,isPrivateEditorPath,sameOriginEditorWrite} from "./app/security/editor-route-policy.mjs";
 // Immutable public route aliases. Keep historical links unchanged.
@@ -78,6 +79,10 @@ export default {
   // M011-A: explicitly disabled unless two non-production opt-ins are configured.
   // Even then, the official and read-only hosts are permanently excluded here.
   if(isMemberAdminWorkerRoute(path))return routeMemberAdminWorkerRequest(request,env);
+  // Render via the existing visitor, strictly behind isolated opt-ins.
+  if(mayUseIsolatedMemberApi(url,env)&&env.MEMBER_PAGE_READ_API_ENABLED==='true'&&
+      ['GET','HEAD'].includes(request.method)&&(path==='/'||path==='/__editor/voir-le-site'))
+    return handleTrialSite(request,env);
   const handleRoute=async()=>{
 
   // The displayed Préparation day links to /preparation via client routing.
