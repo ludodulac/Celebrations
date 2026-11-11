@@ -208,7 +208,7 @@ export async function handleMemberAccount(request,env){
    const row=await query(env.DB,'SELECT expires_at FROM celebrations_participant_sessions WHERE token_hash=?',await sha256(b.participant_token)).first();
    const seconds=Math.min(30*86400,Math.floor((Date.parse(row?.expires_at||'')-Date.now())/1000));
    if(seconds<=0)return reply({ok:false,error:'Session expirée'},401);
-   return reply({ok:true,expires_at:row.expires_at},{valueOf(){return 200}}, {'set-cookie':setCookie(b.participant_token,seconds)});
+   return reply({ok:true,expires_at:row.expires_at},200,{'set-cookie':setCookie(b.participant_token,seconds)});
   }
   if(action==='logout'){
    const raw=cookieValue(request);
