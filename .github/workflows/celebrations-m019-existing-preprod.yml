@@ -19,6 +19,7 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
       M017_ADMIN_PASSWORD: ${{ secrets.CELEBRATIONS_M017_ADMIN_PASSWORD }}
       M018_ISOLATED_ONLY: 'YES'
+      M019_CHROME_CHANNEL: 'chrome'
     steps:
       - uses: actions/checkout@v4
         with: {persist-credentials: true}
@@ -109,7 +110,7 @@ jobs:
       - name: "Chromium + real Cloudflare D1/R2 : une célébration, deux catégories, trois langues"
         run: |
           npm install --no-save --no-package-lock playwright@1.58.2
-          npx playwright install chromium
+          google-chrome --version
           node scripts/m019_existing_preprod_online.mjs
       - name: Preserve smartphone captures in the draft branch
         run: |

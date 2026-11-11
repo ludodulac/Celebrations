@@ -3218,7 +3218,7 @@ async function openManagedPage(pageId,language='fr'){
   const localized=()=>language==='fr'?clone(canonical()):{...clone(canonical()),name:canonical().translations?.[language]?.name||'Titre à rédiger',blocks:clone(canonical().translations?.[language]?.blocks||[])};
   if(!canonical())return;
   const command=async(action,fields)=>{privateCatalogue=await memberPanel.commandContent(action,fields);return localized()};
-  openPrivatePage({page:localized(),
+  openPrivatePage({languageId:language,page:localized(),
    save:async({name,blocks})=>{const original=clone(canonical());if(language==='fr'){original.name=name;original.blocks=blocks}else original.translations={...original.translations,[language]:{name,blocks}};return command('save',{pages:[original]})},
    reload:async()=>{await refreshPrivateCatalogue();return localized()},
    publish:()=>command('publish',{kind:'page',id:pageId}),unpublish:()=>command('unpublish',{kind:'page',id:pageId}),
@@ -3230,8 +3230,10 @@ function showContentVersions(){
  w.append(b('← Célébrations',()=>{tab='celebrations';render()}));
  memberPanel.showSpaces();w.append(memberPanelRoot);
 }
-function openPrivatePage(controller){
+async function openPrivatePage(controller){
  if(privateEdit||!controller?.page||dirty)return;
+ try{await refreshPrivateCatalogue()}catch(e){siteNotice(e.message);return}
+ if(privateEdit)return;
  privateReturn={db,id,tab};privateEdit=controller;
  db={...db,pages:[{...clone(controller.page),group:controller.page.group||'celebration'}],_serverPending:false};
  id=controller.page.id;tab='celebrations';preview=false;dirty=false;
@@ -3281,6 +3283,7 @@ function privatePageWorkspace(){
  for(const l of privateCatalogue?.languageRegistry?.languages||editorLocalization.registry.languages){const option=n('option','',l.name);option.value=l.id;lang.append(option)}
  const blank=n('option','','Tous les inscrits');blank.value='';cat.append(blank);
  for(const type of availableCategories.filter(t=>!t.disabled)){const o=n('option','',type.name);o.value=type.id;cat.append(o)}
+ lang.value=privateEdit.languageId||'fr';
  const space=privateCatalogue?.record.spaces?.find(s=>s.id===page().spaceId);
  cat.value=space?.accessPolicy.typeIds?.[0]||'';
  const switchVersion=async()=>{if(dirty&&!await savePrivatePage())return;const type=cat.value,language=lang.value,title=page().name;await closePrivatePage(true);await memberPanel.openVersion(type,language,title)};

@@ -54,3 +54,8 @@
 .m019-categories .card{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem}
 .m019-categories{display:none}.m019-category-mode .m019-categories{display:block}.m019-category-mode .m019-people{display:none}
 .admin-member-spaces-011c>.admin-view-head,.admin-member-spaces-011c>.member-spaces-tabs,.admin-member-spaces-011c>.notice{display:none}
+
+.admin-dialog .admin-dialog-choice{display:flex;align-items:center;gap:.6rem;padding:.3rem 0}
+.admin-dialog input[type=radio],.admin-dialog input[type=checkbox]{width:auto;min-height:24px;flex:0 0 auto}
+.member-spaces-version{display:flex;flex-wrap:wrap;gap:.4rem;border-top:1px solid #eee;padding:.6rem 0}
+.member-spaces-version>button:first-child{flex:1 1 100%;text-align:left}

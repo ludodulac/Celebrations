@@ -27,7 +27,7 @@ async function get(path,token){
 function ok(r,label){assert.equal(r.status,200,label+' status='+r.status+' error='+r.body?.error);
  assert.equal(r.body.ok,true,label+' api status');return r.body;}
 function event(name,obj){console.log('M018_EXISTING_PREPROD '+JSON.stringify({step:name,...obj}));}
-const browser=await chromium.launch({headless:true});
+const browser=await chromium.launch({headless:true,...(process.env.M019_CHROME_CHANNEL?{channel:process.env.M019_CHROME_CHANNEL}:{})});
 try{
  const adminCtx=await browser.newContext({viewport:{width:1350,height:900}});
  const admin=await adminCtx.newPage();

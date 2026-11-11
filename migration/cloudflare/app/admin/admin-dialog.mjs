@@ -12,7 +12,7 @@ export function adminDialog(document,{title='Confirmer',message='',fields=[],con
    if(f.multiple||f.radio){
     const group=document.createElement('fieldset'),legend=document.createElement('legend');legend.textContent=f.label;group.append(legend);
     const inputs=[];
-    for(const [value,name] of f.options){const row=document.createElement('label'),check=document.createElement('input');check.type=f.radio?'radio':'checkbox';check.name=f.name;check.value=value;check.checked=f.radio?f.value===value:(f.value??[]).includes(value);row.append(check,document.createTextNode(name));group.append(row);inputs.push(check)}
+    for(const [value,name] of f.options){const row=document.createElement('label'),check=document.createElement('input');row.className='admin-dialog-choice';check.type=f.radio?'radio':'checkbox';check.name=f.name;check.value=value;check.checked=f.radio?f.value===value:(f.value??[]).includes(value);row.append(check,document.createTextNode(name));group.append(row);inputs.push(check)}
     controls[f.name]={get value(){return f.radio?inputs.find(x=>x.checked)?.value:inputs.filter(x=>x.checked).map(x=>x.value)}};form.append(group);continue;
    }
    const label=document.createElement('label'),caption=document.createElement('span');caption.textContent=f.label;

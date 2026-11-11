@@ -207,7 +207,7 @@ export function mountExistingEditorMemberSpaces(root,{
       if(attempt!==epoch)return;
       if(!result.ok){
         needsReload=true;
-        throw Error((result.saved?'R2 a enregistré la commande ; confirmation D1 incomplète. ':'')+(result.error||'Commande refusée')+' — Rechargez avant toute nouvelle tentative.');
+        throw Error((result.saved?'Le brouillon est enregistré, mais la publication n’est pas confirmée. ':'')+(result.error||'Commande refusée')+' — Rechargez avant toute nouvelle tentative.');
       }
       applySnapshot(result);outcome=result;
       message=action==='save'?'Brouillon enregistré.':
@@ -247,6 +247,7 @@ export function mountExistingEditorMemberSpaces(root,{
       return clone(find());
     };
     onEditPage({
+      languageId,
       page:localized(page),
       save:async({name,blocks})=>{
         check();
@@ -335,6 +336,10 @@ export function mountExistingEditorMemberSpaces(root,{
       return;
     }
     const add=button('＋ Ajouter une version');add.disabled=!ready();add.onclick=()=>void createVersion();spaces.append(add);
+    if(!snapshot.privateReleaseReady&&snapshot.pageReleases.length){
+      spaces.append(node('p','La publication doit encore être confirmée avant de donner accès aux membres.'));
+      const retry=button('Terminer la publication');retry.onclick=()=>void mutate('reconcile');spaces.append(retry);
+    }
     if(needsReload){const retry=button('Recharger');retry.onclick=()=>void loadCanonical();spaces.append(retry)}
     for(const space of workspace.spaces(celebrationId)){
       const card=node('section');card.className='card member-spaces-card';card.append(node('h3',space.name));
@@ -371,7 +376,7 @@ export function mountExistingEditorMemberSpaces(root,{
     get changed(){return workspace.changed;},
     showSpaces(){activate(true);},
     async openVersion(typeId,languageId='fr',title=''){
-      activate(true);await reloadCategoryNames();await loadCanonical();
+      directory.hidden=true;spaces.hidden=false;await reloadCategoryNames();await loadCanonical();
       const space=workspace.spaces(celebrationId).find(s=>typeId?
         s.accessPolicy.typeIds?.includes(typeId):s.accessPolicy.mode===ACCESS_MODES.PUBLIC);
       const page=space?.pages.find(p=>p.name===title)||space?.pages[0];
