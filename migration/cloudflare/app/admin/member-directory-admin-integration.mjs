@@ -9,7 +9,7 @@ export function mountMemberDirectoryAdmin(root,{transport,styleNonce,celebration
  const select=(items,value='')=>{const e=n('select');for(const [id,name]of items){const o=n('option',name);o.value=id;e.append(o)}e.value=value;return e};
  const names=celebrations.filter(c=>/^\d+$/.test(String(c.id))).map(c=>[String(c.id),c.title||[c.archangel,c.year].filter(Boolean).join(' ')]);
  const celebrationName=id=>names.find(x=>x[0]===String(id))?.[1]||'Célébration archivée';
- let types=[],members=[],selected='',search='',celebrationId='',typeId='',cursor='',cursors=[],next=null,busy=false,destroyed=false,epoch=0;
+ let types=[],members=[],memberships=[],selected='',search='',celebrationId='',typeId='',cursor='',cursors=[],next=null,busy=false,destroyed=false,epoch=0;
  const shell=n('section');shell.className='member-directory-009b';
  const status=n('p','Chargement…');status.setAttribute('role','status');
  const people=n('section');people.className='m019-people';
@@ -23,19 +23,32 @@ export function mountMemberDirectoryAdmin(root,{transport,styleNonce,celebration
  }
  async function reload(){
   const attempt=++epoch;
-  const data=await call({method:'GET',action:'snapshot',search,cursor,celebrationId,typeId,limit:50});
+  const data=await call({method:'GET',action:'snapshot',search,cursor,celebrationId,typeId,limit:50,sort:'name'});
   if(destroyed||attempt!==epoch)return;
-  types=data.types;members=data.members;next=data.nextCursor;onCategories(types);
+  types=data.types;members=data.members;memberships=data.memberships||[];next=data.nextCursor;onCategories(types);
   renderPeople();renderCategories();
  }
  function renderPeople(){
-  people.replaceChildren(n('h2','Membres'));
-  const form=n('form');form.className='m019-member-form card';
-  const given=input(),family=input(),email=input('email');given.required=family.required=email.required=true;
+  people.replaceChildren();
+  const heading=n('div');heading.className='m019-member-header';
+  const title=n('h2','Membres');
+  const addMember=b('+ Ajouter un membre',()=>{
+    form.hidden=!form.hidden;
+    addMember.setAttribute('aria-expanded',String(!form.hidden));
+    if(!form.hidden){given.focus();form.scrollIntoView?.({block:'nearest'});}
+  });
+  addMember.setAttribute('aria-expanded','false');
+  heading.append(title,addMember);people.append(heading);
+
+  // Creation remains available but never occupies the everyday directory.
+  const form=n('form');form.className='m019-member-form card';form.hidden=true;
+  const given=input(),family=input(),email=input('email');
+  given.required=family.required=email.required=true;
   const category=select([['','Choisir une catégorie'],...activeTypes()]);
   const celebration=select([['','Choisir une célébration'],...names]);celebration.required=true;
   const save=b('Enregistrer');save.type='submit';
-  form.append(label('Prénom',given),label('Nom',family),label('E-mail',email),label('Catégorie',category),label('Célébration',celebration),save);
+  form.append(label('Prénom',given),label('Nom',family),label('E-mail',email),
+    label('Catégorie',category),label('Célébration',celebration),save);
   form.onsubmit=event=>{event.preventDefault();if(!form.reportValidity())return;
    if(!given.value.trim()||!family.value.trim()){status.textContent='Renseignez le prénom et le nom.';return;}
    void run(async()=>{
@@ -43,9 +56,7 @@ export function mountMemberDirectoryAdmin(root,{transport,styleNonce,celebration
     let result;
     try{result=await call(command)}catch(error){
       if(error.status&&error.status<500||/e-mail existe déjà/.test(error.message))throw error;
-      // A lost response can follow a committed transaction. Confirm every
-      // field and grant from the server before announcing success; never retry
-      // a person creation blindly and never infer an identity link from email.
+      // Lost server responses must never create duplicate people.
       const check=await call({method:'GET',action:'snapshot',search:command.email,limit:50});
       const member=check.members.find(p=>p.emailNormalized===command.email.trim().toLowerCase());
       if(!member)throw error;
@@ -55,25 +66,84 @@ export function mountMemberDirectoryAdmin(root,{transport,styleNonce,celebration
         !command.typeIds.every(id=>detail.types.some(t=>t.typeId===id)))throw error;
       result={result:member};
     }
-    selected=result.result?.id||'';search='';cursor='';cursors=[];celebrationId=celebration.value;typeId=category.value;
+    selected=result.result?.id||'';search='';cursor='';cursors=[];
+    celebrationId=celebration.value;typeId=category.value;
    },'Membre enregistré et inscrit.');
   };
   people.append(form);
+
   const filter=n('form');filter.className='m019-filters';
-  const choices=[['','Toutes les célébrations']];
-  for(const [id,name]of names){choices.push([id+'|',name]);for(const t of types)choices.push([id+'|'+t.id,name+' — '+t.name+(t.disabled?' (désactivée)':'')])}
-  const chosen=select(choices,celebrationId?celebrationId+'|'+typeId:'');
-  const query=input('search',search);query.placeholder='Nom ou e-mail';query.setAttribute('aria-label','Rechercher un membre');
-  const find=b('Rechercher');find.type='submit';
-  const apply=async()=>{if(busy)return;[celebrationId,typeId]=chosen.value.split('|');celebrationId||='';typeId||='';search=query.value.trim();cursor='';cursors=[];try{await reload();status.textContent='Liste actualisée.'}catch(e){status.textContent=e.message}};
-  chosen.onchange=()=>void apply();filter.onsubmit=e=>{e.preventDefault();void apply()};
-  filter.append(label('Célébration',chosen),query,find);people.append(filter);
+  const query=input('search',search);
+  query.className='m019-search';query.placeholder='Nom, prénom ou e-mail';
+  query.setAttribute('aria-label','Rechercher un membre');
+  const selectedCelebration=select([['','Toutes les célébrations'],...names],celebrationId);
+  const selectedCategory=select([['','Toutes les catégories'],...types.map(t=>[t.id,t.name+(t.disabled?' (désactivée)':'')])],typeId);
+  const apply=async(restoreFocus=false)=>{
+    if(busy)return;
+    const shouldRefocus=restoreFocus&&doc.activeElement===query;
+    const caret=shouldRefocus?query.selectionStart:null;
+    search=query.value.trim();celebrationId=selectedCelebration.value;typeId=selectedCategory.value;
+    cursor='';cursors=[];
+    try{
+      await reload();status.textContent='';
+      if(shouldRefocus){
+        const current=people.querySelector('.m019-search');current?.focus();
+        if(caret!=null)current?.setSelectionRange(caret,caret);
+      }
+    }catch(e){status.textContent=e.message;}
+  };
+  let typingTimer;
+  query.addEventListener('input',()=>{
+    clearTimeout(typingTimer);
+    typingTimer=setTimeout(()=>void apply(true),280);
+  });
+  filter.onsubmit=e=>{e.preventDefault();clearTimeout(typingTimer);void apply(true);};
+  selectedCelebration.onchange=()=>void apply();
+  selectedCategory.onchange=()=>void apply();
+  const reset=b('Effacer les filtres',()=>{
+    query.value='';selectedCelebration.value='';selectedCategory.value='';
+    clearTimeout(typingTimer);void apply();
+  });
+  const first=n('div');first.className='m019-filter-search';
+  const find=b('Rechercher');find.type='submit';first.append(query,find);
+  filter.append(first,label('Célébration',selectedCelebration),
+    label('Catégorie',selectedCategory),reset);
+  people.append(filter);
+
+  const pageInfo=n('p','Page '+(cursors.length+1)+' · '+members.length+
+    (members.length>1?' membres affichés':' membre affiché'));
+  pageInfo.className='m019-page-info';pageInfo.setAttribute('aria-live','polite');
+  people.append(pageInfo);
   const list=n('div');list.className='m019-member-list';
-  if(!members.length)list.append(n('p','Aucun membre inscrit'),b('Ajouter un membre',()=>given.focus()));
-  for(const member of members){const row=n('div');row.className='card';row.append(n('strong',member.name||member.emailNormalized),n('p',member.emailNormalized),b('Modifier',()=>void editPerson(member.id)),b('Inscriptions',()=>void showAssignments(member.id).catch(e=>status.textContent=e.message)));list.append(row)}
+  if(!members.length){
+    list.append(n('p',search||celebrationId||typeId
+      ?'Aucun membre ne correspond à cette recherche.':'Aucun membre inscrit.'));
+  }
+  const categoryLabels=new Map(types.map(t=>[t.id,t.name]));
+  for(const member of members){
+    const row=b('',()=>void showAssignments(member.id).catch(e=>status.textContent=e.message));
+    row.className='m019-member-row';row.setAttribute('aria-label','Ouvrir la fiche de '+(member.name||member.emailNormalized));
+    const identity=n('span');identity.className='m019-member-identity';
+    identity.append(n('strong',member.name||member.emailNormalized),
+      n('small',member.emailNormalized));
+    row.append(identity);
+    const belonging=new Set((memberships||[]).filter(t=>t.memberId===member.id)
+      .map(t=>categoryLabels.get(t.typeId)).filter(Boolean));
+    if(belonging.size){const badge=n('small',[...belonging].slice(0,2).join(' · '));
+      badge.className='m019-member-categories';row.append(badge);}
+    list.append(row);
+  }
   people.append(list);
-  if(cursors.length||next){const pager=n('div');const back=b('Précédent',()=>{cursor=cursors.pop()||'';void reload().catch(e=>status.textContent=e.message)});back.disabled=!cursors.length;
-   const forward=b('Suivant',()=>{cursors.push(cursor);cursor=next;void reload().catch(e=>status.textContent=e.message)});forward.disabled=!next;pager.append(back,forward);people.append(pager)}
+  if(cursors.length||next){
+    const pager=n('div');pager.className='m019-pager';
+    const back=b('Précédent',()=>{
+      cursor=cursors.pop()||'';void reload().catch(e=>status.textContent=e.message);
+    });back.disabled=!cursors.length;
+    const forward=b('Suivant',()=>{
+      cursors.push(cursor);cursor=next;void reload().catch(e=>status.textContent=e.message);
+    });forward.disabled=!next;
+    pager.append(back,forward);people.append(pager);
+  }
  }
  async function editPerson(id){
   if(busy)return;
