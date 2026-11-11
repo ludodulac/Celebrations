@@ -72,3 +72,24 @@
 .m018-language-entry{grid-template-columns:minmax(0,1fr) auto auto}
 .m018-language-panel input{width:100%;min-width:0;box-sizing:border-box;min-height:44px;padding:.5rem;border:1px solid #ccc;border-radius:8px;font:inherit}
 .m018-language-panel .btn{min-height:44px;padding:.5rem}
+
+/* M019: real member directory at scale: compact list, creation on demand. */
+.member-directory-009b .m019-member-header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;margin:.3rem 0}
+.member-directory-009b .m019-member-header h2{margin:0}
+.member-directory-009b .m019-member-form[hidden]{display:none!important}
+.member-directory-009b .m019-filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.55rem;margin:.85rem 0}
+.member-directory-009b .m019-filter-search{grid-column:1 / -1;display:flex;align-items:center;gap:.4rem;min-width:0}
+.member-directory-009b .m019-filter-search input{flex:1;min-width:0}
+.member-directory-009b .m019-filters>.btn{justify-self:start;padding:.45rem .65rem}
+.member-directory-009b .m019-page-info{font-size:.9rem;color:#555;margin:.65rem 0}
+.member-directory-009b .m019-member-list{display:grid;gap:0;border:1px solid #e3e3e3;border-radius:10px;overflow:hidden}
+.member-directory-009b .m019-member-row.btn{display:flex;align-items:center;justify-content:space-between;gap:.7rem;min-height:54px;width:100%;box-sizing:border-box;border:0;border-bottom:1px solid #e9e9e9;border-radius:0;background:#fff;text-align:left;padding:.5rem .7rem;white-space:normal;color:inherit}
+.member-directory-009b .m019-member-row:last-child{border-bottom:0}
+.member-directory-009b .m019-member-row:focus-visible{outline:2px solid #225f9d;outline-offset:-2px}
+.member-directory-009b .m019-member-row:hover{background:#f5f7f8}
+.member-directory-009b .m019-member-identity{display:grid;gap:.06rem;min-width:0}
+.member-directory-009b .m019-member-identity strong{font-size:1rem;line-height:1.25}
+.member-directory-009b .m019-member-identity small{font-size:.8rem;color:#666;overflow-wrap:anywhere}
+.member-directory-009b .m019-member-categories{max-width:35%;font-size:.74rem;text-align:right;color:#535c63}
+.member-directory-009b .m019-pager{display:flex;gap:.6rem;align-items:center;margin:.8rem 0}
+@media(max-width:460px){.member-directory-009b .m019-filters{grid-template-columns:minmax(0,1fr)}.member-directory-009b .m019-member-categories{display:none}.member-directory-009b .m019-filter-search .btn{padding:.5rem}}
