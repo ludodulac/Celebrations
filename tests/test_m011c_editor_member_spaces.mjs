@@ -131,7 +131,7 @@ test('M011-C transport: only admin token and same-origin JSON route; fail closed
 });
 test('M011-C editor hook opt-in; no duplicate edit application, page policy save disabled',()=>{
  const html=readFileSync(new URL('../admin.html',import.meta.url),'utf8');
- const bridge=readFileSync(new URL('../admin-member-spaces-bridge.js',import.meta.url),'utf8');
+ const bridge=readFileSync(new URL('./fixtures/m011c-legacy-member-bridge.js',import.meta.url),'utf8');
  const directory=readFileSync(new URL('../migration/cloudflare/app/admin/member-directory-admin-integration.mjs',import.meta.url),'utf8');
  const spaces=readFileSync(new URL('../migration/cloudflare/app/admin/editor-member-spaces-integration.mjs',import.meta.url),'utf8');
  assert.equal((html.match(/data-admin="members-spaces"/g)||[]).length,0);
