@@ -1,5 +1,6 @@
 // SEVEN PROGRAMME PAGES DEMO: read-only staging import of already-public historical records.
-// All modifications by the demo client stay in this browser; D1 is never written.
+// Historical demo content is read-only; isolated D1 administration requires an explicit separate session.
+import {mayUseIsolatedMemberApi} from './app/security/editor-route-policy.mjs';
 import {DEMO_CSS} from './editor-demo-style.mjs';
 import {ADMIN_STAGE_LAYOUT} from './app/styles/admin/stage-layout.mjs';
 import {DEMO_CLIENT} from './editor-demo-client.mjs';
@@ -323,7 +324,7 @@ export async function loadSevenStageContent(env,selectedId,{publicOnly=false,pub
 }
 export async function handlePreparationDemo(request,env){
  const url=new URL(request.url);
- if(url.hostname!==HOST&&!['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu','celebrations-visual-candidate.rondes.workers.dev'].includes(url.hostname))return new Response('Not found',{status:404});
+ if(url.hostname!==HOST&&!['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu','celebrations-visual-candidate.rondes.workers.dev'].includes(url.hostname)&&!(env?.EDITOR_D1_SESSION_API_ENABLED==='true'&&mayUseIsolatedMemberApi(url,env)))return new Response('Not found',{status:404});
  if(request.method!=='GET'&&request.method!=='HEAD')return new Response('Method not allowed',{status:405});
  if(!env.DB)return new Response('Démonstration momentanément indisponible',{status:503});
  try{
