@@ -48,6 +48,8 @@ jobs:
         run: |
           python -m py_compile scripts/m016_provision_independent_preprod.py
           grep -Fq 'celebrations-m016-admin-preprod' scripts/m016_provision_independent_preprod.py
+      - name: Install pinned Cloudflare HTTP read/provision dependency
+        run: python -m pip -q install requests==2.32.5
       - name: Only create separate EMPTY preproduction resources on Cloudflare
         env:
           M016_PROVISION_ONLY: 'yes'
