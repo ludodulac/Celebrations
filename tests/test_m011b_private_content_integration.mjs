@@ -54,6 +54,11 @@ function initialState(){
    published:{drafts:{'41':{pages:[root],spaces:[chapel]}},
     shared:{pages:[]},plans:[],celebrationVisibility:{'41':'published'},
     languageRegistry:langRegistry(),
+    privatePageReleases:{
+      [ROOT]:{pageId:ROOT,celebrationId:'41',publication:'published'},
+      [INNER]:{pageId:INNER,celebrationId:'41',spaceId:SPACE,publication:'published'}
+    },
+    privateSpaceReleases:{[SPACE]:{spaceId:SPACE,celebrationId:'41',publication:'published'}},
     privateTranslationReleases:{[ROOT]:{pageId:ROOT,publication:'published',
       variants:{en:{name:'Allowed English title',blocks:[
         {id:1,kind:'text',text:'AUTHORIZED_ENGLISH'},
@@ -119,7 +124,8 @@ async function setup(){
      writeHttpMetadata(h){h.set('content-type','application/pdf');h.set('etag','not-public')}}
  }};
  const MEDIA_BUCKET={async get(){reads.public++;throw Error('Public R2 must not read private media')}};
- const env={DB:makeD1(db,queries),EDITOR_BUCKET,PRIVATE_MEMBER_BUCKET,MEDIA_BUCKET};
+ const MEDIA_ACL={prepare(){throw Error('No public ACL lookup should happen for private URL')}};
+ const env={DB:makeD1(db,queries),EDITOR_BUCKET,PRIVATE_MEMBER_BUCKET,MEDIA_BUCKET,MEDIA_ACL};
  const approve=()=>{
    db.prepare('INSERT INTO celebrations_directory_identity_claims '+
      '(claim_id,participant_email,person_id,status,reviewed_at,reviewed_by,verification_method) '+
@@ -269,6 +275,10 @@ test('M011-B: pages require an explicit release, published celebration, valid ow
     assert.equal((await readPage(f)).status,404,JSON.stringify(patch));
   }
   f.state.published.drafts['41'].pages[0]=original;
+  delete f.state.published.privatePageReleases[ROOT];
+  assert.equal((await readPage(f)).status,404,'no explicit release ledger means no page');
+  f.state.published.privatePageReleases[ROOT]={
+    pageId:ROOT,celebrationId:'41',publication:'published'};
   f.state.published.celebrationVisibility['41']='draft';
   assert.equal((await readPage(f)).status,404);
   f.state.published.celebrationVisibility['41']='published';
@@ -329,6 +339,11 @@ test('M011-B: cloned celebration pages/spaces and copied media never inherit acc
   cp.spaces[0].publicationStatus='published';
   cp.spaces[0].pages[0].visibility='published';
   cp.spaces[0].pages[0].publicationStatus='published';
+  f.state.published.privateSpaceReleases['space:42:chapelle']={
+    spaceId:'space:42:chapelle',celebrationId:'42',publication:'published'};
+  f.state.published.privatePageReleases['page:42:chapelle']={
+    pageId:'page:42:chapelle',spaceId:'space:42:chapelle',
+    celebrationId:'42',publication:'published'};
   f.db.prepare('INSERT INTO celebrations_directory_private_spaces(space_id,celebration_id) VALUES(?,?)')
     .run('space:42:chapelle',42);
   f.db.prepare('INSERT INTO celebrations_directory_person_celebrations(person_id,celebration_id) VALUES(?,?)')
