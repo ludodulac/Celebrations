@@ -32,8 +32,13 @@ async function readSession(db,raw,admin=false){
 }
 export async function authorize(request,env,admin=false){
  const bearer=request.headers.get("authorization")||"";
- if(!bearer.startsWith("Bearer "))return null;
- return readSession(env.DB,bearer.slice(7),admin);
+ if(bearer.startsWith("Bearer "))return readSession(env.DB,bearer.slice(7),admin);
+ if(admin)return null; // Never authenticate an administrator with a member cookie.
+ const cookie=(request.headers.get("cookie")||"").split(";").map(x=>x.trim())
+  .find(x=>x.startsWith("__Host-celebrations_member="));
+ const raw=cookie?.slice("__Host-celebrations_member=".length);
+ return typeof raw==="string"&&/^[a-f0-9]{64}$/.test(raw)?
+  readSession(env.DB,raw,false):null;
 }
 
 const validEmail=v=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)&&v.length<=254;
