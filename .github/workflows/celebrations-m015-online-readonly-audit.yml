@@ -84,3 +84,50 @@ jobs:
             }
           }
           NODE
+
+      - name: Inspect failing Workers Builds event via Cloudflare API (read-only)
+        run: |
+          node --input-type=module <<'NODE'
+          const account=process.env.CF_ACCOUNT_ID,token=process.env.CF_API_TOKEN;
+          if(!account||!token){console.log('CF_BUILDS {"error":"no_credentials"}');process.exit(0);}
+          const base='https://api.cloudflare.com/client/v4/accounts/'+encodeURIComponent(account);
+          const id='424affef-bbf7-4b7e-8e03-4ff10f796181';
+          const requests=[
+            ['build',base+'/builds/builds/'+id],
+            ['logs',base+'/builds/builds/'+id+'/logs'],
+            ['d1-list',base+'/d1/database'],
+            ['r2-list',base+'/r2/buckets']
+          ];
+          for(const [label,url] of requests){
+            try{
+              const res=await fetch(url,{headers:{Authorization:'Bearer '+token,Accept:'application/json'},signal:AbortSignal.timeout(20000)});
+              const d=await res.json().catch(()=>({})),x=d.result??{};
+              const report={label,http_status:res.status,success:d.success===true};
+              if(label==='build'){
+                report.outcome=x.build_outcome??null;
+                report.status=x.status??null;
+                report.branch=x.build_trigger_metadata?.branch??null;
+                report.build_command=x.build_trigger_metadata?.build_command??null;
+                report.deploy_command=x.build_trigger_metadata?.deploy_command??null;
+                report.root_dir=x.build_trigger_metadata?.root_directory??null;
+              }else if(label==='logs'){
+                const a=x.lines??[];
+                report.log_lines=a.length;
+                report.error_lines=a.map(v=>Array.isArray(v)?String(v.at(-1)):String(v))
+                  .filter(v=>/error|failed|ENOENT|package.json|wrangler|not found|missing|cannot|invalid/i.test(v))
+                  .slice(-12).map(v=>v.replace(/Bearer\s+\S+/g,'Bearer [REDACTED]')
+                    .replace(/[A-Za-z0-9_-]{64,}/g,'[REDACTED]').slice(0,280));
+                report.truncated=x.truncated??false;
+              }else if(label==='d1-list'){
+                const a=Array.isArray(x)?x:(x.databases??[]);
+                report.resources=a.filter(v=>String(v.name).startsWith('celebrations-'))
+                  .map(v=>({name:v.name,uuid:v.uuid})).slice(0,20);
+              }else if(label==='r2-list'){
+                const a=Array.isArray(x)?x:(x.buckets??[]);
+                report.resources=a.filter(v=>String(v.name).startsWith('celebrations-'))
+                  .map(v=>({name:v.name})).slice(0,20);
+              }
+              console.log('CF_BUILDS '+JSON.stringify(report));
+            }catch(e){console.log('CF_BUILDS '+JSON.stringify({label,error:e.name||'network_error'}));}
+          }
+          NODE
