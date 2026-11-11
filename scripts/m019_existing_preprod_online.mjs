@@ -32,7 +32,7 @@ try{
  const adminCtx=await browser.newContext({viewport:{width:1350,height:900}});
  const admin=await adminCtx.newPage();
  admin.setDefaultTimeout(20000);
- const errs=[];admin.on('pageerror',e=>errs.push(String(e.message||e).slice(0,160)));
+ const errs=[];admin.on('pageerror',e=>{errs.push(String(e.message||e).slice(0,160));console.log('M019_ADMIN_SCRIPT_ERROR '+String(e.message||e).slice(0,300))});
  await admin.goto(origin+'/admin',{waitUntil:'domcontentloaded',timeout:30000});
  assert.equal(await admin.locator('input[name="code"]').count(),1);
  await admin.locator('input[name="code"]').fill(password);
