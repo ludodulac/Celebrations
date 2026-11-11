@@ -233,18 +233,32 @@ export async function loadSevenStageContent(env,selectedId,{publicOnly=false,pub
     !['draft','hidden','private','restricted'].includes(status)&&
     !['draft','hidden','private','restricted'].includes(String(visibility[c.id]||'').toLowerCase());
   };
-  const celebrations=publicOnly?allCelebrations.filter(publicCelebration)
-   .map(c=>({id:c.id,archangel:c.archangel,year:c.year})):allCelebrations;
-  const allowedIds=new Set(celebrations.map(c=>String(c.id)));
+  const publicRows=publicOnly?allCelebrations.filter(publicCelebration):allCelebrations;
+  // A published PRIVATE celebration may advertise its name, but NEVER its pages.
+  // Its explicit visibility must be "published"; hidden/draft names remain secret.
+  const privateMenuRows=publicOnly?allCelebrations.filter(c=>
+    visibility[String(c.id)]==='published'&&
+    !['draft','hidden'].includes(String(c.status||'').toLowerCase())&&
+    ['ALL_PRIVATE_TYPES','SELECTED_TYPES'].includes(
+      pub?.celebrationAccessPolicies?.[String(c.id)]?.mode)): [];
+  const celebrations=publicOnly?[
+    ...publicRows.map(c=>({id:c.id,archangel:c.archangel,year:c.year})),
+    ...privateMenuRows.map(c=>({id:c.id,archangel:c.archangel,year:c.year,titleOnly:true}))
+  ]:allCelebrations;
+  // A label in the public menu is NOT a grant to select that celebration.
+  const allowedIds=new Set(publicRows.map(c=>String(c.id)));
   const selected=selectedId;
   const planned=plannedCelebration(selected);
   if(publicOnly&&planned){
    const released=pub?.plans?.find(p=>String(p.id)===String(selected)&&eligiblePublicPlan(p));
-   if(!released||visibility[selected]&&visibility[selected]!=='published')
+   const access=pub?.celebrationAccessPolicies?.[String(selected)];
+   if(!released||(access&&access.mode!=='PUBLIC')||
+      visibility[selected]&&visibility[selected]!=='published')
     throw new Error('Unknown celebration');
   }
   if(selected&&!allowedIds.has(String(selected))&&!planned)throw new Error('Unknown celebration');
-  const celebration=planned?.celebration||celebrations.find(c=>String(c.id)===(selected||'101'))||celebrations[0];
+  const available=publicOnly?publicRows:allCelebrations;
+  const celebration=planned?.celebration||available.find(c=>String(c.id)===(selected||'101'))||available[0];
   if(!celebration)throw new Error('No celebration');
   if(planned){
    const releasedIds=new Set((pub?.drafts?.[String(celebration.id)]?.pages||[])
