@@ -85,8 +85,8 @@ function pageDraft(input,old,id,cid,sid,known,registry){
 function spaceDraft(input,old,id,cid,pages,known,registry){
  if(!obj(input)||own(input,'celebrationId')&&input.celebrationId!==cid||
   !Object.values(SPACE_VISIBILITIES).includes(input.visibility))invalid();
- if(old&&old.visibility!==input.visibility)
-  fail(409,'Changement public/privé interdit pour un espace existant. Créez un nouvel espace.');
+ // Switching Public/Private is allowed in DRAFT only; saved published
+ // visibility, policy and release ledgers must be revoked before re-publish.
  const accessPolicy=policy(input.accessPolicy,known);
  if(input.visibility===SPACE_VISIBILITIES.PUBLIC&&accessPolicy.mode!==ACCESS_MODES.PUBLIC)invalid();
  let out=createCelebrationSpace({id,celebrationId:cid,name:name(input.name,120),
@@ -215,7 +215,8 @@ function saveDraft(state,cid,b,known,registry,idMap){
    }
    const s=spaceDraft(input,old,id,cid,pages,known,registry);
    const released=pub.drafts?.[cid]?.spaces?.find(x=>x.id===id);
-   if(released&&!samePolicy(released.accessPolicy,s.accessPolicy)){
+   if(released&&(released.visibility!==s.visibility||released.accessScope!==s.accessScope||
+      !samePolicy(released.accessPolicy,s.accessPolicy))){
     removeSpace(pub,cid,id);revoked=true;
    }else if(released)for(const prior of [...released.pages]){
     const np=s.pages.find(p=>p.id===prior.id);
