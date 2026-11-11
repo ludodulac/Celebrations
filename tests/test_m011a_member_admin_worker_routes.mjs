@@ -138,13 +138,17 @@ test('M011-A official, read-only, obsolete, wrong and HTTP hosts cannot opt in',
       'ronde-des-archanges-universelle.eu',
       'celebrations-exit-production.rondes.workers.dev',
       'celebrations-visual-candidate.rondes.workers.dev',
-      'celebrations-exit-staging.rondes.workers.dev',
-      'other-host.test'
+      'celebrations-exit-staging.rondes.workers.dev'
     ]) {
       assert.equal((await c.http(MEMBER_DIRECTORY_ADMIN_PATH,{
         token:ADMIN,host,envPatch:{MEMBER_DIRECTORY_API_HOST:host}
       })).status,404,host);
     }
+    // A different host is denied unless it is deliberately selected as the
+    // isolated opt-in host; it is never accepted by default.
+    assert.equal((await c.http(MEMBER_DIRECTORY_ADMIN_PATH,{
+      token:ADMIN,host:'other-host.test'
+    })).status,404);
     const insecure=await c.worker.fetch(new Request(
       'http://'+HOST+MEMBER_DIRECTORY_ADMIN_PATH,{
         headers:{authorization:'Bearer '+ADMIN}
@@ -217,11 +221,10 @@ test('M011-A participant-only claim stays pending; admin cannot claim',async()=>
       method:'POST',token:PARTICIPANT,
       body:{personId:A,role:'admin',status:'approved',approved:true}
     });
-    assert.equal(r.status,200);
-    assert.equal(r.status && r.ok,true);
-    assert.equal(r.status,200);
-    assert.equal(r.result.status,'pending');
-    assert.match(r.result.claimId,/^claim:/);
+    assert.equal(r.response.status,200);
+    assert.equal(r.ok,true);
+    assert.equal(r.status,'pending','the claim status cannot be approved by its submitter');
+    assert.match(r.claimId,/^claim:/);
     assert.equal(c.sqlite.prepare('SELECT status FROM celebrations_directory_identity_claims')
       .get().status,'pending');
     assert.equal(c.count('celebrations_directory_identity_links'),0);
