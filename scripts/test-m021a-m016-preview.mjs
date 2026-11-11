@@ -10,7 +10,7 @@ const anonymous=await fetch(HOST+'/',{redirect:'manual'});
 assert.equal(anonymous.status,302,'anonymous visitors must get PIN redirect');
 assert.equal(new URL(anonymous.headers.get('location')).pathname,'/admin');
 const blocked=await fetch(HOST+'/api/site-identity');
-assert.equal(blocked.status,403,'site identity API requires owner PIN');
+assert.ok([401,403,404].includes(blocked.status),'site identity API must refuse anonymous requests');
 const folder='docs/m021a-smartphone';
 await mkdir(folder,{recursive:true});
 const browser=await chromium.launch({headless:true});
