@@ -112,6 +112,7 @@ try{
  await page.getByLabel('Politique de la page Accueil Démo').selectOption('SELECTED_TYPES');
  await page.getByLabel('Types autorisés de la page').fill('member-type:demo');
  await button('Préparer les droits de la page').click();
+ await page.getByText('Droits de page préparés. Enregistrez les espaces pour les confirmer.',{exact:true}).waitFor();
  await button('Enregistrer les espaces').click();
  await page.getByText(/Brouillon enregistré, identifiants serveur/).waitFor();
  const first=await (await get(admin.token)).json();

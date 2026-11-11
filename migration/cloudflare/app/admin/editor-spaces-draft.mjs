@@ -5,7 +5,7 @@ import {
   createCelebrationSpace, addSpaceToCelebration, getCelebrationSpaces,
   duplicateCelebration
 } from '../domain/celebration-spaces.mjs';
-import {ACCESS_MODES, SPACE_VISIBILITIES} from '../domain/member-access.mjs';
+import {ACCESS_MODES, SPACE_VISIBILITIES, isMemberTypeId} from '../domain/member-access.mjs';
 
 const copy = value => JSON.parse(JSON.stringify(value));
 const newId = kind => 'draft-' + kind + ':' + crypto.randomUUID();
