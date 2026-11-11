@@ -273,11 +273,15 @@ export async function loadSevenStageContent(env,selectedId,{publicOnly=false,pub
   const steps=await rows(env.DB,'SELECT * FROM celebrations_steps WHERE celebration_id=? ORDER BY sort_order,id',celebration.id);
   // Historic D1 public steps may not republish a deliberately hidden page.
   const rawEditorPages=publishedState?.drafts?.[String(celebration.id)]?.pages||[];
-  const releasedIds=new Set((pub?.drafts?.[String(celebration.id)]?.pages||[])
-   .filter(eligiblePublicPage).map(p=>p.id));
-  const hiddenIds=new Set(publicOnly?rawEditorPages.filter(p=>
-   ['hidden','draft','private'].includes(String(p.visibility||'').toLowerCase())&&
-   !releasedIds.has(p.id)).map(p=>p.id):[]);
+  const publishedEditorPages=pub?.drafts?.[String(celebration.id)]?.pages||[];
+  const releasedIds=new Set(publishedEditorPages.filter(eligiblePublicPage).map(p=>p.id));
+  // Historical D1 stages are NOT allowed to bypass a restricted page policy.
+  // A published page with private ACL must be withheld even if D1 holds text.
+  const hiddenIds=new Set(publicOnly?[...rawEditorPages,...publishedEditorPages]
+   .filter(p=>p&&typeof p.id==='string'&&(
+     p.accessPolicy?.mode&&p.accessPolicy.mode!=='PUBLIC'||
+     ['hidden','draft','private'].includes(String(p.visibility||'').toLowerCase())&&
+     !releasedIds.has(p.id))).map(p=>p.id):[]);
   const stageOf=record=>STAGES.find(stage=>
    clean(record.label)===clean(stage.label)||
    (stage.legacyLabel&&clean(record.label)===clean(stage.legacyLabel))||
