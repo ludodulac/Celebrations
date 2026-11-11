@@ -141,3 +141,46 @@ jobs:
 # M017: deployment only with explicit commit marker and the protected staging GitHub Environment secret.
 
 # Deployment requested by owner after adding CELEBRATIONS_M017_ADMIN_PASSWORD.
+
+  verify-deployed-preprod:
+    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M017_VERIFY_ISOLATED]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    environment: celebrations-staging
+    env:
+      M017_ADMIN_PASSWORD: ${{ secrets.CELEBRATIONS_M017_ADMIN_PASSWORD }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Verify exact independent live Worker and no production resource bindings
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const account=process.env.CLOUDFLARE_ACCOUNT_ID;
+          assert.equal(account,'60a7b17758a93fe6681ce998e72ddff0');
+          assert.ok((process.env.M017_ADMIN_PASSWORD||'').length>=16);
+          const root='https://api.cloudflare.com/client/v4/accounts/'+account;
+          async function req(path) {
+           const r=await fetch(root+path,{headers:{authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN},signal:AbortSignal.timeout(25000)});
+           assert.equal(r.status,200,'Read-only Cloudflare verification '+path);
+           const j=await r.json();assert.equal(j.success,true);return j.result;
+          }
+          const live=await req('/workers/scripts/celebrations-exit-production/deployments');
+          const vs=live.deployments[0].versions;
+          assert.equal(vs.length,1);assert.equal(vs[0].version_id,'87dba010-c719-4a52-97c1-027a9c9de9b6');
+          const config=await req('/workers/scripts/celebrations-m016-admin-preprod/settings');
+          const bindings=new Map(config.bindings.map(b=>[b.name,b]));
+          for(const x of ['DB','MEDIA_ACL'])assert.equal(bindings.get(x)?.id||bindings.get(x)?.database_id,'3bb4108f-5ff8-4959-ba32-bd53f33156cb');
+          assert.equal(bindings.get('MEDIA_BUCKET')?.bucket_name,'celebrations-m016-admin-media');
+          assert.equal(bindings.get('EDITOR_BUCKET')?.bucket_name,'celebrations-m016-admin-editor');
+          console.log('M017_ONLINE_BOUNDARY_VERIFIED official_unchanged=true candidate_independent=true');
+          NODE
+      - name: Run only real online Chromium and API workflow
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+          node scripts/m017_online_smoke.mjs
