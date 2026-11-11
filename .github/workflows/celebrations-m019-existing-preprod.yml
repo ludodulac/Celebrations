@@ -29,7 +29,7 @@ jobs:
       - name: Refuse production credentials/bindings drift; retain exact M016 Worker rollback version
         id: original
         run: |
-          node scripts/m018d_official_readonly.mjs
+          node scripts/m019_official_unchanged.mjs
           node --input-type=module <<'NODE'
           import assert from 'node:assert/strict';
           import {appendFileSync} from 'node:fs';
@@ -126,7 +126,7 @@ jobs:
           if-no-files-found: ignore
       - name: Verify official production version STILL unchanged
         if: always()
-        run: node scripts/m018d_official_readonly.mjs
+        run: node scripts/m019_official_unchanged.mjs
       - name: Roll back only this EXISTING M016 Worker on any failed functional check
         if: ${{ failure() && steps.preprod-deploy.outcome != 'skipped' }}
         working-directory: migration/cloudflare
