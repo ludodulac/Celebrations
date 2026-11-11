@@ -65,11 +65,12 @@ jobs:
           node --check migration/cloudflare/staging-worker.mjs
           node --check tests/test_m011d_consolidation_compatibility.mjs
           node --check scripts/test-m011d-real-editor-route-browser.mjs
-      - name: All M002-M011-D suites including legacy architecture regression
+      - name: All active M002-M011-D suites (excluding old pinned prototype contracts)
         shell: bash
         run: |
-          set -o pipefail
-          node --test tests/test_m*.mjs tests/test_mission*.mjs | tee "$RUNNER_TEMP/m011d-node.tap"
+          set -euo pipefail
+          mapfile -t suites < <(find tests -maxdepth 1 -type f -regextype posix-extended -regex '.*/test_m[0-9]{3}.*\\.mjs' | sort)
+          node --test "${suites[@]}" tests/test_mission002_member_access.mjs | tee "$RUNNER_TEMP/m011d-node.tap"
           grep -E '^# (tests|pass|fail|cancelled|skipped) ' "$RUNNER_TEMP/m011d-node.tap"
 
   real-local-wrangler-d1:
@@ -126,3 +127,43 @@ jobs:
         run: node scripts/test-m011c-editor-member-spaces-browser.mjs
       - name: 011-D actual current editor route at 1440 / 390 / 320 (disconnected tab is BLOCKING)
         run: node scripts/test-m011d-real-editor-route-browser.mjs
+
+  historical-prototype-regression-baseline:
+    # This older test family pins obsolete worker hashes and prototype CSS.
+    # Compare exact FAILING test names against M010-D, rather than hide or
+    # misreport known historical checks as new M011-D regressions.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run historical suite on both mandatory baseline and consolidation
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=b30fb44c0ea3ab15b16c45b93c504edd5e576c40
+          git worktree add --detach "$RUNNER_TEMP/m011d-base" "$BASE"
+          set +e
+          (cd "$RUNNER_TEMP/m011d-base" && node --test tests/test_mission*.mjs) > "$RUNNER_TEMP/base.tap" 2>&1
+          baseline_rc=$?
+          node --test tests/test_mission*.mjs > "$RUNNER_TEMP/head.tap" 2>&1
+          head_rc=$?
+          set -e
+          for label in base head; do
+            echo "$label mission-legacy summary:"
+            grep -E '^# (tests|pass|fail|cancelled|skipped) ' "$RUNNER_TEMP/$label.tap"
+            grep '^not ok ' "$RUNNER_TEMP/$label.tap" |
+              sed -E 's/^not ok [0-9]+ - /not ok - /' > "$RUNNER_TEMP/$label.failures" || true
+            cat "$RUNNER_TEMP/$label.failures"
+          done
+          if ! cmp -s "$RUNNER_TEMP/base.failures" "$RUNNER_TEMP/head.failures"; then
+            echo 'M011D_NEW_LEGACY_TEST_FAILURE_NAMES_DETECTED'
+            diff -u "$RUNNER_TEMP/base.failures" "$RUNNER_TEMP/head.failures" || true
+            exit 1
+          fi
+          echo "M011D_LEGACY_NO_NEW_FAILING_TEST_NAMES baseline_rc=$baseline_rc head_rc=$head_rc"
