@@ -285,12 +285,12 @@ export function mountExistingEditorMemberSpaces(root,{
     if(!spaces.hidden){renderSpaces();if(active)void loadCanonical();}
     else spaces.replaceChildren();
   }
-  async function createVersion(source=null,sourceLanguage='fr'){
+  async function createVersion(source=null,sourceLanguage='fr',categoryId='',pageTitle=''){
     if(!ready())return;
     const languages=snapshot.languageRegistry.languages;
     const currentSpace=source?workspace.spaces(celebrationId).find(s=>s.pages.some(p=>p.id===source.id)):null;
-    const fields=[{name:'title',label:'Titre de la page',value:source?.name||'',required:true,maxLength:160},
-      {name:'category',label:'Catégorie',options:[['','Tous les inscrits'],...activeTypes().map(t=>[t.id,t.name])]},
+    const fields=[{name:'title',label:'Titre de la page',value:source?.name||pageTitle,required:true,maxLength:160},
+      {name:'category',label:'Catégorie',value:categoryId,options:[['','Tous les inscrits'],...activeTypes().map(t=>[t.id,t.name])]},
       {name:'language',label:'Langue',options:languages.map(l=>[l.id,l.name]),value:sourceLanguage}];
     const answer=await adminDialog(doc,{title:source?'Dupliquer en brouillon':'Ajouter une version',fields,confirm:'Créer le brouillon'});
     if(!answer)return;
@@ -370,6 +370,14 @@ export function mountExistingEditorMemberSpaces(root,{
     refreshMembers,sessionChanged,
     get changed(){return workspace.changed;},
     showSpaces(){activate(true);},
+    async openVersion(typeId,languageId='fr',title=''){
+      activate(true);await reloadCategoryNames();await loadCanonical();
+      const space=workspace.spaces(celebrationId).find(s=>typeId?
+        s.accessPolicy.typeIds?.includes(typeId):s.accessPolicy.mode===ACCESS_MODES.PUBLIC);
+      const page=space?.pages.find(p=>p.name===title)||space?.pages[0];
+      if(page)openCanonicalPage(space.id,page.id,languageId);
+      else await createVersion(null,languageId,typeId,title);
+    },
     showMembers(){activate(false);container.classList.remove('m019-category-mode');},
     showCategories(){activate(false);container.classList.add('m019-category-mode');},
     destroy(){destroyed=true;++epoch;memberMount?.destroy();root.replaceChildren();}

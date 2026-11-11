@@ -2536,6 +2536,11 @@ function pageWorkspace(group,mount=w){
    editingLanguageId=picker.value;clearLocaleView();selectedBlockId=null;render();
   };
   label.append(picker);row.append(label);
+  const categoryLabel=n('label','editor-language-choice','Catégorie'),category=n('select');category.setAttribute('aria-label','Catégorie');
+  const empty=n('option','','Sans catégorie');empty.value='';category.append(empty);
+  for(const type of availableCategories.filter(t=>!t.disabled)){const option=n('option','',type.name);option.value=type.id;category.append(option)}
+  category.onchange=()=>{if(category.value)void memberPanel.openVersion(category.value,editingLanguageId,canonicalPage().name).catch(e=>siteNotice(e.message))};
+  categoryLabel.append(category);row.append(categoryLabel);
   right.append(row);
   if(editingLanguageId!=='fr'){
    const field=n('label','editor-language-title','Titre de la page dans cette langue');
@@ -3156,12 +3161,13 @@ function m018LanguagesCategories(){
   w.append(panel);
 
  }
-let catalogueTab='languages',privateCatalogue=null;
+let catalogueTab='languages',privateCatalogue=null,availableCategories=[];
 function ensureMemberPanel(){
  if(memberPanel)return;
  memberPanelRoot=n('div','real-member-spaces');
  memberPanel=M012B.mount(memberPanelRoot,{celebrations:celebrationEntries(),currentCelebrationId:String(STAGE_SEED.celebrationId),
   styleNonce:document.querySelector('script[nonce]')?.nonce,css:M012B.css,onEditPage:openPrivatePage,
+  onCategories:types=>{availableCategories=types;},
   onSessionChange:active=>{if(!active&&privateEdit)closePrivatePage(true);}});
  void memberPanel.readContent().then(value=>{privateCatalogue=value;if(['pages','footer','celebrations'].includes(tab))render()}).catch(()=>{});
 }
@@ -3269,6 +3275,17 @@ async function publishPrivatePage(action){
  finally{privateBusy=false;render();}
 }
 function privatePageWorkspace(){
+ const selectors=n('div','editor-language-row');
+ const langLabel=n('label','editor-language-choice','Langue'),lang=n('select');lang.setAttribute('aria-label','Langue');
+ const categoryLabel=n('label','editor-language-choice','Catégorie'),cat=n('select');cat.setAttribute('aria-label','Catégorie');
+ for(const l of privateCatalogue?.languageRegistry?.languages||editorLocalization.registry.languages){const option=n('option','',l.name);option.value=l.id;lang.append(option)}
+ const blank=n('option','','Tous les inscrits');blank.value='';cat.append(blank);
+ for(const type of availableCategories.filter(t=>!t.disabled)){const o=n('option','',type.name);o.value=type.id;cat.append(o)}
+ const space=privateCatalogue?.record.spaces?.find(s=>s.id===page().spaceId);
+ cat.value=space?.accessPolicy.typeIds?.[0]||'';
+ const switchVersion=async()=>{if(dirty&&!await savePrivatePage())return;const type=cat.value,language=lang.value,title=page().name;await closePrivatePage(true);await memberPanel.openVersion(type,language,title)};
+ cat.onchange=()=>void switchVersion();lang.onchange=()=>void switchVersion();
+ langLabel.append(lang);categoryLabel.append(cat);selectors.append(langLabel,categoryLabel);w.append(selectors);
  const actions=n('div','member-spaces-actions');
  const back=b('← Célébrations',()=>closePrivatePage());
  const saveButton=b('Enregistrer',()=>void savePrivatePage());

@@ -31,6 +31,7 @@ const browser=await chromium.launch({headless:true});
 try{
  const adminCtx=await browser.newContext({viewport:{width:1350,height:900}});
  const admin=await adminCtx.newPage();
+ admin.setDefaultTimeout(20000);
  const errs=[];admin.on('pageerror',e=>errs.push(String(e.message||e).slice(0,160)));
  await admin.goto(origin+'/admin',{waitUntil:'domcontentloaded',timeout:30000});
  assert.equal(await admin.locator('input[name="code"]').count(),1);
