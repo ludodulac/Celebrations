@@ -33,7 +33,7 @@ jobs:
           node --check migration/cloudflare/production-worker.mjs
           node --check migration/cloudflare/editor-trial-site-page.mjs
           node --check migration/cloudflare/editor-trial-site-client.mjs
-          node --check migration/cloudflare/editor-demo-client-source.js
+          node --check migration/cloudflare/editor-demo-client.mjs
           node --test tests/test_m021a_demo_identity.mjs tests/test_m021a_demo_flow.mjs
       - name: Prior member login, eight languages and media protection
         run: |
