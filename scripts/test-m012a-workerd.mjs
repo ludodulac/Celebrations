@@ -13,7 +13,7 @@ try{
   await build({entryPoints:['migration/cloudflare/'+name+'-worker.mjs'],bundle:true,
    platform:'node',format:'esm',target:'es2022',outfile,external:['node:*']});
   const mf=new Miniflare({
-   modules:true,scriptPath:outfile,compatibilityDate:'2026-11-10',
+   modules:true,scriptPath:outfile,compatibilityDate:'2026-08-06',
    compatibilityFlags:['nodejs_compat'],bindings:flags,
    d1Databases:{DB:'11111111-1111-4111-8111-111111111111'},
    d1Persist:false,port:0
