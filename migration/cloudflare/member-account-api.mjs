@@ -13,7 +13,7 @@ const email=value=>{try{return normalizeDirectoryEmail(value)}catch{return null}
 const tokenOk=value=>typeof value==='string'&&/^[a-f0-9]{64}$/.test(value);
 const saltOk=value=>typeof value==='string'&&/^[a-f0-9]{32,128}$/.test(value);
 const typeOk=value=>value==='activate'||value==='reset';
-const langOk=value=>['fr','en','es','de','pt','it','ar','zh'].includes(value)?value:'fr';
+const langOk=value=>{const base=String(value||'fr').toLowerCase().split('-')[0];return ['fr','en','es','de','pt','it','ar','zh'].includes(base)?base:'fr'};
 const own=(object,key)=>Object.prototype.hasOwnProperty.call(object,key);
 const copy={
  fr:{activate:'Activez votre compte',reset:'Réinitialisez votre mot de passe',intro:'Pour choisir votre mot de passe, ouvrez ce lien personnel :',resetIntro:'Pour choisir un nouveau mot de passe, ouvrez ce lien personnel :',foot:'Ce lien est temporaire et utilisable une seule fois. Si vous n’avez rien demandé, ignorez ce message.'},
