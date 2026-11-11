@@ -43,9 +43,13 @@ export function sameOriginEditorWrite(request){
 // when two independent exact-host production flags are enabled after approval.
 // The M016 opt-in remains unchanged; previews and staging remain excluded.
 export function mayUseIsolatedMemberApi(url,env){
+ const officialSibling=isOfficialEditorHost(url.hostname) &&
+  env?.MEMBER_DIRECTORY_API_HOST==='ronde-des-archanges-universelle.eu' &&
+  url.hostname==='www.ronde-des-archanges-universelle.eu';
  if(env?.MEMBER_DIRECTORY_API_ENABLED!=='true' ||
     typeof env.MEMBER_DIRECTORY_API_HOST!=='string' ||
-    env.MEMBER_DIRECTORY_API_HOST!==url.hostname || url.protocol!=='https:' ||
+    (env.MEMBER_DIRECTORY_API_HOST!==url.hostname&&!officialSibling) ||
+    url.protocol!=='https:' ||
     isReadonlyCandidateHost(url.hostname) ||
     url.hostname==='celebrations-exit-staging.rondes.workers.dev')return false;
  if(isOfficialEditorHost(url.hostname))
