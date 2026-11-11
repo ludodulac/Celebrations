@@ -2,6 +2,7 @@
 // Browsing the site never modifies an administrator's locally saved drafts.
 import {loadSevenStageContent,STAGES} from './editor-demo-preparation-page.mjs';
 import {readEditorState} from './editor-publication-api.mjs';
+import {mayUseIsolatedMemberApi} from './app/security/editor-route-policy.mjs';
 import {TRIAL_SITE_CLIENT,TRIAL_SITE_STYLE} from './editor-trial-site-client.mjs';
 const HOST='celebrations-exit-staging.rondes.workers.dev';
 // M008-A responsive switcher; uses the existing CSP nonce and M006 DOM component.
@@ -24,11 +25,12 @@ const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const safeJson=x=>JSON.stringify(x).replace(/</g,'\\u003c').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029');
 export async function handleTrialSite(request,env){
  const url=new URL(request.url);
- if(url.hostname!==HOST&&!['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu','celebrations-visual-candidate.rondes.workers.dev'].includes(url.hostname))return new Response('Not found',{status:404});
+ const memberSite=mayUseIsolatedMemberApi(url,env)&&env.MEMBER_PAGE_READ_API_ENABLED==='true';
+ if(!memberSite&&url.hostname!==HOST&&!['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu','celebrations-visual-candidate.rondes.workers.dev'].includes(url.hostname))return new Response('Not found',{status:404});
  if(request.method!=='GET'&&request.method!=='HEAD')return new Response('Method not allowed',{status:405});
  if(!env.DB)return new Response('Site d’essai momentanément indisponible',{status:503});
  const slug=url.searchParams.get('page');
- if(slug&&slug!=='celebrations'&&slug!=='mediatheque'&&slug!=='mediatheque-generale'&&!STAGES.some(p=>p.slug===slug)&&slug!=='neutral-accueil-general'&&!/^neutral-[0-9a-f-]{30,45}$/.test(slug)&&!/^extra-[0-9a-f-]{30,45}$/.test(slug)&&!/^page:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(slug))return new Response('Étape introuvable',{status:404});
+ if(slug&&!(memberSite&&slug==='member-area')&&slug!=='celebrations'&&slug!=='mediatheque'&&slug!=='mediatheque-generale'&&!STAGES.some(p=>p.slug===slug)&&slug!=='neutral-accueil-general'&&!/^neutral-[0-9a-f-]{30,45}$/.test(slug)&&!/^extra-[0-9a-f-]{30,45}$/.test(slug)&&!/^page:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(slug))return new Response('Étape introuvable',{status:404});
  let publishedState=null;
  if(env.EDITOR_BUCKET){
   try{({state:publishedState}=await readEditorState(env.EDITOR_BUCKET))}
@@ -52,7 +54,7 @@ export async function handleTrialSite(request,env){
  '<nav class="steps" id="stage-navigation" aria-label="Pages de la célébration"></nav>'+
  '<main class="site-paper" id="site-paper"><div id="stage-main"></div></main>'+
  '<footer class="footer"><nav id="footer-pages" class="footer-pages" aria-label="Pages de bas de page"></nav><a id="back-admin" href="/__editor/demo-preparation?celebration='+encodeURIComponent(result.celebration.id)+'">Administration</a></footer>'+
- '<script nonce="'+nonce+'">window.__TRIAL_SITE_SEED__='+safeJson(result.seed)+';</script>'+
+ '<script nonce="'+nonce+'">window.__TRIAL_SITE_SEED__='+safeJson(result.seed)+';window.__MEMBER_SITE_ENABLED__='+JSON.stringify(memberSite)+';</script>'+
  '<script nonce="'+nonce+'">'+siteClient+'</script></body></html>';
  const h={'content-type':'text/html; charset=utf-8','cache-control':'no-store',...(isOfficial?{}:{'x-robots-tag':'noindex,nofollow,noarchive'}),'x-content-type-options':'nosniff','referrer-policy':'no-referrer','content-security-policy':"default-src 'none'; script-src 'nonce-"+nonce+"'; style-src 'nonce-"+nonce+"'; img-src 'self' blob: data: https:; media-src 'self' blob: https:; connect-src 'self'; base-uri 'none'; frame-src https://www.youtube-nocookie.com https://player.vimeo.com; frame-ancestors 'none'; form-action 'none'"};
  return new Response(request.method==='HEAD'?null:html,{headers:h});
