@@ -92,8 +92,15 @@ try{
  await page.getByLabel('Nom modifiable',{exact:true}).fill('Chorale de démonstration');
  await button('Renommer').click();
  await page.getByText('Modification enregistrée et état D1 rechargé.').waitFor();
- await page.getByLabel('Nom affiché',{exact:true}).last().fill('Camille Démonstration');
- await button('Mettre à jour la personne').click();
+ await page.getByText('Identifiant permanent : '+personId,{exact:true}).waitFor();
+ const editForm=page.locator('form').filter({has:button('Mettre à jour la personne')});
+ await editForm.getByLabel('Nom affiché',{exact:true}).fill('Camille Démonstration');
+ const update=page.waitForResponse(r=>r.url().includes('/api/admin/member-directory')&&r.request().method()==='POST'&&r.request().postDataJSON()?.action==='update_person');
+ await editForm.getByRole('button',{name:'Mettre à jour la personne',exact:true}).click();
+ const updateResponse=await update;
+ assert.equal(updateResponse.status(),200);
+ assert.equal(updateResponse.request().postDataJSON().personId,personId);
+ assert.equal(updateResponse.request().postDataJSON().changes.displayName,'Camille Démonstration');
  await page.getByText('Fiche mise à jour.').waitFor();
  assert.equal((await db.prepare('SELECT display_name FROM celebrations_directory_people WHERE id=?').bind(personId).first()).display_name,'Camille Démonstration');
  await button('Espaces des célébrations').click();
