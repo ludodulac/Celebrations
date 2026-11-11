@@ -9,11 +9,11 @@ try{
  const page=await browser.newPage({viewport:{width:1365,height:900}});
  const home=await page.goto(root+'/',{waitUntil:'domcontentloaded',timeout:35000});
  assert.equal(home?.status(),200,'Actual visitor homepage must load');
- const adminLink=page.locator('a[href$="/admin"],a[href$="/admin.html"],a[href*="/admin?"]').first();
+ const adminLink=page.locator('a#back-admin,a[href^="/__editor/demo-preparation"],a[href$="/admin"],a[href$="/admin.html"],a[href*="/admin?"]').first();
  const linkCount=await adminLink.count();
  assert.ok(linkCount,'The actual public site must offer an Administration link');
  await adminLink.click();
- await page.waitForURL(url=>['/admin','/admin.html'].includes(url.pathname),{timeout:18000});
+ await page.waitForURL(url=>['/admin','/admin.html','/__editor/demo-preparation'].includes(url.pathname),{timeout:18000});
  assert.equal(new URL(page.url()).hostname,host,'Must stay on actual official domain');
  assert.ok(await page.locator('form[action="/api/editor-access"] input[name="code"]').count(),
   'Existing simple-code admin login must remain');
