@@ -9,6 +9,7 @@ on:
       - 'migration/cloudflare/staging-worker.mjs'
       - 'migration/cloudflare/app/security/member-admin-worker-routes.mjs'
       - 'tests/test_m011a_member_admin_worker_routes.mjs'
+      - 'tests/fixtures/m011a-local-d1-smoke.sql'
       - '.github/workflows/celebrations-m011a-member-worker-routes.yml'
   workflow_dispatch:
 jobs:
@@ -29,6 +30,27 @@ jobs:
       - name: Simulated HTTP routes against transactional local SQLite D1 facade
         run: |
           node --test tests/test_m011a_member_admin_worker_routes.mjs
+      - name: Wrangler D1 genuine local smoke test (migrations only in temp SQLite)
+        shell: bash
+        env:
+          WRANGLER_SEND_METRICS: 'false'
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/m011a-local-d1"
+          CFG=tests/fixtures/wrangler.m008b.local.toml
+          DB=celebrations-m008b-local-only
+          local_d1() {
+            npx --yes wrangler@4 d1 execute "$DB" --local --config "$CFG" \
+              --persist-to "$RUNNER_TEMP/m011a-local-d1" "$@"
+          }
+          local_d1 --file=migration/cloudflare/celebrations-schema.sql
+          local_d1 --file=migration/cloudflare/d1-migrations/20261110_007a_contact_directory.sql
+          local_d1 --file=migration/cloudflare/d1-migrations/20261110_008b_directory_integrity.sql
+          local_d1 --file=migration/cloudflare/d1-migrations/20261110_009b_explicit_identity_links.sql
+          local_d1 --file=migration/cloudflare/d1-migrations/20261111_010b_member_admin_revisions.sql
+          local_d1 --file=tests/fixtures/m011a-local-d1-smoke.sql
+          local_d1 --command='PRAGMA foreign_key_check;'
+          echo 'M011A_WRANGLER_REAL_LOCAL_D1_SMOKE_OK'
       - name: Previous member security and D1 regressions
         run: |
           node --test tests/test_m010b_member_admin_final.mjs tests/test_m010d_identity_admin_cross.mjs tests/test_m009b_member_identity_admin.mjs tests/test_m008c_private_server_access.mjs
