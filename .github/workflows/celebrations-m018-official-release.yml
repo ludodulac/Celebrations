@@ -362,3 +362,5 @@ jobs:
           npx wrangler versions deploy "${OLD_M016_VERSION}@100%" --yes \
             --config wrangler.m018.existing-preprod.toml \
             --message "M018 isolated M016 functional proof failed; restore prior M016 Worker"
+
+# Owner final rules verified on one M016 site only; never touches official domain.
