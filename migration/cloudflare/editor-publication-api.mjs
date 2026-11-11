@@ -1,6 +1,7 @@
 // Separate published website from the admin draft. Do not modify original
 // MEDIA_BUCKET or historic URLs. Both snapshots live in the existing editor R2.
 import {legacyEditorView,legacyRecord,managedPage,managedPageId,managedCelebration} from './app/security/private-editor-boundary.mjs';
+import {editorUploadFormat,editorUploadFilename,editorUploadPath,editorUploadResponseFormat} from './app/domain/editor-upload-formats.mjs';
 import {hasEditorAccess} from './editor-site-access.mjs';
 import {EDITOR_SNAPSHOT_LIMIT,expectedRevisionMatches} from './app/ports/editor-snapshot-contract.mjs';
 import {readEditorSnapshot,putEditorSnapshot} from './app/adapters/editor-r2-repository.mjs';
@@ -372,14 +373,7 @@ export async function handleEditorPublication(request,env){
  return json({ok:true,revision:state.version,visibility:body.visibility||null,general:body.general??null,updatedAt:state.updatedAt});
 }
 
-const mediaMime=new Map([['image/jpeg','.jpg'],['image/png','.png'],['image/webp','.webp'],
- ['application/pdf','.pdf'],['audio/mpeg','.mp3'],['audio/wav','.wav']]);
-const mediaType=mime=>mime.startsWith('image/')?'image':mime==='application/pdf'?'pdf':'audio';
 const allowedUrl=s=>typeof s==='string'&&s.length<=650&&validWeb(s)===s;
-function mimeOfFile(file){
- const type=String(file.type||'').toLowerCase();
- return mediaMime.has(type)?type:null;
-}
 export async function handleEditorMedia(request,env){
  if(!hostCheck(request))return err('Introuvable',404);
  const url=new URL(request.url);
@@ -410,11 +404,10 @@ export async function handleEditorMedia(request,env){
   let data;try{data=await request.formData()}catch{return err('Fichier illisible',400)}
   const file=data.get('file');
   if(!(file instanceof File))return err('Fichier manquant',400);
-  const mime=mimeOfFile(file);
-  const max=mime==='application/pdf'?25_000_000:mime?.startsWith('image/')?8_000_000:25_000_000;
-  if(!mime||file.size<1||file.size>max)return err('Format ou taille non pris en charge',415);
-  const id=crypto.randomUUID()+mediaMime.get(mime);
-  const path='/media/new/'+id,record={id:mediaType(mime)+'|'+path,type:mediaType(mime),
+  const mime=String(file.type||'').toLowerCase(),format=editorUploadFormat(mime);
+  if(!format||file.size<1||file.size>format.max)return err('Format ou taille non pris en charge (vidéos : lien externe)',415);
+  const id=crypto.randomUUID()+format.extension;
+  const path='/media/new/'+id,record={id:format.type+'|'+path,type:format.type,
    src:path,name:String(file.name||id).slice(0,120),source:'uploaded',general:false};
   const current=await readEditorState(env.EDITOR_BUCKET),state=copy(current.state);
   await env.EDITOR_BUCKET.put(PREFIX+id,await file.arrayBuffer(),{httpMetadata:{contentType:mime}});
@@ -473,7 +466,7 @@ export async function handleEditorMedia(request,env){
   if(!entry)return err('Média introuvable',404);
   // Only delete uploads owned by this application and not referenced in ANY
   // draft, published snapshot, or public gallery. Legacy mail URLs are untouchable.
-  const newUpload=entry.source==='uploaded'&&/^\/media\/new\/[0-9a-f-]{36}\.(?:jpg|png|webp|pdf|mp3|wav)$/.test(entry.src);
+  const newUpload=entry.source==='uploaded'&&editorUploadPath(entry.src);
   if(entry.source==='uploaded'&&!newUpload)return err('Ce fichier historique est protégé',403);
   if(entry.source!=='uploaded'&&entry.source!=='link')return err('Lien historique protégé',403);
   const originals=JSON.stringify([state.drafts,state.shared?.pages,state.published]);
@@ -489,11 +482,13 @@ export async function handleEditorMediaFile(request,env){
  if(!hostCheck(request)||!['GET','HEAD'].includes(request.method))return err('Introuvable',404);
  const url=new URL(request.url);
  const filename=url.pathname.slice('/media/new/'.length);
- if(!/^[0-9a-f-]{36}\.(?:jpg|png|webp|pdf|mp3|wav)$/.test(filename))return err('Fichier inconnu',404);
+ if(!editorUploadFilename(filename))return err('Fichier inconnu',404);
+ const format=editorUploadResponseFormat(filename);
  const bucket=env.EDITOR_BUCKET;if(!bucket)return err('Stockage indisponible',503);
  const o=await bucket.get(PREFIX+filename);
  if(!o)return err('Fichier introuvable',404);
- const headers={'content-type':o.httpMetadata?.contentType||'application/octet-stream',
-  'cache-control':'public, max-age=3600','x-content-type-options':'nosniff'};
+ const headers={'content-type':format.attachment?format.mime:(o.httpMetadata?.contentType||'application/octet-stream'),
+  'cache-control':'public, max-age=3600','x-content-type-options':'nosniff',
+  ...(format.attachment?{'content-disposition':'attachment'}:{})};
  return new Response(request.method==='HEAD'?null:o.body,{headers});
 }
