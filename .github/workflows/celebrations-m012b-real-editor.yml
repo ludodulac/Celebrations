@@ -1,0 +1,38 @@
+name: "M012-B real visual editor Chromium (local only)"
+on:
+  push:
+    branches: [feat/celebrations-m012b-real-visual-editor-member-spaces-20261111]
+  pull_request:
+    branches: [feat/celebrations-m011d-consolidation-011a-011b-011c-20261111]
+    paths:
+      - 'migration/cloudflare/app/admin/**'
+      - 'migration/cloudflare/editor-demo-client.mjs'
+      - 'migration/cloudflare/editor-demo-preparation-page.mjs'
+      - 'scripts/test-m012b-real-editor-browser.mjs'
+      - '.github/workflows/celebrations-m012b-real-editor.yml'
+permissions:
+  contents: read
+jobs:
+  chromium-and-regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify generated source and syntax
+        run: |
+          node scripts/build-m012b-member-spaces-inline.mjs --check
+          node --check migration/cloudflare/editor-demo-client.mjs
+          node --check migration/cloudflare/editor-demo-preparation-page.mjs
+      - name: Existing membership and duplication regressions
+        run: node --test tests/test_m011c_editor_member_spaces.mjs tests/test_m011d_consolidation_compatibility.mjs tests/test_mission002_member_access.mjs
+      - name: Install local Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Real editor at 1440, 390 and 320 px
+        run: node scripts/test-m012b-real-editor-browser.mjs

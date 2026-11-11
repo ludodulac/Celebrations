@@ -134,8 +134,8 @@ test('M011-C editor hook opt-in; no duplicate edit application, page policy save
  const bridge=readFileSync(new URL('../admin-member-spaces-bridge.js',import.meta.url),'utf8');
  const directory=readFileSync(new URL('../migration/cloudflare/app/admin/member-directory-admin-integration.mjs',import.meta.url),'utf8');
  const spaces=readFileSync(new URL('../migration/cloudflare/app/admin/editor-member-spaces-integration.mjs',import.meta.url),'utf8');
- assert.equal((html.match(/data-admin="members-spaces"/g)||[]).length,1);
- assert.match(html,/admin-member-spaces-bridge\.js/);
+ assert.equal((html.match(/data-admin="members-spaces"/g)||[]).length,0);
+ assert.doesNotMatch(html,/admin-member-spaces-bridge\.js/);
  assert.match(bridge,/const originalSetTab=setTab/);
  assert.match(bridge,/return originalSetTab\(section\)/);
  assert.match(bridge,/celebrationsAdminReady/);
