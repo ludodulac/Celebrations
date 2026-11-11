@@ -2,13 +2,13 @@
 // Those URLs previously served any guessed/obtained draft UUID without checking
 // whether the upload had ever been published. NOT a private member endpoint.
 import {readEditorState,handleEditorMediaFile} from './editor-publication-api.mjs';
+import {editorUploadPath} from './app/domain/editor-upload-formats.mjs';
 import {hasEditorAccess} from './editor-site-access.mjs';
 import {canAccessPage} from './app/domain/member-access.mjs';
 import {privateNotFound} from './app/security/member-private-access.mjs';
 import {isPrivateMediaRecord,isPrivateMediaReference,publicMediaBindingsSafe}
   from './app/security/public-media-boundary.mjs';
 
-const uploadPath=/^\/media\/new\/[0-9a-f]{8}-[0-9a-f-]{27}\.(?:jpg|png|webp|pdf|mp3|wav)$/;
 const pubPage=page=>page&&(page.visibility==null||page.visibility==='published')&&
  canAccessPage(page);
 function hasReference(value,src){
@@ -39,8 +39,13 @@ function publishedPageReferences(state,src){
 function referencedByPrivateOwner(state,src){
  const collections=[state.shared?.pages||[],state.published?.shared?.pages||[]];
  for(const drafts of [state.drafts,state.published?.drafts])
-  for(const record of Object.values(drafts||{}))
+  for(const record of Object.values(drafts||{})){
    if(Array.isArray(record?.pages))collections.push(record.pages);
+   // Until space media has a dedicated verified release mechanism, no legacy
+   // gallery flag can turn a nested space reference into anonymous access.
+   for(const space of record?.spaces||[])
+    if(Array.isArray(space?.pages)&&space.pages.some(page=>hasReference(page.blocks||[],src)))return true;
+  }
  for(const pages of collections)
   for(const page of pages)
    if(page && (page.private===true||page.visibility==='private'||
@@ -75,7 +80,7 @@ const secure=(response,publicFile)=>{
 export async function handlePublicEditorUpload(request,env){
  if(request.method!=='GET'&&request.method!=='HEAD')return privateNotFound();
  const path=new URL(request.url).pathname;
- if(!uploadPath.test(path)||isPrivateMediaReference(path))return privateNotFound();
+ if(!editorUploadPath(path)||isPrivateMediaReference(path))return privateNotFound();
  if(!env?.EDITOR_BUCKET||!publicMediaBindingsSafe(env))
   return secure(new Response('Stockage indisponible',{status:503}),false);
  try{
