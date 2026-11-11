@@ -158,6 +158,11 @@ try{
   const closed=new Promise(resolve=>{finish=resolve});
   const stop=reason=>finish(reason);
   const browserClosed=()=>stop('navigateur fermé');
+  // Closing the last Chromium tab also ends the demo; browser disconnection
+  // alone is insufficient because Playwright may keep an empty browser alive.
+  const tabsClosed=()=>{if(editor.isClosed()&&visitor.isClosed())stop('tous les onglets fermés')};
+  editor.on('close',tabsClosed);
+  visitor.on('close',tabsClosed);
   const interrupted=()=>stop('interruption clavier');
   browser.once('disconnected',browserClosed);
   process.once('SIGINT',interrupted);
@@ -181,7 +186,9 @@ try{
     assert.equal(await visitor.getByLabel('Adresse e-mail membre').isVisible(),true);
     await new Promise(resolve=>setTimeout(resolve,600));
     assert.equal(browser.isConnected(),true,'Chromium must stay open until user closes it');
-    await browser.close();
+    // Exercise normal manual tab/window closure, not only browser.close().
+    await visitor.close();
+    await editor.close();
     console.log('M015_DEMO_HEADED_INTERACTIVE_LIFECYCLE_PASS');
    }
    const reason=await closed;
@@ -190,6 +197,8 @@ try{
    terminal.close();
    terminal.removeListener('SIGINT',interrupted);
    browser.removeListener('disconnected',browserClosed);
+   editor.removeListener('close',tabsClosed);
+   visitor.removeListener('close',tabsClosed);
    process.removeListener('SIGINT',interrupted);
    process.removeListener('SIGTERM',interrupted);
    await context.close().catch(()=>{});
