@@ -347,11 +347,13 @@ export async function handleEditorAdminSession(request,env){
   }
   // Claim a signed challenge ONCE, atomically, before creating a session.
   // Only a correct credential reaches this write. No raw challenge is stored.
-  const consumed=await env.DB.prepare("INSERT OR IGNORE INTO celebrations_editor_admin_challenges(challenge_hash,expires_at) VALUES(?,?)")
-   .bind(await sha256(b.challenge),challengeExpiry).run();
-  if(consumed.meta?.changes!==1)return editorDenied(401,"Défi déjà utilisé");
-  // Keep consumed records until the challenge is no longer valid.
-  await env.DB.prepare("DELETE FROM celebrations_editor_admin_challenges WHERE expires_at<=?").bind(now()).run();
+  // Cleanup BEFORE consumption. The INSERT also checks expiry against the
+  // database clock, so an in-flight request cannot re-use an expired challenge
+  // after another request has deleted its replay marker.
+  await env.DB.prepare("DELETE FROM celebrations_editor_admin_challenges WHERE expires_at<=strftime('%Y-%m-%dT%H:%M:%fZ','now')").run();
+  const consumed=await env.DB.prepare("INSERT OR IGNORE INTO celebrations_editor_admin_challenges(challenge_hash,expires_at) SELECT ?,? WHERE ?>strftime('%Y-%m-%dT%H:%M:%fZ','now')")
+   .bind(await sha256(b.challenge),challengeExpiry,challengeExpiry).run();
+  if(consumed.meta?.changes!==1)return editorDenied(401,"Défi déjà utilisé ou expiré");
   await reset(env.DB,"admin");
   const issued=await issueAdminSession(env.DB,EDITOR_ADMIN_ACTOR,raw);
   if(!issued)return editorDenied(401,"Session administrateur requise");
