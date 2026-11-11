@@ -45,7 +45,7 @@ export async function handleTrialSite(request,env){
  const isOfficial=['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu'].includes(url.hostname);
  const siteClient=TRIAL_SITE_CLIENT;
  const html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'+(isOfficial?'<title>Célébrations des Archanges</title>':'<meta name="robots" content="noindex,nofollow"><title>Site d’essai — Célébrations</title>')+
- '<style nonce="'+nonce+'">'+TRIAL_SITE_STYLE+PUBLIC_LANGUAGE_STYLE+'</style></head><body>'+
+ '<style nonce="'+nonce+'">'+TRIAL_SITE_STYLE+PUBLIC_LANGUAGE_STYLE+'</style></head><body data-member-site="'+(memberSite?'1':'0')+'">'+
 
 
  '<div class="site-menu-bar"><div class="site-menu-group"><button type="button" class="menu-toggle" id="menu-toggle" aria-expanded="false" aria-haspopup="true" aria-controls="general-navigation">☰ Menu</button>'+
@@ -55,7 +55,7 @@ export async function handleTrialSite(request,env){
  '<main class="site-paper" id="site-paper"><div id="stage-main"></div></main>'+
  '<footer class="footer"><nav id="footer-pages" class="footer-pages" aria-label="Pages de bas de page"></nav><a id="back-admin" href="/__editor/demo-preparation?celebration='+encodeURIComponent(result.celebration.id)+'">Administration</a></footer>'+
  '<script nonce="'+nonce+'">window.__TRIAL_SITE_SEED__='+safeJson(result.seed)+';</script>'+
- '<script nonce="'+nonce+'">window.__MEMBER_SITE_ENABLED__='+JSON.stringify(memberSite)+';</script>'+
+
  '<script nonce="'+nonce+'">'+siteClient+'</script></body></html>';
  const h={'content-type':'text/html; charset=utf-8','cache-control':'no-store',...(isOfficial?{}:{'x-robots-tag':'noindex,nofollow,noarchive'}),'x-content-type-options':'nosniff','referrer-policy':'no-referrer','content-security-policy':"default-src 'none'; script-src 'nonce-"+nonce+"'; style-src 'nonce-"+nonce+"'; img-src 'self' blob: data: https:; media-src 'self' blob: https:; connect-src 'self'; base-uri 'none'; frame-src https://www.youtube-nocookie.com https://player.vimeo.com; frame-ancestors 'none'; form-action 'none'"};
  return new Response(request.method==='HEAD'?null:html,{headers:h});
