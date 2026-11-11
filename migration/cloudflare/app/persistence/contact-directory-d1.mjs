@@ -46,7 +46,7 @@ const fromPerson = r => r && ({
   familyName:r.family_name,displayName:r.display_name,
   createdAt:r.created_at,updatedAt:r.updated_at
 });
-const fromType = r => ({id:r.id,name:r.name,disabled:r.disabled===1});
+const fromType = r => ({id:r.id,name:r.name,...(r.abbreviation?{abbreviation:r.abbreviation}:{}),disabled:r.disabled===1});
 const sql = (db,query,...args) => db.prepare(query).bind(...args);
 const first = (db,query,...args) => sql(db,query,...args).first();
 async function all(db,query,...args) {
@@ -73,7 +73,7 @@ export function createContactDirectoryD1(db,{resolveCanonicalSpace}={}) {
   const getPerson = async personId => fromPerson(await first(db,
     `SELECT * FROM ${T.people} WHERE id=?`,requirePersonId(personId)));
   const getMemberTypes = async () => (await all(db,
-    `SELECT id,name,disabled FROM ${T.types} ORDER BY id`)).map(fromType);
+    `SELECT * FROM ${T.types} ORDER BY id`)).map(fromType);
   const getPersonMemberTypes = async personId => all(db,
     `SELECT person_id AS memberId,type_id AS typeId
      FROM ${T.links} WHERE person_id=? ORDER BY type_id`,requirePersonId(personId));
@@ -148,7 +148,7 @@ export function createContactDirectoryD1(db,{resolveCanonicalSpace}={}) {
         type.name,type.id).run();
       if (Number(r?.meta?.changes??0)!==1) throw new RangeError('Unknown typeId');
       return fromType(await first(db,
-        `SELECT id,name,disabled FROM ${T.types} WHERE id=?`,typeId));
+        `SELECT * FROM ${T.types} WHERE id=?`,typeId));
     },
     async setMemberTypeDisabled(typeId,disabled) {
       if (!isMemberTypeId(typeId) || typeof disabled!=='boolean')

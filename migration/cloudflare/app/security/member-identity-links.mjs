@@ -31,8 +31,20 @@ export async function resolveExplicitMemberIdentity(request,env) {
     'AND p.password_hash IS NOT NULL ' +
     'JOIN celebrations_directory_people d ON d.id=l.person_id ' +
     'WHERE l.participant_email=? LIMIT 1',email).first();
-  return isDirectoryPersonId(row?.id) ?
-    Object.freeze({id:row.id,authenticated:true}) : null;
+  if(!isDirectoryPersonId(row?.id))return null;
+  // Keep all existing independently verified identities usable until the
+  // additive M020-D migration is installed. No fallback after a real D1 error.
+  let binding;
+  try {
+    binding=await q(env.DB,
+      'SELECT status FROM celebrations_member_invitation_bindings WHERE person_id=?',
+      row.id).first();
+  } catch(error) {
+    if(!/no such table: celebrations_member_invitation_bindings/.test(String(error?.message||'')))
+      throw error;
+  }
+  if(binding && binding.status!=='active')return null;
+  return Object.freeze({id:row.id,authenticated:true});
 }
 
 export async function submitVerifiedIdentityClaim(request,env,personId) {

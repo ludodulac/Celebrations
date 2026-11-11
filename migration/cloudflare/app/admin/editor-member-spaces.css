@@ -93,3 +93,10 @@
 .member-directory-009b .m019-member-categories{max-width:35%;font-size:.74rem;text-align:right;color:#535c63}
 .member-directory-009b .m019-pager{display:flex;gap:.6rem;align-items:center;margin:.8rem 0}
 @media(max-width:460px){.member-directory-009b .m019-filters{grid-template-columns:minmax(0,1fr)}.member-directory-009b .m019-member-categories{display:none}.member-directory-009b .m019-filter-search .btn{padding:.5rem}}
+
+/* M020-B: one compact settings area, native calendar and touch targets. */
+.m020-settings,.celebration-publication-controls{display:flex;flex-wrap:wrap;align-items:start;gap:.6rem;padding:.75rem;border:1px solid #ddd;border-radius:10px;margin-bottom:.8rem}
+.m020-settings>strong{flex-basis:100%}.m020-settings select,.celebration-publication-controls select{min-height:44px;max-width:100%;font:inherit}
+.m020-access{display:grid;gap:.4rem;min-width:0}.m020-access fieldset{border:0;margin:0;padding:.3rem}.m020-access fieldset label{display:flex;align-items:center;gap:.4rem;min-height:36px}
+.m020-access [hidden]{display:none!important}.m020-settings .publication-status-controls{display:flex;flex-wrap:wrap;gap:.4rem;align-items:end}
+@media(max-width:600px){.m020-settings>*,.celebration-publication-controls>*{max-width:100%}.m020-settings .editor-language-choice{min-width:0}.m020-access{flex:1 1 100%}.m020-settings button{min-height:44px}}

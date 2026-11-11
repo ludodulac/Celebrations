@@ -155,7 +155,7 @@ test('page/celebration status uses accessible green and orange circular indicato
  assert.ok(DEMO_CSS.includes('.inline-page-state.state-published'));
  assert.ok(DEMO_CSS.includes('.inline-page-state.state-draft'));
  assert.match(DEMO_CSS,/grid-template-columns:230px minmax\(0,1fr\)/);
- assert.ok(DEMO_CLIENT.includes("['published','Publier']"),'Publishing actions are still explicit');
+ assert.ok(DEMO_CLIENT.includes("serverPublish(editorPageModel.publicationIntent(kind,q,select.value))"),'Publishing actions are still explicit');
 });
 
 test('global library has clickable files but no insert/open action buttons',()=>{
@@ -218,7 +218,7 @@ test('published pages can be republished after image resizing; aligner is remove
  const start=DEMO_CLIENT.indexOf('function publicationActions(');
  const end=DEMO_CLIENT.indexOf('function attachPagePublicationControls(',start);
  const section=DEMO_CLIENT.slice(start,end);
- assert.ok(section.includes("visibility==='published'&&kind==='page'"));
+ assert.ok(section.includes("select.value=state"));
  assert.ok(section.includes("'Mettre à jour le site'"));
  assert.ok(DEMO_CLIENT.includes("b('Publier cette taille'"));
  assert.ok(DEMO_CLIENT.includes("serverPublish({kind:'page',pageId:p.id,visibility:'published'})"));

@@ -1,5 +1,8 @@
 // One directory, using the existing authenticated, audited server commands.
 import {adminDialog} from './admin-dialog.mjs';
+export function categoryAbbreviation(name){
+ return String(name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').split(/[^a-zA-Z0-9]+/).filter(Boolean).map(word=>word[0]).join('').toUpperCase().slice(0,16);
+}
 export function mountMemberDirectoryAdmin(root,{transport,styleNonce,celebrations=[],onCategories=()=>{}}={}){
  const doc=root.ownerDocument;
  const n=(tag,text)=>{const e=doc.createElement(tag);if(text!==undefined)e.textContent=text;return e};
@@ -7,7 +10,7 @@ export function mountMemberDirectoryAdmin(root,{transport,styleNonce,celebration
  const label=(text,input)=>{input.setAttribute('aria-label',text);const e=n('label');e.className='field';e.append(n('span',text),input);return e};
  const input=(type='text',value='')=>{const e=n('input');e.type=type;e.value=value;e.maxLength=120;return e};
  const select=(items,value='')=>{const e=n('select');for(const [id,name]of items){const o=n('option',name);o.value=id;e.append(o)}e.value=value;return e};
- const names=celebrations.filter(c=>/^\d+$/.test(String(c.id))).map(c=>[String(c.id),c.title||[c.archangel,c.year].filter(Boolean).join(' ')]);
+ const names=[...new Map(celebrations.filter(c=>/^\d+$/.test(String(c.id))).map(c=>[String(c.id),c.title||[c.archangel,c.year].filter(Boolean).join(' ')])).entries()];
  const celebrationName=id=>names.find(x=>x[0]===String(id))?.[1]||'Célébration archivée';
  let types=[],members=[],memberships=[],selected='',search='',celebrationId='',typeId='',cursor='',cursors=[],next=null,busy=false,destroyed=false,epoch=0;
  const shell=n('section');shell.className='member-directory-009b';
@@ -44,7 +47,7 @@ export function mountMemberDirectoryAdmin(root,{transport,styleNonce,celebration
   const form=n('form');form.className='m019-member-form card';form.hidden=true;
   const given=input(),family=input(),email=input('email');
   given.required=family.required=email.required=true;
-  const category=select([['','Choisir une catégorie'],...activeTypes()]);
+  const category=select([['','Choisir une catégorie'],...activeTypes()]);category.required=true;
   const celebration=select([['','Choisir une célébration'],...names]);celebration.required=true;
   const save=b('Enregistrer');save.type='submit';
   form.append(label('Prénom',given),label('Nom',family),label('E-mail',email),
@@ -164,6 +167,28 @@ export function mountMemberDirectoryAdmin(root,{transport,styleNonce,celebration
   const old=people.querySelector('.m019-assignments');old?.remove();
   const card=n('section');card.className='card m019-assignments';card.tabIndex=-1;
   card.append(n('h3','Inscriptions de '+(data.person.givenName||data.person.emailNormalized)),b('Modifier',()=>void editPerson(id)),b('Fermer',()=>card.remove()));
+  const stateLabel={not_invited:'Invitation à préparer',invited:'Invitation à activer',active:'Compte activé',revoked:'Accès révoqué'};
+  const access=n('p','Accès : '+(stateLabel[data.access?.status]||'Invitation à préparer'));access.setAttribute('role','status');card.append(access);
+  const languageSelect=select([['fr','Français'],['en','English'],['es','Español'],['de','Deutsch'],['pt','Português'],['it','Italiano'],['ar','العربية'],['zh','中文']]);
+  if(data.access?.status!=='active'){
+   const invite=b(data.access?.status==='invited'?'Renvoyer l’invitation':'Préparer et envoyer l’invitation',async()=>{
+    const checked=await adminDialog(doc,{title:'Vérification administrative',message:'Confirmez que vous autorisez précisément cette personne et avez vérifié son identité indépendamment de la seule adresse e-mail.',confirm:'Confirmer et inviter'});
+    if(!checked)return;
+    await run(async()=>{
+     const response=await call({method:'POST',action:'invite_member',personId:id,verified:true,language:languageSelect.value});
+     const mail=response.result?.mail;
+     if(mail!=='sent'&&mail!=='not_required')throw Error(mail==='unconfigured'?'Invitation préparée, mais aucun e-mail envoyé : Brevo n’est pas encore configuré.':'Invitation préparée, mais envoi non confirmé. Vérifiez Brevo avant de réessayer.');
+    },'Invitation envoyée.');await showAssignments(id);
+   });
+   card.append(label('Langue de l’e-mail',languageSelect),invite);
+  }
+  if(data.access?.status==='active'||data.access?.status==='invited'){
+   card.append(b('Révoquer l’accès',async()=>{
+    const yes=await adminDialog(doc,{title:'Révoquer l’accès',message:'Les sessions en cours seront invalidées immédiatement. Les inscriptions historiques seront préservées.',confirm:'Révoquer'});
+    if(!yes)return;
+    await run(()=>call({method:'POST',action:'revoke_member',personId:id}),'Accès révoqué.');await showAssignments(id);
+   }));
+  }
   const form=n('form'),checks=[];
   const typeBox=n('fieldset');typeBox.append(n('legend','Catégories'));
   for(const type of types){const check=input('checkbox');check.checked=data.types.some(t=>t.typeId===type.id);check.disabled=!!type.disabled;checks.push([type,check]);typeBox.append(label(type.name+(type.disabled?' (désactivée)':''),check))}
@@ -188,9 +213,10 @@ export function mountMemberDirectoryAdmin(root,{transport,styleNonce,celebration
  function renderCategories(){
   categories.replaceChildren(n('h2','Catégories'));
   const form=n('form'),name=input();name.required=true;name.placeholder='Nouvelle catégorie';name.setAttribute('aria-label','Nouvelle catégorie');
-  const add=b('Ajouter');add.type='submit';form.append(name,add);form.onsubmit=e=>{e.preventDefault();void run(()=>call({method:'POST',action:'create_type',name:name.value.trim()}),'Catégorie ajoutée.');};categories.append(form);
+  const abbreviation=input();abbreviation.maxLength=16;abbreviation.setAttribute('aria-label','Sigle administratif');abbreviation.placeholder='Sigle administratif';let manual=false;abbreviation.oninput=()=>{manual=true};name.oninput=()=>{if(!manual)abbreviation.value=categoryAbbreviation(name.value)};
+  const add=b('Ajouter');add.type='submit';form.append(label('Nom de la catégorie',name),label('Sigle administratif',abbreviation),add);form.onsubmit=e=>{e.preventDefault();void run(()=>call({method:'POST',action:'create_type',name:name.value.trim(),abbreviation:abbreviation.value.trim()||categoryAbbreviation(name.value)}),'Catégorie ajoutée.');};categories.append(form);
   const disabled=n('details');disabled.append(n('summary','Catégories désactivées ('+types.filter(t=>t.disabled).length+')'));
-  for(const type of types){const row=n('div');row.className='card';row.append(n('strong',type.name),n('span',type.disabled?' · Désactivée':''),b('Renommer',async()=>{const r=await adminDialog(doc,{title:'Renommer la catégorie',fields:[{name:'name',label:'Nom',value:type.name,required:true,maxLength:120}]});if(r)await run(()=>call({method:'POST',action:'rename_type',typeId:type.id,expectedRevision:type.revision,name:r.name}));}),b(type.disabled?'Activer':'Désactiver',()=>void run(()=>call({method:'POST',action:'disable_type',typeId:type.id,expectedRevision:type.revision,disabled:!type.disabled}),'Catégorie actualisée. Les inscriptions sont conservées.')));(type.disabled?disabled:categories).append(row)}
+  for(const type of types){const row=n('div');row.className='card';row.append(n('strong',type.name+' — '+(type.abbreviation||categoryAbbreviation(type.name))),n('span',type.disabled?' · Désactivée':''),b('Renommer',async()=>{const r=await adminDialog(doc,{title:'Renommer la catégorie',fields:[{name:'name',label:'Nom',value:type.name,required:true,maxLength:120},{name:'abbreviation',label:'Sigle administratif',value:type.abbreviation||categoryAbbreviation(type.name),required:true,maxLength:16}]});if(r)await run(()=>call({method:'POST',action:'rename_type',typeId:type.id,expectedRevision:type.revision,name:r.name,abbreviation:r.abbreviation}));}),b(type.disabled?'Activer':'Désactiver',()=>void run(()=>call({method:'POST',action:'disable_type',typeId:type.id,expectedRevision:type.revision,disabled:!type.disabled}),'Catégorie actualisée. Les inscriptions sont conservées.')));(type.disabled?disabled:categories).append(row)}
   if(types.some(t=>t.disabled))categories.append(disabled);
  }
  reload().then(()=>{status.textContent='';}).catch(e=>status.textContent='Chargement impossible : '+e.message);

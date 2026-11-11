@@ -264,3 +264,17 @@ test('M019 initial category and celebration are atomic, duplicate email is usefu
   assert.notEqual(failed.status,200);assert.equal(await c.directory.getPersonByEmail('rollback-m019@example.test'),null);
  }finally{c.sqlite.close()}
 });
+
+
+test('M020-B category abbreviation persists, is validated and follows the existing revision guard',async()=>{
+ const f=setup();try{
+  f.sqlite.exec(sql('d1-migrations/20261111_020b_category_abbreviation.sql'));
+  const created=await f.post({action:'create_type',name:"Porteurs d’ange",abbreviation:'PDA'});
+  assert.equal(created.status,200,JSON.stringify(created));
+  const snapshot=await f.get();
+  const type=snapshot.data.types.find(t=>t.name==="Porteurs d’ange");assert.equal(type.abbreviation,'PDA');
+  assert.equal((await f.post({action:'rename_type',typeId:type.id,expectedRevision:type.revision,name:'Porteurs',abbreviation:'PA'})).status,200);
+  assert.equal((await f.post({action:'rename_type',typeId:type.id,expectedRevision:type.revision,name:'Obsolète',abbreviation:'OLD'})).status,409);
+  assert.equal((await f.post({action:'create_type',name:'Invalide',abbreviation:'<script>'})).status,400);
+ }finally{f.sqlite.close()}
+});

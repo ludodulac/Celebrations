@@ -4,7 +4,7 @@ import {handlePrivatePage,handlePrivateMedia,allowedPrivatePageIds,privateNotFou
   from '../security/member-private-access.mjs';
 import {createCanonicalPrivateLoaders}
   from '../persistence/private-canonical-content.mjs';
-import {createLanguageRegistry,setPageTranslation,resolvePageTranslation}
+import {createPreparedLanguageRegistry as createLanguageRegistry,setPageTranslation,resolvePageTranslation}
   from '../domain/editor-localization.mjs';
 import {allowedPublicLink} from '../domain/editor-public-projection-security.mjs';
 import {isPrivateMediaReference}
@@ -78,6 +78,7 @@ async function pageView(page,loaders,languageId) {
   let registry;
   try{registry=createLanguageRegistry(published.languageRegistry)}
   catch{registry=createLanguageRegistry();}
+  registry.defaultLanguageId='fr';
   let working={...page};
   delete working.translations; // no draft/editor translations
   const release=published.privateTranslationReleases?.[page.id];
@@ -95,10 +96,7 @@ async function pageView(page,loaders,languageId) {
   try{selected=resolvePageTranslation(working,registry,language(languageId)?languageId:'fr');}
   catch{return null;}
   if(!selected)return null;
-  // An explicitly chosen language never silently displays another language.
-  // A missing manually authored variant is simply unavailable.
   const requested=language(languageId)?languageId:registry.defaultLanguageId;
-  if(selected.languageId!==requested)return null;
   const source=selected.content;
   if(!Array.isArray(source.blocks)||source.blocks.length>1000)return null;
   // Until managed page-to-page links have an authorization-aware resolver,
@@ -109,7 +107,11 @@ async function pageView(page,loaders,languageId) {
     ...(page.spaceId?{spaceId:page.spaceId}:{}),
     name:typeof source.name==='string'?source.name.slice(0,200):
       typeof page.name==='string'?page.name.slice(0,200):'',
-    languageId:selected.languageId,usedFallback:selected.usedFallback,
+    languageId:selected.languageId,requestedLanguageId:requested,usedFallback:selected.languageId!==requested,
+    availableLanguageIds:registry.languages.filter(l=>{
+      const content=l.id===(page.sourceLanguageId||'fr')?page:working.translations?.[l.id];
+      return Array.isArray(content?.blocks)&&content.blocks.length>0;
+    }).map(l=>l.id),
     blocks:blocks.filter(Boolean)};
 }
 
@@ -161,7 +163,7 @@ export async function listAuthorizedPrivatePages(request,env,{
     const space=view.spaceId?await loaders.loadPublishedSpace(view.spaceId):null;
     const spaceName=space&&typeof space.name==='string'?space.name.slice(0,120):null;
     results.push({id:view.id,name:view.name,celebrationId:view.celebrationId,
-      ...(view.spaceId?{spaceId:view.spaceId,...(spaceName?{spaceName}:{})}:{}),languageId:view.languageId});
+      ...(view.spaceId?{spaceId:view.spaceId,...(spaceName?{spaceName}:{})}:{}),languageId:view.languageId,requestedLanguageId:view.requestedLanguageId,usedFallback:view.usedFallback,availableLanguageIds:view.availableLanguageIds});
     if(results.length>=limit)break;
   }
   return results;
@@ -197,6 +199,10 @@ export async function handleCanonicalPrivateListAll(request,env,{languageId='fr'
    for(const item of allowed)pages.push({...item,celebrationLabel:label});
    if(pages.length>1000)return noService(request.method);
   }
-  return secureJson({pages},request.method);
+  const published=await createCanonicalPrivateLoaders(env).publishedLanguageData();
+  const registry=createLanguageRegistry(published?.languageRegistry);
+  const available=new Set(pages.flatMap(p=>p.availableLanguageIds||[]));
+  const languages=registry.languages.filter(l=>available.has(l.id)).map(({id,name,flag})=>({id,name,flag}));
+  return secureJson({pages,languages},request.method);
  }catch{return noService(request.method)}
 }

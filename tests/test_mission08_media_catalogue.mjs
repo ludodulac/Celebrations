@@ -39,7 +39,7 @@ test('M08: known source categories and legacy local classifications remain stabl
   [{type:'image/png',name:'a'},'images'],[{type:'',name:'portrait.JPG'},'images'],
   [{type:'application/pdf',name:'livret'},'pdf'],[{type:'',name:'méditation.PDF'},'pdf'],
   [{type:'audio/mpeg',name:'chant'},'audios'],[{type:'',name:'musique.wav'},'audios'],
-  [{type:'video/mp4',name:'film.mp4'},'autres'],[{type:'',name:'archive.docx'},'autres']
+  [{type:'video/mp4',name:'film.mp4'},'videos'],[{type:'',name:'archive.docx'},'autres']
  ])assert.equal(catalogue.categoryOfLocal(item),want,JSON.stringify(item));
  for(const [type,want] of [['image','images'],['audio','audios'],['video','videos'],
   ['pdf','pdf'],['link','links'],['unknown','autres']])
