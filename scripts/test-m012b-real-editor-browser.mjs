@@ -111,22 +111,17 @@ try{
   await page.getByText(/Recherche indisponible/).waitFor();
   failDirectory=false;
   await page.getByRole('button',{name:'Espaces des célébrations'}).click();
+  await page.getByText(/Chargement impossible/).waitFor();
   assert.equal(await page.getByRole('button',{name:'Enregistrer les espaces'}).isDisabled(),true);
-  assert.equal(await page.getByRole('button',{name:'Publier / appliquer les droits'}).isDisabled(),true);
-  await page.getByPlaceholder('Nom de l’espace').fill('Salle des participants');
-  await page.getByRole('button',{name:'Créer dans le brouillon'}).click();
-  await page.getByRole('heading',{name:'Salle des participants',exact:true}).waitFor();
-  await page.getByText('Espace préparé : non enregistré, non publié.').waitFor();
-  await page.getByRole('button',{name:'Annuler la modification'}).click();
-  assert.equal(await page.getByRole('heading',{name:'Salle des participants',exact:true}).count(),0);
-  await page.getByRole('button',{name:'Rétablir'}).click();
-  await page.getByRole('heading',{name:'Salle des participants',exact:true}).waitFor();
+  assert.equal(await page.getByRole('button',{name:'Créer dans le brouillon'}).count(),0);
+  await page.getByText('Chargez les espaces canoniques avant toute modification.').waitFor();
+  // M012-D real writes are covered by the actual workerd/D1/R2 browser test.
   for(const key of ['pages','footer','celebrations','media','guide']){
    await tab(key).click();assert.equal(await tab(key).evaluate(el=>el.classList.contains('active')),true);
    assert.equal(await page.locator('#save-btn').isVisible(),true);
   }
   await tab('members-spaces').click();
-  await page.getByRole('heading',{name:'Salle des participants',exact:true}).waitFor();
+  assert.equal(await page.getByRole('button',{name:'Enregistrer les espaces'}).isDisabled(),true);
   assert.equal(await page.locator('#save-btn').isVisible(),false);
   await page.getByRole('button',{name:'Contacts et autorisations'}).click();
   denyDirectory=true;
@@ -144,7 +139,7 @@ try{
   assert.ok(overflow<=1,'overflow at '+width+': '+overflow);
   assert.deepEqual(errors,[],'browser JS errors at '+width);
   await page.getByRole('button',{name:'Espaces des célébrations'}).click();
-  await page.getByRole('button',{name:'Abandonner le brouillon'}).click();
+  assert.equal(await page.getByRole('button',{name:'Enregistrer les espaces'}).isDisabled(),true);
   await page.close();
   console.log('M012B_REAL_EDITOR_CHROMIUM_'+width+'_PASS');
  }
