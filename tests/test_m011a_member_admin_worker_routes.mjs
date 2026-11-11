@@ -13,6 +13,7 @@ import {
 
 const HOST='member-route.test',ORIGIN='https://'+HOST;
 const ADMIN='a'.repeat(64),PARTICIPANT='p'.repeat(64),EXPIRED='e'.repeat(64);
+const EXPIRED_PARTICIPANT='q'.repeat(64);
 const A='person:550e8400-e29b-41d4-a716-446655440000';
 const TYPE='member-type:choir';
 const hash=token=>createHash('sha256').update(token).digest('hex');
@@ -68,6 +69,8 @@ function fixture(worker=production) {
     .run(hash(EXPIRED),'former@example.org',past);
   sqlite.prepare('INSERT INTO celebrations_participant_sessions(token_hash,participant_email,expires_at) VALUES(?,?,?)')
     .run(hash(PARTICIPANT),'participant@example.org',future);
+  sqlite.prepare('INSERT INTO celebrations_participant_sessions(token_hash,participant_email,expires_at) VALUES(?,?,?)')
+    .run(hash(EXPIRED_PARTICIPANT),'participant@example.org',past);
   const assetCalls=[];
   const env={
     DB:d1Facade(sqlite),
@@ -205,7 +208,7 @@ test('M011-A participant-only claim stays pending; admin cannot claim',async()=>
   try {
     c.sqlite.prepare('INSERT INTO celebrations_directory_people(id,email_normalized) VALUES(?,?)')
       .run(A,'participant@example.org');
-    for(const token of [null,ADMIN,EXPIRED]) {
+    for(const token of [null,ADMIN,EXPIRED,EXPIRED_PARTICIPANT]) {
       assert.equal((await c.http(MEMBER_IDENTITY_CLAIM_PATH,{
         method:'POST',token,body:{personId:A}
       })).status,401);
