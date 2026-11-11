@@ -39,10 +39,16 @@ export function sameOriginEditorWrite(request){
 }
 
 // Shared explicit HTTPS gate for isolated member administration and visual editor.
+// M018: the SAME existing member API may serve the official domain, but ONLY
+// when two independent exact-host production flags are enabled after approval.
+// The M016 opt-in remains unchanged; previews and staging remain excluded.
 export function mayUseIsolatedMemberApi(url,env){
- return env?.MEMBER_DIRECTORY_API_ENABLED==='true' &&
-  typeof env.MEMBER_DIRECTORY_API_HOST==='string' &&
-  env.MEMBER_DIRECTORY_API_HOST===url.hostname && url.protocol==='https:' &&
-  !isOfficialEditorHost(url.hostname) && !isReadonlyCandidateHost(url.hostname) &&
-  url.hostname!=='celebrations-exit-staging.rondes.workers.dev';
+ if(env?.MEMBER_DIRECTORY_API_ENABLED!=='true' ||
+    typeof env.MEMBER_DIRECTORY_API_HOST!=='string' ||
+    env.MEMBER_DIRECTORY_API_HOST!==url.hostname || url.protocol!=='https:' ||
+    isReadonlyCandidateHost(url.hostname) ||
+    url.hostname==='celebrations-exit-staging.rondes.workers.dev')return false;
+ if(isOfficialEditorHost(url.hostname))
+  return env.MEMBER_DIRECTORY_OFFICIAL_ENABLED==='true';
+ return true;
 }
