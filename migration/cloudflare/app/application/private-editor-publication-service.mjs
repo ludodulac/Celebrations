@@ -282,6 +282,11 @@ function duplicateDraft(state,cid,target,known,registry){
 function publishOrRevoke(state,cid,b,known,registry){
  const r=state.drafts[cid],pub=state.published;if(!r)missing();
  const target=ensurePublished(pub,cid);
+ if(b.action==='celebration-access'){
+  pub.celebrationAccessPolicies??={};
+  pub.celebrationAccessPolicies[cid]=policy(b.accessPolicy,known);
+  return;
+ }
  if(b.action==='celebration-visibility'){
   if(!['published','draft','hidden'].includes(b.visibility))invalid();
   pub.celebrationVisibility??={};pub.celebrationVisibility[cid]=b.visibility;
@@ -341,7 +346,8 @@ function readResult(state,cid){
   record:copy(state.drafts[cid]??emptyRecord()),
   pageReleases:Object.values(pub.privatePageReleases??{}).filter(e=>e.celebrationId===cid),
   spaceReleases:Object.values(pub.privateSpaceReleases??{}).filter(e=>e.celebrationId===cid),
-  celebrationVisibility:pub.celebrationVisibility?.[cid]??'draft'};
+  celebrationVisibility:pub.celebrationVisibility?.[cid]??'draft',
+  celebrationAccessPolicy:pub.celebrationAccessPolicies?.[cid]??{mode:ACCESS_MODES.PUBLIC}};
 }
 // Route owner A must gate the isolated host and feature flag. This service
 // independently checks the real D1 admin session and same-origin mutations.
@@ -365,10 +371,10 @@ export async function handlePrivateEditorCommand(request,env){
   if((request.headers.get('content-type')??'').split(';')[0]!=='application/json')return reply({ok:false,error:'Format invalide'},415);
   const raw=await request.text();if(raw.length>EDITOR_SNAPSHOT_LIMIT)fail(413,'Commande trop volumineuse');
   let b;try{b=JSON.parse(raw)}catch{invalid()}
-  if(!obj(b)||!['save','publish','unpublish','delete','celebration-visibility','duplicate','reconcile'].includes(b.action))invalid();
+  if(!obj(b)||!['save','publish','unpublish','delete','celebration-visibility','celebration-access','duplicate','reconcile'].includes(b.action))invalid();
   safeJSON(b);
   const fields={save:['spaces','pages'],publish:['kind','id','spaceId'],unpublish:['kind','id','spaceId'],
-   delete:['kind','id','spaceId'],'celebration-visibility':['visibility'],duplicate:['targetCelebration'],reconcile:[]};
+   delete:['kind','id','spaceId'],'celebration-visibility':['visibility'],'celebration-access':['accessPolicy'],duplicate:['targetCelebration'],reconcile:[]};
   keysOnly(b,['action','celebration','expectedRevision',...fields[b.action]]);
   if(!expectedRevisionMatches(b.expectedRevision,current.state.version))conflict();
   const cid=b.celebration,known=await catalogue(env.DB,cid);
