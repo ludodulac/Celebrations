@@ -191,12 +191,23 @@ export function mountExistingEditorMemberSpaces(root,{
 
   // The visual editor owns the block controls. This adapter only exposes the
   // already-authorized canonical R2 command, with server revision arbitration.
-  function openCanonicalPage(spaceId,pageId) {
+  function openCanonicalPage(spaceId,pageId,languageId='fr') {
     if(!ready()||workspace.changed||typeof onEditPage!=='function')return;
     const cid=celebrationId;
     const find=()=>workspace.spaces(cid).find(s=>s.id===spaceId)?.pages.find(p=>p.id===pageId);
     const page=find();
     if(!page||page.id.startsWith('draft-page:'))return;
+    if(languageId!=='fr'&&!snapshot?.languageRegistry?.languages?.some(x=>x.id===languageId))
+      throw Error('Langue non créée par l’administrateur');
+    // The existing visual block editor handles each manually authored variant.
+    // Never copy French blocks into a missing language variant.
+    const localized=canonical=>{
+      const copy=clone(canonical);
+      if(languageId==='fr')return copy;
+      const content=copy.translations?.[languageId];
+      return {...copy,name:content?.name??'Titre à rédiger',
+        blocks:clone(content?.blocks??[])};
+    };
     const check=()=>{
       if(destroyed||cid!==celebrationId||!ready()||workspace.changed||!find())
         throw Error('Session ou révision indisponible : rechargez les espaces.');
@@ -208,7 +219,7 @@ export function mountExistingEditorMemberSpaces(root,{
       return clone(find());
     };
     onEditPage({
-      page:clone(page),
+      page:localized(page),
       save:async({name,blocks})=>{
         check();
         if(typeof name!=='string'||!name.trim()||!Array.isArray(blocks))
@@ -218,14 +229,22 @@ export function mountExistingEditorMemberSpaces(root,{
         const position=space?.pages.findIndex(p=>p.id===pageId);
         if(position<0||position===undefined)throw Error('Page inconnue');
         // Replace only the canonical page content, never its identity or ACL.
-        space.pages[position]={...space.pages[position],name:name.trim(),blocks:clone(blocks)};
-        return command('save',{spaces});
+        const original=space.pages[position];
+        if(languageId==='fr'){
+          space.pages[position]={...original,name:name.trim(),blocks:clone(blocks)};
+        }else{
+          space.pages[position]={...original,translations:{
+            ...(original.translations||{}),[languageId]:{name:name.trim(),blocks:clone(blocks)}
+          }};
+        }
+        await command('save',{spaces});
+        return localized(find());
       },
       reload:async()=>{
         if(!isConnected()||cid!==celebrationId)throw Error('Session expirée');
         const result=await loadCanonical();
         if(!result||!find())throw Error('Rechargement impossible');
-        return clone(find());
+        return localized(find());
       },
       publish:()=>command('publish',{kind:'page',id:pageId,spaceId}),
       unpublish:()=>command('unpublish',{kind:'page',id:pageId,spaceId}),
