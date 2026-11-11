@@ -5,7 +5,7 @@ import {editorUploadFormat,editorUploadFilename,editorUploadPath,editorUploadRes
 import {hasEditorAccess} from './editor-site-access.mjs';
 import {EDITOR_SNAPSHOT_LIMIT,expectedRevisionMatches} from './app/ports/editor-snapshot-contract.mjs';
 import {readEditorSnapshot,putEditorSnapshot} from './app/adapters/editor-r2-repository.mjs';
-import {isOfficialEditorHost,isReadonlyCandidateHost,sameOriginEditorWrite} from './app/security/editor-route-policy.mjs';
+import {isOfficialEditorHost,isReadonlyCandidateHost,isWritableEditorHost,sameOriginEditorWrite} from './app/security/editor-route-policy.mjs';
 import {mergePublicMediaIndexed} from './app/domain/editor-public-media-merge.mjs';
 import {projectPublishedLanguage,publishLanguageCommand} from './app/application/public-language-release.mjs';
 import {
@@ -312,14 +312,14 @@ function celebrationVisibleFor(id,map,planState){
  const status=map?.[id]??planState??(String(id).startsWith('plan-')?'draft':'published');
  return status==='published';
 }
-function hostCheck(request){
+function hostCheck(request,env){
  const u=new URL(request.url);
- return isOfficialEditorHost(u.hostname)||isReadonlyCandidateHost(u.hostname)||u.hostname===PREVIEW||u.hostname===STAGING;
+ return isWritableEditorHost(u.hostname,env)||isReadonlyCandidateHost(u.hostname)||u.hostname===PREVIEW||u.hostname===STAGING;
 }
 async function protectedWrite(request,env){
  const url=new URL(request.url);
  if(isReadonlyCandidateHost(url.hostname)||url.hostname===STAGING)return err('Prévisualisation en lecture seule',405);
- if(!isOfficialEditorHost(url.hostname))return err('Domaine non autorisé',404);
+ if(!isWritableEditorHost(url.hostname,env))return err('Domaine non autorisé',404);
  if(!await hasEditorAccess(request,env))return err('Code administrateur nécessaire',401);
  if(!sameOriginEditorWrite(request))return err('Origine interdite',403);
  return null;
@@ -328,7 +328,7 @@ const pageIdOk=id=>typeof id==='string'&&id.length<=110&&
  /^(?:neutral-(?:accueil-general|[0-9a-f-]{30,45})|(?:accueil-celebration|preparation|mercredi|jeudi|vendredi|samedi|dimanche|apres-celebration|extra-[0-9a-f-]{30,45})-(?:[1-9][0-9]{0,7}|plan-(?:michael|gabriel|raphael|ouriel)-20[0-9]{2}-[0-9]{2}-[0-9]{2}))$/.test(id);
 const celebrationIdOk=id=>typeof id==='string'&&/^(?:[1-9][0-9]{0,7}|plan-(?:michael|gabriel|raphael|ouriel)-20[0-9]{2}-[0-9]{2}-[0-9]{2})$/.test(id);
 export async function handleEditorPublication(request,env){
- if(!hostCheck(request))return err('Introuvable',404);
+ if(!hostCheck(request,env))return err('Introuvable',404);
  const url=new URL(request.url);
  if(!['GET','POST'].includes(request.method))return err('Méthode interdite',405);
  if(!env.EDITOR_BUCKET)return err('Stockage non disponible',503);
@@ -424,7 +424,7 @@ export async function handleEditorPublication(request,env){
 
 const allowedUrl=s=>typeof s==='string'&&s.length<=650&&validWeb(s)===s;
 export async function handleEditorMedia(request,env){
- if(!hostCheck(request))return err('Introuvable',404);
+ if(!hostCheck(request,env))return err('Introuvable',404);
  const url=new URL(request.url);
  if(!env.EDITOR_BUCKET)return err('Stockage non disponible',503);
  if(request.method==='GET'){
@@ -528,7 +528,7 @@ export async function handleEditorMedia(request,env){
  return err('Action inconnue',404);
 }
 export async function handleEditorMediaFile(request,env){
- if(!hostCheck(request)||!['GET','HEAD'].includes(request.method))return err('Introuvable',404);
+ if(!hostCheck(request,env)||!['GET','HEAD'].includes(request.method))return err('Introuvable',404);
  const url=new URL(request.url);
  const filename=url.pathname.slice('/media/new/'.length);
  if(!editorUploadFilename(filename))return err('Fichier inconnu',404);
