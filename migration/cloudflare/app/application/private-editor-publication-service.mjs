@@ -90,7 +90,8 @@ function spaceDraft(input,old,id,cid,pages,known,registry){
  const accessPolicy=policy(input.accessPolicy,known);
  if(input.visibility===SPACE_VISIBILITIES.PUBLIC&&accessPolicy.mode!==ACCESS_MODES.PUBLIC)invalid();
  let out=createCelebrationSpace({id,celebrationId:cid,name:name(input.name,120),
-  visibility:input.visibility,accessPolicy,pages,publicationStatus:'draft'});
+  visibility:input.visibility,accessScope:input.accessScope??old?.accessScope??'INDIVIDUAL',
+  accessPolicy,pages,publicationStatus:'draft'});
  const versions=input.translations??old?.translations;
  if(versions!==undefined){
   if(!obj(versions)||Object.keys(versions).length>30)invalid();
