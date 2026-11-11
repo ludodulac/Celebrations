@@ -2,6 +2,13 @@ name: M012-D consolidation and real isolated editor
 on:
   push:
     branches: [feat/celebrations-m012d-consolidation-012a-012b-012c-20261111]
+  pull_request:
+    branches: [feat/celebrations-m011d-consolidation-011a-011b-011c-20261111]
+    paths:
+      - 'scripts/test-m012d-real-worker-editor.mjs'
+      - '.github/workflows/celebrations-m012d-consolidation.yml'
+      - 'migration/cloudflare/app/admin/**'
+      - 'migration/cloudflare/app/security/**'
   workflow_dispatch:
 permissions:
   contents: read
