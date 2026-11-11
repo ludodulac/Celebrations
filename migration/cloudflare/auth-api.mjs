@@ -155,8 +155,11 @@ export async function handleAuth(request,env){
    return result({ok:true});
   }
   if(action==="participant_status"){
-   const row=await env.DB.prepare("SELECT password_hash FROM celebrations_participants WHERE email=?").bind(email(b.email)).first();
-   return result({ok:true,authorized:!!row,registered:!!row?.password_hash});
+   const e=email(b.email);
+   const row=await env.DB.prepare("SELECT password_hash FROM celebrations_participants WHERE email=?").bind(e).first();
+   // A new pending invitation must not be exposed by the historic lookup.
+   const hidden=await blockedInvitedRegistration(env.DB,e);
+   return result({ok:true,authorized:!hidden&&!!row,registered:!hidden&&!!row?.password_hash});
   }
   if(action==="participant_login"){
    const e=email(b.email),password=String(b.password||"");
