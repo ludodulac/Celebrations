@@ -69,7 +69,7 @@ export function createEditorD1Session({origin,fetchImpl=globalThis.fetch,cryptoI
   return {login,logout,connected,transport,privateTransport};
 }
 
-export function mountRealEditorMemberSpaces(root,{celebrations,currentCelebrationId,styleNonce,css='',origin=location.origin}={}){
+export function mountRealEditorMemberSpaces(root,{celebrations,currentCelebrationId,styleNonce,css='',origin=location.origin,onEditPage,onSessionChange=()=>{}}={}){
   const doc=root.ownerDocument,node=(tag,text)=>{const x=doc.createElement(tag);if(text!==undefined)x.textContent=text;return x;};
   const shell=node('section'),style=node('style');if(styleNonce)style.nonce=styleNonce;style.textContent=css;
   const authBox=node('section');authBox.className='member-session-box';
@@ -87,9 +87,9 @@ export function mountRealEditorMemberSpaces(root,{celebrations,currentCelebratio
     form.hidden=active;logout.hidden=!active;
     status.textContent=active?'Session D1 confirmée.':'Non connecté à D1';
     mounted?.refreshMembers();
-    mounted?.sessionChanged(active);
+    mounted?.sessionChanged(active);onSessionChange(active);
   }});
-  mounted=mountExistingEditorMemberSpaces(body,{transport:session.transport,privateTransport:session.privateTransport,isConnected:session.connected,celebrations,currentCelebrationId,styleNonce});
+  mounted=mountExistingEditorMemberSpaces(body,{transport:session.transport,privateTransport:session.privateTransport,isConnected:session.connected,celebrations,currentCelebrationId,styleNonce,onEditPage});
   form.addEventListener('submit',async event=>{
     event.preventDefault();if(busy)return;
     busy=true;login.disabled=true;status.textContent='Connexion D1 en cours…';
