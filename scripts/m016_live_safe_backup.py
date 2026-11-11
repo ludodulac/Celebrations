@@ -46,6 +46,14 @@ def main():
     if not isinstance(latest.get("id"), str) or len(latest["id"]) < 30:
         raise RuntimeError("Unverifiable deployment id")
 
+    print("M016_OFFICIAL_WORKER_VERSION_PIN_PASS", flush=True)
+    # Diagnose backup prerequisites without exposing secrets or private paths.
+    clients = backup.get_clients()
+    print("M016_STORAGE_CLIENT_SCOPE_PASS", flush=True)
+    for label in (backup.STAGING, backup.PRODUCTION):
+        items = backup.inventory(clients[label], label)
+        print("M016_BUCKET_INVENTORY_PASS bucket=" + label + " objects=" + str(len(items)), flush=True)
+
     # Reuse exactly the pre-existing and tested encrypted export/recovery code.
     backup.BRANCH = BRANCH
     backup.EXPECTED_DEPLOYMENT = latest["id"]
