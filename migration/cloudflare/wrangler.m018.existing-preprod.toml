@@ -1,0 +1,36 @@
+# Same M016 Worker/D1/R2 already running; only validate M018 code there.
+name = "celebrations-m016-admin-preprod"
+main = "production-worker.mjs"
+compatibility_date = "2026-10-16"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+preview_urls = false
+keep_vars = true
+
+[assets]
+directory = "../../production-public"
+binding = "ASSETS"
+run_worker_first = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "celebrations-m016-admin-preprod"
+database_id = "3bb4108f-5ff8-4959-ba32-bd53f33156cb"
+[[d1_databases]]
+binding = "MEDIA_ACL"
+database_name = "celebrations-m016-admin-preprod"
+database_id = "3bb4108f-5ff8-4959-ba32-bd53f33156cb"
+[[r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "celebrations-m016-admin-media"
+[[r2_buckets]]
+binding = "EDITOR_BUCKET"
+bucket_name = "celebrations-m016-admin-editor"
+
+[vars]
+M016_PREPROD_WRITE_ENABLED = "true"
+M016_ADMIN_PREPROD_HOST = "celebrations-m016-admin-preprod.rondes.workers.dev"
+MEMBER_DIRECTORY_API_ENABLED = "true"
+MEMBER_DIRECTORY_API_HOST = "celebrations-m016-admin-preprod.rondes.workers.dev"
+EDITOR_D1_SESSION_API_ENABLED = "true"
+MEMBER_PAGE_READ_API_ENABLED = "true"
