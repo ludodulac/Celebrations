@@ -39,13 +39,24 @@ jobs:
             return {status:r.status,body:await r.json().catch(()=>({}))};
           }
           const existing=await req(target+'/settings');
-          assert.equal(existing.status,404,'Preproduction Worker already exists; refusing overwrite');
+          assert.equal(existing.status,200,'Only the previously deployed candidate can be updated');
+          const previous=await req(target+'/deployments');
+          assert.equal(previous.status,200,'Cannot verify candidate immutable baseline');
+          assert.equal(previous.body.result.deployments[0].versions.length,1);
+          assert.equal(previous.body.result.deployments[0].versions[0].version_id,
+            'b9175c3a-be77-4cc0-8c37-586ca6f2d0d8',
+            'Candidate was changed externally; refusing overwrite');
+          const binds=new Map((existing.body.result.bindings||[]).map(x=>[x.name,x.type]));
+          for(const [name,type] of [['DB','d1'],['MEDIA_ACL','d1'],
+            ['MEDIA_BUCKET','r2_bucket'],['EDITOR_BUCKET','r2_bucket'],['ASSETS','assets']])
+             assert.equal(binds.get(name),type,'Unsafe candidate binding: '+name);
+          assert.equal(binds.size,5,'Unexpected candidate bindings');
           const live=await req('celebrations-exit-production/deployments');
           assert.equal(live.status,200,'Cannot read official baseline');
           assert.equal(live.body.result.deployments[0].versions.length,1);
           assert.equal(live.body.result.deployments[0].versions[0].version_id,version,'Official version changed; abort');
           assert.equal(live.body.result.deployments[0].versions[0].percentage,100);
-          console.log('PREPROD_SAFE_GATE official_version='+version+' worker_absent=true data_writes=0');
+          console.log('PREPROD_SAFE_GATE official_version='+version+' candidate_exact_verified=true data_writes=0');
           NODE
       - name: Static security, public projection and member access checks
         run: |
