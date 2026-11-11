@@ -163,7 +163,7 @@ export function mountMemberDirectoryAdmin(root,{transport,styleNonce,celebration
   const data=await call({method:'GET',action:'person_detail',personId:id});
   const old=people.querySelector('.m019-assignments');old?.remove();
   const card=n('section');card.className='card m019-assignments';card.tabIndex=-1;
-  card.append(n('h3','Inscriptions de '+(data.person.givenName||data.person.emailNormalized)),b('Fermer',()=>card.remove()));
+  card.append(n('h3','Inscriptions de '+(data.person.givenName||data.person.emailNormalized)),b('Modifier',()=>void editPerson(id)),b('Fermer',()=>card.remove()));
   const form=n('form'),checks=[];
   const typeBox=n('fieldset');typeBox.append(n('legend','Catégories'));
   for(const type of types){const check=input('checkbox');check.checked=data.types.some(t=>t.typeId===type.id);check.disabled=!!type.disabled;checks.push([type,check]);typeBox.append(label(type.name+(type.disabled?' (désactivée)':''),check))}
