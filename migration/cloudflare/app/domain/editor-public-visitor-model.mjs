@@ -25,19 +25,7 @@ export function createPublicVisitorModel(){
   // public endpoint accidentally includes it. Never modify R2 data objects.
   const visible=p=>p&&p.visibility!=='draft'&&p.visibility!=='hidden';
   const shared={...result.shared,pages:result.shared.pages.filter(visible)};
-  const managedId=(id,kind)=>typeof id==='string'&&new RegExp('^'+kind+':[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
-  return {
-   record,shared,
-   plans:Array.isArray(result.plans)?result.plans:[],
-   ids:[...(record?.pages||[]),...shared.pages,...spaces.flatMap(s=>s.pages)].map(page=>page.id),
-   visible:result.celebrationVisible===true,
-   visibility:result.celebrationVisibility||{},
-   media:Array.isArray(result.media)?result.media:[]
-  };
- }
- return {published,assetIds,publicSnapshot};
-}
-).test(id);
+  const managedId=(id,kind)=>typeof id==='string'&&new RegExp('^'+kind+':[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$').test(id);
   const spaces=(Array.isArray(result.record?.spaces)?result.record.spaces:[]).flatMap(s=>{
    if(!s||!managedId(s.id,'space')||s.visibility!=='PUBLIC'||s.publicationStatus!=='published'||typeof s.name!=='string')return [];
    const pages=(Array.isArray(s.pages)?s.pages:[]).filter(p=>visible(p)&&p.visibility==='published'&&
@@ -50,7 +38,7 @@ export function createPublicVisitorModel(){
   return {
    record,shared,
    plans:Array.isArray(result.plans)?result.plans:[],
-   ids:[...(record?.pages||[]),...shared.pages].map(page=>page.id),
+   ids:[...(record?.pages||[]),...shared.pages,...spaces.flatMap(s=>s.pages)].map(page=>page.id),
    visible:result.celebrationVisible===true,
    visibility:result.celebrationVisibility||{},
    media:Array.isArray(result.media)?result.media:[]
