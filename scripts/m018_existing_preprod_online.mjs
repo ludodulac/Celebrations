@@ -99,9 +99,21 @@ try{
    }]
   });
  }
+ // On a rerun, update the exact fictional canonical records rather than
+ // allocating duplicate spaces or touching unrelated preproduction content.
+ const reuse={};
+ for(let i=0;i<spaces.length;i++){
+  const prior=state.record.spaces?.find(x=>x.name===spaces[i].name);
+  if(prior){
+   reuse['draft-space:m018-cat'+(i+1)]=prior.id;
+   reuse['draft-page:m018-cat'+(i+1)]=prior.pages[0]?.id;
+   spaces[i]={...spaces[i],id:prior.id,
+    pages:[{...spaces[i].pages[0],id:prior.pages[0].id,spaceId:prior.id}]};
+  }
+ }
  const saved=ok(await api('/api/admin/private-editor',{action:'save',celebration:C,
    expectedRevision:state.revision,spaces},adminToken),'save 2 category spaces with 6 texts');
- const ids=saved.idMap;
+ const ids={...saved.idMap,...reuse};
  assert.ok(ids['draft-space:m018-cat1']&&ids['draft-space:m018-cat2']);
  state=saved;
  for(const [action,fields] of [
