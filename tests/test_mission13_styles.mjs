@@ -7,7 +7,7 @@ import {ADMIN_STYLE} from '../migration/cloudflare/app/styles/admin/style.mjs';
 import {PUBLIC_STYLE} from '../migration/cloudflare/app/styles/public/style.mjs';
 import {TRIAL_SITE_STYLE,TRIAL_SITE_CLIENT} from '../migration/cloudflare/editor-trial-site-client.mjs';
 import {handlePreparationDemo,STAGES} from '../migration/cloudflare/editor-demo-preparation-page.mjs';
-import {handleTrialSite} from '../migration/cloudflare/editor-trial-site-page.mjs';
+import {handleTrialSite,PUBLIC_LANGUAGE_STYLE} from '../migration/cloudflare/editor-trial-site-page.mjs';
 
 const HOST='https://celebrations-exit-staging.rondes.workers.dev';
 const count=(s,v)=>s.split(v).length-1;
@@ -127,7 +127,8 @@ test('M13: real admin and public pages emit the same nonce-protected CSS bytes',
  const html=await publicSite.text();
  const styles=[...html.matchAll(/<style nonce="([0-9a-f]{32})">([\s\S]*?)<\/style>/g)];
  assert.equal(styles.length,1);
- assert.equal(styles[0][2],TRIAL_SITE_STYLE);
+ assert.equal(styles[0][2],TRIAL_SITE_STYLE+PUBLIC_LANGUAGE_STYLE);
+ assert.ok(PUBLIC_LANGUAGE_STYLE.includes('.public-language-selector'));
  assert.ok(publicSite.headers.get('content-security-policy').includes("style-src 'nonce-"+styles[0][1]+"'"));
  assert.ok(html.includes('window.__PUBLIC_SITE_SNAPSHOT__'));
 });
