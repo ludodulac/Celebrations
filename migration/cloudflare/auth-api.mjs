@@ -30,15 +30,22 @@ async function readSession(db,raw,admin=false){
  const row=await readSessionRow(db,raw,admin);
  return row?row.email:null;
 }
+const officialSyntheticDenied=(request,e)=>['ronde-des-archanges-universelle.eu',
+ 'www.ronde-des-archanges-universelle.eu'].includes(new URL(request.url).hostname)&&
+ /^m021-[0-9a-f]{32}@test[.]invalid$/.test(String(e||'').toLowerCase());
 export async function authorize(request,env,admin=false){
  const bearer=request.headers.get("authorization")||"";
- if(bearer.startsWith("Bearer "))return readSession(env.DB,bearer.slice(7),admin);
+ if(bearer.startsWith("Bearer ")){
+  const e=await readSession(env.DB,bearer.slice(7),admin);
+  return !admin&&officialSyntheticDenied(request,e)?null:e;
+ }
  if(admin)return null; // Never authenticate an administrator with a member cookie.
  const cookie=(request.headers.get("cookie")||"").split(";").map(x=>x.trim())
   .find(x=>x.startsWith("__Host-celebrations_member="));
  const raw=cookie?.slice("__Host-celebrations_member=".length);
- return typeof raw==="string"&&/^[a-f0-9]{64}$/.test(raw)?
-  readSession(env.DB,raw,false):null;
+ const e=typeof raw==="string"&&/^[a-f0-9]{64}$/.test(raw)?
+  await readSession(env.DB,raw,false):null;
+ return officialSyntheticDenied(request,e)?null:e;
 }
 
 const validEmail=v=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)&&v.length<=254;
