@@ -157,6 +157,15 @@ test('M020-D — no implicit identity linking, no live mail without configuratio
   f.sqlite.prepare('INSERT INTO celebrations_directory_person_celebrations(person_id,celebration_id) VALUES(?,?)').run(Q,41);
   const x=await inviteMember(f.env.DB,{...f.env,BREVO_API_KEY:undefined},Q,'operator@example.invalid',{send:true});
   assert.equal(x.mail,'unconfigured');
+  const blockedLegacy=await f.request({action:'participant_register_derived',email:'another@example.invalid',
+   password_salt:'a'.repeat(64),password_proof:'b'.repeat(64),
+   question_1:'first_school',question_2:'childhood_book',
+   answer_1_salt:'a'.repeat(64),answer_2_salt:'b'.repeat(64),
+   answer_1_proof:'a'.repeat(64),answer_2_proof:'b'.repeat(64)},{target:'/api/auth'});
+  assert.equal(blockedLegacy.status,403,'legacy self-registration cannot steal a new invitation');
+  assert.equal(f.sqlite.prepare('SELECT password_hash FROM celebrations_participants WHERE email=?').get('another@example.invalid').password_hash,null);
+  const hiddenStatus=await f.request({action:'participant_status',email:'another@example.invalid'},{target:'/api/auth'});
+  assert.deepEqual(await hiddenStatus.json(),{ok:true,authorized:false,registered:false});
   for(const value of ['another@example.invalid','unknown@example.invalid']){
    const r=await f.request({action:'request_activation',email:value},{envOverride:{BREVO_API_KEY:undefined}});
    assert.equal(r.status,503);
@@ -178,6 +187,9 @@ test('M020-D — default off, origin protection and uniform public lookup',async
   assert.equal(ok.status,200);assert.equal(missing.status,200);
   assert.deepEqual(await ok.json(),await missing.json(),'existing and unknown emails have identical public response');
   assert.equal(mock.messages.length,1);
+  const pending=tokenFrom(mock.messages[0],'activate');
+  f.sqlite.prepare('UPDATE celebrations_member_email_tokens SET expires_at=? WHERE participant_email=?').run('2000-01-01T00:00:00.000Z',MAIL);
+  assert.equal((await f.request({action:'finish_activation',...pending,password_salt:'a'.repeat(64),password_proof:'b'.repeat(64)})).status,400,'expired link is rejected');
   assert.equal((await f.request({action:'adopt_session',participant_token:'f'.repeat(64)})).status,401);
  }finally{mock.restore();f.sqlite.close()}
 });
