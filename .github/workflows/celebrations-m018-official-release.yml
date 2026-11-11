@@ -42,3 +42,172 @@ jobs:
           node --test tests/test_m018_official_pin_bridge.mjs \
             tests/test_m011a_member_admin_worker_routes.mjs \
             tests/test_m012a_editor_admin_session.mjs
+
+  prepared-official-no-writes:
+    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M018_DRY_RUN]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Validate one existing Worker, source backup and additive SQL (locally only)
+        run: |
+          node scripts/m018_official_validate.mjs
+          node --check scripts/m018_official_release_gate.mjs
+          node --check scripts/m018_official_smoke.mjs
+          node scripts/build-m012b-member-spaces-inline.mjs --check
+          node --test tests/test_m018_official_pin_bridge.mjs
+          python scripts/build_production_assets.py
+      - name: Check Worker production bundle compilation WITHOUT uploading
+        run: |
+          npm install --no-save --no-package-lock wrangler@4
+          (cd migration/cloudflare && npx wrangler deploy --dry-run --config wrangler.m018.official.toml)
+          echo M018_DEPLOY_DRY_RUN_NO_PRODUCTION_CHANGE
+      - name: Check actual official visitor page and admin link without submitting forms
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+          node scripts/m018_official_preflight_browser.mjs
+
+  release-official-only-after-owner-approval:
+    # Owner's explicit separate approval is required BEFORE pushing this marker.
+    # Do not trigger from PRs, normal commits, automated retries or dry-run.
+    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M018_OWNER_APPROVED_PRODUCTION]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    environment: celebrations-staging
+    concurrency:
+      group: celebrations-m018-owner-approved-official-release
+      cancel-in-progress: false
+    env:
+      M018_OWNER_APPROVED: 'YES'
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Refuse if original production Worker, credentials, media or backup drifted
+        run: |
+          node scripts/m018_official_validate.mjs
+          node scripts/m018_official_release_gate.mjs before
+          node scripts/build-m012b-member-spaces-inline.mjs --check
+      - name: Build existing editor and static website; no new administration
+        run: |
+          node --check migration/cloudflare/production-worker.mjs
+          node --check migration/cloudflare/auth-api.mjs
+          node --check migration/cloudflare/app/security/member-admin-worker-routes.mjs
+          node --test tests/test_m018_official_pin_bridge.mjs
+          python scripts/build_production_assets.py
+          test -s production-public/index.html
+          test -s production-public/admin.html
+      - name: Install Wrangler (no changes to any Cloudflare resource yet)
+        run: |
+          npm install --no-save --no-package-lock wrangler@4
+          (cd migration/cloudflare && npx wrangler deploy --dry-run --config wrangler.m018.official.toml)
+      - name: Apply six ADDITIVE D1 migrations to exact existing official DB only
+        id: migrations
+        working-directory: migration/cloudflare
+        run: |
+          set -euo pipefail
+          w='npx wrangler d1 execute celebrations-exit-production --remote --config wrangler.m018.official.toml'
+          for file in \
+            d1-migrations/20261110_007a_contact_directory.sql \
+            d1-migrations/20261110_008b_directory_integrity.sql \
+            d1-migrations/20261110_009b_explicit_identity_links.sql \
+            d1-migrations/20261111_010b_member_admin_revisions.sql \
+            d1-migrations/20261111_012a_editor_admin_challenges.sql \
+            d1-migrations/20261111_012c_private_release_fences.sql; do
+            "$w" --file "$file"
+          done
+          echo M018_ONLY_TWELVE_ADDITIVE_TABLES_NO_HISTORICAL_DATA_CHANGE
+      - name: Confirm existing production Worker still serving after additive DB changes
+        run: node scripts/m018_official_release_gate.mjs after-migration
+      - name: Upload new version of EXISTING Worker without activating it
+        id: upload
+        working-directory: migration/cloudflare
+        env:
+          WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/m018-version-output.ndjson
+        run: |
+          set -euo pipefail
+          npx wrangler versions upload --config wrangler.m018.official.toml \
+            --message "M018 editor + membres, code historique conservé, sauvegarde indépendante"
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readFileSync,appendFileSync} from 'node:fs';
+          const events=readFileSync(process.env.WRANGLER_OUTPUT_FILE_PATH,'utf8')
+            .split('\n').filter(Boolean).map(x=>JSON.parse(x));
+          const uploaded=events.filter(x=>x.type==='version-upload'&&x.worker_name==='celebrations-exit-production').at(-1);
+          assert.match(uploaded?.version_id||'',/^[a-f0-9-]{36}$/);
+          appendFileSync(process.env.GITHUB_OUTPUT,'id='+uploaded.version_id+'\n');
+          console.log('M018_NEW_VERSION_UPLOADED_NOT_PROMOTED '+uploaded.version_id);
+          NODE
+      - name: Check baseline official version immediately before promotion
+        run: node scripts/m018_official_release_gate.mjs after-migration
+      - name: Promote only uploaded version to 100 percent, leaving existing domains intact
+        id: promote
+        working-directory: migration/cloudflare
+        env:
+          NEW_VERSION: ${{ steps.upload.outputs.id }}
+        run: |
+          set -euo pipefail
+          test -n "$NEW_VERSION"
+          npx wrangler versions deploy "${NEW_VERSION}@100%" --yes \
+            --config wrangler.m018.official.toml \
+            --message "M018: mise à jour de l'administration sur domaine officiel"
+      - name: Verify protected credentials, bindings, member flags, official traffic
+        env:
+          NEW_VERSION: ${{ steps.upload.outputs.id }}
+        run: node scripts/m018_official_release_gate.mjs after-promotion "$NEW_VERSION"
+      - name: Real Chromium official visitor/admin link and server security, no user-data writes
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+          node scripts/m018_official_smoke.mjs
+      - name: Confirm success on the real official domain
+        run: echo M018_OFFICIAL_RELEASE_COMPLETE_REAL_DOMAIN_EXISTING_CODE_AND_DATA_PRESERVED
+      - name: On failed live verification decide rollback only if CURRENT version is exactly ours
+        if: ${{ failure() && steps.promote.outcome != 'skipped' }}
+        id: rollback-check
+        env:
+          NEW_VERSION: ${{ steps.upload.outputs.id }}
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {appendFileSync} from 'node:fs';
+          const account=process.env.CLOUDFLARE_ACCOUNT_ID;
+          assert.equal(account,'60a7b17758a93fe6681ce998e72ddff0');
+          const r=await fetch('https://api.cloudflare.com/client/v4/accounts/'+account+'/workers/scripts/celebrations-exit-production/deployments',{
+            headers:{authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN},
+            signal:AbortSignal.timeout(25000)});
+          assert.equal(r.status,200);
+          const j=await r.json();
+          const versions=j.result?.deployments?.[0]?.versions||[];
+          assert.equal(versions.length,1);
+          const active=versions[0].version_id;
+          const baseline='87dba010-c719-4a52-97c1-027a9c9de9b6';
+          if(active!==baseline)assert.equal(active,process.env.NEW_VERSION,'Third-party deployment: never override');
+          appendFileSync(process.env.GITHUB_OUTPUT,'should_rollback='+(active===baseline?'no':'yes')+'\n');
+          console.log('M018_ROLLBACK_DECISION current_official_version='+active);
+          NODE
+      - name: Restore EXACT prior production Worker version, no D1/R2 deletions
+        if: ${{ failure() && steps.rollback-check.outputs.should_rollback == 'yes' }}
+        working-directory: migration/cloudflare
+        run: |
+          npx wrangler versions deploy "87dba010-c719-4a52-97c1-027a9c9de9b6@100%" \
+            --yes --config wrangler.m018.official.toml \
+            --message "M018 rollback: restore previous production Worker after failed verification"
+      - name: Verify old Worker restored; keep additive D1 tables and all media untouched
+        if: ${{ failure() && steps.rollback-check.outputs.should_rollback == 'yes' }}
+        run: node scripts/m018_official_release_gate.mjs after-rollback
