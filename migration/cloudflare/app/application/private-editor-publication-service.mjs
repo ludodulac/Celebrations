@@ -68,7 +68,8 @@ function pageDraft(input,old,id,cid,sid,known,registry){
     own(input,'spaceId')&&input.spaceId!==sid)invalid();
  const accessPolicy=policy(input.accessPolicy??old?.accessPolicy,known);
  if(!sid&&accessPolicy.mode===ACCESS_MODES.PUBLIC)invalid(); // no implicit private -> public
- let page={id,celebrationId:cid,group:'celebration',
+ let page={id,celebrationId:cid,group:input.group==='page'||old?.group==='page'?'page':'celebration',
+  ...(input.placement==='footer'||old?.placement==='footer'?{placement:'footer'}:{}),
   name:name(input.name??input.title??old?.name??old?.title,180),
   blocks:blocks(input.blocks??old?.blocks??[]),accessPolicy,
   privateManaged:true,visibility:'draft',publicationStatus:'draft'};
@@ -373,10 +374,10 @@ export async function handlePrivateEditorCommand(request,env){
   if((request.headers.get('content-type')??'').split(';')[0]!=='application/json')return reply({ok:false,error:'Format invalide'},415);
   const raw=await request.text();if(raw.length>EDITOR_SNAPSHOT_LIMIT)fail(413,'Commande trop volumineuse');
   let b;try{b=JSON.parse(raw)}catch{invalid()}
-  if(!obj(b)||!['save','publish','unpublish','delete','celebration-visibility','celebration-access','duplicate','reconcile'].includes(b.action))invalid();
+  if(!obj(b)||!['save','publish','unpublish','delete','celebration-visibility','celebration-access','duplicate','reconcile','page-access'].includes(b.action))invalid();
   safeJSON(b);
   const fields={save:['spaces','pages'],publish:['kind','id','spaceId'],unpublish:['kind','id','spaceId'],
-   delete:['kind','id','spaceId'],'celebration-visibility':['visibility'],'celebration-access':['accessPolicy'],duplicate:['targetCelebration'],reconcile:[]};
+   delete:['kind','id','spaceId'],'celebration-visibility':['visibility'],'celebration-access':['accessPolicy'],duplicate:['targetCelebration'],reconcile:[],'page-access':['id','accessPolicy']};
   keysOnly(b,['action','celebration','expectedRevision',...fields[b.action]]);
   if(!expectedRevisionMatches(b.expectedRevision,current.state.version))conflict();
   const cid=b.celebration,known=await catalogue(env.DB,cid);
@@ -395,7 +396,34 @@ export async function handlePrivateEditorCommand(request,env){
    await acknowledgePrivateRelease(env.DB,state.published,cid,state.publishedRevision,releasedSpaces(state.published,cid));
    return reply({...readResult(state,cid),privateReleaseReady:true});
   }
-  if(b.action==='save'){
+  if(b.action==='page-access'){
+   if(!stable(b.id))invalid();
+   const access=policy(b.accessPolicy,known),r=state.drafts[cid]??=emptyRecord();
+   const shared=state.shared.pages.find(p=>p.id===b.id);
+   const prior=shared??r.pages.find(p=>p.id===b.id);
+   if(!prior)missing();
+   if(prior.spaceId)invalid();
+   // Revoke every old public/private release in the SAME conditional snapshot.
+   // The next release still requires the explicit Publish action.
+   removePage(state.published,cid,b.id);
+   state.published.shared.pages=state.published.shared.pages.filter(p=>p.id!==b.id);
+   state.shared.pages=state.shared.pages.filter(p=>p.id!==b.id);
+   r.pages=r.pages.filter(p=>p.id!==b.id);
+   if(access.mode===ACCESS_MODES.PUBLIC){
+    const clean={...copy(prior),visibility:'draft',publicationStatus:'draft'};
+    for(const key of ['accessPolicy','privateManaged','celebrationId','spaceId'])delete clean[key];
+    if(prior.group==='page')state.shared.pages.push(clean);else r.pages.push(clean);
+   }else{
+    const original={...copy(prior),celebrationId:cid,accessPolicy:access};
+    const draft=pageDraft(original,prior,b.id,cid,null,known,registry);
+    const variants=state.localization?.pages?.[b.id];
+    if(variants)for(const [lang,content] of Object.entries(variants)){
+     Object.assign(draft,setPageTranslation(draft,registry,lang,content));
+    }
+    r.pages.push(draft);
+   }
+   changed=true;
+  }else if(b.action==='save'){
    if(!own(b,'spaces')&&!own(b,'pages'))invalid();
    changed=saveDraft(state,cid,b,known,registry,idMap);
   }else if(b.action==='duplicate'){

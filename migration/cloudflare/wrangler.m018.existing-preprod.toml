@@ -34,3 +34,5 @@ MEMBER_DIRECTORY_API_ENABLED = "true"
 MEMBER_DIRECTORY_API_HOST = "celebrations-m016-admin-preprod.rondes.workers.dev"
 EDITOR_D1_SESSION_API_ENABLED = "true"
 MEMBER_PAGE_READ_API_ENABLED = "true"
+
+EDITOR_PIN_D1_BRIDGE_ENABLED = "true"

@@ -37,3 +37,20 @@
  .admin-member-spaces-011c .member-spaces-actions > *{width:100%}
  .admin-member-spaces-011c button{min-height:44px}
 }
+
+/* M019: familiar cards and buttons, compact on Android. */
+.admin-dialog{width:min(92vw,480px);max-height:88dvh;overflow:auto;border:1px solid #ddd;border-radius:12px;padding:1.2rem;color:inherit;background:#fff}
+.admin-dialog::backdrop{background:#0006}
+.admin-dialog form,.admin-dialog label{display:grid;gap:.65rem}
+.admin-dialog input,.admin-dialog select{box-sizing:border-box;width:100%;min-height:44px;font:inherit;padding:.5rem}
+.admin-dialog-actions{display:flex;justify-content:flex-end;gap:.5rem;margin-top:1rem}
+.m019-member-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:.7rem;padding:1rem}
+.member-directory-009b .field{display:grid;gap:.3rem}
+.member-directory-009b input,.member-directory-009b select{width:100%;box-sizing:border-box;min-height:44px;padding:.5rem;font:inherit}
+.member-directory-009b input[type=checkbox]{width:auto;min-height:24px}
+.m019-filters{display:grid;gap:.7rem;margin:1.2rem 0}
+.m019-member-list{display:grid;gap:.6rem}
+.m019-member-list .card,.m019-categories .card,.m019-assignments{padding:.8rem;margin:.5rem 0}
+.m019-categories .card{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem}
+.m019-categories{display:none}.m019-category-mode .m019-categories{display:block}.m019-category-mode .m019-people{display:none}
+.admin-member-spaces-011c>.admin-view-head,.admin-member-spaces-011c>.member-spaces-tabs,.admin-member-spaces-011c>.notice{display:none}

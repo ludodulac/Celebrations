@@ -5,7 +5,7 @@ import {authorize} from '../../auth-api.mjs';
 import {createContactDirectoryD1,toD1CelebrationId}
   from '../persistence/contact-directory-d1.mjs';
 import {isDirectoryPersonId} from '../domain/contact-directory.mjs';
-import {commitAuditedDirectoryAdmin,DirectoryConflictError}
+import {commitAuditedDirectoryAdmin,DirectoryConflictError,DirectoryDuplicateEmailError}
   from './member-directory-admin-transaction.mjs';
 import {
   listPendingIdentityClaims,reviewIdentityClaim,unlinkIdentity,
@@ -40,6 +40,10 @@ async function snapshot(db,directory,url) {
       !/^(?:[1-9][0-9]?|100)$/.test(limitRaw))
     throw new TypeError('Invalid directory pagination');
   const limit=Number(limitRaw);
+  const celebration=params.get('celebrationId')||'';
+  const category=params.get('typeId')||'';
+  if(celebration)toD1CelebrationId(celebration);
+  if(category&&!/^member-type:[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/.test(category))throw new TypeError('Invalid category');
   const rows=await query(db,
     `SELECT p.id,p.email_normalized AS emailNormalized,
      COALESCE(NULLIF(p.display_name,''),
@@ -52,8 +56,10 @@ async function snapshot(db,directory,url) {
        (?='' OR instr(p.email_normalized,?)>0 OR
        instr(lower(COALESCE(p.display_name,'')||' '||
          COALESCE(p.given_name,'')||' '||COALESCE(p.family_name,'')),?)>0)
+     AND (?='' OR EXISTS(SELECT 1 FROM celebrations_directory_person_celebrations c WHERE c.person_id=p.id AND c.celebration_id=?))
+     AND (?='' OR EXISTS(SELECT 1 FROM celebrations_directory_person_types t WHERE t.person_id=p.id AND t.type_id=?))
      ORDER BY p.email_normalized COLLATE NOCASE,p.id LIMIT ?`,
-    cursor,search,search,search,limit+1).all();
+    cursor,search,search,search,celebration,celebration,category,category,limit+1).all();
   if(!Array.isArray(rows?.results)) throw new Error('Invalid people list');
   const hasMorePeople=rows.results.length>limit;
   const members=rows.results.slice(0,limit);
@@ -157,6 +163,7 @@ export async function handleMemberDirectoryAdmin(request,env,{
     if(e instanceof SyntaxError || e instanceof TypeError)
       return error(400,'Requête invalide');
     if(e instanceof RangeError) return error(404,'Élément inexistant');
+    if(e instanceof DirectoryDuplicateEmailError)return error(409,'Cet e-mail existe déjà. Recherchez ce membre pour modifier sa fiche.');
     if(e instanceof DirectoryConflictError) return error(409,'Conflit de version : rechargez les données.');
     // No SQL details, personal data, grant names, or stack in HTTP response.
     return error(409,'Opération refusée ou données momentanément indisponibles');

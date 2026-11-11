@@ -221,3 +221,26 @@ test('M012C: old editor cookie does not disclose managed drafts or overwrite/rel
   assert.equal(r.status,403);
  }finally{f.close()}
 });
+
+test('M019 ordinary shared page transitions revoke public snapshots and require live membership',async()=>{
+ const f=await fixture();try{
+  const id='neutral-550e8400-e29b-41d4-a716-446655440022';
+  const normal={id,group:'page',name:'Ordinaire M019',visibility:'published',blocks:[{kind:'text',text:'ORDINARY_M019_SECRET'}]};
+  f.state.shared.pages.push(normal);
+  // Make a genuine public baseline, then revoke it via the authenticated ACL command.
+  const changed=await f.send({action:'page-access',id,accessPolicy:{mode:'ALL_PRIVATE_TYPES'}});
+  assert.equal(changed.status,200,JSON.stringify(changed));
+  assert.equal(f.state.shared.pages.some(p=>p.id===id),false);
+  assert.doesNotMatch(JSON.stringify(publicSnapshot(f.state,'41')),/ORDINARY_M019_SECRET/);
+  assert.equal((await f.member(id)).status,404,'private draft is not a release');
+  assert.equal((await f.publish('page',id)).status,200);
+  assert.equal((await f.member(id)).status,200);
+  f.db.prepare('DELETE FROM celebrations_directory_person_celebrations WHERE person_id=? AND celebration_id=41').run(P);
+  assert.equal((await f.member(id)).status,404,'revocation takes effect without changing the session');
+  const restored=await f.send({action:'page-access',id,accessPolicy:{mode:'PUBLIC'}});
+  assert.equal(restored.status,200,JSON.stringify(restored));
+  assert.equal(f.state.shared.pages.find(p=>p.id===id).visibility,'draft');
+  assert.equal((await f.member(id)).status,404);
+  assert.doesNotMatch(JSON.stringify(publicSnapshot(f.state,'41')),/ORDINARY_M019_SECRET/);
+ }finally{f.close()}
+});

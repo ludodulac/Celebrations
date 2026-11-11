@@ -391,7 +391,15 @@ export async function handleEditorPublication(request,env){
   const ix=dest.findIndex(p=>p.id===body.pageId);
   if(body.visibility==='published'){
    const publishedPage=copy(page);publishedPage.visibility='published';
+   publishLanguageCommand(state,pub,{kind:'language-registry'});
    if(ix<0)dest.push(publishedPage);else dest[ix]=publishedPage;
+   // One explicit page publication releases its authored active language versions.
+   if(pub.translationReleases)delete pub.translationReleases[body.pageId];
+   for(const language of state.localization?.registry?.languages??[]){
+    if(language.active&&language.id!=='fr'&&state.localization?.pages?.[body.pageId]?.[language.id])
+     publishLanguageCommand(state,pub,{...body,kind:'translation',languageId:language.id});
+   }
+
    if(!isShared){
     const draft=state.drafts[body.celebration];
     pub.drafts[body.celebration].celebrationDates=copy(draft.celebrationDates||{});
