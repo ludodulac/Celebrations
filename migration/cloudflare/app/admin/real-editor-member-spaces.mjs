@@ -23,7 +23,7 @@ export function createEditorD1Session({origin,fetchImpl=globalThis.fetch,cryptoI
     if(!response.headers.get('content-type')?.toLowerCase().includes('application/json'))
       throw Error('Route administrative indisponible ('+response.status+')');
     const result=await response.json();
-    if(!response.ok||result?.ok!==true)throw Error('Requête administrative refusée ('+response.status+')');
+    if(!response.ok||result?.ok!==true)throw Object.assign(Error((typeof result?.error==='string'?result.error:'Requête administrative refusée')+' ('+response.status+')'),{status:response.status,saved:result?.saved===true});
     return result;
   };
   const auth=(body,bearer)=>request('/api/admin/editor-session',{body,bearer});
@@ -49,7 +49,7 @@ export function createEditorD1Session({origin,fetchImpl=globalThis.fetch,cryptoI
     const bearer=token;clear();
     if(bearer)await auth({action:'logout'},bearer);
   }
-  async function transport(command){
+  async function send(command,path,queryKeys){
     if(!['GET','POST'].includes(command?.method))return {ok:false,error:'Commande invalide'};
     if(!connected()){
       if(token)clear();
@@ -58,13 +58,15 @@ export function createEditorD1Session({origin,fetchImpl=globalThis.fetch,cryptoI
     const bearer=token;
     try{
       const data=Object.fromEntries(Object.entries(command).filter(([k])=>k!=='method'));
-      const options=command.method==='GET'?{query:Object.fromEntries(Object.entries(data).filter(([k])=>['action','search','cursor','limit','personId'].includes(k)))}:{body:data};
-      const result=await request('/api/admin/member-directory',{method:command.method,bearer,...options});
+      const options=command.method==='GET'?{query:Object.fromEntries(Object.entries(data).filter(([k])=>queryKeys.includes(k)))}:{body:data};
+      const result=await request(path,{method:command.method,bearer,...options});
       if(bearer!==token)return {ok:false,error:'Session terminée'};
       return result;
-    }catch(e){return {ok:false,error:e.message||'Service D1 indisponible'};}
+    }catch(e){return {ok:false,error:e.message||'Service D1 indisponible',status:e.status,saved:e.saved===true};}
   }
-  return {login,logout,connected,transport};
+  const transport=command=>send(command,'/api/admin/member-directory',['action','search','cursor','limit','personId']);
+  const privateTransport=command=>send(command,'/api/admin/private-editor',['celebration']);
+  return {login,logout,connected,transport,privateTransport};
 }
 
 export function mountRealEditorMemberSpaces(root,{celebrations,currentCelebrationId,styleNonce,css='',origin=location.origin}={}){
@@ -85,8 +87,9 @@ export function mountRealEditorMemberSpaces(root,{celebrations,currentCelebratio
     form.hidden=active;logout.hidden=!active;
     status.textContent=active?'Session D1 confirmée.':'Non connecté à D1';
     mounted?.refreshMembers();
+    mounted?.sessionChanged(active);
   }});
-  mounted=mountExistingEditorMemberSpaces(body,{transport:session.transport,celebrations,currentCelebrationId,styleNonce,
+  mounted=mountExistingEditorMemberSpaces(body,{transport:session.transport,privateTransport:session.privateTransport,isConnected:session.connected,celebrations,currentCelebrationId,styleNonce,
     canDuplicate:id=>String(id)===String(currentCelebrationId)||String(id).startsWith('draft-celebration:')});
   form.addEventListener('submit',async event=>{
     event.preventDefault();if(busy)return;
