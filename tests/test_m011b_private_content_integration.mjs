@@ -15,6 +15,7 @@ import {handleCanonicalPrivatePage,handleCanonicalPrivateMedia,
 import {duplicateCelebration}
   from '../migration/cloudflare/app/domain/celebration-spaces.mjs';
 import {handleMedia} from '../migration/cloudflare/media-gateway.mjs';
+import {releasedPublicSpaces} from '../migration/cloudflare/editor-publication-api.mjs';
 
 const P='person:550e8400-e29b-41d4-a716-446655440000';
 const CLAIM='claim:550e8400-e29b-41d4-a716-446655440000';
@@ -384,5 +385,65 @@ test('M011-B: storage errors produce generic no-cache failure without private me
   r=await readPage(f,ROOT,req(TOKEN,'/private','POST'));
   assert.equal(r.status,405);
   assert.equal(f.reads.private,0);
+ }finally{f.close()}
+});
+
+test('M014: navigation exposes a space label only through an authorized published page, including after revocation',async()=>{
+ const f=await setup();
+ try{
+  f.approve();
+  f.state.published.drafts['41'].spaces[0].name='Espace réservé test';
+  let rows=await list(f);
+  assert.equal(rows.find(row=>row.id===INNER)?.spaceName,'Espace réservé test');
+  assert.equal(Object.hasOwn(rows.find(row=>row.id===ROOT),'spaceName'),false);
+  f.db.prepare('DELETE FROM celebrations_directory_private_space_enrollments WHERE person_id=?').run(P);
+  rows=await list(f);
+  assert.deepEqual(rows.map(row=>row.id),[ROOT]);
+  assert.doesNotMatch(JSON.stringify(rows),/Espace réservé test|space:41:chapelle/);
+  assert.equal((await readPage(f,INNER)).status,404);
+  assert.deepEqual(await list(f,{},req(ADMIN)),[]);
+ }finally{f.close()}
+});
+test('M014: authorized private content does not serialize editorial links naming forbidden managed pages or spaces',async()=>{
+ const f=await setup();
+ try{
+  f.approve();
+  f.db.prepare('DELETE FROM celebrations_directory_private_space_enrollments WHERE person_id=?').run(P);
+  const root=f.state.published.drafts['41'].pages[0];
+  root.blocks.push(
+   {id:10,kind:'button',href:'/programme?page='+encodeURIComponent(INNER),text:'Lien page interdite'},
+   {id:11,kind:'section',columns:[[{id:12,kind:'button',href:'/programme?space='+encodeURIComponent(SPACE),text:'Lien espace interdit'}]]},
+   {id:13,kind:'button',href:'/programme',text:'Programme public'});
+  const r=await readPage(f);
+  assert.equal(r.status,200);
+  const body=await r.json();
+  const serialized=JSON.stringify(body);
+  assert.doesNotMatch(serialized,/page:41:chapelle|space:41:chapelle|page%3A41%3Achapelle|space%3A41%3Achapelle|Lien page interdite|Lien espace interdit/);
+  assert.equal(body.blocks.find(b=>b.id===13)?.href,'/programme');
+ }finally{f.close()}
+});
+
+test('M014: public spaces require public page AND space policy, explicit publication and the D1 fence',async()=>{
+ const f=await setup();
+ try{
+  const sid='space:550e8400-e29b-41d4-a716-446655440010',pid='page:550e8400-e29b-41d4-a716-446655440011';
+  const denied='page:550e8400-e29b-41d4-a716-446655440012';
+  const base=page(pid,{name:'Public text',spaceId:sid,accessPolicy:{mode:'PUBLIC'},blocks:[
+   {kind:'text',text:'SAFE_TEXT'},{kind:'button',text:'UNVERIFIED_FILE',href:'/media/new/not-released.pdf'}
+  ]});
+  f.state.published.drafts['41'].spaces.push({id:sid,name:'Public space',celebrationId:'41',visibility:'PUBLIC',publicationStatus:'published',accessPolicy:{mode:'PUBLIC'},
+   pages:[base,{...base,id:denied,name:'RESTRICTED_TITLE',accessPolicy:policy}]});
+  f.state.published.privateSpaceReleases[sid]={spaceId:sid,celebrationId:'41',publication:'published'};
+  for(const id of [pid,denied])f.state.published.privatePageReleases[id]={pageId:id,spaceId:sid,celebrationId:'41',publication:'published'};
+  let spaces=await releasedPublicSpaces(f.state,'41',f.env.DB);
+  assert.deepEqual(spaces.map(s=>s.id),[sid]);
+  assert.deepEqual(spaces[0].pages.map(p=>p.id),[pid]);
+  assert.match(JSON.stringify(spaces),/SAFE_TEXT/);
+  assert.doesNotMatch(JSON.stringify(spaces),/RESTRICTED_TITLE|UNVERIFIED_FILE|not-released|Chapelle|private-members/);
+  delete f.state.published.privatePageReleases[pid];
+  assert.deepEqual(await releasedPublicSpaces(f.state,'41',f.env.DB),[]);
+  f.state.published.privatePageReleases[pid]={pageId:pid,spaceId:sid,celebrationId:'41',publication:'published'};
+  f.db.prepare('DELETE FROM celebrations_private_release_fences WHERE celebration_id=?').run(41);
+  assert.deepEqual(await releasedPublicSpaces(f.state,'41',f.env.DB),[]);
  }finally{f.close()}
 });

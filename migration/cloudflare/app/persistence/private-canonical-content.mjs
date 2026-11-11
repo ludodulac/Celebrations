@@ -1,5 +1,5 @@
 // M011-B — read-only canonical published content from the EXISTING editor R2
-// snapshot. Not imported by any live Worker. No D1/R2 writes or draft fallbacks.
+// snapshot. Used by the opt-in isolated Worker routes. No D1/R2 writes or draft fallbacks.
 // A publishedRevision alone does not release copied M005 drafts: each private
 // page/space/media MUST also carry its own explicit publicationStatus.
 import {privateReleaseReady} from './private-release-fence.mjs';
@@ -7,6 +7,7 @@ import {readEditorSnapshot} from '../adapters/editor-r2-repository.mjs';
 import {ACCESS_MODES, SPACE_VISIBILITIES, isMemberTypeId}
   from '../domain/member-access.mjs';
 import {isPrivateMediaReference} from '../security/public-media-boundary.mjs';
+import {privatePublicationIds} from '../domain/editor-public-projection-security.mjs';
 
 const own=(o,k)=>Object.prototype.hasOwnProperty.call(o,k);
 const obj=o=>!!o&&typeof o==='object'&&!Array.isArray(o);
@@ -36,7 +37,7 @@ function releasedSpace(space,celebrationId) {
     (space.visibility!==SPACE_VISIBILITIES.PUBLIC||
       space.accessPolicy.mode===ACCESS_MODES.PUBLIC)&&Array.isArray(space.pages);
 }
-function makeIndex(state) {
+export function indexCanonicalPublishedContent(state) {
   const published=state?.published;
   if(!obj(published)||!Number.isSafeInteger(state.publishedRevision)||
       state.publishedRevision<1||!obj(published.drafts)||
@@ -152,7 +153,7 @@ export function createCanonicalPrivateLoaders(env) {
         empty:()=>null,requireBody:true,
         validate:x=>x===null||obj(x)
       });
-      const data=makeIndex(state);
+      const data=indexCanonicalPublishedContent(state);
       if(!data)return null;
       // No legacy/copied ledger is sufficient without exact D1 acknowledgement.
       // A partial commit blocks the entire celebration before any protected read.
@@ -164,6 +165,8 @@ export function createCanonicalPrivateLoaders(env) {
         for(const [id,p] of data.spaces)if(p.celebrationId===cid)data.spaces.delete(id);
       }
       for(const [id,m] of data.media)if(!data.pages.has(m.pageId))data.media.delete(id);
+      // Internal deny-list: never returned in a response. Include drafts as well as releases.
+      data.blockedLinkIds=privatePublicationIds(state,data.published);
       return data;
     })();
     return pending;
@@ -186,6 +189,11 @@ export function createCanonicalPrivateLoaders(env) {
       return cid(celebrationId)&&data
         ?[...data.pages.values()].filter(p=>p.celebrationId===celebrationId).map(p=>p.id)
         :[];
+    },
+    async blockedLinkIds(){
+      const data=await index();
+      if(!data)throw Error('Canonical publication unavailable');
+      return [...data.blockedLinkIds];
     },
     async publishedLanguageData(){
       const data=await index();

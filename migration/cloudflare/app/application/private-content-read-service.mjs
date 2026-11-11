@@ -1,5 +1,5 @@
 // M011-B — opt-in private reads. All HTTP authorization runs through M008-C
-// (and M010-A explicit identity + live D1 grants). NO Worker imports this yet.
+// (and M010-A explicit identity + live D1 grants). Used by isolated Worker routes.
 import {handlePrivatePage,handlePrivateMedia,allowedPrivatePageIds,privateNotFound}
   from '../security/member-private-access.mjs';
 import {createCanonicalPrivateLoaders}
@@ -36,7 +36,7 @@ const privateBucketSafe=env=>!!env?.PRIVATE_MEMBER_BUCKET&&
 // Media references are canonical opaque IDs; bytes use handlePrivateMedia.
 const fields=['id','kind','text','rich','bold','italic','color','size','align',
   'widthPct','layout','presentation','thickness','displayAsButton','atTime'];
-async function safeBlock(block,pageId,loaders,depth=0) {
+async function safeBlock(block,pageId,loaders,blockedIds,depth=0) {
   if(!obj(block)||depth>12||typeof block.kind!=='string'||block.kind.length>40||
       block.hideOnSite===true)return null;
   const copy={};
@@ -49,7 +49,7 @@ async function safeBlock(block,pageId,loaders,depth=0) {
     copy.columns=[];
     for(const column of block.columns){
       if(!Array.isArray(column)||column.length>300)return null;
-      const children=await Promise.all(column.map(x=>safeBlock(x,pageId,loaders,depth+1)));
+      const children=await Promise.all(column.map(x=>safeBlock(x,pageId,loaders,blockedIds,depth+1)));
       copy.columns.push(children.filter(Boolean));
     }
   }else{
@@ -60,7 +60,7 @@ async function safeBlock(block,pageId,loaders,depth=0) {
     }
     for(const key of ['href','src','cover']){
       if(typeof block[key]!=='string')continue;
-      if(isPrivateMediaReference(block[key])||!allowedPublicLink(block[key]))
+      if(isPrivateMediaReference(block[key])||!allowedPublicLink(block[key],blockedIds))
         return null; // never publish a raw private key or public gateway bypass
       copy[key]=block[key];
     }
@@ -95,7 +95,10 @@ async function pageView(page,loaders,languageId) {
   if(!selected)return null;
   const source=selected.content;
   if(!Array.isArray(source.blocks)||source.blocks.length>1000)return null;
-  const blocks=await Promise.all(source.blocks.map(b=>safeBlock(b,page.id,loaders)));
+  // Until managed page-to-page links have an authorization-aware resolver,
+  // do not disclose ANY managed page or space ID through editorial URLs.
+  const blockedIds=await loaders.blockedLinkIds();
+  const blocks=await Promise.all(source.blocks.map(b=>safeBlock(b,page.id,loaders,blockedIds)));
   return {id:page.id,celebrationId:page.celebrationId,
     ...(page.spaceId?{spaceId:page.spaceId}:{}),
     name:typeof source.name==='string'?source.name.slice(0,200):
@@ -147,8 +150,12 @@ export async function listAuthorizedPrivatePages(request,env,{
     if(!view)continue;
     const searchable=[view.name,...view.blocks.map(x=>x.text||'')].join(' ').toLocaleLowerCase();
     if(query&&!searchable.includes(query))continue;
+    // Only obtain the space label after this particular page passed the gate.
+    // No list of candidate spaces or labels from inaccessible/empty spaces.
+    const space=view.spaceId?await loaders.loadPublishedSpace(view.spaceId):null;
+    const spaceName=space&&typeof space.name==='string'?space.name.slice(0,120):null;
     results.push({id:view.id,name:view.name,celebrationId:view.celebrationId,
-      ...(view.spaceId?{spaceId:view.spaceId}:{}),languageId:view.languageId});
+      ...(view.spaceId?{spaceId:view.spaceId,...(spaceName?{spaceName}:{})}:{}),languageId:view.languageId});
     if(results.length>=limit)break;
   }
   return results;

@@ -9,9 +9,12 @@ import {isOfficialEditorHost,isReadonlyCandidateHost,sameOriginEditorWrite} from
 import {mergePublicMediaIndexed} from './app/domain/editor-public-media-merge.mjs';
 import {projectPublishedLanguage,publishLanguageCommand} from './app/application/public-language-release.mjs';
 import {
- eligiblePublicPage,projectPublicPages,projectPublicPlan,
+ eligiblePublicPage,projectPublicPage,projectPublicPages,projectPublicPlan,
  projectPublicMediaItem,privatePublicationIds
 } from './app/domain/editor-public-projection-security.mjs';
+import {indexCanonicalPublishedContent} from './app/persistence/private-canonical-content.mjs';
+import {privateReleaseReady} from './app/persistence/private-release-fence.mjs';
+import {canAccessPage,SPACE_VISIBILITIES,ACCESS_MODES} from './app/domain/member-access.mjs';
 
 const PREFIX='editor-trials/uploads/';
 const SITE=new Set(['www.ronde-des-archanges-universelle.eu','ronde-des-archanges-universelle.eu']);
@@ -160,6 +163,40 @@ export function publicSnapshot(state,celebration){
   media:publishedMedia(state,privateIds),
   updatedAt:state.publishedAt||null};
 }
+// M014 — same canonical release index, fence and access rules as member reads.
+// The visitor integration deliberately exposes only plain text blocks until
+// space media and translations have their verified publication path.
+const publicManagedId=(id,kind)=>typeof id==='string'&&new RegExp('^'+kind+':[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$').test(id);
+function textOnlySpaceBlocks(blocks){
+ return blocks.flatMap(block=>{
+  if(block.kind==='section')return [{...block,columns:block.columns.map(textOnlySpaceBlocks)}];
+  if(!['heading','text','divider','event'].includes(block.kind)||block.rich)return [];
+  const {href,src,cover,...text}=block;return [text];
+ });
+}
+export async function releasedPublicSpaces(state,cid,db){
+ if(!Object.values(state.published?.privateSpaceReleases??{}).some(r=>r?.celebrationId===cid))return [];
+ try{
+  const data=indexCanonicalPublishedContent(state);
+  if(!data)return [];
+  const spaces=[...data.spaces.values()].filter(s=>s.celebrationId===cid);
+  if(!spaces.length||!await privateReleaseReady(db,data.published,cid,state.publishedRevision,spaces))return [];
+  const blocked=privatePublicationIds(state,data.published);
+  return spaces.flatMap(space=>{
+   if(space.visibility!==SPACE_VISIBILITIES.PUBLIC||space.accessPolicy.mode!==ACCESS_MODES.PUBLIC||
+      !publicManagedId(space.id,'space')||typeof space.name!=='string'||!space.name.trim())return [];
+   const pages=[...data.pages.values()].filter(page=>page.spaceId===space.id&&
+     publicManagedId(page.id,'page')&&page.accessPolicy.mode===ACCESS_MODES.PUBLIC&&canAccessPage(page,{space}))
+    .map(page=>{
+     const {spaceId,...canonical}=page;
+     const clean=projectPublicPage(canonical,blocked);
+     return clean?{...clean,blocks:textOnlySpaceBlocks(clean.blocks)}:null;
+    }).filter(Boolean);
+   return pages.length?[{id:space.id,name:space.name.slice(0,120),visibility:'PUBLIC',
+     publicationStatus:'published',pages}]:[];
+  });
+ }catch{return [];} // missing migration/invalid release cannot break legacy visitors
+}
 // An administrator may mark a file general=true after using it privately.
 // Anonymous media must not inherit a private/draft page's previously listed
 // asset, unless the SAME asset also appears on an actually published page.
@@ -300,6 +337,10 @@ export async function handleEditorPublication(request,env){
   if(!celebrationIdOk(id))return err('Célébration invalide',400);
   const {state}=await readEditorState(env.EDITOR_BUCKET);
   const snapshot=publicSnapshot(state,id);
+  if(snapshot.record){
+   const spaces=await releasedPublicSpaces(state,id,env.DB);
+   if(spaces.length)snapshot.record.spaces=spaces;
+  }
   // Public D1 records have their own historic storage catalogue; include them
   // once per request without exposing unpublished editor drafts or private rows.
   const historic=await publicHistoricalMedia(env.DB,state);

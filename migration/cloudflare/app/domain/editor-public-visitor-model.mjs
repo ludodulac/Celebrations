@@ -25,12 +25,20 @@ export function createPublicVisitorModel(){
   // public endpoint accidentally includes it. Never modify R2 data objects.
   const visible=p=>p&&p.visibility!=='draft'&&p.visibility!=='hidden';
   const shared={...result.shared,pages:result.shared.pages.filter(visible)};
-  const record=result.record?{...result.record,
-   pages:(Array.isArray(result.record.pages)?result.record.pages:[]).filter(visible)}:null;
+  const managedId=(id,kind)=>typeof id==='string'&&new RegExp('^'+kind+':[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$').test(id);
+  const spaces=(Array.isArray(result.record?.spaces)?result.record.spaces:[]).flatMap(s=>{
+   if(!s||!managedId(s.id,'space')||s.visibility!=='PUBLIC'||s.publicationStatus!=='published'||typeof s.name!=='string')return [];
+   const pages=(Array.isArray(s.pages)?s.pages:[]).filter(p=>visible(p)&&p.visibility==='published'&&
+    managedId(p.id,'page')&&p.group==='celebration'&&Array.isArray(p.blocks)&&!Object.hasOwn(p,'accessPolicy')&&!Object.hasOwn(p,'spaceId'));
+   return pages.length?[{id:s.id,name:s.name,pages}]:[];
+  });
+  const {spaces:ignoredSpaces,...recordFields}=result.record||{};
+  const record=result.record?{...recordFields,
+   pages:(Array.isArray(result.record.pages)?result.record.pages:[]).filter(visible),...(spaces.length?{spaces}:{})}:null;
   return {
    record,shared,
    plans:Array.isArray(result.plans)?result.plans:[],
-   ids:[...(record?.pages||[]),...shared.pages].map(page=>page.id),
+   ids:[...(record?.pages||[]),...shared.pages,...spaces.flatMap(s=>s.pages)].map(page=>page.id),
    visible:result.celebrationVisible===true,
    visibility:result.celebrationVisibility||{},
    media:Array.isArray(result.media)?result.media:[]
