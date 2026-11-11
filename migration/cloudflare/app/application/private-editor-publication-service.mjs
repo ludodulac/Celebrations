@@ -101,6 +101,27 @@ function spaceDraft(input,old,id,cid,pages,known,registry){
  }
  return out;
 }
+// Move one authored variant atomically. Never reuse a target variant or a release.
+function changeContentVersion(state,cid,b,known,registry){
+ const record=state.drafts[cid],space=record?.spaces?.find(s=>s.id===b.spaceId);
+ const source=space?.pages.find(p=>p.id===b.pageId);
+ if(!source||!registry.languages.some(l=>l.id===b.languageId)||!registry.languages.some(l=>l.id===b.targetLanguageId))invalid();
+ const content=b.languageId==='fr'?{name:source.name,blocks:copy(source.blocks)}:source.translations?.[b.languageId];
+ if(!content)missing();
+ const access=policy(b.typeIds?.length?{mode:ACCESS_MODES.SELECTED_TYPES,typeIds:b.typeIds}:{mode:ACCESS_MODES.PUBLIC},known);
+ const same=(a,c)=>JSON.stringify(a)===JSON.stringify(c);
+ let target=record.spaces.find(s=>s.visibility===SPACE_VISIBILITIES.PRIVATE&&same(s.accessPolicy,access));
+ if(target===space&&b.languageId===b.targetLanguageId)return;
+ const norm=v=>String(v).trim().toLocaleLowerCase();
+ let page=target?.pages.find(p=>norm(p.name)===norm(source.name));
+ if(page&&(b.targetLanguageId==='fr'?(page.blocks.length>0||!Object.keys(page.translations||{}).length):page.translations?.[b.targetLanguageId]))conflict();
+ if(!target){target=spaceDraft({name:'Version par catégorie',visibility:SPACE_VISIBILITIES.PRIVATE,accessScope:'CELEBRATION',accessPolicy:access},null,'space:'+crypto.randomUUID(),cid,[],known,registry);record.spaces.push(target)}
+ if(!page){page=pageDraft({name:source.name,blocks:[],accessPolicy:{mode:ACCESS_MODES.PUBLIC}},null,'page:'+crypto.randomUUID(),cid,target.id,known,registry);target.pages.push(page)}
+ if(b.targetLanguageId==='fr'){page.blocks=copy(content.blocks)}else page.translations={...page.translations,[b.targetLanguageId]:copy(content)};
+ if(b.languageId==='fr')source.blocks=[];else delete source.translations[b.languageId];
+ if(!source.blocks.length&&!Object.keys(source.translations||{}).length)space.pages=space.pages.filter(p=>p.id!==source.id);
+ removePage(state.published,cid,source.id);removePage(state.published,cid,page.id);
+}
 function indexIds(state){
  const pages=new Set(),spaces=new Set();
  for(const aggregate of [state,state.published]){
@@ -225,6 +246,10 @@ function saveDraft(state,cid,b,known,registry,idMap){
      removePage(pub,cid,prior.id);revoked=true;
     }
    }
+   const variants=new Set();
+   for(const p of s.pages){for(const lang of [ ...(p.blocks.length||!Object.keys(p.translations||{}).length?['fr']:[]),...Object.keys(p.translations||{})]){
+    const key=p.name.trim().toLocaleLowerCase()+'|'+lang;if(variants.has(key))conflict();variants.add(key);
+   }}
    next.push(s);
   }
   for(const old of oldSpaces)if(!next.some(s=>s.id===old.id)){
@@ -331,6 +356,7 @@ function publishOrRevoke(state,cid,b,known,registry){
     ...(b.spaceId?{spaceId:b.spaceId}:{}),publication:'published'};
   }
  }else{
+  if(b.action==='unpublish'&&!isSpace){if(b.visibility!==undefined&&!['draft','hidden'].includes(b.visibility))invalid();item.visibility=b.visibility||'draft';item.publicationStatus='draft';}
   if(isSpace)removeSpace(pub,cid,item.id);else removePage(pub,cid,item.id);
   if(b.action==='delete'){
    if(isSpace)r.spaces=r.spaces.filter(s=>s.id!==item.id);
@@ -356,11 +382,11 @@ function readResult(state,cid){
 // snapshot. The audit key makes retries recover the same draft after a CAS fault.
 async function createCanonicalCelebration(env,current,source,b,actor,known,registry){
  if(!['Michaël','Gabriel','Raphaël','Ouriel'].includes(b.archangel)||
-    typeof b.date!=='string'||!/^20[0-9]{2}-[0-9]{2}-[0-9]{2}$/.test(b.date)||
+    typeof b.date!=='string'||!/^\d{4}-[0-9]{2}-[0-9]{2}$/.test(b.date)||
     typeof b.copy!=='boolean')invalid();
  const date=new Date(b.date+'T12:00:00Z');
- if(!Number.isFinite(+date)||date.toISOString().slice(0,10)!==b.date||date.getUTCDay()!==3)invalid();
- const title=name(b.title,100),auditId='audit:m019-create:'+await sha256(b.archangel+'|'+b.date);
+ if(!Number.isFinite(+date)||date.toISOString().slice(0,10)!==b.date)invalid();
+ const title=name(b.title,100),auditId='audit:m019-create:'+await sha256(source+'|'+b.archangel+'|'+b.date+'|'+title+'|'+b.copy);
  const prior=await q(env.DB,'SELECT target_id FROM celebrations_directory_admin_audit WHERE id=? AND action=?',auditId,'create_celebration').first();
  let id=prior?.target_id;
  if(!id){
@@ -420,10 +446,10 @@ export async function handlePrivateEditorCommand(request,env){
   if((request.headers.get('content-type')??'').split(';')[0]!=='application/json')return reply({ok:false,error:'Format invalide'},415);
   const raw=await request.text();if(raw.length>EDITOR_SNAPSHOT_LIMIT)fail(413,'Commande trop volumineuse');
   let b;try{b=JSON.parse(raw)}catch{invalid()}
-  if(!obj(b)||!['save','publish','unpublish','delete','celebration-visibility','celebration-access','duplicate','reconcile','page-access','create-celebration'].includes(b.action))invalid();
+  if(!obj(b)||!['save','publish','unpublish','delete','celebration-visibility','celebration-access','duplicate','reconcile','page-access','create-celebration','change-version'].includes(b.action))invalid();
   safeJSON(b);
-  const fields={save:['spaces','pages'],publish:['kind','id','spaceId'],unpublish:['kind','id','spaceId'],
-   delete:['kind','id','spaceId'],'celebration-visibility':['visibility'],'celebration-access':['accessPolicy'],duplicate:['targetCelebration'],reconcile:[],'page-access':['id','accessPolicy'],'create-celebration':['archangel','date','title','copy']};
+  const fields={save:['spaces','pages'],publish:['kind','id','spaceId'],unpublish:['kind','id','spaceId','visibility'],
+   delete:['kind','id','spaceId'],'celebration-visibility':['visibility'],'celebration-access':['accessPolicy'],duplicate:['targetCelebration'],reconcile:[],'page-access':['id','accessPolicy'],'create-celebration':['archangel','date','title','copy'],'change-version':['spaceId','pageId','languageId','targetLanguageId','typeIds']};
   keysOnly(b,['action','celebration','expectedRevision',...fields[b.action]]);
   if(!expectedRevisionMatches(b.expectedRevision,current.state.version))conflict();
   const cid=b.celebration,known=await catalogue(env.DB,cid);
@@ -443,7 +469,7 @@ export async function handlePrivateEditorCommand(request,env){
    await acknowledgePrivateRelease(env.DB,state.published,cid,state.publishedRevision,releasedSpaces(state.published,cid));
    return reply({...readResult(state,cid),privateReleaseReady:true});
   }
-  if(b.action==='page-access'){
+  if(b.action==='change-version'){changeContentVersion(state,cid,b,known,registry);changed=true;}else if(b.action==='page-access'){
    if(!stable(b.id))invalid();
    const access=policy(b.accessPolicy,known),r=state.drafts[cid]??=emptyRecord();
    const shared=state.shared.pages.find(p=>p.id===b.id);

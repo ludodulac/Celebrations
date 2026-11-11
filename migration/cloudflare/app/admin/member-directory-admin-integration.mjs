@@ -1,5 +1,8 @@
 // One directory, using the existing authenticated, audited server commands.
 import {adminDialog} from './admin-dialog.mjs';
+export function categoryAbbreviation(name){
+ return String(name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').split(/[^a-zA-Z0-9]+/).filter(Boolean).map(word=>word[0]).join('').toUpperCase().slice(0,16);
+}
 export function mountMemberDirectoryAdmin(root,{transport,styleNonce,celebrations=[],onCategories=()=>{}}={}){
  const doc=root.ownerDocument;
  const n=(tag,text)=>{const e=doc.createElement(tag);if(text!==undefined)e.textContent=text;return e};
@@ -188,9 +191,10 @@ export function mountMemberDirectoryAdmin(root,{transport,styleNonce,celebration
  function renderCategories(){
   categories.replaceChildren(n('h2','Catégories'));
   const form=n('form'),name=input();name.required=true;name.placeholder='Nouvelle catégorie';name.setAttribute('aria-label','Nouvelle catégorie');
-  const add=b('Ajouter');add.type='submit';form.append(name,add);form.onsubmit=e=>{e.preventDefault();void run(()=>call({method:'POST',action:'create_type',name:name.value.trim()}),'Catégorie ajoutée.');};categories.append(form);
+  const abbreviation=input();abbreviation.maxLength=16;abbreviation.setAttribute('aria-label','Sigle administratif');abbreviation.placeholder='Sigle administratif';let manual=false;abbreviation.oninput=()=>{manual=true};name.oninput=()=>{if(!manual)abbreviation.value=categoryAbbreviation(name.value)};
+  const add=b('Ajouter');add.type='submit';form.append(label('Nom de la catégorie',name),label('Sigle administratif',abbreviation),add);form.onsubmit=e=>{e.preventDefault();void run(()=>call({method:'POST',action:'create_type',name:name.value.trim(),abbreviation:abbreviation.value.trim()||categoryAbbreviation(name.value)}),'Catégorie ajoutée.');};categories.append(form);
   const disabled=n('details');disabled.append(n('summary','Catégories désactivées ('+types.filter(t=>t.disabled).length+')'));
-  for(const type of types){const row=n('div');row.className='card';row.append(n('strong',type.name),n('span',type.disabled?' · Désactivée':''),b('Renommer',async()=>{const r=await adminDialog(doc,{title:'Renommer la catégorie',fields:[{name:'name',label:'Nom',value:type.name,required:true,maxLength:120}]});if(r)await run(()=>call({method:'POST',action:'rename_type',typeId:type.id,expectedRevision:type.revision,name:r.name}));}),b(type.disabled?'Activer':'Désactiver',()=>void run(()=>call({method:'POST',action:'disable_type',typeId:type.id,expectedRevision:type.revision,disabled:!type.disabled}),'Catégorie actualisée. Les inscriptions sont conservées.')));(type.disabled?disabled:categories).append(row)}
+  for(const type of types){const row=n('div');row.className='card';row.append(n('strong',type.name+' — '+(type.abbreviation||categoryAbbreviation(type.name))),n('span',type.disabled?' · Désactivée':''),b('Renommer',async()=>{const r=await adminDialog(doc,{title:'Renommer la catégorie',fields:[{name:'name',label:'Nom',value:type.name,required:true,maxLength:120},{name:'abbreviation',label:'Sigle administratif',value:type.abbreviation||categoryAbbreviation(type.name),required:true,maxLength:16}]});if(r)await run(()=>call({method:'POST',action:'rename_type',typeId:type.id,expectedRevision:type.revision,name:r.name,abbreviation:r.abbreviation}));}),b(type.disabled?'Activer':'Désactiver',()=>void run(()=>call({method:'POST',action:'disable_type',typeId:type.id,expectedRevision:type.revision,disabled:!type.disabled}),'Catégorie actualisée. Les inscriptions sont conservées.')));(type.disabled?disabled:categories).append(row)}
   if(types.some(t=>t.disabled))categories.append(disabled);
  }
  reload().then(()=>{status.textContent='';}).catch(e=>status.textContent='Chargement impossible : '+e.message);

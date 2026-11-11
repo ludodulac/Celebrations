@@ -2,7 +2,7 @@
 // Space preparation uses M005 inside a disposable editor draft; no new dashboard,
 // storage API, private routes, publication, migrations or real member fixtures.
 import {adminDialog} from './admin-dialog.mjs';
-import {mountMemberDirectoryAdmin} from './member-directory-admin-integration.mjs';
+import {mountMemberDirectoryAdmin,categoryAbbreviation} from './member-directory-admin-integration.mjs';
 import {createSpacesDraftWorkspace} from './editor-spaces-draft.mjs';
 import {ACCESS_MODES,SPACE_VISIBILITIES} from '../domain/member-access.mjs';
 
@@ -27,7 +27,7 @@ export function mountExistingEditorMemberSpaces(root,{
     workspace.list().some(x=>String(x.id)===String(currentCelebrationId))
     ? String(currentCelebrationId):String(workspace.list()[0]?.id??'');
   const canonical=typeof privateTransport==='function';
-  const catalogue=clone(celebrations).map(({id,archangel,year})=>({id,archangel,year}));
+  const catalogue=clone(celebrations).map(({id,archangel,year,title})=>({id,archangel,year,title}));
   const newWorkspace=items=>createSpacesDraftWorkspace(clone(items),allocateId?{allocateId}:{});
   let workspace=newWorkspace(canonical?catalogue:celebrations);
   let snapshot=null,busy=false,needsReload=false,epoch=0;
@@ -275,8 +275,8 @@ export function mountExistingEditorMemberSpaces(root,{
         if(!result||!find())throw Error('Rechargement impossible');
         return localized(find());
       },
-      publish:()=>command('publish',{kind:'page',id:pageId,spaceId}),
-      unpublish:()=>command('unpublish',{kind:'page',id:pageId,spaceId}),
+      publish:async()=>{if(!snapshot.spaceReleases.some(s=>s.spaceId===spaceId))await command('publish',{kind:'space',id:spaceId});return command('publish',{kind:'page',id:pageId,spaceId})},
+      unpublish:(visibility='draft')=>command('unpublish',{kind:'page',id:pageId,spaceId,visibility}),
       isPublished:()=>!!snapshot?.pageReleases?.some(x=>x.pageId===pageId)
     });
   }
@@ -289,7 +289,6 @@ export function mountExistingEditorMemberSpaces(root,{
   async function createVersion(source=null,sourceLanguage='fr',categoryId='',pageTitle=''){
     if(!ready())return;
     const languages=snapshot.languageRegistry.languages;
-    const currentSpace=source?workspace.spaces(celebrationId).find(s=>s.pages.some(p=>p.id===source.id)):null;
     const fields=[{name:'title',label:'Titre de la page',value:source?.name||pageTitle,required:true,maxLength:160},
       {name:'category',label:'Catégorie',value:categoryId,options:[['','Tous les inscrits'],...activeTypes().map(t=>[t.id,t.name])]},
       {name:'language',label:'Langue',options:languages.map(l=>[l.id,l.name]),value:sourceLanguage}];
@@ -299,6 +298,7 @@ export function mountExistingEditorMemberSpaces(root,{
         options.push([p.id+'|fr',s.name+' — '+p.name+' — Français']);
         for(const [id,version]of Object.entries(p.translations||{}))options.push([p.id+'|'+id,s.name+' — '+version.name+' — '+(languages.find(l=>l.id===id)?.name||id)]);
       }
+      if(!options.some(o=>o[0]===source.id+'|'+sourceLanguage))options.unshift([source.id+'|'+sourceLanguage,source.name+' — version ouverte']);
       fields.unshift({name:'source',label:'Version à copier',value:source.id+'|'+sourceLanguage,options});
     }
     const answer=await adminDialog(doc,{title:source?'Dupliquer en brouillon':'Ajouter une version',fields,confirm:'Créer le brouillon'});
@@ -316,18 +316,18 @@ export function mountExistingEditorMemberSpaces(root,{
       // Copies contain content only. Category is the administrator's explicit
       // target selection; people, enrollment and release ledgers are untouched.
       let content;
-      if(answer.source){const [pid,lang]=answer.source.split('|');const page=workspace.spaces(celebrationId).flatMap(s=>s.pages).find(p=>p.id===pid);content=lang==='fr'?page:page?.translations?.[lang];}
+      if(answer.source){const [pid,lang]=answer.source.split('|');const page=workspace.spaces(celebrationId).flatMap(s=>s.pages).find(p=>p.id===pid)||source;content=lang==='fr'?page:page?.translations?.[lang];}
       const next=workspace.spaces(celebrationId);
       const targetSpace=next.find(s=>s.id===target.id);
-      let page=targetSpace.pages.find(p=>p.name===answer.title);
-      if(page&&(answer.language==='fr'||page.translations?.[answer.language]))
+      let page=targetSpace.pages.find(p=>p.name.trim().toLocaleLowerCase()===answer.title.trim().toLocaleLowerCase());
+      if(page&&(answer.language==='fr'?(page.blocks.length>0||!Object.keys(page.translations||{}).length):page.translations?.[answer.language]))
         throw Error('Cette version existe déjà. Choisissez un autre titre ou une autre langue.');
-      if(!page){page={id:'draft-page:'+crypto.randomUUID(),name:answer.title,blocks:[],accessPolicy:{mode:ACCESS_MODES.PUBLIC}};targetSpace.pages.push(page)}
+      if(!page){page={id:'draft-page:'+crypto.randomUUID(),name:answer.title,group:source?.group||'celebration',...(source?.placement?{placement:source.placement}:{}),blocks:[],accessPolicy:{mode:ACCESS_MODES.PUBLIC}};targetSpace.pages.push(page)}
       if(answer.language==='fr')page.blocks=clone(content?.blocks||[]);
       else page.translations={...page.translations,[answer.language]:{name:answer.title,blocks:clone(content?.blocks||[])}};
       const result=await mutate('save',{spaces:next});
       if(!result?.ok)return;
-      const saved=snapshot.record.spaces.find(s=>s.name===targetSpace.name)?.pages.find(p=>p.name===answer.title);
+      const saved=snapshot.record.spaces.find(s=>s.name===targetSpace.name)?.pages.find(p=>p.name.trim().toLocaleLowerCase()===answer.title.trim().toLocaleLowerCase());
       if(saved)openCanonicalPage(snapshot.record.spaces.find(s=>s.pages.some(p=>p.id===saved.id)).id,saved.id,answer.language);
     }catch(e){renderSpaces(e.message)}
   }
@@ -335,32 +335,35 @@ export function mountExistingEditorMemberSpaces(root,{
     if(destroyed)return;
     spaces.replaceChildren();
     const status=node('p',message);status.setAttribute('role','status');spaces.append(status);
-    const choice=node('select');choice.setAttribute('aria-label','Célébration');
+    const choice=node('select');choice.hidden=true;choice.setAttribute('aria-label','Célébration');
     for(const c of workspace.list()){const o=node('option',c.title||[c.archangel,c.year].filter(Boolean).join(' '));o.value=String(c.id);choice.append(o)}
     choice.value=celebrationId;choice.disabled=busy;
     choice.onchange=()=>{celebrationId=choice.value;snapshot=null;needsReload=false;workspace=newWorkspace(catalogue);renderSpaces();void loadCanonical()};
-    spaces.append(label('Célébration',choice));
+    const heading=label('Célébration',choice);heading.hidden=true;spaces.append(heading);
+    spaces.append(node('h2',catalogue.find(c=>String(c.id)===celebrationId)?.title||'Versions de la célébration'));
     if(!snapshot){
       spaces.append(node('p',isConnected()?'Chargement des versions…':'Connectez-vous pour consulter les versions.'));
       return;
     }
+    const search=field('search','Rechercher une version');search.setAttribute('aria-label','Rechercher une version');spaces.append(search);
+    search.oninput=()=>{const query=search.value.trim().toLocaleLowerCase();for(const card of spaces.querySelectorAll('.member-spaces-card')){for(const row of card.querySelectorAll('.member-spaces-version'))row.hidden=!row.textContent.toLocaleLowerCase().includes(query);card.hidden=!!query&&![...card.querySelectorAll('.member-spaces-version')].some(row=>!row.hidden)}};
     const add=button('＋ Ajouter une version');add.disabled=!ready();add.onclick=()=>void createVersion();spaces.append(add);
-    const source=workspace.spaces(celebrationId).flatMap(s=>s.pages)[0];
-    if(source){const duplicate=button('Dupliquer en brouillon');duplicate.disabled=!ready();duplicate.onclick=()=>void createVersion(source);spaces.append(duplicate);}
+
     if(!snapshot.privateReleaseReady&&snapshot.pageReleases.length){
       spaces.append(node('p','La publication doit encore être confirmée avant de donner accès aux membres.'));
       const retry=button('Terminer la publication');retry.onclick=()=>void mutate('reconcile');spaces.append(retry);
     }
     if(needsReload){const retry=button('Recharger');retry.onclick=()=>void loadCanonical();spaces.append(retry)}
     for(const space of workspace.spaces(celebrationId)){
-      const card=node('section');card.className='card member-spaces-card';card.append(node('h3',space.name));
+      const card=node('section');card.className='card member-spaces-card';card.append(node('h3',space.accessPolicy.typeIds?.map(id=>{const t=memberTypes.find(t=>t.id===id);return t?(t.abbreviation||categoryAbbreviation(t.name)):id}).join(', ')||'Tous les inscrits'));
       for(const page of space.pages){
         const langs=snapshot.languageRegistry.languages.filter(l=>l.id==='fr'?(page.blocks.length>0||!Object.keys(page.translations||{}).length):!!page.translations?.[l.id]);
         for(const lang of langs){
           const released=snapshot.pageReleases.some(p=>p.pageId===page.id);
           const row=node('div');row.className='member-spaces-version';
           const name=lang.id==='fr'?page.name:page.translations[lang.id].name;
-          const open=button(name+' — '+lang.name+' · '+(released?'Publiée':'Brouillon'));
+          const adminName=(catalogue.find(c=>String(c.id)===celebrationId)?.title||'Célébration')+' — '+(space.accessPolicy.typeIds?.map(id=>{const t=memberTypes.find(t=>t.id===id);return t?(t.abbreviation||categoryAbbreviation(t.name)):id}).join(', ')||'Tous les inscrits')+' — '+lang.name;
+          const open=button(adminName+' · '+name+' · '+(released?'Publiée':'Brouillon'));
           open.onclick=()=>openCanonicalPage(space.id,page.id,lang.id);open.disabled=!ready();row.append(open);
 
           const release=button(released?'Dépublier':'Publier');release.disabled=!ready();
@@ -373,11 +376,21 @@ export function mountExistingEditorMemberSpaces(root,{
             }
             await mutate('publish',{kind:'page',id:page.id,spaceId:space.id});
           };
-          row.append(release);card.append(row);
+          const duplicate=button('Dupliquer');duplicate.disabled=!ready();duplicate.onclick=()=>void createVersion(page,lang.id);
+          const change=button('Langue / catégorie');change.disabled=!ready();change.onclick=async()=>{
+           const answer=await adminDialog(doc,{title:'Modifier cette version',fields:[{name:'category',label:'Catégorie',value:space.accessPolicy.typeIds?.[0]||'',options:[['','Tous les inscrits'],...activeTypes().map(t=>[t.id,t.name])]},{name:'language',label:'Langue',value:lang.id,options:snapshot.languageRegistry.languages.map(l=>[l.id,l.name])}]});
+           if(!answer)return;
+           const nextCategory=activeTypes().find(t=>t.id===answer.category)?.name||'Tous les inscrits';
+           const nextLanguage=snapshot.languageRegistry.languages.find(l=>l.id===answer.language)?.name;
+           if(!await adminDialog(doc,{title:'Confirmer le changement',message:adminName+' → '+nextCategory+' — '+nextLanguage+'. La version modifiée restera en brouillon.',confirm:'Modifier'}))return;
+           await mutate('change-version',{spaceId:space.id,pageId:page.id,languageId:lang.id,targetLanguageId:answer.language,typeIds:answer.category?[answer.category]:[]});
+          };
+          row.append(release,duplicate,change);card.append(row);
         }
       }
       spaces.append(card);
     }
+    for(const type of activeTypes().filter(t=>!workspace.spaces(celebrationId).some(s=>s.accessPolicy.typeIds?.includes(t.id)))){const card=node('section');card.className='card member-spaces-card';const add=button('＋ Ajouter une version');add.disabled=!ready();add.onclick=()=>void createVersion(null,'fr',type.id);card.append(node('h3',type.name+' — '+(type.abbreviation||categoryAbbreviation(type.name))),node('p','Aucune version pour cette catégorie.'),add);spaces.append(card)}
     if(!workspace.spaces(celebrationId).length)spaces.append(node('p','Aucune version par catégorie. Les pages générales restent dans l’éditeur.'));
   }
   activate(false);
@@ -386,11 +399,12 @@ export function mountExistingEditorMemberSpaces(root,{
     refreshMembers,sessionChanged,
     get changed(){return workspace.changed;},
     showSpaces(){activate(true);},
+    async duplicateVersion(source,languageId='fr'){await reloadCategoryNames();await loadCanonical();await createVersion(source,languageId);},
     async openVersion(typeId,languageId='fr',title=''){
       directory.hidden=true;spaces.hidden=false;await reloadCategoryNames();await loadCanonical();
       const space=workspace.spaces(celebrationId).find(s=>typeId?
         s.accessPolicy.typeIds?.includes(typeId):s.accessPolicy.mode===ACCESS_MODES.PUBLIC);
-      const page=space?.pages.find(p=>p.name===title)||space?.pages[0];
+      const page=space?.pages.find(p=>p.name===title)||(!title?space?.pages[0]:null);
       if(page)openCanonicalPage(space.id,page.id,languageId);
       else await createVersion(null,languageId,typeId,title);
     },
