@@ -2,6 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
+import {EDITOR_SNAPSHOT_KEY} from '../migration/cloudflare/app/ports/editor-snapshot-contract.mjs';
+import {TRIAL_SITE_STYLE} from '../migration/cloudflare/editor-trial-site-client.mjs';
+
 const here='docs/architecture/';
 const contract=JSON.parse(readFileSync(here+'CELEBRATIONS-M04-CONTRAT.json','utf8'));
 const architecture=readFileSync(here+'MISSION-04-ARCHITECTURE-CIBLE-2026-11-07.md','utf8');
@@ -43,10 +46,15 @@ test('Legacy data storage and response handlers are explicitly preserved',()=>{
  const publication=source('editor-publication-api.mjs');
  const worker=source('production-worker.mjs');
  assert.equal(contract.runtime.activeEditorR2Object,'editor-trials/server-drafts-v1.json');
- assert.ok(snap.includes(contract.runtime.activeEditorR2Object));
- assert.ok(publication.includes(contract.runtime.activeEditorR2Object));
+ assert.equal(EDITOR_SNAPSHOT_KEY,contract.runtime.activeEditorR2Object);
+ for(const api of [snap,publication]){
+  assert.ok(api.includes('readEditorSnapshot')&&api.includes('putEditorSnapshot'));
+  assert.ok(api.includes('app/adapters/editor-r2-repository.mjs'));
+ }
  assert.ok(publication.includes('editor-trials/uploads/'));
- assert.ok(snap.includes('etagMatches')&&snap.includes('etagDoesNotMatch'));
+ const repository=source('app/adapters/editor-r2-repository.mjs');
+ assert.ok(repository.includes('etagMatches')&&repository.includes('etagDoesNotMatch'));
+ assert.ok(repository.includes('bucket.put(EDITOR_SNAPSHOT_KEY')&&repository.includes('onlyIf'));
  assert.ok(publication.includes('expectedRevision')&&publication.includes('409'));
  for(const fragment of ['"/media/"','"/letter/"','"ASSETS"']){
   if(fragment==='"ASSETS"')assert.ok(worker.includes('env.ASSETS.fetch'));
@@ -68,8 +76,8 @@ test('Functional parity contracts match the actual public and editor clients',()
  for(const stage of contract.compatibility.stageSlugs)assert.ok(adapter.includes(stage));
  for(const label of ['⌂ Accueil','✧ Célébrations','▧ Médiathèque générale'])
   assert.ok(pub.includes(label),'Missing current visitor menu: '+label);
- assert.ok(pub.includes('repeat(4'),'Desktop 4-column CSS currently present');
- assert.ok(pub.includes('repeat(2'),'Mobile 2-column CSS currently present');
+ assert.ok(TRIAL_SITE_STYLE.includes('repeat(4'),'Desktop 4-column CSS currently present');
+ assert.ok(TRIAL_SITE_STYLE.includes('repeat(2'),'Mobile 2-column CSS currently present');
  assert.ok(editor.includes('undoLastEditorAction'));
  assert.ok(editor.includes('Choisir une vidéo du site'));
  assert.ok(editor.includes('section-add-blue'));
