@@ -8,13 +8,12 @@ import {
 } from '../application/member-directory-admin-service.mjs';
 import {handlePrivateEditorCommand} from '../application/private-editor-publication-service.mjs';
 import {createCanonicalPrivateLoaders} from '../persistence/private-canonical-content.mjs';
-import {isOfficialEditorHost,isReadonlyCandidateHost} from './editor-route-policy.mjs';
+import {mayUseIsolatedMemberApi} from './editor-route-policy.mjs';
 
 export const MEMBER_DIRECTORY_ADMIN_PATH='/api/admin/member-directory';
 export const PRIVATE_EDITOR_PATH='/api/admin/private-editor';
 export const EDITOR_ADMIN_SESSION_PATH='/api/admin/editor-session';
 export const MEMBER_IDENTITY_CLAIM_PATH='/api/participant/identity-claim';
-const OBSOLETE_STAGING='celebrations-exit-staging.rondes.workers.dev';
 const securityHeaders={
   'cache-control':'private, no-store, max-age=0',
   'pragma':'no-cache',
@@ -30,18 +29,6 @@ function denied(status,message) {
 }
 export function isMemberAdminWorkerRoute(path) {
   return path===MEMBER_DIRECTORY_ADMIN_PATH || path===MEMBER_IDENTITY_CLAIM_PATH || path===EDITOR_ADMIN_SESSION_PATH || path===PRIVATE_EDITOR_PATH;
-}
-function mayUseIsolatedMemberApi(url,env) {
-  // Both switches must be set by a future operator on a deliberately
-  // isolated HTTPS host. No flag or host defaults, even in staging.
-  // Deployment on an official or existing preview hostname cannot enable it.
-  return env?.MEMBER_DIRECTORY_API_ENABLED==='true' &&
-    typeof env.MEMBER_DIRECTORY_API_HOST==='string' &&
-    env.MEMBER_DIRECTORY_API_HOST===url.hostname &&
-    url.protocol==='https:' &&
-    !isOfficialEditorHost(url.hostname) &&
-    !isReadonlyCandidateHost(url.hostname) &&
-    url.hostname!==OBSOLETE_STAGING;
 }
 function acceptedOrigin(request,url) {
   const origin=request.headers.get('origin');
