@@ -51,7 +51,7 @@ function initialState(){
    localization:{pages:{[ROOT]:{en:{
      name:'UNRELEASED_EDITOR_TRANSLATION',blocks:[{kind:'text',text:'UNRELEASED'}]
    }}}},
-   published:{drafts:{'41':{pages:[root],spaces:[chapel]}},
+   published:{privateReleaseRevisions:{'41':{revision:2,token:'550e8400-e29b-41d4-a716-446655440000'}},drafts:{'41':{pages:[root],spaces:[chapel]}},
     shared:{pages:[]},plans:[],celebrationVisibility:{'41':'published'},
     languageRegistry:langRegistry(),
     privatePageReleases:{
@@ -89,11 +89,14 @@ async function setup(){
  for(const file of ['celebrations-schema.sql',
   'd1-migrations/20261110_007a_contact_directory.sql',
   'd1-migrations/20261110_008b_directory_integrity.sql',
-  'd1-migrations/20261110_009b_explicit_identity_links.sql']){
+  'd1-migrations/20261110_009b_explicit_identity_links.sql',
+  'd1-migrations/20261111_012c_private_release_fences.sql']){
   db.exec(readFileSync(new URL('../migration/cloudflare/'+file,import.meta.url),'utf8'));
  }
  for(const id of [41,42])db.prepare(
    'INSERT INTO celebrations_celebrations(id,archangel) VALUES(?,?)').run(id,'Gabriel');
+ db.prepare('INSERT INTO celebrations_private_release_fences(celebration_id,revision,token) VALUES(?,?,?)')
+  .run(41,2,'550e8400-e29b-41d4-a716-446655440000');
  db.prepare('INSERT INTO celebrations_participants(email,password_hash,audience) VALUES(?,?,?)')
   .run(EMAIL,'synthetic-password-hash','angel');
  db.prepare('INSERT INTO celebrations_participant_sessions(token_hash,participant_email,expires_at) VALUES(?,?,?)')

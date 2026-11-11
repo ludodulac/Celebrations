@@ -1,7 +1,7 @@
 // M06: rendering orchestration is detached from the mutable editor state.
 // The caller supplies readonly state and deliberate action ports.
 export function renderEditorFrame(ctx){
- const {IS_STAGE,document,STAGE_SEED,page,pageSlug,stateOfPage,editorDragState,editorDragFinish,undoAnchor,resetUndoHistory,ensureUndoButton,applyPalette,w,tab,preview,el,pages,footerPages,celebrations,media,userGuide,settings}=ctx;
+ const {IS_STAGE,document,STAGE_SEED,page,pageSlug,stateOfPage,editorDragState,editorDragFinish,undoAnchor,resetUndoHistory,ensureUndoButton,applyPalette,w,tab,preview,el,pages,footerPages,celebrations,media,userGuide,settings,memberSpaces}=ctx;
  if(IS_STAGE){
   const see=document.getElementById('view-site-btn');
   if(see){
@@ -17,4 +17,4 @@ export function renderEditorFrame(ctx){
  const shell=document.querySelector('.stage-editor');
  if(shell){const general=page()?.group==='page';shell.classList.toggle('is-neutral',general);shell.classList.toggle('is-celebration',!general);
 }
- applyPalette();w.replaceChildren();document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x.dataset.tab===tab));el('preview-btn').textContent=preview?'Revenir à l’édition':'Aperçu du brouillon';if(tab==='pages')pages();else if(tab==='footer')footerPages();else if(tab==='celebrations')celebrations();else if(tab==='media')media();else if(tab==='guide')userGuide();else settings();}
+ applyPalette();w.replaceChildren();document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x.dataset.tab===tab));el('preview-btn').textContent=preview?'Revenir à l’édition':'Aperçu du brouillon';if(tab==='pages')pages();else if(tab==='footer')footerPages();else if(tab==='celebrations')celebrations();else if(tab==='media')media();else if(tab==='guide')userGuide();else if(tab==='members-spaces'&&memberSpaces)memberSpaces();else settings();}

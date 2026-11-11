@@ -210,7 +210,10 @@ test('010-B private enrollment requires canonical server space and linked celebr
   const c=setup();await c.person('alice@example.org',A);
   assert.equal((await c.post({action:'enroll_space',personId:A,
     expectedRevision:0,spaceId:'space:41:private',
-    space:{visibility:'PRIVATE',celebrationId:'42'}})).status,409);
+    space:{visibility:'PRIVATE',celebrationId:'42'}})).status,400);
+  // Even a well-formed enrollment cannot bypass the celebration association.
+  assert.equal((await c.post({action:'enroll_space',personId:A,
+    expectedRevision:0,spaceId:'space:41:private'})).status,409);
   assert.equal(c.rev(A),0);
   assert.equal((await c.post({action:'add_celebration',personId:A,
     expectedRevision:0,celebrationId:'41'})).status,200);

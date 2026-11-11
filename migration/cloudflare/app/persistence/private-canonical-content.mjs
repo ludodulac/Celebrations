@@ -2,6 +2,7 @@
 // snapshot. Not imported by any live Worker. No D1/R2 writes or draft fallbacks.
 // A publishedRevision alone does not release copied M005 drafts: each private
 // page/space/media MUST also carry its own explicit publicationStatus.
+import {privateReleaseReady} from './private-release-fence.mjs';
 import {readEditorSnapshot} from '../adapters/editor-r2-repository.mjs';
 import {ACCESS_MODES, SPACE_VISIBILITIES, isMemberTypeId}
   from '../domain/member-access.mjs';
@@ -151,7 +152,19 @@ export function createCanonicalPrivateLoaders(env) {
         empty:()=>null,requireBody:true,
         validate:x=>x===null||obj(x)
       });
-      return makeIndex(state);
+      const data=makeIndex(state);
+      if(!data)return null;
+      // No legacy/copied ledger is sufficient without exact D1 acknowledgement.
+      // A partial commit blocks the entire celebration before any protected read.
+      const ids=new Set([...data.pages.values(),...data.spaces.values()].map(x=>x.celebrationId));
+      for(const cid of ids){
+        const spaces=[...data.spaces.values()].filter(x=>x.celebrationId===cid);
+        if(await privateReleaseReady(env.DB,data.published,cid,state.publishedRevision,spaces))continue;
+        for(const [id,p] of data.pages)if(p.celebrationId===cid)data.pages.delete(id);
+        for(const [id,p] of data.spaces)if(p.celebrationId===cid)data.spaces.delete(id);
+      }
+      for(const [id,m] of data.media)if(!data.pages.has(m.pageId))data.media.delete(id);
+      return data;
     })();
     return pending;
   };

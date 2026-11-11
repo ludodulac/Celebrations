@@ -24,3 +24,12 @@ export function sameOriginEditorWrite(request){
  const url=new URL(request.url);
  return url.protocol==='https:'&&request.headers.get('origin')===url.origin;
 }
+
+// Shared explicit HTTPS gate for isolated member administration and visual editor.
+export function mayUseIsolatedMemberApi(url,env){
+ return env?.MEMBER_DIRECTORY_API_ENABLED==='true' &&
+  typeof env.MEMBER_DIRECTORY_API_HOST==='string' &&
+  env.MEMBER_DIRECTORY_API_HOST===url.hostname && url.protocol==='https:' &&
+  !isOfficialEditorHost(url.hostname) && !isReadonlyCandidateHost(url.hostname) &&
+  url.hostname!=='celebrations-exit-staging.rondes.workers.dev';
+}

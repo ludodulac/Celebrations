@@ -5,47 +5,8 @@ import {mountMemberDirectoryAdmin} from './member-directory-admin-integration.mj
 import {createSpacesDraftWorkspace} from './editor-spaces-draft.mjs';
 import {ACCESS_MODES,SPACE_VISIBILITIES} from '../domain/member-access.mjs';
 
-export function createMemberDirectoryTransport({
-  fetchImpl=globalThis.fetch,tokenProvider=()=>globalThis.getCelebrationsAdminToken?.()||'',
-  origin=globalThis.location?.origin
-}={}) {
-  if(typeof fetchImpl!=='function'||!origin)throw new TypeError('Same-origin admin transport required');
-  const base=new URL('/api/admin/member-directory',origin);
-  if(base.origin!==origin)throw new TypeError('Cross-origin API forbidden');
-  return async command=>{
-    if(!['GET','POST'].includes(command?.method))throw new TypeError('Invalid method');
-    const token=tokenProvider();
-    if(typeof token!=='string'||!token) return {ok:false,error:'Session administrateur absente'};
-    const url=new URL(base);
-    const options={method:command.method,credentials:'same-origin',cache:'no-store',
-      redirect:'error',headers:{authorization:'Bearer '+token,accept:'application/json'}};
-    if(command.method==='GET'){
-      for(const key of ['action','search','cursor','limit','personId']){
-        if(command[key]!==undefined && command[key]!==null && command[key]!=='')
-          url.searchParams.set(key,String(command[key]));
-      }
-    }else{
-      options.headers['content-type']='application/json';
-      options.body=JSON.stringify(Object.fromEntries(Object.entries(command)
-        .filter(([key])=>key!=='method')));
-    }
-    try {
-      const response=await fetchImpl(url.toString(),options);
-      if(!response.headers.get('content-type')?.toLowerCase().includes('application/json'))
-        throw new Error('Route administrative indisponible');
-      const result=await response.json();
-      if(!response.ok||!result?.ok)
-        return {ok:false,error:result?.error||('Accès refusé ('+response.status+')')};
-      return result;
-    }catch(error){
-      return {ok:false,error:'Route administrateur non activée ou indisponible : '+
-        (error?.message||'échec réseau')};
-    }
-  };
-}
-
 export function mountExistingEditorMemberSpaces(root,{
-  transport,celebrations=[],currentCelebrationId=null,allocateId
+  transport,privateTransport,isConnected=()=>false,celebrations=[],currentCelebrationId=null,allocateId,styleNonce,canDuplicate=()=>true
 }={}) {
   if(!root?.ownerDocument||typeof root.replaceChildren!=='function' ||
      typeof transport!=='function')throw new TypeError('Existing editor root and admin transport required');
@@ -64,8 +25,12 @@ export function mountExistingEditorMemberSpaces(root,{
   const selected=()=>currentCelebrationId!=null &&
     workspace.list().some(x=>String(x.id)===String(currentCelebrationId))
     ? String(currentCelebrationId):String(workspace.list()[0]?.id??'');
-  const workspace=createSpacesDraftWorkspace(clone(celebrations),
-    allocateId?{allocateId}:{});
+  const canonical=typeof privateTransport==='function';
+  const catalogue=clone(celebrations).map(({id,archangel,year})=>({id,archangel,year}));
+  const newWorkspace=items=>createSpacesDraftWorkspace(clone(items),allocateId?{allocateId}:{});
+  let workspace=newWorkspace(canonical?catalogue:celebrations);
+  let snapshot=null,busy=false,needsReload=false,epoch=0;
+  const ready=()=>canonical&&isConnected()&&snapshot!==null&&!needsReload&&!busy;
   let celebrationId=selected(),memberMount=null,destroyed=false;
   const container=node('section');container.className='admin-member-spaces-011c';
   const header=node('div');header.className='admin-view-head';
@@ -76,7 +41,7 @@ export function mountExistingEditorMemberSpaces(root,{
   peopleTab.setAttribute('aria-controls','member-spaces-directory');
   spacesTab.setAttribute('aria-controls','member-spaces-workspace');
   tabs.append(peopleTab,spacesTab);
-  const warning=node('p','Les espaces se préparent ici sans sauvegarde. '+
+  const warning=node('p',canonical?'Écriture D1/R2 isolée : chargement serveur requis. Les accès privés du site officiel restent désactivés.':'Les espaces se préparent ici sans sauvegarde. '+
     'La publication et les politiques de pages restent désactivées tant que '+
     'leur écriture sécurisée côté serveur n’est pas raccordée.');
   warning.className='notice';warning.setAttribute('role','note');
@@ -85,7 +50,12 @@ export function mountExistingEditorMemberSpaces(root,{
   container.append(header,tabs,warning,directory,spaces);
   root.replaceChildren(container);
   // Mount only once: the existing M007-B component owns type/member changes.
-  memberMount=mountMemberDirectoryAdmin(directory,{transport});
+  function refreshMembers(){
+    if(destroyed)return;
+    memberMount?.destroy();
+    memberMount=mountMemberDirectoryAdmin(directory,{transport,styleNonce});
+  }
+  refreshMembers();
   function activate(showSpaces) {
     if(destroyed)return;
     directory.hidden=showSpaces;spaces.hidden=!showSpaces;
@@ -93,15 +63,59 @@ export function mountExistingEditorMemberSpaces(root,{
     spacesTab.classList.toggle('primary',showSpaces);
     peopleTab.setAttribute('aria-pressed',String(!showSpaces));
     spacesTab.setAttribute('aria-pressed',String(showSpaces));
-    if(showSpaces)renderSpaces();
+    if(showSpaces){renderSpaces();if(canonical&&isConnected()&&!snapshot&&!busy&&!needsReload)void loadCanonical();}
   }
   peopleTab.addEventListener('click',()=>activate(false));
   spacesTab.addEventListener('click',()=>activate(true));
 
+  function applySnapshot(result){
+    if(!result?.ok||!Number.isSafeInteger(result.revision)||!result.record||!Array.isArray(result.record.spaces??[]))
+      throw Error('Réponse canonique non confirmée');
+    if(!catalogue.some(c=>String(c.id)===celebrationId))throw Error('Célébration inconnue');
+    workspace=newWorkspace(catalogue.map(c=>String(c.id)===celebrationId?{...c,spaces:result.record.spaces??[]}:c));
+    snapshot=result;needsReload=false;
+  }
+  async function loadCanonical(){
+    if(!canonical||!isConnected()||busy||!celebrationId)return;
+    if(workspace.changed&&!doc.defaultView.confirm('Recharger depuis le serveur et abandonner les modifications locales ?'))return;
+    const attempt=++epoch;busy=true;renderSpaces('Chargement canonique…');
+    let message;
+    try{
+      const result=await privateTransport({method:'GET',celebration:celebrationId});
+      if(attempt!==epoch)return;
+      if(!result.ok)throw Error(result.error||'Chargement refusé');
+      applySnapshot(result);
+      message='Espaces chargés depuis R2 — révision '+snapshot.revision+'.';
+    }catch(e){if(attempt!==epoch)return;needsReload=true;message='Chargement impossible : '+e.message;}
+    finally{if(attempt===epoch){busy=false;renderSpaces(message);}}
+  }
+  async function mutate(action,fields={}){
+    if(!ready())return;
+    const attempt=++epoch;busy=true;renderSpaces('Commande serveur en cours…');
+    let message;
+    try{
+      const result=await privateTransport({method:'POST',action,celebration:celebrationId,expectedRevision:snapshot.revision,...fields});
+      if(attempt!==epoch)return;
+      if(!result.ok){
+        needsReload=true;
+        throw Error((result.saved?'R2 a enregistré la commande ; confirmation D1 incomplète. ':'')+(result.error||'Commande refusée')+' — Rechargez avant toute nouvelle tentative.');
+      }
+      applySnapshot(result);
+      message=action==='save'?'Brouillon enregistré, identifiants serveur et révision '+snapshot.revision+' confirmés.':
+        'Commande confirmée — révision '+snapshot.revision+(snapshot.privateReleaseReady?' ; confirmation D1 obtenue.':' ; accès privé non confirmé.');
+    }catch(e){if(attempt!==epoch)return;needsReload=true;message='Commande non confirmée : '+e.message;}
+    finally{if(attempt===epoch){busy=false;renderSpaces(message);}}
+  }
+  function sessionChanged(active){
+    if(!canonical)return;
+    ++epoch;busy=false;needsReload=false;snapshot=null;workspace=newWorkspace(catalogue);
+    if(!spaces.hidden){renderSpaces();if(active)void loadCanonical();}
+    else spaces.replaceChildren();
+  }
   function renderSpaces(message='') {
     if(destroyed)return;
     spaces.replaceChildren();
-    const note=node('p','Atelier de préparation local, non enregistré : fermeture de la page = perte des modifications. '+
+    const note=node('p',canonical?'Les modifications restent locales jusqu’à confirmation du serveur. En cas de conflit, rechargez avant toute nouvelle écriture.':'Atelier de préparation local, non enregistré : fermeture de la page = perte des modifications. '+
       'Les identifiants de brouillon seront remplacés par des identifiants serveur. '+
       'Aucun accès privé et aucun média ne sont publiés.');
     note.className='member-spaces-disclaimer';spaces.append(note);
@@ -120,7 +134,7 @@ export function mountExistingEditorMemberSpaces(root,{
     const discard=button('Abandonner le brouillon');
     discard.disabled=!workspace.changed;
     discard.addEventListener('click',()=>{
-      workspace.discard();celebrationId=selected();
+      workspace.discard();if(!canonical)celebrationId=selected();
       renderSpaces('Brouillon abandonné. Les contenus existants sont inchangés.');
     });
     const save=button('Enregistrer les espaces');
@@ -128,6 +142,28 @@ export function mountExistingEditorMemberSpaces(root,{
     const publish=button('Publier / appliquer les droits');
     publish.disabled=true;publish.title='Publication privée et politiques de pages non raccordées';
     commands.append(undo,redo,discard,save,publish);
+    if(canonical){
+      const load=button('Recharger les espaces depuis le serveur');
+      load.disabled=!isConnected()||busy;
+      load.addEventListener('click',()=>void loadCanonical());
+      commands.append(load);
+      save.disabled=!ready()||!workspace.changed;
+      save.title='Enregistrement canonique avec contrôle de révision';
+      save.addEventListener('click',()=>void mutate('save',{spaces:workspace.spaces(celebrationId)}));
+      publish.hidden=true;
+      undo.disabled=busy||!workspace.canUndo;redo.disabled=busy||!workspace.canRedo;discard.disabled=busy||!workspace.changed;
+      if(snapshot){
+        commands.append(node('p','Révision '+snapshot.revision+' · célébration '+snapshot.celebrationVisibility+
+          ' · '+(snapshot.privateReleaseReady?'confirmation D1 présente':'accès privé non confirmé')));
+        const release=button('Publier la célébration (visibilité)');
+        release.disabled=!ready()||workspace.changed||snapshot.celebrationVisibility==='published'||!snapshot.record.spaces?.length;
+        release.addEventListener('click',()=>{if(doc.defaultView.confirm('Publier explicitement la visibilité de cette célébration dans cet environnement isolé ?'))void mutate('celebration-visibility',{visibility:'published'});});
+        const reconcile=button('Réconcilier la confirmation D1');
+        reconcile.disabled=!ready()||workspace.changed||snapshot.privateReleaseReady;
+        reconcile.addEventListener('click',()=>void mutate('reconcile'));
+        commands.append(release,reconcile);
+      }
+    }
     spaces.append(status,commands);
     const celebrations=workspace.list();
     if(!celebrations.length){
@@ -142,10 +178,13 @@ export function mountExistingEditorMemberSpaces(root,{
       const option=node('option',(c.archangel||'Célébration')+' '+(c.year||'')+' — '+c.id);
       option.value=String(c.id);option.selected=String(c.id)===celebrationId;choice.append(option);
     });
-    choice.addEventListener('change',()=>{celebrationId=choice.value;renderSpaces();});
+    choice.disabled=canonical&&(busy||workspace.changed);
+    choice.addEventListener('change',()=>{celebrationId=choice.value;if(canonical){snapshot=null;needsReload=false;workspace=newWorkspace(catalogue);renderSpaces();void loadCanonical();}else renderSpaces();});
     const choose=node('div');choose.className='member-spaces-actions';
     choose.append(label('Célébration',choice));
     const duplicate=button('Dupliquer en brouillon');
+    duplicate.disabled=!canDuplicate(celebrationId);
+    if(duplicate.disabled)duplicate.title='Ouvrez cette célébration dans l’éditeur pour charger ses pages avant duplication';
     duplicate.addEventListener('click',()=>{
       try {
         celebrationId=workspace.duplicate(celebrationId);
@@ -153,7 +192,8 @@ export function mountExistingEditorMemberSpaces(root,{
           'inscriptions individuelles exclues, publication désactivée.');
       }catch(e){renderSpaces('Duplication refusée : '+e.message);}
     });
-    choose.append(duplicate);spaces.append(choose);
+    if(!canonical)choose.append(duplicate);spaces.append(choose);
+    if(canonical&&!snapshot){spaces.append(node('p',isConnected()?'Chargez les espaces canoniques avant toute modification.':'Connectez-vous à D1 pour consulter ou modifier les espaces.'));return;}
     const existing=workspace.spaces(celebrationId);
     const list=node('div');list.className='member-spaces-grid';
     existing.forEach(space=>{
@@ -186,11 +226,12 @@ export function mountExistingEditorMemberSpaces(root,{
       visibility.addEventListener('change',updateControls);
       mode.addEventListener('change',updateControls);updateControls();
       const saveSpace=button('Préparer ces paramètres');
+      if(canonical){visibility.disabled=!space.id.startsWith('draft-space:')||!ready();saveSpace.disabled=!ready();}
       saveSpace.type='submit';
       edit.append(label('Nom',title),label('Visibilité',visibility),
         label('Politique M002',mode),label('Identifiants des types autorisés',types),saveSpace);
       edit.addEventListener('submit',event=>{
-        event.preventDefault();
+        event.preventDefault();if(canonical&&!ready())return;
         try {
           const ids=types.value.split(',').map(s=>s.trim()).filter(Boolean);
           workspace.updateSpace(celebrationId,space.id,{name:title.value,
@@ -205,7 +246,18 @@ export function mountExistingEditorMemberSpaces(root,{
           'contenu et langues conservés');
         const editPage=button('Ouvrir l’édition de page');
         editPage.disabled=true;editPage.title='Raccordement au moteur de pages et sauvegarde sécurisée requis';
-        row.append(' ',editPage);pages.append(row);
+        row.append(' ',editPage);
+        if(canonical){
+          const released=snapshot.pageReleases?.some(x=>x.pageId===page.id);
+          row.append(node('span',released?' · publication enregistrée':' · non publiée'));
+          const release=button('Publier cette page');
+          release.disabled=!ready()||workspace.changed||!snapshot.spaceReleases?.some(x=>x.spaceId===space.id)||page.id.startsWith('draft-page:');
+          release.addEventListener('click',()=>{if(doc.defaultView.confirm('Publier explicitement cette page ?'))void mutate('publish',{kind:'page',id:page.id,spaceId:space.id});});
+          const revoke=button('Dépublier cette page');revoke.disabled=!ready()||workspace.changed||!released;
+          revoke.addEventListener('click',()=>{if(doc.defaultView.confirm('Retirer la publication de cette page ?'))void mutate('unpublish',{kind:'page',id:page.id,spaceId:space.id});});
+          row.append(release,revoke);
+        }
+        pages.append(row);
       }
       const addPage=node('form');addPage.className='member-spaces-form';
       const pageName=field('text','Titre de la nouvelle page',160);
@@ -213,12 +265,25 @@ export function mountExistingEditorMemberSpaces(root,{
       addPageButton.type='submit';
       addPage.append(label('Nouvelle page',pageName),addPageButton);
       addPage.addEventListener('submit',event=>{
-        event.preventDefault();
+        event.preventDefault();if(canonical&&!ready())return;
         try{workspace.addPage(celebrationId,space.id,{title:pageName.value});
           renderSpaces('Page préparée en brouillon, non publiée.');
         }catch(e){renderSpaces('Page refusée : '+e.message);}
       });
-      card.append(name,id,badge,edit,pages,addPage);list.append(card);
+      card.append(name,id,badge,edit,pages,addPage);
+      if(canonical){
+        addPageButton.disabled=!ready();
+        const released=snapshot.spaceReleases?.some(x=>x.spaceId===space.id);
+        card.append(node('p',released?'Publication de l’espace enregistrée (accès selon confirmation D1).':'Espace non publié.'));
+        const release=button('Publier cet espace');
+        release.disabled=!ready()||workspace.changed||snapshot.celebrationVisibility!=='published'||space.id.startsWith('draft-space:');
+        release.addEventListener('click',()=>{if(doc.defaultView.confirm('Publier cet espace, sans publier ses pages ?'))void mutate('publish',{kind:'space',id:space.id});});
+        const revoke=button('Dépublier cet espace');
+        revoke.disabled=!ready()||workspace.changed||!released;
+        revoke.addEventListener('click',()=>{if(doc.defaultView.confirm('Retirer la publication de cet espace et de ses pages ?'))void mutate('unpublish',{kind:'space',id:space.id});});
+        card.append(release,revoke);
+      }
+      list.append(card);
     });
     if(!existing.length)list.append(node('p','Aucun espace dans cette célébration.'));
     spaces.append(list);
@@ -229,10 +294,10 @@ export function mountExistingEditorMemberSpaces(root,{
     for(const [value,text] of [['PRIVATE','Privé — par inscription'],['PUBLIC','Public']]){
       const option=node('option',text);option.value=value;visibility.append(option);
     }
-    const add=button('Créer dans le brouillon');add.type='submit';
+    const add=button('Créer dans le brouillon');add.type='submit';if(canonical)add.disabled=!ready();
     create.append(label('Nom',name),label('Visibilité',visibility),add);
     create.addEventListener('submit',event=>{
-      event.preventDefault();
+      event.preventDefault();if(canonical&&!ready())return;
       try {
         workspace.addSpace(celebrationId,{name:name.value,visibility:visibility.value});
         renderSpaces('Espace préparé : non enregistré, non publié.');
@@ -243,9 +308,10 @@ export function mountExistingEditorMemberSpaces(root,{
   activate(false);
   return {
     getDraft:()=>workspace.list(),
+    refreshMembers,sessionChanged,
     get changed(){return workspace.changed;},
     showSpaces(){activate(true);},
     showMembers(){activate(false);},
-    destroy(){destroyed=true;memberMount?.destroy();root.replaceChildren();}
+    destroy(){destroyed=true;++epoch;memberMount?.destroy();root.replaceChildren();}
   };
 }

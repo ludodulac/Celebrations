@@ -209,6 +209,9 @@ export async function commitAuditedDirectoryAdmin(db,directory,actor,b,
       result=add?{personId:target,celebrationId}:{removed:true};break;
     }
     case 'enroll_space': {
+      // The canonical published object is resolved only on the server.
+      if(Object.keys(b).some(key=>!['action','personId','spaceId','expectedRevision'].includes(key)))
+        throw new TypeError('Invalid enrollment command');
       const spaceId=requireSpace(b.spaceId);
       if(typeof resolveCanonicalSpace!=='function')
         throw new TypeError('Trusted canonical M005 resolver required');

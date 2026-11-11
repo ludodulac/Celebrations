@@ -5,7 +5,7 @@
 import {mountMemberAccessAdmin} from './member-access-admin-ui.mjs';
 import {createMemberAdminState} from './member-access-admin-model.mjs';
 
-export function mountMemberDirectoryAdmin(root,{transport}={}) {
+export function mountMemberDirectoryAdmin(root,{transport,styleNonce}={}) {
   if(!root?.ownerDocument || typeof root.replaceChildren!=='function' ||
      typeof transport!=='function') throw new TypeError('Admin root/transport required');
   const document=root.ownerDocument;
@@ -17,6 +17,7 @@ export function mountMemberDirectoryAdmin(root,{transport}={}) {
     return n;
   };
   const style=node('style');
+  if(styleNonce)style.nonce=styleNonce;
   style.textContent=[
     '.member-directory-009b{max-width:100%;overflow-wrap:anywhere}',
     '.member-directory-009b .member-admin-layout{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:1rem}',
@@ -83,6 +84,7 @@ export function mountMemberDirectoryAdmin(root,{transport}={}) {
   async function reload() {
     const incoming=await call({method:'GET',action:'snapshot',search,
       cursor:pageCursors.at(-1),limit:50});
+    if(destroyed)return;
     pageInfo={hasMorePeople:!!incoming.hasMorePeople,
       nextCursor:incoming.nextCursor??null};
     state=createMemberAdminState(incoming);

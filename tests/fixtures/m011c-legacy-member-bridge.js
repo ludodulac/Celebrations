@@ -1,4 +1,4 @@
-// M011-C integration hook, loaded LAST in the existing admin.html.
+// Historical M011-C regression fixture only, never loaded by admin.html.
 // Do not replace render(), admin auth, navigation or the legacy save lifecycle.
 (function(){
   if(typeof setTab!=='function'||!document.getElementById('panel'))return;
@@ -19,9 +19,10 @@
       if(version!==navigationVersion)return;
       if(authenticated!==true || document.body.classList.contains('admin-auth-locked'))
         throw new Error('Authentification administrateur nécessaire.');
-      const module=await import('./migration/cloudflare/app/admin/editor-member-spaces-integration.mjs');
+      const module=await import('../../migration/cloudflare/app/admin/editor-member-spaces-integration.mjs');
       if(version!==navigationVersion)return;
-      const transport=module.createMemberDirectoryTransport({
+      const {createMemberDirectoryTransport}=await import('./m011c-legacy-member-transport.mjs');
+      const transport=createMemberDirectoryTransport({
         tokenProvider:()=>window.getCelebrationsAdminToken?.()||''
       });
       mount=module.mountExistingEditorMemberSpaces(panelRoot,{

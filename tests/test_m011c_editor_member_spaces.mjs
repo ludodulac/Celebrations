@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createSpacesDraftWorkspace} from '../migration/cloudflare/app/admin/editor-spaces-draft.mjs';
-import {createMemberDirectoryTransport} from '../migration/cloudflare/app/admin/editor-member-spaces-integration.mjs';
+import {createMemberDirectoryTransport} from './fixtures/m011c-legacy-member-transport.mjs';
 import {canReadSpacePage} from '../migration/cloudflare/app/domain/celebration-spaces.mjs';
 
 const original={
@@ -131,11 +131,11 @@ test('M011-C transport: only admin token and same-origin JSON route; fail closed
 });
 test('M011-C editor hook opt-in; no duplicate edit application, page policy save disabled',()=>{
  const html=readFileSync(new URL('../admin.html',import.meta.url),'utf8');
- const bridge=readFileSync(new URL('../admin-member-spaces-bridge.js',import.meta.url),'utf8');
+ const bridge=readFileSync(new URL('./fixtures/m011c-legacy-member-bridge.js',import.meta.url),'utf8');
  const directory=readFileSync(new URL('../migration/cloudflare/app/admin/member-directory-admin-integration.mjs',import.meta.url),'utf8');
  const spaces=readFileSync(new URL('../migration/cloudflare/app/admin/editor-member-spaces-integration.mjs',import.meta.url),'utf8');
- assert.equal((html.match(/data-admin="members-spaces"/g)||[]).length,1);
- assert.match(html,/admin-member-spaces-bridge\.js/);
+ assert.equal((html.match(/data-admin="members-spaces"/g)||[]).length,0);
+ assert.doesNotMatch(html,/admin-member-spaces-bridge\.js/);
  assert.match(bridge,/const originalSetTab=setTab/);
  assert.match(bridge,/return originalSetTab\(section\)/);
  assert.match(bridge,/celebrationsAdminReady/);

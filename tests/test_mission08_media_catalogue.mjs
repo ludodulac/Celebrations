@@ -23,7 +23,14 @@ test('M08: browser script compiles and actually consumes the two new ESM modules
   assert.ok(DEMO_CLIENT.includes(needle),needle);
  assert.ok(DEMO_CLIENT.includes("fetch('/api/editor-media?action=upload'"));
  assert.ok(DEMO_CLIENT.includes("fetch('/api/editor-media?action=delete'"));
- assert.ok(DEMO_CLIENT.includes("serverPublish({kind:'media'"));
+ // Media is published through its published page. The former direct-toggle
+ // helper was unreachable; do not require dead code to satisfy a string test.
+ assert.ok(DEMO_CLIENT.includes("serverPublish({kind:'page'"));
+ assert.ok(DEMO_CLIENT.includes("fetch('/api/editor-publication'"));
+ assert.ok(!DEMO_CLIENT.includes('function showMediaPublicOption('));
+ const publication=readFileSync('migration/cloudflare/editor-publication-api.mjs','utf8');
+ assert.ok(publication.includes('projectPublicMediaItem'));
+ assert.ok(publication.includes('mergePublicMediaIndexed'));
 });
 test('M08: known source categories and legacy local classifications remain stable',()=>{
  assert.deepEqual(catalogue.categories,[['images','Images'],['pdf','PDF'],['audios','Audios'],

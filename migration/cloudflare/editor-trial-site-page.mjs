@@ -5,7 +5,7 @@ import {readEditorState} from './editor-publication-api.mjs';
 import {TRIAL_SITE_CLIENT,TRIAL_SITE_STYLE} from './editor-trial-site-client.mjs';
 const HOST='celebrations-exit-staging.rondes.workers.dev';
 // M008-A responsive switcher; uses the existing CSP nonce and M006 DOM component.
-const PUBLIC_LANGUAGE_STYLE=`
+export const PUBLIC_LANGUAGE_STYLE=`
 .site-menu-bar{display:flex;align-items:center;justify-content:space-between;gap:12px}
 #public-language-control{margin-left:auto;min-width:0}
 .public-language-selector{position:relative;font-size:.95rem}

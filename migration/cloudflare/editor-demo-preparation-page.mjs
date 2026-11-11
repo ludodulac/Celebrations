@@ -1,8 +1,10 @@
 // SEVEN PROGRAMME PAGES DEMO: read-only staging import of already-public historical records.
-// All modifications by the demo client stay in this browser; D1 is never written.
+// Historical demo content is read-only; isolated D1 administration requires an explicit separate session.
+import {mayUseIsolatedMemberApi} from './app/security/editor-route-policy.mjs';
 import {DEMO_CSS} from './editor-demo-style.mjs';
 import {ADMIN_STAGE_LAYOUT} from './app/styles/admin/stage-layout.mjs';
 import {DEMO_CLIENT} from './editor-demo-client.mjs';
+import {MEMBER_SPACES_INLINE} from './app/admin/real-editor-member-spaces-inline.mjs';
 import {TRIAL_AUDIO_CLIENT} from './editor-trial-audio-client.mjs';
 // SERVER_EDITOR_SYNC is composed explicitly by editor-demo-client.mjs.
 import {fiveColourways} from './editor-celebration-themes.mjs';
@@ -322,7 +324,7 @@ export async function loadSevenStageContent(env,selectedId,{publicOnly=false,pub
 }
 export async function handlePreparationDemo(request,env){
  const url=new URL(request.url);
- if(url.hostname!==HOST&&!['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu','celebrations-visual-candidate.rondes.workers.dev'].includes(url.hostname))return new Response('Not found',{status:404});
+ if(url.hostname!==HOST&&!['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu','celebrations-visual-candidate.rondes.workers.dev'].includes(url.hostname)&&!(env?.EDITOR_D1_SESSION_API_ENABLED==='true'&&mayUseIsolatedMemberApi(url,env)))return new Response('Not found',{status:404});
  if(request.method!=='GET'&&request.method!=='HEAD')return new Response('Method not allowed',{status:405});
  if(!env.DB)return new Response('Démonstration momentanément indisponible',{status:503});
  try{
@@ -339,14 +341,14 @@ export async function handlePreparationDemo(request,env){
   const nonce=Array.from(crypto.getRandomValues(new Uint8Array(16)),v=>v.toString(16).padStart(2,'0')).join('');
   const choices=celebrations.map(c=>'<option value="'+escapeHtml(c.id)+'"'+(String(c.id)===String(celebration.id)?' selected':'')+'>'+escapeHtml(c.archangel+' '+(c.year||''))+'</option>').join('')+(plannedCelebration(String(celebration.id))?'<option value="'+escapeHtml(celebration.id)+'" selected>'+escapeHtml(celebration.archangel+' · '+celebration.start_date+' (brouillon)')+'</option>':'');
   const html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Pages de la célébration — atelier Célébrations</title><style nonce="'+nonce+'">'+DEMO_CSS+'</style></head><body>'+
-  '<div class="shell stage-editor"><aside class="rail"><div class="brand"><div class="mark">✦</div><div><strong>Administration</strong></div></div><nav aria-label="Navigation"><button class="navbtn" data-tab="pages">▤ Pages</button><button class="navbtn" data-tab="footer">▤ Pages de bas de page</button><button class="navbtn active" data-tab="celebrations">✧ Célébrations</button><button class="navbtn" data-tab="media">▧ Médiathèque (administration)</button><button class="navbtn" data-tab="guide">ⓘ Mode d’emploi</button></nav></aside>'+
+  '<div class="shell stage-editor"><aside class="rail"><div class="brand"><div class="mark">✦</div><div><strong>Administration</strong></div></div><nav aria-label="Navigation"><button class="navbtn" data-tab="pages">▤ Pages</button><button class="navbtn" data-tab="footer">▤ Pages de bas de page</button><button class="navbtn active" data-tab="celebrations">✧ Célébrations</button><button class="navbtn" data-tab="media">▧ Médiathèque (administration)</button><button class="navbtn" data-tab="members-spaces">♧ Membres et espaces</button><button class="navbtn" data-tab="guide">ⓘ Mode d’emploi</button></nav></aside>'+
   '<div class="content"><header class="topbar"><div></div><div class="actions"><button id="preview-btn" class="btn sm" title="Voir la page en brouillon, sans publication">Aperçu du brouillon</button><button id="save-btn" class="btn primary">Enregistrer</button><a id="view-site-btn" class="btn view-site-btn" href="/__editor/voir-le-site" target="_blank" rel="noopener noreferrer">Voir le site</a></div></header>'+
   '<main class="main"><div id="workspace"></div><p class="status" id="status" role="status" aria-live="polite"></p></main></div></div>'+
   '<div id="editor-save-toast" class="editor-save-toast" role="status" aria-live="polite" hidden></div>'+ 
   '<input id="image-input" type="file" accept="image/jpeg,image/png,image/webp" hidden>'+
   '<style nonce="'+nonce+'">'+ADMIN_STAGE_LAYOUT+'</style>'+
   '<script nonce="'+nonce+'">window.__PREPARATION_SEED__='+jsSafe(seed)+';</script>'+
-  '<script nonce="'+nonce+'">'+TRIAL_AUDIO_CLIENT+'\n'+client+'</script></body></html>';
+  '<script nonce="'+nonce+'">'+TRIAL_AUDIO_CLIENT+'\n'+MEMBER_SPACES_INLINE+'\n'+client+'</script></body></html>';
   return new Response(request.method==='HEAD'?null:html,{headers:{...noCache,'content-security-policy':"default-src 'none'; script-src 'nonce-"+nonce+"'; style-src 'nonce-"+nonce+"'; img-src 'self' data: blob: https:; media-src 'self' blob:; worker-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"}});
  }catch(e){const notFound=e?.message==='Unknown celebration'||e?.message==='No celebration';return new Response(notFound?'Célébration introuvable':'Données de préparation indisponibles',{status:notFound?404:503,headers:{'cache-control':'no-store'}});}
 }

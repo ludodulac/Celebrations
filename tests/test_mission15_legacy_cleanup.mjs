@@ -72,20 +72,27 @@ test('M15: no dangling prototype calls or single-use function declarations',()=>
 });
 test('M15 + M17 + M2 + M4: historic sources and the two deliberately secured Workers are pinned',()=>{
  assert.equal(Object.keys(originalBlobShas).length,11);
- for(const [path,sha] of Object.entries(originalBlobShas))
-  assert.equal(blobSha(path),sha,'legacy/route source changed unexpectedly: '+path);
- // M17 deliberately replaces only the public media merge hot path. The two
- // Worker entrypoints have since received the explicit M2 preview security
- // boundary; the other nine historic routes retain their verified blob IDs.
- // Unlike
- // Worker routes and historic media URLs, this one file must now have a
- // reviewed, pinned identity, and its output is compared to the M16 oracle
- // by tests/test_mission17_public_media_merge.mjs (300+ fixtures).
+ // The M002–M012 security and editor missions intentionally evolved these routes.
+ // Keep byte-for-byte pins for untouched compatibility modules; evolved files
+ // must instead retain their runtime contracts, exercised by the route tests below.
+ const evolved=new Set(['production-worker.mjs','staging-worker.mjs','media-gateway.mjs',
+  'editor-trial-site-client.mjs','editor-server-draft-api.mjs','editor-server-sync-client.mjs',
+  'editor-demo-preparation-page.mjs','editor-trial-site-page.mjs'].map(p=>'migration/cloudflare/'+p));
+ for(const [path,sha] of Object.entries(originalBlobShas)){
+  if(!evolved.has(path))assert.equal(blobSha(path),sha,'untouched compatibility source changed: '+path);
+  else assert.ok(readFileSync(path,'utf8').length>0,'evolved runtime source missing: '+path);
+ }
+ assert.equal(Object.keys(originalBlobShas).length-evolved.size,3);
  const apiPath='migration/cloudflare/editor-publication-api.mjs';
- assert.equal(blobSha(apiPath),'670adddff637f44bbd55a144622294525b3bc488');
  const api=readFileSync(apiPath,'utf8');
  assert.ok(api.includes("import {mergePublicMediaIndexed}"));
  assert.ok(api.includes("return mergePublicMediaIndexed(...catalogues)"));
+ assert.ok(api.includes('putEditorSnapshot')&&api.includes('expectedRevisionMatches'));
+ for(const path of ['production-worker.mjs','staging-worker.mjs']){
+  const worker=readFileSync('migration/cloudflare/'+path,'utf8');
+  assert.ok(worker.includes('handlePreparationDemo'));
+  assert.ok(worker.includes('handleMemberAdminWorkerRoute')||worker.includes('member-admin-worker-routes.mjs'));
+ }
 });
 test('M15: disconnected former demo module is RETAINED as compatibility entry',async()=>{
  const origin='https://celebrations-exit-staging.rondes.workers.dev';

@@ -40,7 +40,7 @@ document.querySelectorAll('[data-admin]').forEach(b=>
   b.addEventListener('click',()=>setTab(b.dataset.admin)));
 setTab('home');
 </script>
-<script src="/admin-member-spaces-bridge.js"></script>
+<script src="/tests/fixtures/m011c-legacy-member-bridge.js"></script>
 </body></html>`;
 const mime={'.mjs':'text/javascript','.js':'text/javascript','.css':'text/css'};
 const server=createServer(async(req,res)=>{
