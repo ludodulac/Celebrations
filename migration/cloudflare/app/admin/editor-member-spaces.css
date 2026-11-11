@@ -63,3 +63,12 @@
 .m019-categories .card{flex-direction:row;justify-content:flex-start;padding:.7rem}
 .m019-categories .card strong{flex:1 1 100%;text-align:left}
 .stage-editor.is-catalogue .topbar{display:none}
+
+/* Compact settings retain the existing card palette and 44px touch controls. */
+.m019-categories .card,.m019-member-list .card{min-height:0}
+.m019-categories details{margin-top:.8rem}.m019-categories summary{cursor:pointer;padding:.6rem}
+.m018-language-panel{max-width:100%;min-width:0}
+.m018-language-form,.m018-language-entry{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.5rem;align-items:center;margin:.7rem 0}
+.m018-language-entry{grid-template-columns:minmax(0,1fr) auto auto}
+.m018-language-panel input{width:100%;min-width:0;box-sizing:border-box;min-height:44px;padding:.5rem;border:1px solid #ccc;border-radius:8px;font:inherit}
+.m018-language-panel .btn{min-height:44px;padding:.5rem}

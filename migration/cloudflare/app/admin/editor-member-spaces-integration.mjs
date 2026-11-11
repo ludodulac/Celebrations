@@ -355,7 +355,7 @@ export function mountExistingEditorMemberSpaces(root,{
     for(const space of workspace.spaces(celebrationId)){
       const card=node('section');card.className='card member-spaces-card';card.append(node('h3',space.name));
       for(const page of space.pages){
-        const langs=snapshot.languageRegistry.languages.filter(l=>l.id==='fr'||page.translations?.[l.id]);
+        const langs=snapshot.languageRegistry.languages.filter(l=>l.id==='fr'?(page.blocks.length>0||!Object.keys(page.translations||{}).length):!!page.translations?.[l.id]);
         for(const lang of langs){
           const released=snapshot.pageReleases.some(p=>p.pageId===page.id);
           const row=node('div');row.className='member-spaces-version';
