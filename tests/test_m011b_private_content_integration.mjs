@@ -447,3 +447,24 @@ test('M014: public spaces require public page AND space policy, explicit publica
   assert.deepEqual(await releasedPublicSpaces(f.state,'41',f.env.DB),[]);
  }finally{f.close()}
 });
+
+test('M015: authorized public-style text with empty href/src survives sanitized private read',async()=>{
+  const f=await setup();
+  try{
+    f.approve();
+    f.state.published.drafts['41'].pages[0].blocks=[
+      {id:'sec',kind:'section',layout:'single',columns:[[
+        {id:'txt',kind:'text',text:'Texte sûr conservé',href:'',src:'',align:'left'},
+        {id:'unsafe',kind:'button',text:'Lien privé interdit',href:'/private/hidden'}
+      ],[]]}
+    ];
+    const r=await readPage(f);
+    assert.equal(r.status,200);
+    const body=await r.json();
+    assert.equal(body.blocks[0].columns[0].length,1);
+    assert.equal(body.blocks[0].columns[0][0].text,'Texte sûr conservé');
+    assert.equal(body.blocks[0].columns[0][0].href,undefined);
+    assert.equal(body.blocks[0].columns[0][0].src,undefined);
+    assert.doesNotMatch(JSON.stringify(body),/Lien privé interdit|\/private\/hidden/);
+  }finally{f.close()}
+});
