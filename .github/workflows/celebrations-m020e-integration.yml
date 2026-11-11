@@ -43,7 +43,8 @@ jobs:
             tests/test-m020c-media-upload.mjs \
             tests/test_m020d_member_brevo.mjs \
             tests/test_m018_final_functional_rules.mjs \
-            tests/test_m010a_explicit_private_identity.mjs
+            tests/test_m010a_explicit_private_identity.mjs \
+            tests/test_m020e_integrated_migrations.mjs
       - name: Confirm both additive migrations exist, no real Brevo credentials
         run: |
           test -s migration/cloudflare/d1-migrations/20261111_020b_category_abbreviation.sql
