@@ -32,11 +32,28 @@ async function readSession(db,raw,admin=false){
 }
 export async function authorize(request,env,admin=false){
  const bearer=request.headers.get("authorization")||"";
- if(!bearer.startsWith("Bearer "))return null;
- return readSession(env.DB,bearer.slice(7),admin);
+ if(bearer.startsWith("Bearer "))return readSession(env.DB,bearer.slice(7),admin);
+ if(admin)return null; // Never authenticate an administrator with a member cookie.
+ const cookie=(request.headers.get("cookie")||"").split(";").map(x=>x.trim())
+  .find(x=>x.startsWith("__Host-celebrations_member="));
+ const raw=cookie?.slice("__Host-celebrations_member=".length);
+ return typeof raw==="string"&&/^[a-f0-9]{64}$/.test(raw)?
+  readSession(env.DB,raw,false):null;
 }
 
 const validEmail=v=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)&&v.length<=254;
+// Prevent legacy self-registration from hijacking a NEW invitation with no
+// confirmed email ownership. When migration is not installed, legacy is intact.
+async function blockedInvitedRegistration(db,e){
+ try{
+  const row=await db.prepare("SELECT status FROM celebrations_member_invitation_bindings WHERE participant_email=?").bind(e).first();
+  return row?.status==='invited'||row?.status==='revoked';
+ }catch(err){
+  if(/no such table: celebrations_member_invitation_bindings/.test(String(err?.message||'')))return false;
+  throw err;
+ }
+}
+
 const questions=new Set(["first_school","memorable_teacher","childhood_book","childhood_game","memorable_trip_city","dream_destination","fictional_character","favorite_childhood_dish"]);
 const answer=v=>String(v||"").trim().toLocaleLowerCase("fr-FR").normalize("NFKC");
 async function blocked(db,key){
@@ -100,6 +117,7 @@ export async function handleAuth(request,env){
   }
   if(action==="participant_register_derived"){
    const e=email(b.email),q1=String(b.question_1||""),q2=String(b.question_2||"");
+   if(await blockedInvitedRegistration(env.DB,e))return result({ok:false,error:"Compte indisponible"},403);
    if(!validEmail(e)||!questions.has(q1)||!questions.has(q2)||q1===q2||
       !proof(b.password_proof)||!proof(b.answer_1_proof)||!proof(b.answer_2_proof)||
       !salt(b.password_salt)||!salt(b.answer_1_salt)||!salt(b.answer_2_salt))
@@ -137,8 +155,11 @@ export async function handleAuth(request,env){
    return result({ok:true});
   }
   if(action==="participant_status"){
-   const row=await env.DB.prepare("SELECT password_hash FROM celebrations_participants WHERE email=?").bind(email(b.email)).first();
-   return result({ok:true,authorized:!!row,registered:!!row?.password_hash});
+   const e=email(b.email);
+   const row=await env.DB.prepare("SELECT password_hash FROM celebrations_participants WHERE email=?").bind(e).first();
+   // A new pending invitation must not be exposed by the historic lookup.
+   const hidden=await blockedInvitedRegistration(env.DB,e);
+   return result({ok:true,authorized:!hidden&&!!row,registered:!hidden&&!!row?.password_hash});
   }
   if(action==="participant_login"){
    const e=email(b.email),password=String(b.password||"");
@@ -181,6 +202,7 @@ export async function handleAuth(request,env){
 
   if(action==="participant_register"){
    const e=email(b.email),password=String(b.password||""),q1=String(b.question_1||""),q2=String(b.question_2||""),a1=answer(b.answer_1),a2=answer(b.answer_2);
+   if(await blockedInvitedRegistration(env.DB,e))return result({ok:false,error:"Compte indisponible"},403);
    if(!validEmail(e)||password.length<8||password.length>256||!questions.has(q1)||!questions.has(q2)||q1===q2||a1.length<2||a2.length<2)return result({ok:false,error:"Inscription invalide"},400);
    if(await blocked(env.DB,"register:"+e))return result({ok:false,error:"Réessayez plus tard"},429);
    const ps=token(),s1=token(),s2=token();
