@@ -31,7 +31,45 @@ export function mountExistingEditorMemberSpaces(root,{
   let workspace=newWorkspace(canonical?catalogue:celebrations);
   let snapshot=null,busy=false,needsReload=false,epoch=0;
   const ready=()=>canonical&&isConnected()&&snapshot!==null&&!needsReload&&!busy;
-  let celebrationId=selected(),memberMount=null,destroyed=false;
+  let celebrationId=selected(),memberMount=null,destroyed=false,memberTypes=[];
+  const activeTypes=()=>memberTypes.filter(t=>t.disabled!==true&&t.disabled!==1);
+  function accessChoice(policy,visibility){
+    if(visibility===SPACE_VISIBILITIES.PUBLIC)return 'PUBLIC';
+    if(policy?.mode===ACCESS_MODES.SELECTED_TYPES&&policy.typeIds?.length===1)
+      return 'CATEGORY:'+policy.typeIds[0];
+    return 'REGISTERED';
+  }
+  function accessPolicyFromChoice(value){
+    if(value==='PUBLIC')return {visibility:SPACE_VISIBILITIES.PUBLIC,
+      mode:ACCESS_MODES.PUBLIC,typeIds:[]};
+    if(value==='REGISTERED')return {visibility:SPACE_VISIBILITIES.PRIVATE,
+      mode:ACCESS_MODES.PUBLIC,typeIds:[]};
+    if(value.startsWith('CATEGORY:')){
+      const typeId=value.slice(9);
+      if(!activeTypes().some(t=>t.id===typeId))throw Error('Catégorie inconnue');
+      return {visibility:SPACE_VISIBILITIES.PRIVATE,
+        mode:ACCESS_MODES.SELECTED_TYPES,typeIds:[typeId]};
+    }
+    throw Error('Visibilité inconnue');
+  }
+  function accessOptions({policy,visibility}){
+    const select=node('select');
+    const value=accessChoice(policy,visibility);
+    for(const [key,title] of [['PUBLIC','Public'],['REGISTERED','Privé — Tous les inscrits'],
+      ...activeTypes().map(t=>['CATEGORY:'+t.id,'Privé — '+t.name])]){
+      const option=node('option',title);option.value=key;option.selected=key===value;
+      select.append(option);
+    }
+    return select;
+  }
+  async function reloadCategoryNames(){
+    if(!isConnected())return;
+    const raw=await transport({method:'GET',action:'snapshot',limit:1});
+    if(!raw?.ok)throw Error(raw?.error||'Catégories indisponibles');
+    const loaded=raw.data??raw.result??raw;
+    if(!Array.isArray(loaded.types))throw Error('Types non confirmés');
+    memberTypes=loaded.types;
+  }
   const container=node('section');container.className='admin-member-spaces-011c';
   const header=node('div');header.className='admin-view-head';
   header.append(node('h1','Membres et espaces'));
@@ -63,7 +101,14 @@ export function mountExistingEditorMemberSpaces(root,{
     spacesTab.classList.toggle('primary',showSpaces);
     peopleTab.setAttribute('aria-pressed',String(!showSpaces));
     spacesTab.setAttribute('aria-pressed',String(showSpaces));
-    if(showSpaces){renderSpaces();if(canonical&&isConnected()&&!snapshot&&!busy&&!needsReload)void loadCanonical();}
+    if(showSpaces){
+      renderSpaces();
+      if(canonical&&isConnected()){
+        void reloadCategoryNames().then(()=>{if(!destroyed&&!spaces.hidden)renderSpaces();})
+          .catch(e=>{if(!destroyed&&!spaces.hidden)renderSpaces('Catégories : '+e.message)});
+        if(!snapshot&&!busy&&!needsReload)void loadCanonical();
+      }
+    }
   }
   peopleTab.addEventListener('click',()=>activate(false));
   spacesTab.addEventListener('click',()=>activate(true));
