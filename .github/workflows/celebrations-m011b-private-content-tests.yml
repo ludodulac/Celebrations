@@ -1,0 +1,43 @@
+name: Celebrations M011-B private canonical read integration
+
+on:
+  push:
+    branches:
+      - feat/celebrations-m011b-private-content-server-integration-20261111
+  pull_request:
+    paths:
+      - 'migration/cloudflare/app/persistence/private-canonical-content.mjs'
+      - 'migration/cloudflare/app/application/private-content-read-service.mjs'
+      - 'tests/test_m011b_private_content_integration.mjs'
+      - '.github/workflows/celebrations-m011b-private-content-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  private-content-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax and isolated private-content SQLite/R2 tests
+        run: |
+          node --check migration/cloudflare/app/persistence/private-canonical-content.mjs
+          node --check migration/cloudflare/app/application/private-content-read-service.mjs
+          node --check tests/test_m011b_private_content_integration.mjs
+          node --test tests/test_m011b_private_content_integration.mjs
+      - name: Security regressions M002-M010
+        run: |
+          node --test \
+            tests/test_mission002_member_access.mjs \
+            tests/test_m005_celebration_spaces.mjs \
+            tests/test_m008b_contact_directory_d1.mjs \
+            tests/test_m008c_private_server_access.mjs \
+            tests/test_m009a_public_projection_security.mjs \
+            tests/test_m009c_public_media_api_security.mjs \
+            tests/test_m010a_explicit_private_identity.mjs \
+            tests/test_m010d_identity_admin_cross.mjs
