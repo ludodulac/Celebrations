@@ -3,7 +3,7 @@
 import {handleMediaAdmin} from "./media-admin-api.mjs";
 import {handleMedia} from "./media-gateway.mjs";
 import {handleLegacyLink} from "./legacy-link-router.mjs";
-import {handleAuth} from "./auth-api.mjs";
+import {handleAuth,authorize} from "./auth-api.mjs";
 import {handleSiteIdentity} from "./site-identity-api.mjs";
 import {handleAudience} from "./audience-api.mjs";
 import {handleSafeSave} from "./safe-save-api.mjs";
@@ -44,9 +44,15 @@ export default {
   // the owner's EXISTING editor PIN cookie. The member login still checks
   // its own participant session and server-side category/celebration grants.
   // This boundary is never active for official or read-only domains.
+  // Existing D1 admin calls deliberately omit the PIN cookie and send a
+  // short-lived bearer instead. Validate that bearer server-side before bypass.
+  // Raw bearer presence alone never opens the preproduction boundary.
+  const m021VerifiedAdmin=workingPreprod&&path.startsWith('/api/admin/')&&
+    request.headers.get('authorization')?.startsWith('Bearer ')&&
+    !!(await authorize(request,env,true));
   if(workingPreprod&&env.M021_PREPROD_ACCESS_GATE_ENABLED==='true'&&
      path!=='/api/editor-access'&&!['/admin','/admin.html'].includes(path)&&
-     !(await hasEditorAccess(request,env))){
+     !m021VerifiedAdmin&&!(await hasEditorAccess(request,env))){
     if((path==='/'||path==='/index.html')&&request.method==='GET')
      return Response.redirect(url.origin+'/admin',302);
     return new Response('Préproduction privée : code administrateur requis',{
