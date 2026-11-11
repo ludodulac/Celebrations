@@ -29,7 +29,7 @@ function ok(r,label){assert.equal(r.status,200,label+' status='+r.status+' error
 function event(name,obj){console.log('M018_EXISTING_PREPROD '+JSON.stringify({step:name,...obj}));}
 const browser=await chromium.launch({headless:true,...(process.env.M019_CHROME_CHANNEL?{channel:process.env.M019_CHROME_CHANNEL}:{})});
 try{
- const adminCtx=await browser.newContext({viewport:{width:1350,height:900}});
+ const adminCtx=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
  const admin=await adminCtx.newPage();
  admin.setDefaultTimeout(20000);
  const errs=[];admin.on('pageerror',e=>{errs.push(String(e.message||e).slice(0,160));console.log('M019_ADMIN_SCRIPT_ERROR '+String(e.message||e).slice(0,300))});
@@ -177,7 +177,7 @@ try{
  assert.equal((await get('/api/participant/space-page?pageId='+allPageIds[0]+'&lang=fr')).status,404);
  event('authorized_member_views',{one_category_only:true,
   unenrolled_denied:true,wrong_category_denied:true,language_correct:true});
- const visitCtx=await browser.newContext({viewport:{width:390,height:850}});
+ const visitCtx=await browser.newContext({viewport:{width:390,height:850},isMobile:true,hasTouch:true});
  const visitor=await visitCtx.newPage();
  const browserErrors=[];visitor.on('pageerror',e=>browserErrors.push(String(e.message||e).slice(0,140)));
  const first=await visitor.goto(origin+'/?celebration=90000001&lang=en',{waitUntil:'domcontentloaded',timeout:30000});

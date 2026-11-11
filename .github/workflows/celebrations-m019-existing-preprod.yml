@@ -65,6 +65,7 @@ jobs:
           node scripts/build-m019-editor-client.mjs --check
           node --check scripts/m019_existing_preprod_online.mjs
       - name: Rebuild SAME existing editor assets, no new site
+        if: ${{ !contains(github.event.head_commit.message, '[M019_CAPTURE_ONLY]') }}
         run: |
           python scripts/build_production_assets.py
           test -s production-public/index.html
@@ -72,8 +73,10 @@ jobs:
           ! grep -Eq '^\s*(route|routes|zone_id|custom_domain)\s*=' migration/cloudflare/wrangler.m018.existing-preprod.toml
           test "$(grep -c 'database_id = "3bb4108f-5ff8-4959-ba32-bd53f33156cb"' migration/cloudflare/wrangler.m018.existing-preprod.toml)" -eq 2
       - name: Install existing pinned Wrangler
+        if: ${{ !contains(github.event.head_commit.message, '[M019_CAPTURE_ONLY]') }}
         run: npm install --no-save --no-package-lock wrangler@4
       - name: Seed only FICTIONAL Gabriel and members in isolated M016 D1
+        if: ${{ !contains(github.event.head_commit.message, '[M019_CAPTURE_ONLY]') }}
         working-directory: migration/cloudflare
         run: |
           set -euo pipefail
@@ -85,6 +88,7 @@ jobs:
             --config wrangler.m018.existing-preprod.toml --file "$tmp"
           echo M018_M016_ISOLATED_ONLY_FAKE_SQL_PASS
       - name: Deploy changed code ONLY on original M016 Worker with secret preservation
+        if: ${{ !contains(github.event.head_commit.message, '[M019_CAPTURE_ONLY]') }}
         id: preprod-deploy
         working-directory: migration/cloudflare
         run: |
