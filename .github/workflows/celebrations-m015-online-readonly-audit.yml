@@ -131,3 +131,45 @@ jobs:
             }catch(e){console.log('CF_BUILDS '+JSON.stringify({label,error:e.name||'network_error'}));}
           }
           NODE
+
+      - name: Inspect new preproduction Worker reachability and security (read-only)
+        run: |
+          node --input-type=module <<'NODE'
+          const base='https://celebrations-m015-public-preprod.rondes.workers.dev',u=base+'/';
+          const account=process.env.CF_ACCOUNT_ID,token=process.env.CF_API_TOKEN;
+          for(const [label,method,path] of [
+            ['public','GET','/'],
+            ['programme','GET','/programme'],
+            ['admin_guard','GET','/admin'],
+            ['draft_guard','GET','/api/editor-open-draft'],
+            ['member_guard','GET','/api/admin/member-directory'],
+            ['write_guard','POST','/api/editor-publication']]){
+             try {
+              const response=await fetch(base+path,{
+                method,headers:method==='POST'?{'origin':base}:{},redirect:'manual',
+                signal:AbortSignal.timeout(18000)
+              });
+              console.log('PREPROD_AUDIT '+JSON.stringify({label,http_status:response.status,
+                content_type:response.headers.get('content-type'),
+                noindex:response.headers.get('x-robots-tag'),
+                server:response.headers.get('server'),
+                location:response.headers.get('location')}));
+             }catch(e){console.log('PREPROD_AUDIT '+JSON.stringify({label,error:e.name||'error'}));}
+          }
+          for(const path of ['settings','deployments','subdomain']){
+            try {
+              const res=await fetch('https://api.cloudflare.com/client/v4/accounts/'+account+
+                '/workers/scripts/celebrations-m015-public-preprod/'+path,{
+                headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(15000)
+              });
+              const data=await res.json().catch(()=>({}));
+              const result=data.result||{};
+              console.log('PREPROD_CONFIG '+JSON.stringify({path,status:res.status,
+                success:data.success,
+                enabled:result.enabled??null,
+                bindings:(result.bindings||[]).map(x=>({name:x.name,type:x.type})),
+                deployments:(result.deployments||[]).slice(0,1).map(x=>({id:x.id,
+                  versions:x.versions}))}));
+            }catch(e){console.log('PREPROD_CONFIG '+JSON.stringify({path,error:e.name||'error'}));}
+          }
+          NODE
