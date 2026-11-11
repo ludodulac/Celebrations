@@ -4,6 +4,7 @@ import {handleMediaAdmin} from "./media-admin-api.mjs";
 import {handleMedia} from "./media-gateway.mjs";
 import {handleLegacyLink} from "./legacy-link-router.mjs";
 import {handleAuth} from "./auth-api.mjs";
+import {handleSiteIdentity} from "./site-identity-api.mjs";
 import {handleAudience} from "./audience-api.mjs";
 import {handleSafeSave} from "./safe-save-api.mjs";
 import {handleAdmin} from "./admin-api.mjs";
@@ -126,6 +127,7 @@ export default {
     return handleTrialSite(new Request(viewUrl,request),env);
    }
   }
+  if(path==="/api/site-identity")return handleSiteIdentity(request,env);
   if(path==="/api/auth")return handleAuth(request,env);
   if(path==="/api/audience")return handleAudience(request,env);
   if(path==="/api/media-admin")return handleMediaAdmin(request,env);
