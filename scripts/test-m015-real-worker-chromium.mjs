@@ -130,6 +130,8 @@ try{
  await db.prepare('INSERT INTO celebrations_directory_private_space_enrollments(person_id,celebration_id,space_id) VALUES(?,?,?)').bind(personId,41,sid).run();
  const directList=await dispatch(request('/api/participant/space-pages?celebration=41',{method:'GET',token:'a'.repeat(64)}));
  console.log('M015_DIRECT_MEMBER_LIST',directList.status,await directList.text());
+ const directPage=await dispatch(request('/api/participant/space-page?pageId='+encodeURIComponent(pid),{method:'GET',token:'a'.repeat(64)}));
+ console.log('M015_DIRECT_MEMBER_PAGE',directPage.status,(await directPage.text()).slice(0,900));
  // RECETTE B — existing visitor, historical participant auth, real private APIs.
  const {context:memberContext,page:member}=await localBrowser(390);
  const memberResponse=await member.goto(ORIGIN+'/__editor/voir-le-site?celebration=41&page=member-area');
@@ -142,6 +144,8 @@ try{
  console.log('M015_MEMBER_LOGIN_DIAGNOSTIC',JSON.stringify({body:(await member.locator('#stage-main').innerText()).slice(0,400),responses:memberResponses,errors}));
  const entry=member.getByRole('button',{name:'Espace M015 · Page M015',exact:true});
  await entry.waitFor();await entry.click();
+ await member.waitForTimeout(500);
+ console.log('M015_MEMBER_AFTER_OPEN',JSON.stringify({body:(await member.locator('#stage-main').innerText()).slice(0,700),responses:memberResponses,errors}));
  await member.getByText('Texte M015 durable',{exact:true}).waitFor();
  // A live D1 revocation MUST clear the rendered list and the displayed content.
  await db.prepare('DELETE FROM celebrations_directory_person_types WHERE person_id=? AND type_id=?').bind(personId,'member-type:m015').run();
