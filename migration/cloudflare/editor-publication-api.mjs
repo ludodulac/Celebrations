@@ -337,6 +337,10 @@ export async function handleEditorPublication(request,env){
   if(!celebrationIdOk(id))return err('Célébration invalide',400);
   const {state}=await readEditorState(env.EDITOR_BUCKET);
   const snapshot=publicSnapshot(state,id);
+  if(snapshot.record){
+   const spaces=await releasedPublicSpaces(state,id,env.DB);
+   if(spaces.length)snapshot.record.spaces=spaces;
+  }
   // Public D1 records have their own historic storage catalogue; include them
   // once per request without exposing unpublished editor drafts or private rows.
   const historic=await publicHistoricalMedia(env.DB,state);
