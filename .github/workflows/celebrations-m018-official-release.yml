@@ -39,6 +39,7 @@ jobs:
           node --check migration/cloudflare/app/security/editor-route-policy.mjs
           node --check migration/cloudflare/app/admin/real-editor-member-spaces.mjs
           node scripts/build-m012b-member-spaces-inline.mjs --check
+          node scripts/build-m019-editor-client.mjs --check
           node --test tests/test_m018_official_pin_bridge.mjs \
             tests/test_m011a_member_admin_worker_routes.mjs \
             tests/test_m012a_editor_admin_session.mjs
@@ -70,7 +71,7 @@ jobs:
         run: |
           npm install --no-save --no-package-lock wrangler@4
           (cd migration/cloudflare && npx wrangler deploy --dry-run --config wrangler.m018.official.toml)
-          (cd migration/cloudflare && npx wrangler versions deploy "87dba010-c719-4a52-97c1-027a9c9de9b6@100%" --yes --dry-run --config wrangler.m018.official.toml)
+          (cd migration/cloudflare && npx wrangler versions deploy "d8c02e6f-9c01-4aef-8307-d67e072d85b7@100%" --yes --dry-run --config wrangler.m018.official.toml)
           echo M018_DEPLOY_AND_ROLLBACK_DRY_RUN_NO_PRODUCTION_CHANGE
       - name: Check actual official visitor page and admin link without submitting forms
         run: |
@@ -81,7 +82,7 @@ jobs:
   release-official-only-after-owner-approval:
     # Owner's explicit separate approval is required BEFORE pushing this marker.
     # Do not trigger from PRs, normal commits, automated retries or dry-run.
-    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M018_OWNER_APPROVED_PRODUCTION]') }}
+    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M019_OWNER_APPROVED_PRODUCTION]') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 65
     environment: celebrations-staging
@@ -145,7 +146,7 @@ jobs:
         run: |
           set -euo pipefail
           npx wrangler versions upload --config wrangler.m018.official.toml \
-            --message "M018 editor + membres, code historique conservé, sauvegarde indépendante"
+            --message "M019 administration simple, code historique et données conservés"
           node --input-type=module <<'NODE'
           import assert from 'node:assert/strict';
           import {readFileSync,appendFileSync} from 'node:fs';
@@ -168,7 +169,7 @@ jobs:
           test -n "$NEW_VERSION"
           npx wrangler versions deploy "${NEW_VERSION}@100%" --yes \
             --config wrangler.m018.official.toml \
-            --message "M018: mise à jour de l'administration sur domaine officiel"
+            --message "M019: administration des membres simplifiée sur domaine officiel"
       - name: Verify protected credentials, bindings, member flags, official traffic
         env:
           NEW_VERSION: ${{ steps.upload.outputs.id }}
@@ -201,7 +202,7 @@ jobs:
           const versions=j.result?.deployments?.[0]?.versions||[];
           assert.equal(versions.length,1);
           const active=versions[0].version_id;
-          const baseline='87dba010-c719-4a52-97c1-027a9c9de9b6';
+          const baseline='d8c02e6f-9c01-4aef-8307-d67e072d85b7';
           if(active!==baseline)assert.equal(active,process.env.NEW_VERSION,'Third-party deployment: never override');
           appendFileSync(process.env.GITHUB_OUTPUT,'should_rollback='+(active===baseline?'no':'yes')+'\n');
           console.log('M018_ROLLBACK_DECISION current_official_version='+active);
@@ -210,9 +211,9 @@ jobs:
         if: ${{ failure() && steps.rollback-check.outputs.should_rollback == 'yes' }}
         working-directory: migration/cloudflare
         run: |
-          npx wrangler versions deploy "87dba010-c719-4a52-97c1-027a9c9de9b6@100%" \
+          npx wrangler versions deploy "d8c02e6f-9c01-4aef-8307-d67e072d85b7@100%" \
             --yes --config wrangler.m018.official.toml \
-            --message "M018 rollback: restore previous production Worker after failed verification"
+            --message "M019 rollback: restore previous production Worker after failed verification"
       - name: Verify old Worker restored; keep additive D1 tables and all media untouched
         if: ${{ failure() && steps.rollback-check.outputs.should_rollback == 'yes' }}
         run: node scripts/m018_official_release_gate.mjs after-rollback
