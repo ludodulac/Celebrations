@@ -349,40 +349,22 @@ export function mountExistingEditorMemberSpaces(root,{
         ' · '+space.pages.length+' page(s) · mode '+space.accessPolicy.mode);
       const edit=node('form');edit.className='member-spaces-form';
       const title=field('text','Nom',120);title.value=space.name||'';
-      const visibility=node('select');
-      for(const [value,text] of [['PRIVATE','Privé'],['PUBLIC','Public']]){
-        const option=node('option',text);option.value=value;
-        option.selected=space.visibility===value;visibility.append(option);
-      }
-      const mode=node('select');
-      for(const [value,text] of [
-        [ACCESS_MODES.PUBLIC,'Invitation seule (sans type)'],
-        [ACCESS_MODES.ALL_PRIVATE_TYPES,'Tout type de membre privé'],
-        [ACCESS_MODES.SELECTED_TYPES,'Types sélectionnés']]){
-        const option=node('option',text);option.value=value;
-        option.selected=space.accessPolicy.mode===value;mode.append(option);
-      }
-      const types=field('text','member-type:choir, member-type:team',500);
-      types.value=(space.accessPolicy.typeIds||[]).join(', ');
-      const updateControls=()=>{
-        mode.disabled=visibility.value===SPACE_VISIBILITIES.PUBLIC;
-        types.disabled=mode.disabled||mode.value!==ACCESS_MODES.SELECTED_TYPES;
-      };
-      visibility.addEventListener('change',updateControls);
-      mode.addEventListener('change',updateControls);updateControls();
-      const saveSpace=button('Préparer ces paramètres');
-      if(canonical){visibility.disabled=!space.id.startsWith('draft-space:')||!ready();saveSpace.disabled=!ready();}
-      saveSpace.type='submit';
-      edit.append(label('Nom',title),label('Visibilité',visibility),
-        label('Politique M002',mode),label('Identifiants des types autorisés',types),saveSpace);
+      const access=accessOptions({policy:space.accessPolicy,visibility:space.visibility});
+      const saveSpace=button('Préparer ces choix');saveSpace.type='submit';
+      if(canonical)saveSpace.disabled=!ready();
+      edit.append(label('Nom',title),label('Public / Privé et catégorie',access),saveSpace);
+      if(space.visibility==='PRIVATE'&&space.accessScope!=='CELEBRATION')
+        edit.append(node('small','Espace historique : inscription individuelle conservée.'));
       edit.addEventListener('submit',event=>{
         event.preventDefault();if(canonical&&!ready())return;
-        try {
-          const ids=types.value.split(',').map(s=>s.trim()).filter(Boolean);
-          workspace.updateSpace(celebrationId,space.id,{name:title.value,
-            visibility:visibility.value,mode:mode.value,typeIds:ids});
-          renderSpaces('Politique modifiée dans le brouillon seulement.');
-        }catch(e){renderSpaces('Politique refusée : '+e.message);}
+        try{
+          const selected=accessPolicyFromChoice(access.value,space.accessPolicy);
+          workspace.updateSpace(celebrationId,space.id,{
+            name:title.value,visibility:selected.visibility,mode:selected.mode,
+            typeIds:selected.typeIds
+          });
+          renderSpaces('Visibilité préparée. Enregistrez les espaces.');
+        }catch(e){renderSpaces('Choix refusé : '+e.message)}
       });
       const pages=node('div');pages.className='member-spaces-pages';
       pages.append(node('h4','Pages de cet espace'));
