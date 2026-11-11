@@ -21,3 +21,24 @@ jobs:
         with: {node-version: '22'}
       - name: Read only exact Worker, official domain, bindings and D1 table NAMES
         run: node scripts/m018_official_readonly.mjs
+
+  test-official-pin-and-member-transport:
+    if: ${{ contains(github.event.head_commit.message, '[M018_TARGETED_TEST]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Check only changed editor, D1 routing, and deterministic inline bundle
+        run: |
+          node --check migration/cloudflare/auth-api.mjs
+          node --check migration/cloudflare/production-worker.mjs
+          node --check migration/cloudflare/app/security/member-admin-worker-routes.mjs
+          node --check migration/cloudflare/app/security/editor-route-policy.mjs
+          node --check migration/cloudflare/app/admin/real-editor-member-spaces.mjs
+          node scripts/build-m012b-member-spaces-inline.mjs --check
+          node --test tests/test_m018_official_pin_bridge.mjs \
+            tests/test_m011a_member_admin_worker_routes.mjs \
+            tests/test_m012a_editor_admin_session.mjs
