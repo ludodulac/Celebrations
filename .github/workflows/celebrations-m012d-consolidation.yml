@@ -84,7 +84,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Execute all historical tests, compare exact failures against base
+      - name: Execute all historical tests, require all passing and report base failures
         shell: bash
         run: |
           set -euo pipefail
@@ -102,5 +102,6 @@ jobs:
             cat "$RUNNER_TEMP/$label.failures"
             grep -A22 '^not ok ' "$RUNNER_TEMP/$label.tap" || true
           done
-          diff -u "$RUNNER_TEMP/base.failures" "$RUNNER_TEMP/head.failures"
-          echo M012D_NO_NEW_HISTORICAL_FAILURE_NAMES
+          test "$head_rc" -eq 0
+          test ! -s "$RUNNER_TEMP/head.failures"
+          echo M012D_HISTORICAL_ALL_PASS
