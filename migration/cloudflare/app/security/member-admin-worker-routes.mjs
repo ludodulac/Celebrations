@@ -3,6 +3,7 @@
 // Uses the historical D1-backed admin/participant bearer sessions; the site-editor
 // cookie and browser-supplied roles are NEVER accepted as API authorization.
 import {authorize,handleEditorAdminSession} from '../../auth-api.mjs';
+import {handleMemberAccount} from '../../member-account-api.mjs';
 import {hasEditorAccess} from '../../editor-site-access.mjs';
 import {
   handleMemberDirectoryAdmin,handleMemberIdentityClaim
@@ -13,6 +14,7 @@ import {createCanonicalPrivateLoaders} from '../persistence/private-canonical-co
 import {mayUseIsolatedMemberApi} from './editor-route-policy.mjs';
 
 export const MEMBER_DIRECTORY_ADMIN_PATH='/api/admin/member-directory';
+export const MEMBER_ACCOUNT_PATH='/api/member-account';
 export const PRIVATE_EDITOR_PATH='/api/admin/private-editor';
 export const EDITOR_ADMIN_SESSION_PATH='/api/admin/editor-session';
 export const MEMBER_IDENTITY_CLAIM_PATH='/api/participant/identity-claim';
@@ -32,7 +34,7 @@ function denied(status,message) {
   });
 }
 export function isMemberAdminWorkerRoute(path) {
-  return path===MEMBER_DIRECTORY_ADMIN_PATH || path===MEMBER_IDENTITY_CLAIM_PATH || path===EDITOR_ADMIN_SESSION_PATH || path===PRIVATE_EDITOR_PATH || path===MEMBER_PAGE_PATH || path===MEMBER_PAGES_PATH;
+  return path===MEMBER_ACCOUNT_PATH || path===MEMBER_DIRECTORY_ADMIN_PATH || path===MEMBER_IDENTITY_CLAIM_PATH || path===EDITOR_ADMIN_SESSION_PATH || path===PRIVATE_EDITOR_PATH || path===MEMBER_PAGE_PATH || path===MEMBER_PAGES_PATH;
 }
 function acceptedOrigin(request,url) {
   const origin=request.headers.get('origin');
@@ -83,6 +85,7 @@ export async function routeMemberAdminWorkerRequest(request,env,{
      typeof env.DB.batch!=='function')
     return denied(503,'Service indisponible');
   try {
+    if(url.pathname===MEMBER_ACCOUNT_PATH)return await handleMemberAccount(request,env);
     if(editorSession)return await handleEditorAdminSession(request,env,{hasEditorAccess});
     if(privateEditor)return await handlePrivateEditorCommand(request,env);
     // Check the correct historical session before service invocation; the

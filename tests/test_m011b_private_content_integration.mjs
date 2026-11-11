@@ -10,7 +10,7 @@ import {EDITOR_SNAPSHOT_KEY}
 import {createCanonicalPrivateLoaders}
   from '../migration/cloudflare/app/persistence/private-canonical-content.mjs';
 import {handleCanonicalPrivatePage,handleCanonicalPrivateMedia,
-  handleCanonicalPrivateList,listAuthorizedPrivatePages}
+  handleCanonicalPrivateList,handleCanonicalPrivateListAll,listAuthorizedPrivatePages}
   from '../migration/cloudflare/app/application/private-content-read-service.mjs';
 import {duplicateCelebration}
   from '../migration/cloudflare/app/domain/celebration-spaces.mjs';
@@ -201,7 +201,7 @@ test('M011-B: published English changes content, never identity/ACL; draft trans
     blocks:[{kind:'text',text:'LEAK_FROM_UNRELEASED'}]
   };
   r=await readPage(f,ROOT,req(),'en');
-  assert.equal(r.status,404,'Unavailable selected private language must not fall back');
+  assert.equal(r.status,200,'M020: authorized missing translation uses the published French page');
   assert.doesNotMatch(await r.text(),/LEAK_FROM_UNRELEASED|UNRELEASED_EDITOR/);
   f.db.prepare('UPDATE celebrations_directory_member_types SET disabled=1 WHERE id=?').run(TYPE);
   assert.equal((await readPage(f,ROOT,req(),'en')).status,404,
@@ -466,4 +466,39 @@ test('M015: authorized public-style text with empty href/src survives sanitized 
     assert.equal(body.blocks[0].columns[0][0].src,undefined);
     assert.doesNotMatch(JSON.stringify(body),/Lien privé interdit|\/private\/hidden/);
   }finally{f.close()}
+});
+
+test('M020-A: authorized French fallback preserves media while missing Arabic never expands access',async()=>{
+ const f=await setup();
+ try{
+  f.approve();
+  const french=await (await readPage(f)).json();
+  const arabic=await (await readPage(f,ROOT,req(),'ar')).json();
+  assert.equal(arabic.languageId,'fr');assert.equal(arabic.requestedLanguageId,'ar');
+  assert.equal(arabic.usedFallback,true);assert.deepEqual(arabic.blocks,french.blocks);
+  assert.equal(arabic.name,french.name);
+  assert.deepEqual(arabic.availableLanguageIds,['fr','en']);
+  delete f.state.published.privateTranslationReleases[ROOT];
+  const list=await listAuthorizedPrivatePages(req(),f.env,{celebrationId:'41',languageId:'ar'});
+  assert.ok(list.every(p=>p.languageId==='fr'&&p.requestedLanguageId==='ar'));
+  assert.ok(list.every(p=>!p.availableLanguageIds.includes('en')),'draft English never advertises a language');
+  f.db.prepare('DELETE FROM celebrations_directory_person_types WHERE person_id=?').run(P);
+  assert.equal((await readPage(f,ROOT,req(),'ar')).status,404);
+  assert.deepEqual(await listAuthorizedPrivatePages(req(),f.env,{celebrationId:'41',languageId:'ar'}),[]);
+ }finally{f.close()}
+});
+
+test('M020-A: signed-in selector languages come only from pages this participant can access',async()=>{
+ const f=await setup();
+ try{
+  assert.equal((await handleCanonicalPrivateListAll(req(),f.env)).status,404);
+  f.approve();
+  let response=await handleCanonicalPrivateListAll(req(),f.env,{languageId:'ar'});
+  assert.equal(response.status,200);let body=await response.json();
+  assert.deepEqual(body.languages.map(l=>l.id),['fr','en']);
+  assert.ok(body.pages.every(p=>p.languageId==='fr'&&p.requestedLanguageId==='ar'));
+  f.db.prepare('DELETE FROM celebrations_directory_person_types WHERE person_id=?').run(P);
+  response=await handleCanonicalPrivateListAll(req(),f.env,{languageId:'ar'});
+  body=await response.json();assert.deepEqual(body,{pages:[],languages:[]});
+ }finally{f.close()}
 });

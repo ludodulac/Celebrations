@@ -1,0 +1,37 @@
+name: Célébrations M020-A visitor languages
+on:
+  push:
+    branches: [feat/m020a-languages-visitors-20261111]
+  pull_request:
+    branches: [feat/celebrations-m018-official-release-prep-20261111]
+    paths:
+      - 'migration/cloudflare/app/domain/*language*'
+      - 'migration/cloudflare/app/domain/*localization*'
+      - 'migration/cloudflare/app/domain/visitor-ui-translations.mjs'
+      - 'migration/cloudflare/editor-trial-site-*.mjs'
+      - 'tests/test_m020a_visitor_languages.mjs'
+      - 'scripts/test-m020a-languages-browser.mjs'
+permissions:
+  contents: read
+jobs:
+  languages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Targeted language, publication and permission tests
+        run: >-
+          node --test tests/test_m003_localization.mjs tests/test_m004_page_localization.mjs
+          tests/test_m006_public_language_navigation.mjs tests/test_m008a_public_language_integration.mjs
+          tests/test_m018b_visitor_language_navigation.mjs tests/test_m006_language_selector.mjs
+          tests/test_m011b_private_content_integration.mjs tests/test_m020a_visitor_languages.mjs
+          tests/test_m012c_private_editor_publication.mjs
+      - run: node scripts/build-m012b-member-spaces-inline.mjs --check
+      - name: Install isolated browser test dependency
+        run: npm install --no-save --package-lock=false playwright
+      - run: npx playwright install --with-deps chromium
+      - name: Desktop and Android-size browser checks (all requests intercepted)
+        run: node scripts/test-m020a-languages-browser.mjs

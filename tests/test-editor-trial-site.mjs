@@ -117,11 +117,11 @@ test('Visitor dropdown always lists Accueil, Célébrations and Médiathèque g�
   {id:'neutral-page-test-1',name:'Notre histoire',group:'page'},
   {id:'neutral-page-test-2',name:'Équipe',group:'page'}
  ];
- const output=new Function('el','generalPages','pages','slugOf','active','listing','isGeneralGallery','make','go',
+ const output=new Function('el','generalPages','pages','slugOf','active','listing','isGeneralGallery','make','go','t',
   nav+';return general.children.map(item=>item.label);')(
    id=>{assert.equal(id,'general-navigation');return general},
    ()=>({homeId:'neutral-accueil-general'}),mockPages,
-   p=>p.id,'neutral-accueil-general',false,false,make,()=>{}
+   p=>p.id,'neutral-accueil-general',false,false,make,()=>{},key=>key
   );
  assert.deepEqual(output,['⌂ Accueil','✧ Célébrations','▧ Médiathèque générale','Notre histoire','Équipe']);
 });

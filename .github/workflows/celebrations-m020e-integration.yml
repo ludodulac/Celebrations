@@ -1,0 +1,80 @@
+name: "Célébrations M020-E — consolidation A+B+C+D, tests isolés"
+on:
+  push:
+    branches: [feat/m020e-consolidation-abcd-20261111]
+  pull_request:
+    branches: [feat/celebrations-m018-official-release-prep-20261111]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  combined-code-and-security:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax of every shared integration point
+        run: |
+          node --check migration/cloudflare/app/admin/real-editor-member-spaces-inline.mjs
+          node --check migration/cloudflare/editor-demo-client.mjs
+          node --check migration/cloudflare/editor-demo-client-source.js
+          node --check migration/cloudflare/editor-trial-site-client.mjs
+          node --check migration/cloudflare/editor-publication-api.mjs
+          node --check migration/cloudflare/app/application/private-editor-publication-service.mjs
+          node --check migration/cloudflare/app/admin/member-directory-admin-integration.mjs
+      - name: Generated editor must match source (never hide a drift)
+        run: |
+          node scripts/build-m012b-member-spaces-inline.mjs --check
+          node scripts/build-m019-editor-client.mjs --check
+      - name: Four construction regressions and private security
+        run: |
+          node --test \
+            tests/test_m020a_visitor_languages.mjs \
+            tests/test_m010b_member_admin_final.mjs \
+            tests/test_m012c_private_editor_publication.mjs \
+            tests/test_m018c_admin_finalization.mjs \
+            tests/test_m011b_private_content_integration.mjs \
+            tests/test-m020c-media-range.mjs \
+            tests/test-m020c-media-upload.mjs \
+            tests/test_m020d_member_brevo.mjs \
+            tests/test_m018_final_functional_rules.mjs \
+            tests/test_m010a_explicit_private_identity.mjs \
+            tests/test_m020e_integrated_migrations.mjs
+      - name: Confirm both additive migrations exist, no real Brevo credentials
+        run: |
+          test -s migration/cloudflare/d1-migrations/20261111_020b_category_abbreviation.sql
+          test -s migration/cloudflare/d1-migrations/20261111_020d_member_brevo.sql
+          echo "PREVIEW_ONLY: no Cloudflare calls, no real email, no official changes"
+  browser-smartphone-fake-data:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install isolated Chromium and test Worker dependencies
+        run: |
+          npm install --no-save --package-lock=false miniflare esbuild playwright
+          npx playwright install --with-deps chromium
+      - name: 390px administration, categories, versions, duplicated drafts
+        run: node scripts/test-m020b-editor-chromium.mjs
+      - name: Eight languages and public French fallback
+        run: node scripts/test-m020a-languages-browser.mjs
+      - name: Multimedia previews, seek and server-confirmed uploads
+        run: node scripts/test-m020c-media-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: m020e-smartphone-390px
+          path: |
+            /tmp/m020b-smartphone.png
+            /tmp/m020c-*.png
+          if-no-files-found: ignore

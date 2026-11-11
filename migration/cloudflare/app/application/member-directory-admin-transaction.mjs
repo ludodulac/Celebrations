@@ -10,6 +10,7 @@ import {createMemberType, isMemberTypeId, SPACE_VISIBILITIES}
 import {createCelebrationSpace} from '../domain/celebration-spaces.mjs';
 import {toD1CelebrationId} from '../persistence/contact-directory-d1.mjs';
 
+const abbreviation=value=>{if(typeof value!=='string'||!/^[A-Z0-9][A-Z0-9.-]{0,15}$/.test(value))throw new TypeError('Sigle invalide (1 à 16 lettres ou chiffres)');return value;};
 const P='celebrations_directory_people';
 const T='celebrations_directory_member_types';
 const L='celebrations_directory_person_types';
@@ -134,7 +135,7 @@ export async function commitAuditedDirectoryAdmin(db,directory,actor,b,
   if(b.action==='create_type') {
     const t=createMemberType({id:b.typeId||'member-type:'+crypto.randomUUID(),name:b.name});
     await created(db,actor,b.action,t.id,
-      stmt(db,`INSERT INTO ${T}(id,name) VALUES(?,?)`,t.id,t.name));
+      b.abbreviation!==undefined?stmt(db,`INSERT INTO ${T}(id,name,abbreviation) VALUES(?,?,?)`,t.id,t.name,abbreviation(b.abbreviation)):stmt(db,`INSERT INTO ${T}(id,name) VALUES(?,?)`,t.id,t.name));
     return {result:{...t,disabled:false},audited:true};
   }
   target=b.action==='rename_type'||b.action==='disable_type'?
@@ -174,8 +175,7 @@ export async function commitAuditedDirectoryAdmin(db,directory,actor,b,
         WHERE id=? AND name=? AND disabled=?)`,
         [target,old.name,Number(old.disabled)],
         nonce=>b.action==='rename_type'?
-          [op(`UPDATE ${T} SET name=? WHERE id=? AND ${marker(target,nonce)}`,
-            updated.name,target,target,nonce)]:
+          [b.abbreviation!==undefined?op(`UPDATE ${T} SET name=?,abbreviation=? WHERE id=? AND ${marker(target,nonce)}`,updated.name,abbreviation(b.abbreviation),target,target,nonce):op(`UPDATE ${T} SET name=? WHERE id=? AND ${marker(target,nonce)}`,updated.name,target,target,nonce)]:
           [op(`UPDATE ${T} SET disabled=? WHERE id=? AND ${marker(target,nonce)}`,
             Number(b.disabled),target,target,nonce)]);
       result=(await directory.getMemberTypes()).find(t=>t.id===target);break;

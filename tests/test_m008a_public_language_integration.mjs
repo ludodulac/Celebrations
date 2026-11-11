@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Script} from 'node:vm';
-import {createLanguageRegistry,addLanguage,setLanguageActive,setDefaultLanguage}
+import {createPreparedLanguageRegistry as createLanguageRegistry,addLanguage,setLanguageActive,setDefaultLanguage}
  from '../migration/cloudflare/app/domain/editor-localization.mjs';
 import {publicSnapshot,handleEditorPublication,readEditorState}
  from '../migration/cloudflare/editor-publication-api.mjs';
@@ -15,8 +15,7 @@ const origin='https://www.ronde-des-archanges-universelle.eu';
 const footerId='neutral-'+'a'.repeat(36);
 const page=(id,name,group='page',extra={})=>({id,name,group,visibility:'published',
  blocks:[{id:1,kind:'text',text:'FR '+name}],...extra});
-const registry=()=>setLanguageActive(addLanguage(createLanguageRegistry(),
- {id:'en',name:'English',flag:'🇬🇧'}),'en',true);
+const registry=()=>createLanguageRegistry();
 const state=()=>{
  const shared={homeId:'neutral-accueil-general',pages:[
   page('neutral-accueil-general','Accueil'),
@@ -42,8 +41,8 @@ test('M008-A: French public site is byte-stable when no release exists',()=>{
  const p=projected(s,'en');
  assert.deepEqual(p.shared.pages.map(x=>x.name),['Accueil','Mentions légales']);
  assert.equal(p.record.pages[0].name,'Mercredi');
- assert.deepEqual(p.publicLanguage.options.map(x=>x.id),['fr']);
- assert.equal(p.publicLanguage.selectedLanguageId,'fr');
+ assert.deepEqual(p.publicLanguage.options,[]);
+ assert.equal(p.publicLanguage.selectedLanguageId,'en');
  assert.equal(JSON.stringify(p).includes('Hello public'),false);
  assert.equal(JSON.stringify(s),before,'public projection must not modify R2 state');
 });
@@ -92,15 +91,15 @@ test('M008-A: invalid or unpublished releases cannot inject metadata, hidden pag
  assert.equal(p.record.pages[0].name,'Mercredi');
 });
 
-test('M008-A: missing translation falls back to French; disabled source fails closed',()=>{
+test('M008-A: missing translation falls back to French; prepared French remains available without manual activation',()=>{
  const s=state();publishLanguageCommand(s,s.published,{kind:'language-registry'});
  assert.equal(projected(s).shared.pages[0].name,'Accueil');
  let modified=setDefaultLanguage(registry(),'en');
  modified=setLanguageActive(modified,'fr',false);
  s.published.languageRegistry=modified;
  const p=projected(s);
- assert.deepEqual(p.shared.pages,[]);
- assert.deepEqual(p.record.pages,[]);
+ assert.equal(p.shared.pages[0].name,'Accueil');
+ assert.equal(p.record.pages[0].name,'Mercredi');
 });
 
 test('M008-A: withdrawing one variant leaves other releases and private drafts untouched',()=>{
@@ -167,4 +166,22 @@ test('M008-A HTTP: anonymous writes forbidden, explicit POST publishes and GET r
  assert.equal(JSON.stringify(payload).includes('French private'),false);
  assert.equal((await readEditorState(bucket)).state.version,3);
  assert.equal((await handleEditorPublication(req(translation,auth),env)).status,409);
+});
+
+test('M020-A HTTP: homepage discovers other public celebrations, excludes private/hidden releases',async()=>{
+ const s=state();s.published.translationReleases={};
+ const other='102',id='mercredi-102';
+ s.published.drafts[other]={pages:[page(id,'Autre journée','celebration')]};
+ s.published.translationReleases[id]={pageId:id,publication:'published',variants:{
+  es:{name:'Día publicado',blocks:[{kind:'text',text:'PUBLICADO'}]}}};
+ const bucket=new Bucket(s),env={EDITOR_BUCKET:bucket};
+ const get=()=>handleEditorPublication(new Request(origin+'/api/editor-publication?celebration=101'),env);
+ let result=await (await get()).json();
+ assert.deepEqual(result.publicLanguage.options.map(l=>l.id),['fr','es']);
+ assert.doesNotMatch(JSON.stringify(result),/Día publicado|PUBLICADO/,'discovery does not serialize other pages');
+ for(const change of [{celebrationVisibility:{'102':'hidden'}},
+  {celebrationVisibility:{},celebrationAccessPolicies:{'102':{mode:'ALL_PRIVATE_TYPES'}}}]){
+  Object.assign(s.published,change);bucket.value=JSON.stringify(s);
+  result=await (await get()).json();assert.deepEqual(result.publicLanguage.options,[]);
+ }
 });
