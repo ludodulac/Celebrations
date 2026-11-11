@@ -214,3 +214,26 @@ jobs:
         run: node scripts/m018_official_release_gate.mjs after-rollback
 
 # Owner-approval marker is deliberately ABSENT; dry-run only.
+
+  verify-final-functional-rules:
+    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M018_RULES_TEST]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Syntax, original editor inline bundle and only affected functional contracts
+        run: |
+          node --check migration/cloudflare/editor-demo-client.mjs
+          node --check migration/cloudflare/editor-trial-site-client.mjs
+          node --check migration/cloudflare/editor-publication-api.mjs
+          node --check migration/cloudflare/app/application/private-editor-publication-service.mjs
+          node --check migration/cloudflare/app/application/private-content-read-service.mjs
+          node scripts/build-m012b-member-spaces-inline.mjs --check
+          node --test tests/test_m018_final_functional_rules.mjs \
+            tests/test_m018_official_pin_bridge.mjs \
+            tests/test_m011b_private_content_integration.mjs \
+            tests/test_m012c_private_editor_publication.mjs \
+            tests/test_m006_public_language_navigation.mjs
