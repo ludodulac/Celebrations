@@ -227,21 +227,38 @@ export async function loadSevenStageContent(env,selectedId,{publicOnly=false,pub
   const visibility=pub?.celebrationVisibility||{};
   const publicCelebration=c=>{
    const status=String(c.status||'').toLowerCase();
-   return !['draft','hidden','private','restricted'].includes(status)&&
+   // One canonical celebration may have private category+language variants.
+   const access=pub?.celebrationAccessPolicies?.[String(c.id)];
+   return (!access||access.mode==='PUBLIC') &&
+    !['draft','hidden','private','restricted'].includes(status)&&
     !['draft','hidden','private','restricted'].includes(String(visibility[c.id]||'').toLowerCase());
   };
-  const celebrations=publicOnly?allCelebrations.filter(publicCelebration)
-   .map(c=>({id:c.id,archangel:c.archangel,year:c.year})):allCelebrations;
-  const allowedIds=new Set(celebrations.map(c=>String(c.id)));
+  const publicRows=publicOnly?allCelebrations.filter(publicCelebration):allCelebrations;
+  // A published PRIVATE celebration may advertise its name, but NEVER its pages.
+  // Its explicit visibility must be "published"; hidden/draft names remain secret.
+  const privateMenuRows=publicOnly?allCelebrations.filter(c=>
+    visibility[String(c.id)]==='published'&&
+    !['draft','hidden'].includes(String(c.status||'').toLowerCase())&&
+    ['ALL_PRIVATE_TYPES','SELECTED_TYPES'].includes(
+      pub?.celebrationAccessPolicies?.[String(c.id)]?.mode)): [];
+  const celebrations=publicOnly?[
+    ...publicRows.map(c=>({id:c.id,archangel:c.archangel,year:c.year})),
+    ...privateMenuRows.map(c=>({id:c.id,archangel:c.archangel,year:c.year,titleOnly:true}))
+  ]:allCelebrations;
+  // A label in the public menu is NOT a grant to select that celebration.
+  const allowedIds=new Set(publicRows.map(c=>String(c.id)));
   const selected=selectedId;
   const planned=plannedCelebration(selected);
   if(publicOnly&&planned){
    const released=pub?.plans?.find(p=>String(p.id)===String(selected)&&eligiblePublicPlan(p));
-   if(!released||visibility[selected]&&visibility[selected]!=='published')
+   const access=pub?.celebrationAccessPolicies?.[String(selected)];
+   if(!released||(access&&access.mode!=='PUBLIC')||
+      visibility[selected]&&visibility[selected]!=='published')
     throw new Error('Unknown celebration');
   }
   if(selected&&!allowedIds.has(String(selected))&&!planned)throw new Error('Unknown celebration');
-  const celebration=planned?.celebration||celebrations.find(c=>String(c.id)===(selected||'101'))||celebrations[0];
+  const available=publicOnly?publicRows:allCelebrations;
+  const celebration=planned?.celebration||available.find(c=>String(c.id)===(selected||'101'))||available[0];
   if(!celebration)throw new Error('No celebration');
   if(planned){
    const releasedIds=new Set((pub?.drafts?.[String(celebration.id)]?.pages||[])
@@ -256,11 +273,15 @@ export async function loadSevenStageContent(env,selectedId,{publicOnly=false,pub
   const steps=await rows(env.DB,'SELECT * FROM celebrations_steps WHERE celebration_id=? ORDER BY sort_order,id',celebration.id);
   // Historic D1 public steps may not republish a deliberately hidden page.
   const rawEditorPages=publishedState?.drafts?.[String(celebration.id)]?.pages||[];
-  const releasedIds=new Set((pub?.drafts?.[String(celebration.id)]?.pages||[])
-   .filter(eligiblePublicPage).map(p=>p.id));
-  const hiddenIds=new Set(publicOnly?rawEditorPages.filter(p=>
-   ['hidden','draft','private'].includes(String(p.visibility||'').toLowerCase())&&
-   !releasedIds.has(p.id)).map(p=>p.id):[]);
+  const publishedEditorPages=pub?.drafts?.[String(celebration.id)]?.pages||[];
+  const releasedIds=new Set(publishedEditorPages.filter(eligiblePublicPage).map(p=>p.id));
+  // Historical D1 stages are NOT allowed to bypass a restricted page policy.
+  // A published page with private ACL must be withheld even if D1 holds text.
+  const hiddenIds=new Set(publicOnly?[...rawEditorPages,...publishedEditorPages]
+   .filter(p=>p&&typeof p.id==='string'&&(
+     p.accessPolicy?.mode&&p.accessPolicy.mode!=='PUBLIC'||
+     ['hidden','draft','private'].includes(String(p.visibility||'').toLowerCase())&&
+     !releasedIds.has(p.id))).map(p=>p.id):[]);
   const stageOf=record=>STAGES.find(stage=>
    clean(record.label)===clean(stage.label)||
    (stage.legacyLabel&&clean(record.label)===clean(stage.legacyLabel))||
@@ -341,7 +362,7 @@ export async function handlePreparationDemo(request,env){
   const nonce=Array.from(crypto.getRandomValues(new Uint8Array(16)),v=>v.toString(16).padStart(2,'0')).join('');
   const choices=celebrations.map(c=>'<option value="'+escapeHtml(c.id)+'"'+(String(c.id)===String(celebration.id)?' selected':'')+'>'+escapeHtml(c.archangel+' '+(c.year||''))+'</option>').join('')+(plannedCelebration(String(celebration.id))?'<option value="'+escapeHtml(celebration.id)+'" selected>'+escapeHtml(celebration.archangel+' · '+celebration.start_date+' (brouillon)')+'</option>':'');
   const html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Pages de la célébration — atelier Célébrations</title><style nonce="'+nonce+'">'+DEMO_CSS+'</style></head><body>'+
-  '<div class="shell stage-editor"><aside class="rail"><div class="brand"><div class="mark">✦</div><div><strong>Administration</strong></div></div><nav aria-label="Navigation"><button class="navbtn" data-tab="pages">▤ Pages</button><button class="navbtn" data-tab="footer">▤ Pages de bas de page</button><button class="navbtn active" data-tab="celebrations">✧ Célébrations</button><button class="navbtn" data-tab="media">▧ Médiathèque (administration)</button><button class="navbtn" data-tab="members-spaces">♧ Membres et espaces</button><button class="navbtn" data-tab="guide">ⓘ Mode d’emploi</button></nav></aside>'+
+  '<div class="shell stage-editor"><aside class="rail"><div class="brand"><div class="mark">✦</div><div><strong>Administration</strong></div></div><nav aria-label="Navigation"><button class="navbtn" data-tab="pages">▤ Pages</button><button class="navbtn" data-tab="footer">▤ Pages de bas de page</button><button class="navbtn active" data-tab="celebrations">✧ Célébrations</button><button class="navbtn" data-tab="media">▧ Médiathèque (administration)</button><button class="navbtn" data-tab="members-spaces">♧ Membres</button><button class="navbtn" data-tab="languages-categories">◇ Langues et catégories</button><button class="navbtn" data-tab="guide">ⓘ Mode d’emploi</button></nav></aside>'+
   '<div class="content"><header class="topbar"><div></div><div class="actions"><button id="preview-btn" class="btn sm" title="Voir la page en brouillon, sans publication">Aperçu du brouillon</button><button id="save-btn" class="btn primary">Enregistrer</button><a id="view-site-btn" class="btn view-site-btn" href="/__editor/voir-le-site" target="_blank" rel="noopener noreferrer">Voir le site</a></div></header>'+
   '<main class="main"><div id="workspace"></div><p class="status" id="status" role="status" aria-live="polite"></p></main></div></div>'+
   '<div id="editor-save-toast" class="editor-save-toast" role="status" aria-live="polite" hidden></div>'+ 

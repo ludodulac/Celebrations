@@ -7,7 +7,7 @@ export function renderEditorFrame(ctx){
   if(see){
    const current=page(),stage=pageSlug(current);
    see.href='/__editor/voir-le-site?celebration='+encodeURIComponent(STAGE_SEED.celebrationId)+'&page='+encodeURIComponent(stage);
-   see.hidden=stateOfPage(current)!=='published';
+   see.hidden=!current||stateOfPage(current)!=='published';
    see.title=see.hidden?'Page en brouillon : utilisez Aperçu ou Publier cette page.':'Voir la page publiée';
   }
  }
@@ -17,4 +17,4 @@ export function renderEditorFrame(ctx){
  const shell=document.querySelector('.stage-editor');
  if(shell){const general=page()?.group==='page';shell.classList.toggle('is-neutral',general);shell.classList.toggle('is-celebration',!general);
 }
- applyPalette();w.replaceChildren();document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x.dataset.tab===tab));el('preview-btn').textContent=preview?'Revenir à l’édition':'Aperçu du brouillon';if(tab==='pages')pages();else if(tab==='footer')footerPages();else if(tab==='celebrations')celebrations();else if(tab==='media')media();else if(tab==='guide')userGuide();else if(tab==='members-spaces'&&memberSpaces)memberSpaces();else settings();}
+ applyPalette();w.replaceChildren();document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x.dataset.tab===tab));el('preview-btn').textContent=preview?'Revenir à l’édition':'Aperçu du brouillon';if(tab==='pages')pages();else if(tab==='footer')footerPages();else if(tab==='celebrations')celebrations();else if(tab==='media')media();else if(tab==='guide')userGuide();else if(['members-spaces','participants','languages-categories'].includes(tab)&&memberSpaces)memberSpaces();else settings();}

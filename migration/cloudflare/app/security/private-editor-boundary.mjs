@@ -15,7 +15,7 @@ export function managedCelebration(state,id){
    (r?.spaces?.length??0)>0||(r?.pages??[]).some(managedPage));
 }
 export function managedPageId(state,cid,id){
- return [state.drafts?.[cid],state.published?.drafts?.[cid],state.shared,state.published?.shared]
+ return [...Object.values(state.drafts??{}),...Object.values(state.published?.drafts??{}),state.shared,state.published?.shared]
   .some(r=>r?.pages?.some(p=>p.id===id&&managedPage(p)))||
   !!state.published?.privatePageReleases?.[id];
 }

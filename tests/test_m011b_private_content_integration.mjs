@@ -201,9 +201,8 @@ test('M011-B: published English changes content, never identity/ACL; draft trans
     blocks:[{kind:'text',text:'LEAK_FROM_UNRELEASED'}]
   };
   r=await readPage(f,ROOT,req(),'en');
-  body=await r.json();
-  assert.equal(body.name,'Cantique autorisé');
-  assert.doesNotMatch(JSON.stringify(body),/LEAK_FROM_UNRELEASED|UNRELEASED_EDITOR/);
+  assert.equal(r.status,404,'Unavailable selected private language must not fall back');
+  assert.doesNotMatch(await r.text(),/LEAK_FROM_UNRELEASED|UNRELEASED_EDITOR/);
   f.db.prepare('UPDATE celebrations_directory_member_types SET disabled=1 WHERE id=?').run(TYPE);
   assert.equal((await readPage(f,ROOT,req(),'en')).status,404,
     'language never overrides disabled type');

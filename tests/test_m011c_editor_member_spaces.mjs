@@ -129,7 +129,7 @@ test('M011-C transport: only admin token and same-origin JSON route; fail closed
  assert.match(absent.error,/non activée|indisponible/);
  await assert.rejects(()=>transport({method:'DELETE'}),/Invalid method/);
 });
-test('M011-C editor hook opt-in; no duplicate edit application, page policy save disabled',()=>{
+test('M011-C editor hook opt-in; no duplicate edit application, secure command adapter',()=>{
  const html=readFileSync(new URL('../admin.html',import.meta.url),'utf8');
  const bridge=readFileSync(new URL('./fixtures/m011c-legacy-member-bridge.js',import.meta.url),'utf8');
  const directory=readFileSync(new URL('../migration/cloudflare/app/admin/member-directory-admin-integration.mjs',import.meta.url),'utf8');
@@ -139,8 +139,8 @@ test('M011-C editor hook opt-in; no duplicate edit application, page policy save
  assert.match(bridge,/const originalSetTab=setTab/);
  assert.match(bridge,/return originalSetTab\(section\)/);
  assert.match(bridge,/celebrationsAdminReady/);
- assert.match(directory,/pagePolicyWritable:false/);
- assert.match(spaces,/save\.disabled=true/);
- assert.match(spaces,/publish\.disabled=true/);
+ assert.doesNotMatch(directory,/action:'set_page_policy'/);
+ assert.match(spaces,/if\(!ready\(\)\)return/);
+ assert.match(spaces,/release\.disabled=!ready\(\)/);
  assert.doesNotMatch(spaces,/localStorage|\.put\(|\.post\(/);
 });

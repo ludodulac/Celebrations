@@ -59,18 +59,18 @@ export function createSpacesDraftWorkspace(celebrations = [], {allocateId = newI
     get canUndo() { return undo.length > 0; },
     get canRedo() { return redo.length > 0; },
     addSpace(celebrationId,{name,visibility=SPACE_VISIBILITIES.PRIVATE,
-      mode=ACCESS_MODES.PUBLIC,typeIds=[]}={}) {
+      accessScope='CELEBRATION',mode=ACCESS_MODES.PUBLIC,typeIds=[]}={}) {
       if(typeof name !== 'string' || !name.trim() || name.trim().length > 120)
         throw new TypeError('Nom d’espace requis (120 caractères maximum)');
       const id = requiredId(allocateId('space'));
       const space = createCelebrationSpace({id,celebrationId:String(celebrationId),
-        name:name.trim(),visibility,
+        name:name.trim(),visibility,accessScope:visibility===SPACE_VISIBILITIES.PRIVATE?accessScope:'INDIVIDUAL',
         accessPolicy:policyFor(visibility,mode,typeIds),pages:[]});
       change(items => {const pos=index(celebrationId);
         items[pos]=addSpaceToCelebration(items[pos],space);});
       return id;
     },
-    updateSpace(celebrationId,spaceId,{name,visibility,mode,typeIds=[]}={}) {
+    updateSpace(celebrationId,spaceId,{name,visibility,accessScope,mode,typeIds=[]}={}) {
       const {space}=lookup(celebrationId,spaceId);
       const nextVisibility=visibility??space.visibility;
       const nextMode=mode??space.accessPolicy.mode;
@@ -79,6 +79,7 @@ export function createSpacesDraftWorkspace(celebrations = [], {allocateId = newI
         throw new TypeError('Nom requis');
       const nextSpace=createCelebrationSpace({...space,name:nextName.trim(),
         visibility:nextVisibility,
+        accessScope:nextVisibility===SPACE_VISIBILITIES.PRIVATE?(accessScope??space.accessScope??'INDIVIDUAL'):'INDIVIDUAL',
         accessPolicy:policyFor(nextVisibility,nextMode,typeIds)});
       change(items=>{const c=items[index(celebrationId)];
         c.spaces=c.spaces.map(s=>s.id===spaceId?nextSpace:s);

@@ -1,0 +1,43 @@
+# M018 — configuration EXACTE de l'EXISTANT, NON APPLIQUÉE avant accord.
+# Aucune route/DNS nouvelle. Le Worker et les ressources restent ceux du site officiel.
+name = "celebrations-exit-production"
+main = "production-worker.mjs"
+compatibility_date = "2026-10-16"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+keep_vars = true
+
+[assets]
+directory = "../../production-public"
+binding = "ASSETS"
+run_worker_first = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "celebrations-exit-production"
+database_id = "28736d2a-479b-472b-bf82-703ad0affe10"
+
+[[d1_databases]]
+binding = "MEDIA_ACL"
+database_name = "celebrations-exit-production"
+database_id = "28736d2a-479b-472b-bf82-703ad0affe10"
+
+[[r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "celebrations-exit-production"
+
+# Attention: ce bucket appartient DÉJÀ à l'administration officielle.
+# Ne jamais le vider, recréer, réinitialiser, copier ou renommer.
+[[r2_buckets]]
+binding = "EDITOR_BUCKET"
+bucket_name = "celebrations-exit-staging"
+
+# Les champs existants restent intacts (keep_vars), les secrets ne sont pas copiés.
+# Ces opt-ins n'auront d'effet QUE lorsque le Worker M018 sera autorisé/publié.
+[vars]
+MEMBER_DIRECTORY_API_ENABLED = "true"
+MEMBER_DIRECTORY_API_HOST = "ronde-des-archanges-universelle.eu"
+MEMBER_DIRECTORY_OFFICIAL_ENABLED = "true"
+EDITOR_D1_SESSION_API_ENABLED = "true"
+EDITOR_PIN_D1_BRIDGE_ENABLED = "true"
+MEMBER_PAGE_READ_API_ENABLED = "true"

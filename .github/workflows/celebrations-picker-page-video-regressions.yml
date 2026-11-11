@@ -6,6 +6,9 @@ on:
       - 'migration/cloudflare/editor-demo-preparation-page.mjs'
       - 'migration/cloudflare/editor-demo-style.mjs'
       - 'tests/test-editor-modal-page-video-fixes.mjs'
+      - 'tests/test_m018c_admin_finalization.mjs'
+      - 'migration/cloudflare/app/admin/editor-member-spaces-integration.mjs'
+      - 'migration/cloudflare/app/admin/real-editor-member-spaces-inline.mjs'
       - 'scripts/test-editor-media-picker-browser.mjs'
       - '.github/workflows/celebrations-picker-page-video-regressions.yml'
   push:
@@ -26,7 +29,9 @@ jobs:
           node --check migration/cloudflare/editor-demo-client.mjs
           node --check migration/cloudflare/editor-demo-style.mjs
           node --check migration/cloudflare/editor-demo-preparation-page.mjs
-          node --test tests/test-editor-modal-page-video-fixes.mjs tests/test-editor-demo.mjs tests/test-editor-trial-site.mjs tests/test-editor-server-drafts.mjs
+          node --check migration/cloudflare/app/admin/editor-member-spaces-integration.mjs
+          node --check migration/cloudflare/app/admin/real-editor-member-spaces-inline.mjs
+          node --test tests/test-editor-modal-page-video-fixes.mjs tests/test-editor-demo.mjs tests/test-editor-trial-site.mjs tests/test-editor-server-drafts.mjs tests/test_m018c_admin_finalization.mjs
       - name: Install isolated browser for desktop and Android-sized picker tests
         run: |
           npm install --no-save --no-package-lock playwright@1.58.2

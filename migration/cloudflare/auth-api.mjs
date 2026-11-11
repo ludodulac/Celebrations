@@ -305,7 +305,7 @@ function editorBearer(request){
  const value=request.headers.get("authorization")||"";
  return /^Bearer [a-f0-9]{64}$/.test(value)?value.slice(7):null;
 }
-export async function handleEditorAdminSession(request,env){
+export async function handleEditorAdminSession(request,env,{hasEditorAccess=async()=>false}={}){
  const url=new URL(request.url),origin=url.origin;
  if(request.method!=="POST")return editorDenied(405,"Méthode interdite");
  if(url.protocol!=="https:"||request.headers.get("origin")!==origin||
@@ -314,6 +314,25 @@ export async function handleEditorAdminSession(request,env){
  let b;try{b=await readEditorCommand(request)}catch{return editorDenied(400,"Requête invalide")}
  try{
   const raw=editorBearer(request);
+  // M018: one-time exchange of an ALREADY VERIFIED official editor PIN
+  // cookie for the SAME short-lived D1 bearer. The cookie itself NEVER
+  // authorizes member mutations: every subsequent API call requires bearer.
+  // The explicit same-origin custom header prevents silent cross-site forms.
+  if(b.action==="editor-pin-session"){
+   if(!((env.MEMBER_DIRECTORY_OFFICIAL_ENABLED==="true" && env.EDITOR_PIN_D1_BRIDGE_ENABLED==="true" &&
+       ["ronde-des-archanges-universelle.eu","www.ronde-des-archanges-universelle.eu"].includes(url.hostname)) ||
+       (env.M016_PREPROD_WRITE_ENABLED==="true" && env.EDITOR_PIN_D1_BRIDGE_ENABLED==="true" &&
+        url.hostname==="celebrations-m016-admin-preprod.rondes.workers.dev" && env.M016_ADMIN_PREPROD_HOST===url.hostname)))
+    return editorDenied(404,"Introuvable");
+   if(request.headers.has("authorization") ||
+      request.headers.get("x-celebrations-editor-bridge")!=="1")
+    return editorDenied(403,"Action interdite");
+   if(!await hasEditorAccess(request,env))
+    return editorDenied(401,"Code administrateur nécessaire");
+   const issued=await issueAdminSession(env.DB,EDITOR_ADMIN_ACTOR);
+   if(!issued)return editorDenied(503,"Session indisponible");
+   return editorSessionResult({ok:true,email:EDITOR_ADMIN_ACTOR,...issued});
+  }
   if(b.action==="session"||b.action==="logout"){
    // Same session-row lookup as authorize(), with the admin table only.
    const row=raw?await readSessionRow(env.DB,raw,true):null;

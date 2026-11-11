@@ -1,6 +1,6 @@
 // M011-B — opt-in private reads. All HTTP authorization runs through M008-C
 // (and M010-A explicit identity + live D1 grants). Used by isolated Worker routes.
-import {handlePrivatePage,handlePrivateMedia,allowedPrivatePageIds,privateNotFound}
+import {handlePrivatePage,handlePrivateMedia,allowedPrivatePageIds,privateNotFound,resolveVerifiedMember}
   from '../security/member-private-access.mjs';
 import {createCanonicalPrivateLoaders}
   from '../persistence/private-canonical-content.mjs';
@@ -95,6 +95,10 @@ async function pageView(page,loaders,languageId) {
   try{selected=resolvePageTranslation(working,registry,language(languageId)?languageId:'fr');}
   catch{return null;}
   if(!selected)return null;
+  // An explicitly chosen language never silently displays another language.
+  // A missing manually authored variant is simply unavailable.
+  const requested=language(languageId)?languageId:registry.defaultLanguageId;
+  if(selected.languageId!==requested)return null;
   const source=selected.content;
   if(!Array.isArray(source.blocks)||source.blocks.length>1000)return null;
   // Until managed page-to-page links have an authorization-aware resolver,
@@ -166,4 +170,33 @@ export async function handleCanonicalPrivateList(request,env,options={}) {
   if(request.method!=='GET'&&request.method!=='HEAD')return privateNotFound();
   try{return secureJson({pages:await listAuthorizedPrivatePages(request,env,options)},request.method)}
   catch{return noService(request.method)}
+}
+
+// M018 — list ALL explicitly authorized celebrations after the existing
+// participant identity link + M002 per-page permission gate; no public leaks.
+export async function handleCanonicalPrivateListAll(request,env,{languageId='fr'}={}) {
+ if(!['GET','HEAD'].includes(request.method))return privateNotFound();
+ try {
+  const principal=await resolveVerifiedMember(request,env);
+  if(!principal)return privateNotFound();
+  const rows=await env.DB.prepare(
+   'SELECT pc.celebration_id AS id,c.archangel AS archangel,c.year AS year '+
+   'FROM celebrations_directory_person_celebrations pc '+
+   'JOIN celebrations_celebrations c ON c.id=pc.celebration_id '+
+   'WHERE pc.person_id=? ORDER BY pc.celebration_id LIMIT 101'
+  ).bind(principal.id).all();
+  if(!Array.isArray(rows.results)||rows.results.length>100)
+   return noService(request.method);
+  const pages=[];
+  for(const celebration of rows.results){
+   // This calls the SAME authorization before searching the localized name.
+   const allowed=await listAuthorizedPrivatePages(request,env,{
+    celebrationId:String(celebration.id),languageId,limit:100
+   });
+   const label=[celebration.archangel,celebration.year].filter(x=>typeof x==='string').join(' ').slice(0,160);
+   for(const item of allowed)pages.push({...item,celebrationLabel:label});
+   if(pages.length>1000)return noService(request.method);
+  }
+  return secureJson({pages},request.method);
+ }catch{return noService(request.method)}
 }

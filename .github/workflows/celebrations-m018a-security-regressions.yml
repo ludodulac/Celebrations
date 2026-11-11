@@ -1,0 +1,35 @@
+name: Celebrations M018-A — private access regression gate
+
+on:
+  push:
+    branches:
+      - feat/m018a-security-fixes-20261111
+  pull_request:
+    branches:
+      - feat/celebrations-m018-official-release-prep-20261111
+    paths:
+      - 'migration/cloudflare/app/security/member-private-access.mjs'
+      - 'tests/test_m008c_private_server_access.mjs'
+      - 'tests/test_m010a_explicit_private_identity.mjs'
+      - 'tests/test_m010d_identity_admin_cross.mjs'
+      - '.github/workflows/celebrations-m018a-security-regressions.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  security-offline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax and protected route tests
+        run: |
+          node --check migration/cloudflare/app/security/member-private-access.mjs
+          node --check tests/test_m008c_private_server_access.mjs
+          node --test tests/test_m011a_member_admin_worker_routes.mjs tests/test_m011b_private_content_integration.mjs tests/test_m012a_editor_admin_session.mjs
+      - name: Re-run existing M002–M018 member/authorization tests
+        run: node --test tests/test_m0*.mjs tests/test_mission002_member_access.mjs tests/test-exit-auth.mjs

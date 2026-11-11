@@ -3,11 +3,12 @@
 // Uses the historical D1-backed admin/participant bearer sessions; the site-editor
 // cookie and browser-supplied roles are NEVER accepted as API authorization.
 import {authorize,handleEditorAdminSession} from '../../auth-api.mjs';
+import {hasEditorAccess} from '../../editor-site-access.mjs';
 import {
   handleMemberDirectoryAdmin,handleMemberIdentityClaim
 } from '../application/member-directory-admin-service.mjs';
 import {handlePrivateEditorCommand} from '../application/private-editor-publication-service.mjs';
-import {handleCanonicalPrivatePage,handleCanonicalPrivateList} from '../application/private-content-read-service.mjs';
+import {handleCanonicalPrivatePage,handleCanonicalPrivateList,handleCanonicalPrivateListAll} from '../application/private-content-read-service.mjs';
 import {createCanonicalPrivateLoaders} from '../persistence/private-canonical-content.mjs';
 import {mayUseIsolatedMemberApi} from './editor-route-policy.mjs';
 
@@ -59,10 +60,16 @@ export async function routeMemberAdminWorkerRequest(request,env,{
     // or translated variants, nor accepts policies or principals from clients.
     const pageId=url.searchParams.get('pageId');
     const celebrationId=url.searchParams.get('celebration');
+    // The language is a display choice, NEVER a credential or ACL input.
+    const selectedLanguage=url.searchParams.get('lang')||'fr';
+    if(!/^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/.test(selectedLanguage))
+      return denied(400,'Langue invalide');
     if(url.pathname===MEMBER_PAGE_PATH)
-      return handleCanonicalPrivatePage(request,env,{pageId,languageId:'fr'});
+      return handleCanonicalPrivatePage(request,env,{pageId,languageId:selectedLanguage});
+    if(celebrationId==='all')
+      return handleCanonicalPrivateListAll(request,env,{languageId:selectedLanguage});
     if(!/^[1-9][0-9]{0,7}$/.test(celebrationId||''))return denied(404,'Introuvable');
-    return handleCanonicalPrivateList(request,env,{celebrationId,languageId:'fr'});
+    return handleCanonicalPrivateList(request,env,{celebrationId,languageId:selectedLanguage});
   }
   const editorSession=url.pathname===EDITOR_ADMIN_SESSION_PATH;
   if(editorSession && env.EDITOR_D1_SESSION_API_ENABLED!=='true')return denied(404,'Introuvable');
@@ -76,7 +83,7 @@ export async function routeMemberAdminWorkerRequest(request,env,{
      typeof env.DB.batch!=='function')
     return denied(503,'Service indisponible');
   try {
-    if(editorSession)return await handleEditorAdminSession(request,env);
+    if(editorSession)return await handleEditorAdminSession(request,env,{hasEditorAccess});
     if(privateEditor)return await handlePrivateEditorCommand(request,env);
     // Check the correct historical session before service invocation; the
     // service checks it AGAIN at the actual read/write boundary.

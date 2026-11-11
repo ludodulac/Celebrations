@@ -136,12 +136,12 @@ test('M011-D: private route handlers remain unmounted; explicit releases have no
   }
 });
 
-test('M011-D: UI does not claim disabled draft writes succeeded',()=>{
+test('M011-D: UI requires a confirmed server snapshot before commands',()=>{
   const ui=source('migration/cloudflare/app/admin/editor-member-spaces-integration.mjs');
-  assert.match(ui,/save\.disabled=true/);
-  assert.match(ui,/publish\.disabled=true/);
-  assert.match(ui,/Modifications locales non sauvegardées/);
-  assert.match(ui,/fermeture de la page = perte des modifications/);
+  assert.match(ui,/snapshot!==null/);
+  assert.match(ui,/!needsReload/);
+  assert.match(ui,/if\(!ready\(\)\)return/);
+  assert.match(ui,/if\(!result\.ok\)/);
 });
 
 test('M011-D: historic public media routes still precede the Worker asset fallback',()=>{

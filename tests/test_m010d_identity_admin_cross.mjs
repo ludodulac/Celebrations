@@ -18,7 +18,7 @@ const HASH=x=>createHash('sha256').update(x).digest('hex');
 const TYPE='member-type:choir',SPACE='space:41:chapel';
 const space=createCelebrationSpace({id:SPACE,celebrationId:'41',
   visibility:'PRIVATE',accessPolicy:{mode:'SELECTED_TYPES',typeIds:[TYPE]},pages:[]});
-const page={id:'page:member',visibility:'published',
+const page={id:'page:member',celebrationId:'41',visibility:'published',
   accessPolicy:{mode:'SELECTED_TYPES',typeIds:[TYPE]},blocks:[]};
 const inside={id:'page:chapel',spaceId:SPACE,celebrationId:'41',
   visibility:'published',accessPolicy:{mode:'PUBLIC'},blocks:[]};

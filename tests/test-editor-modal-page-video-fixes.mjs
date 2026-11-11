@@ -92,18 +92,18 @@ test('video heading is rendered as a plain bold caption, updated while editing',
  assert.equal(flat(box).find(el=>el.className==='editor-video-title').textContent,oldVideo.text);
 });
 
-test('creating a test page calls server save, starts as a draft and never publishes automatically',()=>{
- const source=extract('function createPage(group){','\n\n\n/* Colourways');
+test('creating a test page calls server save, starts as a draft and never publishes automatically',async()=>{
+ const source='async '+extract('function createPage(group){','\n\n\n/* Colourways');
  const db={pages:[{id:'preparation-101',group:'celebration',name:'Préparation',blocks:[]}]};
  let saved=0,published=0,renders=0;
  let id='',tab='',marked=0;
- const create=new Function('prompt','db','crypto','window','dirty','save','uniqueBlockId','mark','render','IS_STAGE','serverSave','id','selectedBlockId','tab','editorPageModel',
+ const create=new Function('sitePrompt','db','crypto','window','dirty','save','uniqueBlockId','mark','render','IS_STAGE','serverSave','id','selectedBlockId','tab','editorPageModel',
   source+';return createPage;')(
   ()=> 'Ma page de test',db,{randomUUID:()=> '123e4567-e89b-12d3-a456-426614174000'},
   {__PREPARATION_SEED__:{celebrationId:'101'}},false,()=>{saved++},
   ()=>999,()=>{marked++},()=>{renders++},true,()=>{published++;return Promise.resolve(true)},'',null,'celebrations',createPageModel()
  );
- create('celebration');
+ await create('celebration');
  const fresh=db.pages.at(-1);
  assert.equal(fresh.name,'Ma page de test');
  assert.equal(fresh.group,'celebration');

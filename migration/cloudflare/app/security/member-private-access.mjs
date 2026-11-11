@@ -2,7 +2,7 @@
 // NOT imported by production/staging entrypoints: no private endpoint is enabled.
 // Reuse the existing participant session verifier and M002 domain rules.
 import {resolveExplicitMemberIdentity} from './member-identity-links.mjs';
-import {canAccessPage, ACCESS_MODES, SPACE_VISIBILITIES, isMemberTypeId}
+import {canAccessPage, canAccessPolicy, ACCESS_MODES, SPACE_VISIBILITIES, isMemberTypeId}
   from '../domain/member-access.mjs';
 
 
@@ -51,7 +51,7 @@ export async function resolveVerifiedMember(request, env) {
 // Security read view of proposed M007-A tables. M008-B retains ownership of
 // writes/schema; its adapter can replace these SELECT implementations once ready.
 // Every grant is resolved afresh for each request (no stale cross-user cache).
-async function loadTrustedGrants(db, principal, space) {
+async function loadTrustedGrants(db, principal, space, celebrationId) {
   const rows = await db.prepare(
     'SELECT t.id AS type_id, t.disabled AS disabled ' +
     'FROM celebrations_directory_person_types pt ' +
@@ -66,8 +66,18 @@ async function loadTrustedGrants(db, principal, space) {
     types.push({id: row.type_id, disabled: row.disabled === 1 || row.disabled === true});
     memberships.push({memberId: principal.id, typeId: row.type_id});
   }
+  // Registration by the administrator to THIS celebration is mandatory
+  // before any private page can be read, regardless of the member category.
+  const cid = Number(celebrationId);
+  if(!Number.isSafeInteger(cid) || cid<1 || String(cid)!==String(celebrationId))
+    throw Error('Invalid celebration');
+  const registration=await db.prepare(
+    'SELECT 1 AS enrolled FROM celebrations_directory_person_celebrations '+
+    'WHERE person_id=? AND celebration_id=? LIMIT 1'
+  ).bind(principal.id,cid).first();
+  const celebrationEnrolled=registration?.enrolled===1;
   const enrollments = [];
-  if (space?.visibility === SPACE_VISIBILITIES.PRIVATE) {
+  if (space?.visibility === SPACE_VISIBILITIES.PRIVATE && space.accessScope!=='CELEBRATION') {
     const celebrationId = Number(space.celebrationId);
     if (!Number.isSafeInteger(celebrationId) || celebrationId < 1 ||
         String(celebrationId) !== space.celebrationId) throw Error('Invalid celebration');
@@ -83,7 +93,7 @@ async function loadTrustedGrants(db, principal, space) {
       memberId: principal.id, spaceId: space.id
     });
   }
-  return {principal, types, memberships, enrollments, space: space ?? null};
+  return {principal, types, memberships, celebrationEnrolled, enrollments, space: space ?? null};
 }
 
 function releasedPage(page, id) {
@@ -111,18 +121,30 @@ function needsPrivateGate(page, space) {
 // All data loaders MUST be server-owned and consult authoritative PUBLISHED
 // records. They must never read request-supplied page/policy/grants or editor
 // drafts. Generic ID is only a lookup key, never proof of permission.
-async function evaluate(request, env, {pageId, loadPublishedPage, loadPublishedSpace}) {
+async function evaluate(request, env, {pageId, loadPublishedPage, loadPublishedSpace, loadPublishedCelebrationPolicy}) {
   if (!stable(pageId) || typeof loadPublishedPage !== 'function' ||
       typeof loadPublishedSpace !== 'function') return null;
   const principal = await resolveVerifiedMember(request, env);
   if (!principal) return null;
   const page = await loadPublishedPage(pageId, env);
   if (!releasedPage(page, pageId)) return null;
+  // Every protected page must name a real canonical celebration. A malformed
+  // published record is a denied resource (404), not a D1 outage (503).
+  // Never use a missing ID to skip the mandatory celebration enrollment.
+  if (typeof page.celebrationId !== 'string' ||
+      !/^[1-9][0-9]*$/.test(page.celebrationId) ||
+      !Number.isSafeInteger(Number(page.celebrationId))) return null;
   const space = own(page, 'spaceId')
     ? await loadPublishedSpace(page.spaceId, env) : null;
   if (!needsPrivateGate(page, space)) return null;
-  const context = await loadTrustedGrants(env.DB, principal, space);
-  if (!canAccessPage(page, context)) return null;
+  // Canonical page and space ownership must agree before consulting grants.
+  if (space && space.celebrationId !== page.celebrationId) return null;
+  const context = await loadTrustedGrants(env.DB, principal, space, page.celebrationId);
+  if(!context.celebrationEnrolled || !canAccessPage(page, context)) return null;
+  if(typeof loadPublishedCelebrationPolicy==='function'){
+    const policy=await loadPublishedCelebrationPolicy(String(page.celebrationId));
+    if(!policy || !canAccessPolicy(policy,context))return null;
+  }
   return {page, space, personId: principal.id};
 }
 

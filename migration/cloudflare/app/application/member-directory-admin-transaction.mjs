@@ -20,6 +20,7 @@ const V='celebrations_directory_admin_revisions';
 const A='celebrations_directory_admin_audit';
 const stmt=(db,sql,...args)=>db.prepare(sql).bind(...args);
 const own=(object,key)=>Object.prototype.hasOwnProperty.call(object,key);
+export class DirectoryDuplicateEmailError extends Error {}
 export class DirectoryConflictError extends Error {
   constructor() {super('Changes detected; reload the directory before retrying');}
 }
@@ -112,13 +113,26 @@ export async function commitAuditedDirectoryAdmin(db,directory,actor,b,
     const p=createDirectoryPerson({id:'person:'+crypto.randomUUID(),
       email:b.email,givenName:b.givenName,familyName:b.familyName,
       displayName:b.displayName});
-    await created(db,actor,b.action,p.id,stmt(db,`INSERT INTO ${P}
-      (id,email_normalized,given_name,family_name,display_name)
-      VALUES(?,?,?,?,?)`,p.id,p.emailNormalized,p.givenName,p.familyName,p.displayName));
+    if(await directory.getPersonByEmail(p.emailNormalized))throw new DirectoryDuplicateEmailError();
+    const typeIds=b.typeIds??[];
+    if(!Array.isArray(typeIds)||typeIds.length>100)throw new TypeError('Invalid categories');
+    const catalogue=await directory.getMemberTypes();
+    const links=planDirectoryMemberTypes(p.id,typeIds,catalogue);
+    if(links.some(l=>catalogue.find(t=>t.id===l.typeId)?.disabled))throw new TypeError('Inactive category');
+    const celebrationId=b.celebrationId?toD1CelebrationId(b.celebrationId):null;
+    // Creation and initial access assignments succeed or roll back together.
+    await db.batch([
+      stmt(db,`INSERT INTO ${P}(id,email_normalized,given_name,family_name,display_name)
+        VALUES(?,?,?,?,?)`,p.id,p.emailNormalized,p.givenName,p.familyName,p.displayName),
+      ...links.map(l=>stmt(db,`INSERT INTO ${L}(person_id,type_id) VALUES(?,?)`,p.id,l.typeId)),
+      ...(celebrationId?[stmt(db,`INSERT INTO ${C}(person_id,celebration_id) VALUES(?,?)`,p.id,celebrationId)]:[]),
+      stmt(db,`INSERT INTO ${A}(id,actor_email,action,target_id) VALUES(?,?,?,?)`,
+        'audit:'+crypto.randomUUID(),actor,b.action,p.id)
+    ]);
     return {result:await directory.getPerson(p.id),audited:true};
   }
   if(b.action==='create_type') {
-    const t=createMemberType({id:b.typeId,name:b.name});
+    const t=createMemberType({id:b.typeId||'member-type:'+crypto.randomUUID(),name:b.name});
     await created(db,actor,b.action,t.id,
       stmt(db,`INSERT INTO ${T}(id,name) VALUES(?,?)`,t.id,t.name));
     return {result:{...t,disabled:false},audited:true};
@@ -135,6 +149,8 @@ export async function commitAuditedDirectoryAdmin(db,directory,actor,b,
       const old=await directory.getPerson(target);
       if(!old)throw new RangeError('Unknown person');
       const next=personPatch(old,b.changes);
+      const existing=await directory.getPersonByEmail(next.emailNormalized);
+      if(existing&&existing.id!==target)throw new DirectoryDuplicateEmailError();
       revision=await guard(P,`EXISTS (SELECT 1 FROM ${P} WHERE id=?
         AND email_normalized=? AND given_name IS ?
         AND family_name IS ? AND display_name IS ?)`,

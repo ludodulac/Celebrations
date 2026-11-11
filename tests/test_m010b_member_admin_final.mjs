@@ -246,3 +246,21 @@ test('010-B no Worker routes activated or cross-team files touched',()=>{
     assert.doesNotMatch(code,/member-directory-admin-service|member-directory-admin-transaction/);
   }
 });
+
+test('M019 initial category and celebration are atomic, duplicate email is useful, filtered pagination is complete',async()=>{
+ const c=setup();try{
+  const type=await c.post({action:'create_type',name:'Nouvelle catégorie'});
+  assert.equal(type.status,200);const tid=type.result.id;
+  const made=await c.post({action:'create_person',email:'new-m019@example.test',givenName:'Alice',familyName:'Essai',typeIds:[tid],celebrationId:'41'});
+  assert.equal(made.status,200,JSON.stringify(made));
+  const detail=await c.get({action:'person_detail',personId:made.result.id});
+  assert.equal(detail.data.types[0].typeId,tid);assert.equal(detail.data.celebrations[0].celebrationId,'41');
+  const filtered=await c.get({action:'snapshot',celebrationId:'41',typeId:tid});
+  assert.deepEqual(filtered.data.members.map(m=>m.id),[made.result.id]);
+  assert.equal((await c.get({action:'snapshot',celebrationId:'42',typeId:tid})).data.members.length,0);
+  const duplicate=await c.post({action:'create_person',email:'NEW-M019@example.test',celebrationId:'41'});
+  assert.equal(duplicate.status,409);assert.match(duplicate.error,/e-mail existe déjà/);
+  const failed=await c.post({action:'create_person',email:'rollback-m019@example.test',typeIds:[tid],celebrationId:'99999999'});
+  assert.notEqual(failed.status,200);assert.equal(await c.directory.getPersonByEmail('rollback-m019@example.test'),null);
+ }finally{c.sqlite.close()}
+});

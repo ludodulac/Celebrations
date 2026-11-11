@@ -68,6 +68,8 @@ function requireSpace(space) {
   if (!space || typeof space !== 'object' || Array.isArray(space) ||
       !stable(space.id) || !stable(space.celebrationId) ||
       !Object.values(SPACE_VISIBILITIES).includes(space.visibility) ||
+      ![undefined,'INDIVIDUAL','CELEBRATION'].includes(space.accessScope) ||
+      (space.visibility===SPACE_VISIBILITIES.PUBLIC&&space.accessScope==='CELEBRATION') ||
       !policyShape(space.accessPolicy) ||
       (space.visibility === SPACE_VISIBILITIES.PUBLIC &&
        space.accessPolicy.mode !== ACCESS_MODES.PUBLIC) ||

@@ -1,4 +1,5 @@
 import {participantIdentity} from "./audience-api.mjs";
+import {readEditorState} from "./editor-publication-api.mjs";
 import {isPrivateMediaReference} from "./app/security/public-media-boundary.mjs";
 // Historical READ-ONLY public D1 contract. M002/M007 member types are never
 // inferred from legacy all/angel/nonangel audience labels. No directory,
@@ -47,6 +48,27 @@ export async function handlePublicData(request,env){
   }catch{return respond({error:'Query unavailable'},503)}
  }
  if(!tables.has(name))return respond({error:'Not found'},404);
+ // When the existing server activates canonical member access, honor the
+ // SAME published celebration privacy choice on the historical D1 gateway.
+ // Never infer rights from old angel/nonangel tags or browser-supplied roles.
+ let privateIds=[];
+ if(env.MEMBER_DIRECTORY_OFFICIAL_ENABLED==='true' ||
+    env.M016_PREPROD_WRITE_ENABLED==='true') {
+  try{
+   if(!env.EDITOR_BUCKET)return respond({error:'Publication unavailable'},503);
+   const {state}=await readEditorState(env.EDITOR_BUCKET);
+   const policies=state.published?.celebrationAccessPolicies??{};
+   if(!policies||typeof policies!=='object'||Array.isArray(policies))
+    return respond({error:'Publication unavailable'},503);
+   for(const [id,p] of Object.entries(policies)){
+    if(!/^[1-9][0-9]{0,7}$/.test(id)||!p||typeof p.mode!=='string')
+     return respond({error:'Publication unavailable'},503);
+    if(p.mode!=='PUBLIC')privateIds.push(id);
+   }
+   if(privateIds.length>1000)return respond({error:'Publication unavailable'},503);
+  }catch{return respond({error:'Publication unavailable'},503)}
+ }
+ const hiddenSql=privateIds.length?'('+privateIds.join(',')+')':null;
  const bearer=request.headers.get('authorization')||'';
  const identity=bearer.startsWith('Bearer ')?await participantIdentity(env,bearer.slice(7)):null;
  // Historic visitor filtering only; this is NOT an M002 authorization grant.
@@ -74,6 +96,24 @@ export async function handlePublicData(request,env){
  if(name==='celebrations_step_contents')
   sql+=' WHERE content_id IN (SELECT id FROM celebrations_contents WHERE audience IN '+filter
     +' AND '+safeContents('')+')';
+ // This only removes records from the PUBLIC legacy API; no historic D1
+ // records are mutated. A shared media asset used by a private celebration
+ // is conservatively withheld from the legacy index.
+ if(hiddenSql){
+  const field={
+   celebrations_celebrations:'id',
+   celebrations_steps:'celebration_id',
+   celebrations_events:'celebration_id',
+   celebrations_event_contents:'e.celebration_id',
+   celebrations_step_contents:'celebration_id',
+   celebrations_links:'celebration_id'
+  }[name];
+  if(field)sql+=(sql.includes(' WHERE ')?' AND ':' WHERE ')+field+' NOT IN '+hiddenSql;
+  if(name==='celebrations_contents')
+   sql+=' AND id NOT IN (SELECT sc.content_id FROM celebrations_step_contents sc WHERE sc.celebration_id IN '+hiddenSql+')'+
+    ' AND id NOT IN (SELECT ec.content_id FROM celebrations_event_contents ec JOIN celebrations_events e ON e.id=ec.event_id WHERE e.celebration_id IN '+hiddenSql+')';
+ }
+
  try{
   const data=await env.DB.prepare(sql).all();
   return respond(filtered(data.results));

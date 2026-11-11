@@ -9,6 +9,8 @@ const HOST='celebrations-exit-staging.rondes.workers.dev';
 export const PUBLIC_LANGUAGE_STYLE=`
 .site-menu-bar{display:flex;align-items:center;justify-content:space-between;gap:12px}
 #public-language-control{margin-left:auto;min-width:0}
+#member-connection{border:1px solid #35734d;background:#fff;color:#275638;padding:8px 12px;border-radius:8px;cursor:pointer;font:600 .95rem system-ui}
+#member-connection[hidden]{display:none!important}
 .public-language-selector{position:relative;font-size:.95rem}
 .public-language-selector>summary{cursor:pointer;display:flex;align-items:center;gap:7px;border:1px solid #cbd2d7;border-radius:8px;padding:7px 11px;background:#fff;color:#25313b;list-style:none}
 .public-language-selector>summary::-webkit-details-marker{display:none}
@@ -49,7 +51,7 @@ export async function handleTrialSite(request,env){
 
 
  '<div class="site-menu-bar"><div class="site-menu-group"><button type="button" class="menu-toggle" id="menu-toggle" aria-expanded="false" aria-haspopup="true" aria-controls="general-navigation">☰ Menu</button>'+
- '<nav id="general-navigation" class="general-navigation" aria-label="Pages hors célébration" hidden></nav></div><div id="public-language-control" aria-label="Langues du site"></div></div>'+
+ '<nav id="general-navigation" class="general-navigation" aria-label="Pages hors célébration" hidden></nav></div><button type="button" id="member-connection" hidden>Connexion membre</button><div id="public-language-control" aria-label="Langues du site"></div></div>'+
  '<nav class="celebration-shortcuts" id="celebration-shortcuts" aria-label="Célébration"></nav>'+
  '<nav class="steps" id="stage-navigation" aria-label="Pages de la célébration"></nav>'+
  '<main class="site-paper" id="site-paper"><div id="stage-main"></div></main>'+

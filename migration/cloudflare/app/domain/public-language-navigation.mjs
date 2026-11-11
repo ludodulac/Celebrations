@@ -125,6 +125,9 @@ export function preparePublicLanguageNavigation({
    ?publishedPageReleases[key]:null));
  }
  // Reuse M003's canonical-ID projection rather than a second translation engine.
+ // M003 keeps its historical safe display fallback where a public
+ // translation is not yet ready. This displays existing French text; it
+ // NEVER creates or translates page content automatically.
  const projected=projectPageMenu(eligible,r,selected.languageId);
  const byId=new Map(eligible.map(page=>[String(page.id),page]));
  const menu=projected.map(item=>{

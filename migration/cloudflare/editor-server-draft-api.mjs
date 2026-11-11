@@ -129,7 +129,7 @@ export async function handleServerDraft(request,env){
    const {state}=await stored(draftBucket);
    const view=legacyEditorView(state);
    return json({ok:true,revision:state.version,record:view.drafts[id]||null,plans:state.plans,shared:view.shared,
-    localization:view.localization||null,
+    localization:view.localization||null,celebrationMetadata:state.celebrationMetadata??{},
     mediaCatalogue:discoverMedia(view),updatedAt:state.updatedAt||null});
   }
   if((request.headers.get('content-type')||'').split(';')[0]!=='application/json')return error('Format invalide',415);
@@ -171,6 +171,9 @@ export async function handleServerDraft(request,env){
   const state={...current.state,version,updatedAt,drafts,plans:body.plans,
    shared:body.shared,published:previouslyPublished,mediaCatalogue:catalogue,
    ...(body.localization!==undefined?{localization:body.localization}:{})};
+  // Language availability and names are settings, never a release of draft text.
+  // The page's explicit Publish action still owns every translated content release.
+  if(body.localization)state.published.languageRegistry=createLanguageRegistry(body.localization.registry);
   const publishedPageId=open&&isWritableEditorHost(url.hostname,env)&&publishPageId&&
    refreshAlreadyPublishedPage(state,record,body.shared,body.celebration,publishPageId)
     ?publishPageId:null;

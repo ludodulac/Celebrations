@@ -1,5 +1,5 @@
 // M012-C — canonical editor persistence; no route or deployment is enabled here.
-import {authorize} from '../../auth-api.mjs';
+import {authorize,sha256} from '../../auth-api.mjs';
 import {readEditorState,writeEditorState,initialPublication} from '../../editor-publication-api.mjs';
 import {expectedRevisionMatches,EDITOR_SNAPSHOT_LIMIT} from '../ports/editor-snapshot-contract.mjs';
 import {ACCESS_MODES,SPACE_VISIBILITIES,isMemberTypeId} from '../domain/member-access.mjs';
@@ -68,7 +68,8 @@ function pageDraft(input,old,id,cid,sid,known,registry){
     own(input,'spaceId')&&input.spaceId!==sid)invalid();
  const accessPolicy=policy(input.accessPolicy??old?.accessPolicy,known);
  if(!sid&&accessPolicy.mode===ACCESS_MODES.PUBLIC)invalid(); // no implicit private -> public
- let page={id,celebrationId:cid,group:'celebration',
+ let page={id,celebrationId:cid,group:input.group==='page'||old?.group==='page'?'page':'celebration',
+  ...(input.placement==='footer'||old?.placement==='footer'?{placement:'footer'}:{}),
   name:name(input.name??input.title??old?.name??old?.title,180),
   blocks:blocks(input.blocks??old?.blocks??[]),accessPolicy,
   privateManaged:true,visibility:'draft',publicationStatus:'draft'};
@@ -85,12 +86,13 @@ function pageDraft(input,old,id,cid,sid,known,registry){
 function spaceDraft(input,old,id,cid,pages,known,registry){
  if(!obj(input)||own(input,'celebrationId')&&input.celebrationId!==cid||
   !Object.values(SPACE_VISIBILITIES).includes(input.visibility))invalid();
- if(old&&old.visibility!==input.visibility)
-  fail(409,'Changement public/privé interdit pour un espace existant. Créez un nouvel espace.');
+ // Switching Public/Private is allowed in DRAFT only; saved published
+ // visibility, policy and release ledgers must be revoked before re-publish.
  const accessPolicy=policy(input.accessPolicy,known);
  if(input.visibility===SPACE_VISIBILITIES.PUBLIC&&accessPolicy.mode!==ACCESS_MODES.PUBLIC)invalid();
  let out=createCelebrationSpace({id,celebrationId:cid,name:name(input.name,120),
-  visibility:input.visibility,accessPolicy,pages,publicationStatus:'draft'});
+  visibility:input.visibility,accessScope:input.accessScope??old?.accessScope??'INDIVIDUAL',
+  accessPolicy,pages,publicationStatus:'draft'});
  const versions=input.translations??old?.translations;
  if(versions!==undefined){
   if(!obj(versions)||Object.keys(versions).length>30)invalid();
@@ -214,7 +216,8 @@ function saveDraft(state,cid,b,known,registry,idMap){
    }
    const s=spaceDraft(input,old,id,cid,pages,known,registry);
    const released=pub.drafts?.[cid]?.spaces?.find(x=>x.id===id);
-   if(released&&!samePolicy(released.accessPolicy,s.accessPolicy)){
+   if(released&&(released.visibility!==s.visibility||released.accessScope!==s.accessScope||
+      !samePolicy(released.accessPolicy,s.accessPolicy))){
     removeSpace(pub,cid,id);revoked=true;
    }else if(released)for(const prior of [...released.pages]){
     const np=s.pages.find(p=>p.id===prior.id);
@@ -281,6 +284,11 @@ function duplicateDraft(state,cid,target,known,registry){
 function publishOrRevoke(state,cid,b,known,registry){
  const r=state.drafts[cid],pub=state.published;if(!r)missing();
  const target=ensurePublished(pub,cid);
+ if(b.action==='celebration-access'){
+  pub.celebrationAccessPolicies??={};
+  pub.celebrationAccessPolicies[cid]=policy(b.accessPolicy,known);
+  return;
+ }
  if(b.action==='celebration-visibility'){
   if(!['published','draft','hidden'].includes(b.visibility))invalid();
   pub.celebrationVisibility??={};pub.celebrationVisibility[cid]=b.visibility;
@@ -308,8 +316,17 @@ function publishOrRevoke(state,cid,b,known,registry){
     policy(s.accessPolicy,known);dest=s.pages;
    }
    const clean=pageDraft(item,item,item.id,cid,b.spaceId??null,known,registry);
+   // Only this explicit publication releases manually edited language
+   // versions. No machine translation and no draft variant is exposed.
    delete clean.translations;clearPageExtras(pub,item.id);
+   if(obj(item.translations)&&Object.keys(item.translations).length){
+    pub.privateTranslationReleases??={};
+    pub.privateTranslationReleases[item.id]={
+     pageId:item.id,publication:'published',variants:copy(item.translations)
+    };
+   }
    upsert(dest,{...clean,visibility:'published',publicationStatus:'published'});
+   pub.languageRegistry=copy(registry);
    pub.privatePageReleases[item.id]={pageId:item.id,celebrationId:cid,
     ...(b.spaceId?{spaceId:b.spaceId}:{}),publication:'published'};
   }
@@ -331,7 +348,55 @@ function readResult(state,cid){
   record:copy(state.drafts[cid]??emptyRecord()),
   pageReleases:Object.values(pub.privatePageReleases??{}).filter(e=>e.celebrationId===cid),
   spaceReleases:Object.values(pub.privateSpaceReleases??{}).filter(e=>e.celebrationId===cid),
-  celebrationVisibility:pub.celebrationVisibility?.[cid]??'draft'};
+  celebrationVisibility:pub.celebrationVisibility?.[cid]??'draft',
+  celebrationAccessPolicy:pub.celebrationAccessPolicies?.[cid]??{mode:ACCESS_MODES.PUBLIC},
+  languageRegistry:createLanguageRegistry(state.localization?.registry??pub.languageRegistry)};
+}
+// Create a real canonical celebration using the existing D1 identity and R2
+// snapshot. The audit key makes retries recover the same draft after a CAS fault.
+async function createCanonicalCelebration(env,current,source,b,actor,known,registry){
+ if(!['Michaël','Gabriel','Raphaël','Ouriel'].includes(b.archangel)||
+    typeof b.date!=='string'||!/^20[0-9]{2}-[0-9]{2}-[0-9]{2}$/.test(b.date)||
+    typeof b.copy!=='boolean')invalid();
+ const date=new Date(b.date+'T12:00:00Z');
+ if(!Number.isFinite(+date)||date.toISOString().slice(0,10)!==b.date||date.getUTCDay()!==3)invalid();
+ const title=name(b.title,100),auditId='audit:m019-create:'+await sha256(b.archangel+'|'+b.date);
+ const prior=await q(env.DB,'SELECT target_id FROM celebrations_directory_admin_audit WHERE id=? AND action=?',auditId,'create_celebration').first();
+ let id=prior?.target_id;
+ if(!id){
+  const next=await q(env.DB,'SELECT COALESCE(max(id),0)+1 AS next_id FROM celebrations_celebrations').first();
+  id=String(next?.next_id);if(!validCelebrationId(id))fail(409,'Création indisponible. Réessayez.');
+  await env.DB.batch([
+   q(env.DB,'INSERT INTO celebrations_celebrations(id,archangel,year,status) VALUES(?,?,?,?)',Number(id),b.archangel,b.date.slice(0,4),'draft'),
+   q(env.DB,'INSERT INTO celebrations_directory_admin_audit(id,actor_email,action,target_id) VALUES(?,?,?,?)',auditId,actor,'create_celebration',id)
+  ]);
+ }
+ const state=copy(current.state);state.published??=initialPublication(state);manifests(state.published);
+ if(state.drafts[id])return reply({...readResult(state,id),targetCelebration:id,existing:true});
+ if(b.copy&&state.drafts[source]){
+  const original=state.drafts[source];state.drafts[source]=copy(original);
+  for(const space of state.drafts[source].spaces??[]){space.accessPolicy={mode:ACCESS_MODES.PUBLIC};for(const page of space.pages)page.accessPolicy={mode:ACCESS_MODES.PUBLIC};}
+  for(const page of state.drafts[source].pages??[])if(managedPage(page))page.accessPolicy={mode:ACCESS_MODES.ALL_PRIVATE_TYPES};
+  const ids=duplicateDraft(state,source,id,known,registry);state.drafts[source]=original;
+  for(const [old,fresh]of Object.entries(ids.pageIds))if(state.localization?.pages?.[old])
+   state.localization.pages[fresh]=copy(state.localization.pages[old]);
+  // Content copies do not carry a category grant or individual enrollment.
+  for(const space of state.drafts[id].spaces??[]){
+   space.visibility=SPACE_VISIBILITIES.PRIVATE;space.accessScope='CELEBRATION';space.accessPolicy={mode:ACCESS_MODES.PUBLIC};
+   for(const page of space.pages)page.accessPolicy={mode:ACCESS_MODES.PUBLIC};
+  }
+  for(const page of state.drafts[id].pages)if(managedPage(page))page.accessPolicy={mode:ACCESS_MODES.ALL_PRIVATE_TYPES};
+ }else{
+  const labels=[['accueil-celebration','Accueil de la célébration'],['preparation','Préparation'],['mercredi','Mercredi'],['jeudi','Jeudi'],['vendredi','Vendredi'],['samedi','Samedi'],['dimanche','Dimanche'],['apres-celebration','Après célébration']];
+  state.drafts[id]={...emptyRecord(),pages:labels.map(([slug,name])=>({id:slug+'-'+id,name,group:'celebration',visibility:'draft',blocks:[]}))};
+ }
+ state.drafts[id].celebrationDates={wednesday:b.date,preparationDates:[]};
+ state.shared.celebrationVisibility={...state.shared.celebrationVisibility,[id]:'draft'};
+ state.published.celebrationVisibility={...state.published.celebrationVisibility,[id]:'draft'};
+ state.celebrationMetadata={...state.celebrationMetadata,[id]:{title,date:b.date}};
+ assertUnique(state);
+ if(!await writeEditorState(env.EDITOR_BUCKET,current,state))conflict();
+ return reply({...readResult(state,id),targetCelebration:id});
 }
 // Route owner A must gate the isolated host and feature flag. This service
 // independently checks the real D1 admin session and same-origin mutations.
@@ -355,22 +420,57 @@ export async function handlePrivateEditorCommand(request,env){
   if((request.headers.get('content-type')??'').split(';')[0]!=='application/json')return reply({ok:false,error:'Format invalide'},415);
   const raw=await request.text();if(raw.length>EDITOR_SNAPSHOT_LIMIT)fail(413,'Commande trop volumineuse');
   let b;try{b=JSON.parse(raw)}catch{invalid()}
-  if(!obj(b)||!['save','publish','unpublish','delete','celebration-visibility','duplicate','reconcile'].includes(b.action))invalid();
+  if(!obj(b)||!['save','publish','unpublish','delete','celebration-visibility','celebration-access','duplicate','reconcile','page-access','create-celebration'].includes(b.action))invalid();
   safeJSON(b);
   const fields={save:['spaces','pages'],publish:['kind','id','spaceId'],unpublish:['kind','id','spaceId'],
-   delete:['kind','id','spaceId'],'celebration-visibility':['visibility'],duplicate:['targetCelebration'],reconcile:[]};
+   delete:['kind','id','spaceId'],'celebration-visibility':['visibility'],'celebration-access':['accessPolicy'],duplicate:['targetCelebration'],reconcile:[],'page-access':['id','accessPolicy'],'create-celebration':['archangel','date','title','copy']};
   keysOnly(b,['action','celebration','expectedRevision',...fields[b.action]]);
   if(!expectedRevisionMatches(b.expectedRevision,current.state.version))conflict();
   const cid=b.celebration,known=await catalogue(env.DB,cid);
+  if(b.action==='celebration-access'&&b.accessPolicy?.mode!==ACCESS_MODES.PUBLIC){
+    const record=await q(env.DB,'SELECT archangel FROM celebrations_celebrations WHERE id=?',
+      Number(cid)).first();
+    if(String(record?.archangel||'').normalize('NFD')
+       .replace(/[\u0300-\u036f]/g,'').toLowerCase().includes('michael'))
+      fail(403,'Michaël doit rester public');
+  }
   const state=copy(current.state);state.published??=initialPublication(state);manifests(state.published);
   const registry=createLanguageRegistry(state.localization?.registry??state.published.languageRegistry);
+  if(b.action==='create-celebration')return await createCanonicalCelebration(env,current,cid,b,actor,known,registry);
   const idMap=Object.create(null);let changed=false,duplicate;
   if(b.action==='reconcile'){
    // Only the current trusted canonical snapshot can be acknowledged.
    await acknowledgePrivateRelease(env.DB,state.published,cid,state.publishedRevision,releasedSpaces(state.published,cid));
    return reply({...readResult(state,cid),privateReleaseReady:true});
   }
-  if(b.action==='save'){
+  if(b.action==='page-access'){
+   if(!stable(b.id))invalid();
+   const access=policy(b.accessPolicy,known),r=state.drafts[cid]??=emptyRecord();
+   const shared=state.shared.pages.find(p=>p.id===b.id);
+   const prior=shared??r.pages.find(p=>p.id===b.id);
+   if(!prior)missing();
+   if(prior.spaceId)invalid();
+   // Revoke every old public/private release in the SAME conditional snapshot.
+   // The next release still requires the explicit Publish action.
+   removePage(state.published,cid,b.id);
+   state.published.shared.pages=state.published.shared.pages.filter(p=>p.id!==b.id);
+   state.shared.pages=state.shared.pages.filter(p=>p.id!==b.id);
+   r.pages=r.pages.filter(p=>p.id!==b.id);
+   if(access.mode===ACCESS_MODES.PUBLIC){
+    const clean={...copy(prior),visibility:'draft',publicationStatus:'draft'};
+    for(const key of ['accessPolicy','privateManaged','celebrationId','spaceId'])delete clean[key];
+    if(prior.group==='page')state.shared.pages.push(clean);else r.pages.push(clean);
+   }else{
+    const original={...copy(prior),celebrationId:cid,accessPolicy:access};
+    const draft=pageDraft(original,prior,b.id,cid,null,known,registry);
+    const variants=state.localization?.pages?.[b.id];
+    if(variants)for(const [lang,content] of Object.entries(variants)){
+     Object.assign(draft,setPageTranslation(draft,registry,lang,content));
+    }
+    r.pages.push(draft);
+   }
+   changed=true;
+  }else if(b.action==='save'){
    if(!own(b,'spaces')&&!own(b,'pages'))invalid();
    changed=saveDraft(state,cid,b,known,registry,idMap);
   }else if(b.action==='duplicate'){
