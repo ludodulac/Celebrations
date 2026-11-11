@@ -89,8 +89,7 @@ export function mountRealEditorMemberSpaces(root,{celebrations,currentCelebratio
     mounted?.refreshMembers();
     mounted?.sessionChanged(active);
   }});
-  mounted=mountExistingEditorMemberSpaces(body,{transport:session.transport,privateTransport:session.privateTransport,isConnected:session.connected,celebrations,currentCelebrationId,styleNonce,
-    canDuplicate:id=>String(id)===String(currentCelebrationId)||String(id).startsWith('draft-celebration:')});
+  mounted=mountExistingEditorMemberSpaces(body,{transport:session.transport,privateTransport:session.privateTransport,isConnected:session.connected,celebrations,currentCelebrationId,styleNonce});
   form.addEventListener('submit',async event=>{
     event.preventDefault();if(busy)return;
     busy=true;login.disabled=true;status.textContent='Connexion D1 en cours…';
