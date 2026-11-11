@@ -155,8 +155,10 @@ try{
  const allPageIds=[ids['draft-page:m018-cat1'],ids['draft-page:m018-cat2']];
  for(const [index,token] of members.entries()){
   for(const [lang,expected] of [['fr',frCat],['en',enCat],['es',esCat]]){
-   const list=ok(await get('/api/participant/space-pages?celebration=all&lang='+lang,token),
-    'authorized list '+index+' '+lang);
+   const listing=await get('/api/participant/space-pages?celebration=all&lang='+lang,token);
+   assert.equal(listing.status,200,'authorized list '+index+' '+lang);
+   assert.ok(Array.isArray(listing.body.pages),'private page list response');
+   const list=listing.body;
    assert.equal(list.pages.length,index===2?0:1,'No other category or unenrolled pages');
    if(index===2)continue;
    assert.equal(list.pages[0].id,allPageIds[index]);
