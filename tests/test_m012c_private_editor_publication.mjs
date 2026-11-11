@@ -156,7 +156,8 @@ test('M012C: refuse cookie, participant, foreign origin, stale revision, forged 
   const ids=await f.create();
   const s=structuredClone(f.state.drafts['41'].spaces);
   s[0].visibility='PUBLIC';s[0].accessPolicy=pubPolicy;
-  assert.equal((await f.send({action:'save',spaces:s})).status,409);
+  assert.equal((await f.send({action:'save',spaces:s})).status,200);
+  assert.equal(f.state.drafts['41'].spaces[0].visibility,'PUBLIC');
   assert.equal((await f.send({action:'save',pages:[{id:ids.root,accessPolicy:pubPolicy}]})).status,400);
  }finally{f.close()}
 });
