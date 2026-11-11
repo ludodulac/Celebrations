@@ -36,7 +36,8 @@ async function snapshot(db,directory,url) {
   const search=(params.get('search')||'').trim().toLowerCase();
   const cursor=params.get('cursor')||'';
   const limitRaw=params.get('limit')||'50';
-  if(search.length>120||cursor.length>254||
+  const sort=params.get('sort')==='name'?'name':'email';
+  if(search.length>120||cursor.length>(sort==='name'?512:254)||
       !/^(?:[1-9][0-9]?|100)$/.test(limitRaw))
     throw new TypeError('Invalid directory pagination');
   const limit=Number(limitRaw);
@@ -44,22 +45,38 @@ async function snapshot(db,directory,url) {
   const category=params.get('typeId')||'';
   if(celebration)toD1CelebrationId(celebration);
   if(category&&!/^member-type:[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/.test(category))throw new TypeError('Invalid category');
+  let nameCursor=['','',''];
+  if(sort==='name'&&cursor){
+    try{
+      const parsed=JSON.parse(cursor);
+      if(!Array.isArray(parsed)||parsed.length!==3||parsed.some(v=>typeof v!=='string'||v.length>150))
+        throw Error('cursor');
+      nameCursor=parsed;
+    }catch{throw new TypeError('Invalid name cursor');}
+  }
+  const family="lower(COALESCE(p.family_name,''))";
+  const given="lower(COALESCE(p.given_name,''))";
+  const nameWhere=`(?='' OR ${family}>? OR (${family}=? AND ${given}>?) OR
+    (${family}=? AND ${given}=? AND p.email_normalized>? COLLATE NOCASE))`;
   const rows=await query(db,
     `SELECT p.id,p.email_normalized AS emailNormalized,
      COALESCE(NULLIF(p.display_name,''),
        NULLIF(trim(COALESCE(p.given_name,'')||' '||
          COALESCE(p.family_name,'')),''),p.email_normalized) AS name,
-     COALESCE(v.revision,0) AS revision
+     COALESCE(v.revision,0) AS revision,
+     lower(COALESCE(p.family_name,'')) AS sortFamily,
+     lower(COALESCE(p.given_name,'')) AS sortGiven
      FROM celebrations_directory_people p
      LEFT JOIN celebrations_directory_admin_revisions v ON v.resource_key=p.id
-     WHERE p.email_normalized > ? COLLATE NOCASE AND
+     WHERE ${sort==='name'?nameWhere:'p.email_normalized > ? COLLATE NOCASE'} AND
        (?='' OR instr(p.email_normalized,?)>0 OR
        instr(lower(COALESCE(p.display_name,'')||' '||
          COALESCE(p.given_name,'')||' '||COALESCE(p.family_name,'')),?)>0)
      AND (?='' OR EXISTS(SELECT 1 FROM celebrations_directory_person_celebrations c WHERE c.person_id=p.id AND c.celebration_id=?))
      AND (?='' OR EXISTS(SELECT 1 FROM celebrations_directory_person_types t WHERE t.person_id=p.id AND t.type_id=?))
-     ORDER BY p.email_normalized COLLATE NOCASE,p.id LIMIT ?`,
-    cursor,search,search,search,celebration,celebration,category,category,limit+1).all();
+     ORDER BY ${sort==='name'?`${family},${given},p.email_normalized COLLATE NOCASE`:'p.email_normalized COLLATE NOCASE,p.id'} LIMIT ?`,
+    ...(sort==='name'?[cursor,nameCursor[0],nameCursor[0],nameCursor[1],nameCursor[0],nameCursor[1],nameCursor[2]]:[cursor]),
+    search,search,search,celebration,celebration,category,category,limit+1).all();
   if(!Array.isArray(rows?.results)) throw new Error('Invalid people list');
   const hasMorePeople=rows.results.length>limit;
   const members=rows.results.slice(0,limit);
@@ -81,8 +98,10 @@ async function snapshot(db,directory,url) {
   return {types:(await directory.getMemberTypes()).map(t=>({
       ...t,revision:revisions.get(t.id)??0})),
     members,memberships,pages:[],spaces:[],enrollments:[],
-    hasMorePeople,nextCursor:hasMorePeople?members.at(-1).emailNormalized:null,
-    search,cursor,limit,pagePolicyWritesEnabled:false};
+    hasMorePeople,nextCursor:hasMorePeople?(sort==='name'
+      ?JSON.stringify([members.at(-1).sortFamily,members.at(-1).sortGiven,members.at(-1).emailNormalized])
+      :members.at(-1).emailNormalized):null,
+    search,cursor,limit,sort,pagePolicyWritesEnabled:false};
 }
 
 async function personDetail(db,directory,personId) {
