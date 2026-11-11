@@ -389,28 +389,21 @@ export function mountExistingEditorMemberSpaces(root,{
         pages.append(row);
         if(canonical){
           const policyForm=node('form');policyForm.className='member-spaces-form';
-          const policyMode=node('select');
-          for(const [value,caption] of [
-            [ACCESS_MODES.PUBLIC,'Accès de l’espace (sans restriction supplémentaire)'],
-            [ACCESS_MODES.ALL_PRIVATE_TYPES,'Tout type de membre privé'],
-            [ACCESS_MODES.SELECTED_TYPES,'Types sélectionnés']]){
-            const option=node('option',caption);option.value=value;
-            option.selected=(page.accessPolicy?.mode??ACCESS_MODES.PUBLIC)===value;policyMode.append(option);
-          }
-          const policyTypes=field('text','member-type:choir, member-type:team',500);
-          policyTypes.value=(page.accessPolicy?.typeIds||[]).join(', ');
-          const sync=()=>{policyTypes.disabled=!ready()||policyMode.value!==ACCESS_MODES.SELECTED_TYPES;};
-          policyMode.disabled=!ready();policyMode.addEventListener('change',sync);sync();
+          const accessPage=pagePolicyOptions(page.accessPolicy??{mode:ACCESS_MODES.PUBLIC});
+          accessPage.disabled=!ready();
           const prepare=button('Préparer les droits de la page');prepare.type='submit';prepare.disabled=!ready();
-          policyForm.append(label('Politique de la page '+(page.name||page.title||page.id),policyMode),
-            label('Types autorisés de la page',policyTypes),prepare);
+          policyForm.append(label('Page : Public ou Privé / catégorie',accessPage),prepare);
+          if(space.visibility==='PRIVATE')policyForm.append(node('small',
+            'Cette page reste réservée aux personnes autorisées à la célébration et à cet espace.'));
           policyForm.addEventListener('submit',event=>{
             event.preventDefault();if(!ready())return;
             try{
-              workspace.updatePagePolicy(celebrationId,space.id,page.id,{mode:policyMode.value,
-                typeIds:policyTypes.value.split(',').map(s=>s.trim()).filter(Boolean)});
-              renderSpaces('Droits de page préparés. Enregistrez les espaces pour les confirmer.');
-            }catch(e){renderSpaces('Politique refusée : '+e.message);}
+              const selected=pagePolicyFromChoice(accessPage.value,page.accessPolicy);
+              workspace.updatePagePolicy(celebrationId,space.id,page.id,{
+                mode:selected.mode,typeIds:selected.typeIds??[]
+              });
+              renderSpaces('Droits de page préparés. Enregistrez les espaces.');
+            }catch(e){renderSpaces('Droits refusés : '+e.message)}
           });
           pages.append(policyForm);
         }
