@@ -79,3 +79,8 @@ test('M018-C private access is delegated to existing guarded member editor',()=>
  assert.ok(DEMO_CLIENT.includes('M012B.mount(memberPanelRoot'));
  assert.ok(!DEMO_CLIENT.includes("localStorage.setItem('celebrations-members-grants'"));
 });
+
+test('M019 empty canonical page list has no active page slug and keeps admin navigation usable',()=>{
+ assert.equal(createPageModel().pageSlug(undefined,'90000002'),'');
+ new vm.Script(DEMO_CLIENT);
+});

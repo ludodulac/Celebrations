@@ -6,6 +6,7 @@ export function createPageModel(){
   'samedi','dimanche','apres-celebration'];
  const plannedPattern=/^plan-(michael|gabriel|raphael|ouriel)-\d{4}-\d{2}-\d{2}$/;
  function pageSlug(page,celebrationId){
+  if(!page)return '';
   if(page.group==='page')return page.id;
   const suffix='-'+String(celebrationId||'');
   return suffix!=='-'&&String(page.id).endsWith(suffix)?

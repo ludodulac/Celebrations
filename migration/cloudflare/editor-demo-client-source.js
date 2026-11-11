@@ -2436,6 +2436,7 @@ function pageWorkspace(group,mount=w){
  if(!privateEdit&&IS_STAGE){ensureMemberPanel();privatePageButtons(group,mount);}
  const listed=editorPageModel.groupPages(db.pages,group);
  if(!listed.length){
+  if(group!=='footer'){const empty=n('section','panel');empty.append(n('h2','',group==='celebration'?'Pages de la célébration':'Pages'),n('p','','Aucune page pour le moment.'),b('＋ Ajouter une page',()=>createPage(group),'sm primary'));mount.append(empty);}
   if(group==='footer'){
    const empty=n('section','panel footer-page-empty');
    empty.append(n('h2','','Pages de bas de page'),
