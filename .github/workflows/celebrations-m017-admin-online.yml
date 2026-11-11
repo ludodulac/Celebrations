@@ -139,3 +139,5 @@ jobs:
           NODE
 
 # M017: deployment only with explicit commit marker and the protected staging GitHub Environment secret.
+
+# Deployment requested by owner after adding CELEBRATIONS_M017_ADMIN_PASSWORD.
