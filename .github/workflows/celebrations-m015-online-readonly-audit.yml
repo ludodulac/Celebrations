@@ -37,7 +37,7 @@ jobs:
               if(expected!==null && response?.status()!==expected)
                 throw new Error('Preproduction unexpected status '+response?.status()+' expected '+expected);
               if(label.startsWith('preprod_')&&errors.length)throw new Error('Preproduction browser JS error');
-              console.log('LIVE_BROWSER +JSON.stringify({
+              console.log('LIVE_BROWSER '+JSON.stringify({
                 label,http_status:response?.status()??null,
                 final_host:new URL(page.url()).host,
                 title:(await page.title()).slice(0,150),
