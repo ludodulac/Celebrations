@@ -128,9 +128,17 @@ async function evaluate(request, env, {pageId, loadPublishedPage, loadPublishedS
   if (!principal) return null;
   const page = await loadPublishedPage(pageId, env);
   if (!releasedPage(page, pageId)) return null;
+  // Every protected page must name a real canonical celebration. A malformed
+  // published record is a denied resource (404), not a D1 outage (503).
+  // Never use a missing ID to skip the mandatory celebration enrollment.
+  if (typeof page.celebrationId !== 'string' ||
+      !/^[1-9][0-9]*$/.test(page.celebrationId) ||
+      !Number.isSafeInteger(Number(page.celebrationId))) return null;
   const space = own(page, 'spaceId')
     ? await loadPublishedSpace(page.spaceId, env) : null;
   if (!needsPrivateGate(page, space)) return null;
+  // Canonical page and space ownership must agree before consulting grants.
+  if (space && space.celebrationId !== page.celebrationId) return null;
   const context = await loadTrustedGrants(env.DB, principal, space, page.celebrationId);
   if(!context.celebrationEnrolled || !canAccessPage(page, context)) return null;
   if(typeof loadPublishedCelebrationPolicy==='function'){
