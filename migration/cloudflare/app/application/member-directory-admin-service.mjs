@@ -2,6 +2,7 @@
 // Deliberately not imported by production/staging Worker entrypoints.
 // Never trust role/type/person assertions from a browser for authorization.
 import {authorize} from '../../auth-api.mjs';
+import {getMemberAccessStatus,inviteMember,revokeMember} from '../../member-account-api.mjs';
 import {createContactDirectoryD1,toD1CelebrationId}
   from '../persistence/contact-directory-d1.mjs';
 import {isDirectoryPersonId} from '../domain/contact-directory.mjs';
@@ -114,16 +115,27 @@ async function personDetail(db,directory,personId) {
     query(db,`SELECT revision FROM celebrations_directory_admin_revisions
       WHERE resource_key=?`,id).first()
   ]);
-  return {person:{...person,revision:revisionRow?.revision??0},types,
+  return {person:{...person,revision:revisionRow?.revision??0},
+    access:await getMemberAccessStatus(db,id),types,
     celebrations:celebrations.map(link=>({
       ...link,celebrationId:String(toD1CelebrationId(link.celebrationId))
     })),enrollments:enrollments.map(link=>({
       ...link,celebrationId:String(toD1CelebrationId(link.celebrationId))
     }))};
 }
-async function edit(directory,db,actor,b,{resolveCanonicalSpace}={}) {
+async function edit(directory,db,env,actor,b,{resolveCanonicalSpace}={}) {
   if(!b || typeof b!=='object'||Array.isArray(b)||
       typeof b.action!=='string')throw new TypeError('Invalid operation');
+  if(b.action==='invite_member') {
+    // A verified administrator deliberately chooses ONE permanent person.
+    // Identity must never be inferred from a matching email address.
+    if(b.verified!==true)throw new TypeError('Explicit administrative verification required');
+    return {result:await inviteMember(db,env,invalidId(b.personId),actor,
+      {send:b.send!==false,language:b.language}),audited:true};
+  }
+  if(b.action==='revoke_member') {
+    return {result:await revokeMember(db,invalidId(b.personId),actor),audited:true};
+  }
   if(b.action==='review_claim') {
     if(b.approve!==true&&b.approve!==false)throw new TypeError('Invalid review');
     return {result:await reviewIdentityClaim(db,{
@@ -176,7 +188,7 @@ export async function handleMemberDirectoryAdmin(request,env,{
       return error(400,'Opération inconnue');
     }
     const command=await readBody(request);
-    const updated=await edit(directory,env.DB,actor,command,{resolveCanonicalSpace});
+    const updated=await edit(directory,env.DB,env,actor,command,{resolveCanonicalSpace});
     return ok(updated);
   } catch(e) {
     if(e instanceof SyntaxError || e instanceof TypeError)
