@@ -5,7 +5,7 @@ import {appendFileSync} from 'node:fs';
 const account='60a7b17758a93fe6681ce998e72ddff0';
 const db='28736d2a-479b-472b-bf82-703ad0affe10';
 const worker='celebrations-exit-production';
-const baseline='87dba010-c719-4a52-97c1-027a9c9de9b6';
+const baseline='d8c02e6f-9c01-4aef-8307-d67e072d85b7';
 const mode=process.argv[2];
 const newVersion=process.argv[3]||'';
 assert.ok(['before','after-migration','after-promotion','before-rollback','after-rollback'].includes(mode));
