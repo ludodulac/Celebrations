@@ -40,7 +40,7 @@ for(const name of [media,editor])assert.equal(buckets.buckets.filter(x=>x.name==
 assert.notEqual(media,'celebrations-exit-production');
 assert.notEqual(editor,'celebrations-exit-staging');
 const q=await request('POST','/d1/database/'+db+'/query',{
- sql:"SELECT count(*) AS n FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"});
+ sql:"SELECT count(*) AS n FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name <> '_cf_KV'"});
 assert.ok(Array.isArray(q)&&q[0]?.results?.length===1);
 assert.equal(q[0].results[0].n,0,'Target D1 is not empty; refuse destructive/repeated installation');
 const probe=await fetch(root+'/workers/scripts/'+target+'/settings',{
