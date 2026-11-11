@@ -70,8 +70,12 @@ try{
  }));
  assert.equal(response.status(),200,'identity read protected by owner cookie');
  assert.equal(JSON.parse(identityResponseText).ok,true);
- resp=await page.goto(HOST+'/?celebration=90000002&page=member-area&lang=fr',
+ // The member portal is independent from any private celebration URL.
+ // Its normal entrypoint is the existing "Connexion des membres" link.
+ resp=await page.goto(HOST+'/?page=member-area&lang=fr',
   {waitUntil:'domcontentloaded'});
+ if(resp.status()!==200)console.log('M021A_MEMBER_PAGE_DEBUG '+JSON.stringify({
+  status:resp.status(),body:(await resp.text()).slice(0,280)}));
  assert.equal(resp.status(),200);
  await page.screenshot({path:folder+'/04-connexion-mobile.png',fullPage:true});
  assert.deepEqual(errors,[],'browser must not raise JS exceptions');
