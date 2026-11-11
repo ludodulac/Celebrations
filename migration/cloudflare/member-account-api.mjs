@@ -58,8 +58,10 @@ const setCookie=(token,maxAge)=>COOKIE+'='+token+'; Path=/; HttpOnly; Secure; Sa
 const deleteCookie=()=>setCookie('',0);
 export async function getMemberAccessStatus(db,personId){
  if(!isDirectoryPersonId(personId))throw new TypeError('Invalid member');
- const row=await query(db,'SELECT status,participant_email AS email,updated_at FROM celebrations_member_invitation_bindings WHERE person_id=?',personId).first();
- if(!row)return {status:'not_invited',configured:false};
+ let row;
+ try{row=await query(db,'SELECT status,participant_email AS email,updated_at FROM celebrations_member_invitation_bindings WHERE person_id=?',personId).first();}
+ catch(err){if(!/no such table: celebrations_member_invitation_bindings/.test(String(err?.message||'')))throw err;}
+ if(!row)return {status:'not_invited'};
  return {status:row.status,updatedAt:row.updated_at};
 }
 const audit=(db,actor,action,id)=>query(db,
@@ -73,11 +75,11 @@ export async function inviteMember(db,env,personId,actor,{send=true,language='fr
  if(!assigned)throw new RangeError('Inscrivez d’abord ce membre à une célébration');
  const e=person.email;
  const participant=await query(db,'SELECT password_hash FROM celebrations_participants WHERE email=?',e).first();
- const linked=await query(db,'SELECT person_id FROM celebrations_directory_identity_links WHERE participant_email=? OR person_id=? LIMIT 1',e,personId).first();
+ const linked=await query(db,'SELECT person_id,participant_email FROM celebrations_directory_identity_links WHERE participant_email=? OR person_id=? LIMIT 1',e,personId).first();
  const binding=await query(db,'SELECT status,participant_email FROM celebrations_member_invitation_bindings WHERE person_id=?',personId).first();
  // Never silently attach an EXISTING password-protected historical account.
  if(participant?.password_hash&&!linked)throw new RangeError('Compte historique : validez d’abord le rapprochement d’identité dans Membres');
- if(linked&&linked.person_id!==personId)throw new RangeError('Compte déjà associé à une autre personne');
+ if(linked&&(linked.person_id!==personId||linked.participant_email!==e))throw new RangeError('Compte déjà associé à une autre identité : vérification indépendante nécessaire');
  if(binding&&binding.participant_email!==e)throw new RangeError('Adresse modifiée : vérification administrative nécessaire');
  const claimId='claim:'+crypto.randomUUID();
  const changes=[
@@ -222,11 +224,10 @@ export async function handleMemberAccount(request,env){
    if(!configured(env))return reply({ok:false,error:'Service e-mail non configuré : aucun message envoyé.'},503);
    if(await rateLimited(env.DB,e))return reply({ok:false,error:'Réessayez plus tard'},429);
    const known=await activeBinding(env.DB,e,purpose);
-   if(known){
-    const sent=await sendOneTimeLink(env,e,purpose,langOk(b.language));
-    if(!sent)return reply({ok:false,error:'Envoi indisponible ou limite Brevo atteinte. Aucun envoi confirmé.'},503);
-   }
-   return reply({ok:true,message:'Si cette adresse est autorisée, un e-mail peut lui parvenir.'});
+   if(known)await sendOneTimeLink(env,e,purpose,langOk(b.language));
+   // Exactly the same public result for existing, unknown or failed delivery.
+   // Do not pretend delivery was confirmed, including after a Brevo failure.
+   return reply({ok:true,message:'Si cette adresse est autorisée, une demande d’e-mail a été traitée. La livraison n’est pas confirmée.'});
   }
   if(action==='finish_activation'||action==='finish_reset'){
    const done=await applyPassword(env.DB,b,action==='finish_activation'?'activate':'reset');
