@@ -7,7 +7,7 @@ const worker='celebrations-exit-production';
 const baseline='87dba010-c719-4a52-97c1-027a9c9de9b6';
 const mode=process.argv[2];
 const newVersion=process.argv[3]||'';
-assert.ok(['before','after-migration','after-promotion','before-rollback'].includes(mode));
+assert.ok(['before','after-migration','after-promotion','before-rollback','after-rollback'].includes(mode));
 assert.equal(process.env.GITHUB_REF,'refs/heads/feat/celebrations-m018-official-release-prep-20261111');
 assert.equal(process.env.M018_OWNER_APPROVED,'YES','No owner-approved release authorization');
 assert.equal(process.env.CLOUDFLARE_ACCOUNT_ID,account);
