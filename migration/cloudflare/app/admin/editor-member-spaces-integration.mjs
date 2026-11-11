@@ -61,6 +61,8 @@ export function mountExistingEditorMemberSpaces(root,{
     const options=[['PUBLIC','Public'],['REGISTERED','Privé — Tous les inscrits']];
     if(current==='MULTI')options.push(['MULTI',
       'Privé — '+(previous.typeIds||[]).map(id=>memberTypes.find(t=>t.id===id)?.name||'Catégorie conservée').join(' + ')]);
+    if(current.startsWith('CATEGORY:')&&!activeTypes().some(t=>t.id===current.slice(9)))
+      options.push([current,'Privé — catégorie existante conservée']);
     options.push(...activeTypes().map(t=>['CATEGORY:'+t.id,'Privé — '+t.name]));
     for(const [key,title] of options){
       const option=node('option',title);option.value=key;option.selected=key===current;select.append(option);
@@ -90,6 +92,8 @@ export function mountExistingEditorMemberSpaces(root,{
     const options=[['PUBLIC','Public'],['REGISTERED','Privé — Tous les inscrits']];
     if(value==='MULTI')options.push(['MULTI','Privé — '+(policy.typeIds||[])
       .map(id=>memberTypes.find(t=>t.id===id)?.name||'Catégorie conservée').join(' + ')]);
+    if(value.startsWith('CATEGORY:')&&!activeTypes().some(t=>t.id===value.slice(9)))
+      options.push([value,'Privé — catégorie existante conservée']);
     options.push(...activeTypes().map(t=>['CATEGORY:'+t.id,'Privé — '+t.name]));
     for(const [key,title] of options){
       const option=node('option',title);option.value=key;option.selected=key===value;
