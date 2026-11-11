@@ -70,7 +70,8 @@ jobs:
         run: |
           npm install --no-save --no-package-lock wrangler@4
           (cd migration/cloudflare && npx wrangler deploy --dry-run --config wrangler.m018.official.toml)
-          echo M018_DEPLOY_DRY_RUN_NO_PRODUCTION_CHANGE
+          (cd migration/cloudflare && npx wrangler versions deploy "87dba010-c719-4a52-97c1-027a9c9de9b6@100%" --yes --dry-run --config wrangler.m018.official.toml)
+          echo M018_DEPLOY_AND_ROLLBACK_DRY_RUN_NO_PRODUCTION_CHANGE
       - name: Check actual official visitor page and admin link without submitting forms
         run: |
           npm install --no-save --no-package-lock playwright@1.58.2
