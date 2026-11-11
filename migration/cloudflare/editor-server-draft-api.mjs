@@ -7,7 +7,7 @@ import {createLanguageRegistry,setPageTranslation} from './app/domain/editor-loc
 import {EDITOR_SNAPSHOT_LIMIT,expectedRevisionMatches} from './app/ports/editor-snapshot-contract.mjs';
 import {readEditorSnapshot,putEditorSnapshot} from './app/adapters/editor-r2-repository.mjs';
 import {initialPublication,discoverMedia,publiclyVisible} from './editor-publication-api.mjs';
-import {isOfficialEditorHost,isReadonlyCandidateHost,sameOriginEditorWrite} from './app/security/editor-route-policy.mjs';
+import {isOfficialEditorHost,isReadonlyCandidateHost,isWritableEditorHost,sameOriginEditorWrite} from './app/security/editor-route-policy.mjs';
 const HOST='celebrations-exit-staging.rondes.workers.dev';
 const PREVIEW_HOST='celebrations-visual-candidate.rondes.workers.dev';
 const ID=/^(?:[1-9][0-9]{0,7}|plan-(?:michael|gabriel|raphael|ouriel)-20[0-9]{2}-[0-9]{2}-[0-9]{2})$/;
@@ -102,7 +102,7 @@ export async function handleServerDraft(request,env){
  const url=new URL(request.url);
  const open=url.pathname==='/api/editor-open-draft';
  if(!open&&url.pathname!=='/api/editor-server-draft')return error('Introuvable',404);
- if(!isOfficialEditorHost(url.hostname)&&url.hostname!==PREVIEW_HOST&&url.hostname!==HOST)return error('Introuvable',404);
+ if(!isWritableEditorHost(url.hostname,env)&&url.hostname!==PREVIEW_HOST&&url.hostname!==HOST)return error('Introuvable',404);
  if(!open&&url.hostname!==HOST)return error('Introuvable',404);
  if(!['GET','POST'].includes(request.method))return error('Méthode interdite',405);
  if(url.hostname===PREVIEW_HOST&&request.method!=='GET')return error('Aperçu non modifiable',405);
@@ -111,11 +111,11 @@ export async function handleServerDraft(request,env){
  if(isReadonlyCandidateHost(url.hostname))return error('Introuvable',404);
  // Enforce in the API handler itself, not solely at Worker route dispatch:
  // the authenticated OFFICIAL GET is as sensitive as the POST.
- if(open&&isOfficialEditorHost(url.hostname)&&
+ if(open&&isWritableEditorHost(url.hostname,env)&&
     !await hasEditorAccess(request,env))return error('Code administrateur nécessaire',401);
  // Official pages use the same shared editor snapshot as the verified staging editor;
  // production MEDIA_BUCKET stays unchanged to preserve all original media URLs.
- const draftBucket=isOfficialEditorHost(url.hostname)?env.EDITOR_BUCKET:env.MEDIA_BUCKET;
+ const draftBucket=isWritableEditorHost(url.hostname,env)?env.EDITOR_BUCKET:env.MEDIA_BUCKET;
  if(!env.DB||!draftBucket)return error('Sauvegarde serveur indisponible',503);
  // The owner explicitly allows open editing during this temporary publishing phase.
  // The original authenticated route is intentionally unchanged for compatibility.
@@ -171,7 +171,7 @@ export async function handleServerDraft(request,env){
   const state={...current.state,version,updatedAt,drafts,plans:body.plans,
    shared:body.shared,published:previouslyPublished,mediaCatalogue:catalogue,
    ...(body.localization!==undefined?{localization:body.localization}:{})};
-  const publishedPageId=open&&isOfficialEditorHost(url.hostname)&&publishPageId&&
+  const publishedPageId=open&&isWritableEditorHost(url.hostname,env)&&publishPageId&&
    refreshAlreadyPublishedPage(state,record,body.shared,body.celebration,publishPageId)
     ?publishPageId:null;
   if(publishedPageId)state.publishedAt=updatedAt;
