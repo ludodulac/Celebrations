@@ -335,7 +335,7 @@ export async function handleEditorAdminSession(request,env){
   if(await blocked(env.DB,"admin"))return editorDenied(429,"Réessayez plus tard");
   if(b.action==="challenge"){
    // Stateless issuance, no D1 write or token disclosure.
-   return editorSessionResult({ok:true,salt,challenge:await newEditorChallenge(origin,secret),
+   return editorSessionResult({ok:true,salt,challenge:await newEditorChallenge(origin,challengeSecret),
     iterations:180000,expires_in:CHALLENGE_TTL/1000});
   }
   // Optional current D1 bearer is for explicit password-based rotation only.
