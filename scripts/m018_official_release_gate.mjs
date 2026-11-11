@@ -1,6 +1,7 @@
 // M018 official release boundary: only Cloudflare GET and a bounded D1
 // SELECT over sqlite_master. No production write occurs in this module.
 import assert from 'node:assert/strict';
+import {appendFileSync} from 'node:fs';
 const account='60a7b17758a93fe6681ce998e72ddff0';
 const db='28736d2a-479b-472b-bf82-703ad0affe10';
 const worker='celebrations-exit-production';
@@ -57,10 +58,16 @@ const additions=[
 ];
 for(const name of ['celebrations_celebrations','celebrations_steps','celebrations_login_attempts','celebrations_admin_sessions'])
  assert.equal(tables.has(name),true,'Historical D1 schema missing '+name);
+const added=additions.filter(x=>tables.has(x)).length;
 if(mode==='before'){
- assert.equal(additions.filter(x=>tables.has(x)).length,0,'Partially prepared D1; stop before changes');
+ assert.ok(added===0||added===additions.length,
+  'Partially prepared D1; stop before changes');
+ if(process.env.GITHUB_OUTPUT)
+  appendFileSync(process.env.GITHUB_OUTPUT,
+   'apply_migrations='+(added===0?'yes':'no')+'\n');
+ console.log('M018_SCHEMA_ALREADY_ADDITIVE '+(added===additions.length));
 }else{
- assert.equal(additions.filter(x=>tables.has(x)).length,additions.length,'Additive D1 migration incomplete');
+ assert.equal(added,additions.length,'Additive D1 migration incomplete');
 }
 if(mode==='after-promotion'){
  for(const [name,value] of Object.entries({
@@ -73,5 +80,5 @@ console.log('M018_PROD_BOUNDARY_PASS '+JSON.stringify({
  mode,official_version:officialVersion,official_domains_unchanged:true,
  protected_credentials_unchanged:true,history_d1_unchanged:true,
  media_bucket_unchanged:true,editor_bucket_unchanged:true,
- schema_additive:(mode!=='before'),private_media_routes_enabled:false
+ schema_additive:(added===additions.length),private_media_routes_enabled:false
 }));
