@@ -1,0 +1,99 @@
+name: M012-D consolidation and real isolated editor
+on:
+  push:
+    branches: [feat/celebrations-m012d-consolidation-012a-012b-012c-20261111]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  history-and-active:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Three genuine merges and 32 source paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=85b551c86b5a4d002099530354e53cbe677629b6
+          A=0e75d3c1dcbd550149b7c21f38f0f3dd018b4147
+          B=7dc0aa767b0171b44d08df9b377402d693f492a1
+          C=42b672df0bdf87221dd34d164561ace0732a21c0
+          M1=4eb969fa223844fbaad17e93831e88c6256e48bc
+          M2=fcdd57e2fe347ab5ed4161f1aa50dc360d9da1c3
+          M3=bf43ee35575f2b8d5b929ebb5a6e71770a402a23
+          test "$(git rev-list --parents -n 1 "$M1")" = "$M1 $BASE $A"
+          test "$(git rev-list --parents -n 1 "$M2")" = "$M2 $M1 $B"
+          test "$(git rev-list --parents -n 1 "$M3")" = "$M3 $M2 $C"
+          git merge-base --is-ancestor "$M3" HEAD
+          for sha in "$A" "$B" "$C"; do git merge-base --is-ancestor "$sha" HEAD; done
+          { git diff --name-only "$BASE" "$A"; git diff --name-only "$BASE" "$B"; git diff --name-only "$BASE" "$C"; } | sort -u > "$RUNNER_TEMP/expected"
+          test "$(wc -l < "$RUNNER_TEMP/expected")" -eq 32
+          while read -r path; do test -f "$path"; done < "$RUNNER_TEMP/expected"
+          echo M012D_THREE_MERGES_32_PATHS_PASS
+      - name: Reproducible generated inline module
+        run: |
+          node scripts/build-m012b-member-spaces-inline.mjs --check
+          node --check migration/cloudflare/app/admin/editor-member-spaces-integration.mjs
+          node --check migration/cloudflare/app/admin/real-editor-member-spaces.mjs
+      - name: Active tests and authentication
+        run: node --test tests/test_m0*.mjs tests/test_mission002_member_access.mjs tests/test-exit-auth.mjs
+  actual-worker-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Local runtime, no cloud credentials
+        run: |
+          npm install --no-save --no-package-lock miniflare@4 esbuild@0.25 playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Both Worker D1 session lifecycle tests
+        run: node scripts/test-m012a-workerd.mjs
+      - name: Real visual editor through actual Worker D1 R2
+        run: node scripts/test-m012d-real-worker-editor.mjs
+      - name: Existing public navigation and directory
+        run: |
+          node scripts/test-m008a-public-language-browser.mjs
+          node scripts/test-m010b-admin-responsive-browser.mjs
+  historical:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Execute all historical tests, compare exact failures against base
+        shell: bash
+        run: |
+          set -euo pipefail
+          git worktree add --detach "$RUNNER_TEMP/base" 85b551c86b5a4d002099530354e53cbe677629b6
+          set +e
+          (cd "$RUNNER_TEMP/base" && node --test tests/test_mission*.mjs) > "$RUNNER_TEMP/base.tap" 2>&1
+          base_rc=$?
+          node --test tests/test_mission*.mjs > "$RUNNER_TEMP/head.tap" 2>&1
+          head_rc=$?
+          set -e
+          for label in base head; do
+            echo "$label rc: $base_rc/$head_rc"
+            grep -E '^# (tests|pass|fail|cancelled|skipped) ' "$RUNNER_TEMP/$label.tap"
+            grep '^not ok ' "$RUNNER_TEMP/$label.tap" | sed -E 's/^not ok [0-9]+ - /not ok - /' > "$RUNNER_TEMP/$label.failures" || true
+            cat "$RUNNER_TEMP/$label.failures"
+            grep -A22 '^not ok ' "$RUNNER_TEMP/$label.tap" || true
+          done
+          diff -u "$RUNNER_TEMP/base.failures" "$RUNNER_TEMP/head.failures"
+          echo M012D_NO_NEW_HISTORICAL_FAILURE_NAMES
