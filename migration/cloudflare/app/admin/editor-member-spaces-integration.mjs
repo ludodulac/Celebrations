@@ -288,6 +288,25 @@ export function mountExistingEditorMemberSpaces(root,{
         reconcile.disabled=!ready()||workspace.changed||snapshot.privateReleaseReady;
         reconcile.addEventListener('click',()=>void mutate('reconcile'));
         commands.append(release,reconcile);
+        // One canonical celebration; category and language are content variants.
+        const celebration=workspace.list().find(x=>String(x.id)===celebrationId);
+        const michael=String(celebration?.archangel||'').normalize('NFD')
+          .replace(/[\u0300-\u036f]/g,'').toLowerCase().includes('michael');
+        const policyForm=node('form');policyForm.className='member-spaces-form';
+        const overall=pagePolicyOptions(snapshot.celebrationAccessPolicy);
+        overall.disabled=!ready()||workspace.changed||michael;
+        const apply=button('Enregistrer la visibilité');apply.type='submit';
+        apply.disabled=overall.disabled;
+        policyForm.append(label('Célébration : Public ou Privé',overall),apply);
+        if(michael)policyForm.append(node('p','Michaël reste public dans les langues préparées.'));
+        policyForm.addEventListener('submit',event=>{
+          event.preventDefault();if(!ready()||workspace.changed||michael)return;
+          try{
+            const accessPolicy=pagePolicyFromChoice(overall.value,snapshot.celebrationAccessPolicy);
+            void mutate('celebration-access',{accessPolicy});
+          }catch(e){renderSpaces('Visibilité refusée : '+e.message)}
+        });
+        commands.append(policyForm);
       }
     }
     spaces.append(status,commands);
