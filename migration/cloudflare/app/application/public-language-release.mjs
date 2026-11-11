@@ -1,6 +1,6 @@
 // M008-A — server-side PUBLIC projection. Private M004 editor variants never reach the visitor.
 // Only explicitly published language registry and per-page releases are consumed.
-import {createLanguageRegistry,selectLanguage,setPageTranslation,resolvePageTranslation}
+import {createPreparedLanguageRegistry as createLanguageRegistry,selectLanguage,setPageTranslation,resolvePageTranslation}
  from '../domain/editor-localization.mjs';
 import {activePublicLanguages,languageFromUrl} from '../domain/public-language-navigation.mjs';
 import {eligiblePublicPage,projectPublicPage} from '../domain/editor-public-projection-security.mjs';
@@ -12,7 +12,7 @@ const clone=value=>structuredClone(value);
 const publicFields=['name','blocks'];
 
 export function publishedLanguageRegistry(published){
- try{return createLanguageRegistry(published?.languageRegistry)}
+ try{return {...createLanguageRegistry(published?.languageRegistry),defaultLanguageId:'fr'}}
  catch{return createLanguageRegistry()} // Old publication always remains French.
 }
 
@@ -35,27 +35,44 @@ export function localizedPublishedPage(page,registry,languageId,releases={}){
  }
  let result;
  try{result=resolvePageTranslation(withPublished,registry,languageId)}
- catch{return canonical}
+ catch{return projectPublicPage(canonical)}
  if(!result)return null; // No active published version: never re-enable a disabled source language.
  const rendered={...canonical};
  for(const field of publicFields)
   if(hasOwn(result.content,field))rendered[field]=clone(result.content[field]);
- return projectPublicPage(rendered);
+ const projected=projectPublicPage(rendered);
+ if(projected)Object.assign(projected,{languageId:result.languageId,
+  requestedLanguageId:languageId,usedFallback:result.languageId!==languageId});
+ return projected;
 }
 
-export function projectPublishedLanguage(snapshot,published,requestUrl){
+export function publishedLanguageOptions(snapshot,published,registry,selected,url){
+ const pages=[...(snapshot.shared?.pages||[]),
+  ...(snapshot.celebrationVisible?snapshot.record?.pages||[]:[]),
+  ...(snapshot.record?.spaces||[]).flatMap(s=>s.pages||[])];
+ const available=new Set(['fr']);
+ for(const page of pages)for(const lang of registry.languages){
+  const resolved=localizedPublishedPage(page,registry,lang.id,{...(published?.privateTranslationReleases||{}),...(published?.translationReleases||{})});
+  if(resolved?.languageId===lang.id&&resolved.blocks.length)available.add(lang.id);
+ }
+ const options=activePublicLanguages(registry,selected,url).filter(l=>available.has(l.id));
+ return options.length>1?options:[];
+}
+
+export function projectPublishedLanguage(snapshot,published,requestUrl,availabilitySnapshot=snapshot){
  const registry=publishedLanguageRegistry(published);
  const requested=languageFromUrl(requestUrl);
  const selected=selectLanguage(registry,requested);
- const releases=published?.translationReleases||{};
+ const releases={...(published?.privateTranslationReleases||{}),...(published?.translationReleases||{})};
  const mapPages=pages=>(pages||[]).map(page=>localizedPublishedPage(page,registry,selected.languageId,releases)).filter(Boolean);
  const shared={...snapshot.shared,pages:mapPages(snapshot.shared?.pages)};
  const record=snapshot.record?{...snapshot.record,
-  pages:mapPages(snapshot.record.pages)}:null;
+  pages:mapPages(snapshot.record.pages),
+  ...(snapshot.record.spaces?{spaces:snapshot.record.spaces.map(s=>({...s,pages:mapPages(s.pages)}))}:{})}:null;
  return {...snapshot,shared,record,publicLanguage:{
   selectedLanguageId:selected.languageId,
   usedFallback:selected.usedFallback,
-  options:activePublicLanguages(registry,selected.languageId,requestUrl)
+  options:publishedLanguageOptions(availabilitySnapshot,published,registry,selected.languageId,requestUrl)
  }};
 }
 

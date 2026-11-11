@@ -1,3 +1,4 @@
+import {visitorText} from './app/domain/visitor-ui-translations.mjs';
 // Read-only visitor renderer. Only the filtered published projection is displayed.
 // Browsing the site never modifies an administrator's locally saved drafts.
 import {loadSevenStageContent,STAGES} from './editor-demo-preparation-page.mjs';
@@ -36,13 +37,13 @@ export async function handleTrialSite(request,env){
  let publishedState=null;
  if(env.EDITOR_BUCKET){
   try{({state:publishedState}=await readEditorState(env.EDITOR_BUCKET))}
-  catch{return new Response('Publication temporairement indisponible',{status:503,
+  catch{return new Response(visitorText(url.searchParams.get('lang'),'Publication temporairement indisponible'),{status:503,
    headers:{'cache-control':'no-store'}})}
  }
  let result;
  try{result=await loadSevenStageContent(env,url.searchParams.get('celebration'),
   {publicOnly:true,publishedState})}
- catch{return new Response('Célébration introuvable',{status:404,headers:{'cache-control':'no-store'}})}
+ catch{return new Response(visitorText(url.searchParams.get('lang'),'Célébration introuvable'),{status:404,headers:{'cache-control':'no-store'}})}
  const nonce=Array.from(crypto.getRandomValues(new Uint8Array(16)),v=>v.toString(16).padStart(2,'0')).join('');
  const isOfficial=['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu'].includes(url.hostname);
  const siteClient=TRIAL_SITE_CLIENT;

@@ -4,7 +4,7 @@ import {renderPublicLanguageSelector} from
  '../migration/cloudflare/app/application/public-language-selector.mjs';
 import {activePublicLanguages} from
  '../migration/cloudflare/app/domain/public-language-navigation.mjs';
-import {createLanguageRegistry,addLanguage,setLanguageActive} from
+import {createPreparedLanguageRegistry as createLanguageRegistry,addLanguage,setLanguageActive} from
  '../migration/cloudflare/app/domain/editor-localization.mjs';
 
 function mockDocument(){
@@ -22,16 +22,15 @@ function walk(node){
 }
 test('M006 UI: native details selector shows active flags and names, and accessible links',()=>{
  const doc=mockDocument(),container=doc.createElement('div');
- const reg=setLanguageActive(addLanguage(createLanguageRegistry(),
-  {id:'en',name:'English',flag:'🇬🇧'}),'en',true);
+ const reg=createLanguageRegistry();
  const options=activePublicLanguages(reg,'en',
   'https://www.ronde-des-archanges-universelle.eu/mercredi?x=1');
  const node=renderPublicLanguageSelector(container,options);
  assert.equal(node.tag,'details');
  assert.equal(container.children[0],node);
  const elements=walk(node),links=elements.filter(n=>n.tag==='a');
- assert.equal(links.length,2);
- assert.deepEqual(links.map(n=>n.attrs.hreflang),['fr','en']);
+ assert.equal(links.length,8);
+ assert.deepEqual(links.map(n=>n.attrs.hreflang),['fr','en','es','de','pt','it','ar','zh-Hans']);
  assert.equal(links[1].attrs['aria-current'],'true');
  assert.equal(links[1].attrs.href,'https://www.ronde-des-archanges-universelle.eu/mercredi?x=1&lang=en');
  assert.ok(elements.some(n=>n.textContent==='English'));

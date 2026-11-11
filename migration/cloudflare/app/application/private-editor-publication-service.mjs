@@ -4,7 +4,7 @@ import {readEditorState,writeEditorState,initialPublication} from '../../editor-
 import {expectedRevisionMatches,EDITOR_SNAPSHOT_LIMIT} from '../ports/editor-snapshot-contract.mjs';
 import {ACCESS_MODES,SPACE_VISIBILITIES,isMemberTypeId} from '../domain/member-access.mjs';
 import {createCelebrationSpace,getCelebrationSpaces,duplicateCelebration} from '../domain/celebration-spaces.mjs';
-import {createLanguageRegistry,setPageTranslation,setCelebrationSpaceTranslation} from '../domain/editor-localization.mjs';
+import {createPreparedLanguageRegistry as createLanguageRegistry,setPageTranslation,setCelebrationSpaceTranslation} from '../domain/editor-localization.mjs';
 import {managedPage} from '../security/private-editor-boundary.mjs';
 import {acknowledgePrivateRelease,privateReleaseReady,validCelebrationId} from '../persistence/private-release-fence.mjs';
 const obj=x=>!!x&&typeof x==='object'&&!Array.isArray(x);
