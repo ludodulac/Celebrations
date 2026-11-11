@@ -15,13 +15,13 @@ const enCat=['English category 1 M018 FICTIONAL','English category 2 M018 FICTIO
 const esCat=['Español categoría 1 M018 FICTICIO','Español categoría 2 M018 FICTICIO'];
 const json=async(r)=>({status:r.status,body:await r.json().catch(()=>({}))});
 async function api(path,body,bearer){
- const headers={origin,'content-type':'application/json',
+ const headers={origin,connection:'close','content-type':'application/json',
   ...(bearer?{authorization:'Bearer '+bearer}:{})};
  return json(await fetch(origin+path,{method:'POST',headers,body:JSON.stringify(body),
   signal:AbortSignal.timeout(30000)}));
 }
 async function get(path,token){
- return json(await fetch(origin+path,{headers:token?{authorization:'Bearer '+token}:{},
+ return json(await fetch(origin+path,{headers:{connection:'close',...(token?{authorization:'Bearer '+token}:{})},
   signal:AbortSignal.timeout(30000)}));
 }
 function ok(r,label){assert.equal(r.status,200,label+' status='+r.status+' error='+r.body?.error);

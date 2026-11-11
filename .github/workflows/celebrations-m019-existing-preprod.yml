@@ -7,7 +7,7 @@ permissions:
   actions: read
 jobs:
   existing-m016-final-functional-proof-d:
-    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M019_PREVIEW]') }}
+    if: ${{ contains(github.event.head_commit.message, '[M019_PREVIEW]') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     environment: celebrations-staging

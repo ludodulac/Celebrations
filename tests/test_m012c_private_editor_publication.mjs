@@ -258,5 +258,9 @@ test('M019 a true celebration copy has its own D1 identity, date and draft, with
   assert.ok(f.state.drafts[id].spaces.every(s=>!s.accessPolicy.typeIds));
   const retry=await f.send(args);assert.equal(retry.status,200,JSON.stringify(retry));assert.equal(retry.targetCelebration,id);
   assert.equal(f.db.prepare('SELECT count(*) n FROM celebrations_celebrations').get().n,3);
+  const recovery={...args,date:'2026-10-14'};f.failCAS=true;
+  assert.equal((await f.send(recovery)).status,409);f.failCAS=false;
+  assert.equal((await f.send(recovery)).status,200);
+  assert.equal(f.db.prepare('SELECT count(*) n FROM celebrations_celebrations').get().n,4,'failed snapshot retry reuses its canonical draft');
  }finally{f.close()}
 });
