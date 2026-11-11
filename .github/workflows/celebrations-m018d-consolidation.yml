@@ -1,0 +1,162 @@
+name: "Célébrations M018-D — consolidation A+B+C et parcours M016 existant"
+on:
+  push:
+    branches: [feat/m018d-integration-preparation-20261111]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  targeted-offline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Verify A+B+C and guarded public metadata (no external access)
+        run: |
+          node --check migration/cloudflare/editor-demo-preparation-page.mjs
+          node --check migration/cloudflare/editor-publication-api.mjs
+          node --check migration/cloudflare/editor-trial-site-client.mjs
+          node --check migration/cloudflare/app/domain/editor-public-visitor-model.mjs
+          node --check migration/cloudflare/app/security/member-private-access.mjs
+          node --check migration/cloudflare/app/admin/editor-member-spaces-integration.mjs
+          node scripts/build-m012b-member-spaces-inline.mjs --check
+          node --test tests/test_m018d_final_consolidation.mjs \
+            tests/test_m018c_admin_finalization.mjs \
+            tests/test_m018b_visitor_language_navigation.mjs \
+            tests/test_m018_final_functional_rules.mjs \
+            tests/test_m018_official_pin_bridge.mjs \
+            tests/test_m011b_private_content_integration.mjs \
+            tests/test_m008c_private_server_access.mjs \
+            tests/test_m010a_explicit_private_identity.mjs
+      - name: Verify official release and rollback files are present, untouched
+        run: |
+          test -s .github/workflows/celebrations-m018-official-release.yml
+          node --check scripts/m018_official_release_gate.mjs
+          node --check scripts/m018_official_smoke.mjs
+          test -s migration/cloudflare/wrangler.m018.official.toml
+
+  existing-m016-final-functional-proof-d:
+    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M018D_VERIFY_EXISTING_M016]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: celebrations-staging
+    concurrency:
+      group: celebrations-m018-existing-M016-only
+      cancel-in-progress: false
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      M017_ADMIN_PASSWORD: ${{ secrets.CELEBRATIONS_M017_ADMIN_PASSWORD }}
+      M018_ISOLATED_ONLY: 'YES'
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Refuse production credentials/bindings drift; retain exact M016 Worker rollback version
+        id: original
+        run: |
+          node scripts/m018_official_readonly.mjs
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {appendFileSync} from 'node:fs';
+          const id='60a7b17758a93fe6681ce998e72ddff0';
+          assert.equal(process.env.CLOUDFLARE_ACCOUNT_ID,id);
+          assert.ok((process.env.M017_ADMIN_PASSWORD||'').length>=16);
+          const root='https://api.cloudflare.com/client/v4/accounts/'+id;
+          async function cf(path) {
+           const r=await fetch(root+path,{headers:{authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN},
+            signal:AbortSignal.timeout(25000)});
+           assert.equal(r.status,200);
+           const json=await r.json();assert.equal(json.success,true);return json.result;
+          }
+          const current=await cf('/workers/scripts/celebrations-m016-admin-preprod/deployments');
+          const versions=current.deployments?.[0]?.versions||[];
+          assert.equal(versions.length,1);assert.equal(versions[0].percentage,100);
+          const original=versions[0].version_id;assert.match(original,/^[a-f0-9-]{36}$/);
+          const settings=await cf('/workers/scripts/celebrations-m016-admin-preprod/settings');
+          const binds=new Map((settings.bindings||[]).map(x=>[x.name,x]));
+          for(const name of ['DB','MEDIA_ACL'])assert.equal(binds.get(name)?.id||binds.get(name)?.database_id,
+           '3bb4108f-5ff8-4959-ba32-bd53f33156cb');
+          assert.equal(binds.get('MEDIA_BUCKET')?.bucket_name,'celebrations-m016-admin-media');
+          assert.equal(binds.get('EDITOR_BUCKET')?.bucket_name,'celebrations-m016-admin-editor');
+          for(const name of ['ADMIN_PASSWORD_HASH','ADMIN_PASSWORD_SALT','M016_PIN_SALT','M016_PIN_VERIFIER','EDITOR_D1_CHALLENGE_SECRET'])
+           assert.equal(binds.get(name)?.type,'secret_text','M017 protected credential missing '+name);
+          appendFileSync(process.env.GITHUB_OUTPUT,'prior_version='+original+'\n');
+          console.log('M018_EXISTING_M016_BOUNDARY_PASS isolated_only=true official_unchanged=true');
+          NODE
+      - name: Verify targeted final functional contracts before online test
+        run: |
+          node scripts/m018_official_validate.mjs
+          node scripts/build-m012b-member-spaces-inline.mjs --check
+          node --check scripts/m018_existing_preprod_online.mjs
+          node --check scripts/m018_seed_existing_preprod.mjs
+          node --test tests/test_m018_final_functional_rules.mjs tests/test_m018_official_pin_bridge.mjs \
+            tests/test_m011b_private_content_integration.mjs tests/test_m012c_private_editor_publication.mjs
+      - name: Rebuild SAME existing editor assets, no new site
+        run: |
+          python scripts/build_production_assets.py
+          test -s production-public/index.html
+          test -s production-public/admin.html
+          ! grep -Eq '^\s*(route|routes|zone_id|custom_domain)\s*=' migration/cloudflare/wrangler.m018.existing-preprod.toml
+          test "$(grep -c 'database_id = "3bb4108f-5ff8-4959-ba32-bd53f33156cb"' migration/cloudflare/wrangler.m018.existing-preprod.toml)" -eq 2
+      - name: Install existing pinned Wrangler
+        run: npm install --no-save --no-package-lock wrangler@4
+      - name: Seed only FICTIONAL Gabriel and members in isolated M016 D1
+        working-directory: migration/cloudflare
+        run: |
+          set -euo pipefail
+          umask 077
+          tmp=/tmp/m018-fiction-only.sql
+          trap 'rm -f "$tmp"' EXIT
+          node ../../scripts/m018_seed_existing_preprod.mjs "$tmp"
+          npx wrangler d1 execute celebrations-m016-admin-preprod --remote \
+            --config wrangler.m018.existing-preprod.toml --file "$tmp"
+          echo M018_M016_ISOLATED_ONLY_FAKE_SQL_PASS
+      - name: Deploy changed code ONLY on original M016 Worker with secret preservation
+        id: preprod-deploy
+        working-directory: migration/cloudflare
+        run: |
+          npx wrangler deploy --config wrangler.m018.existing-preprod.toml
+          echo M018_M016_EXISTING_WORKER_UPDATED_OFFICIAL_UNCHANGED
+      - name: Check preserved M017 passwords and exact M016 bindings after deployment
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const root='https://api.cloudflare.com/client/v4/accounts/60a7b17758a93fe6681ce998e72ddff0';
+          const r=await fetch(root+'/workers/scripts/celebrations-m016-admin-preprod/settings',{
+            headers:{authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN},
+            signal:AbortSignal.timeout(25000)});
+          assert.equal(r.status,200);
+          const json=await r.json();assert.equal(json.success,true);
+          const binds=new Map(json.result.bindings.map(b=>[b.name,b]));
+          assert.equal(binds.get('DB')?.id||binds.get('DB')?.database_id,'3bb4108f-5ff8-4959-ba32-bd53f33156cb');
+          assert.equal(binds.get('EDITOR_BUCKET')?.bucket_name,'celebrations-m016-admin-editor');
+          for(const name of ['ADMIN_PASSWORD_HASH','ADMIN_PASSWORD_SALT','M016_PIN_SALT','M016_PIN_VERIFIER','EDITOR_D1_CHALLENGE_SECRET'])
+           assert.equal(binds.get(name)?.type,'secret_text','Preserve secret '+name);
+          console.log('M018_EXISTING_M016_SECRET_AND_BINDINGS_PRESERVED');
+          NODE
+      - name: "Chromium + real Cloudflare D1/R2 : une célébration, deux catégories, trois langues"
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+          node scripts/m018_existing_preprod_online.mjs
+      - name: Verify official production version STILL unchanged
+        if: always()
+        run: node scripts/m018_official_readonly.mjs
+      - name: Roll back only this EXISTING M016 Worker on any failed functional check
+        if: ${{ failure() && steps.preprod-deploy.outcome != 'skipped' }}
+        working-directory: migration/cloudflare
+        env:
+          OLD_M016_VERSION: ${{ steps.original.outputs.prior_version }}
+        run: |
+          set -euo pipefail
+          test -n "$OLD_M016_VERSION"
+          npx wrangler versions deploy "${OLD_M016_VERSION}@100%" --yes \
+            --config wrangler.m018.existing-preprod.toml \
+            --message "M018 isolated M016 functional proof failed; restore prior M016 Worker"
