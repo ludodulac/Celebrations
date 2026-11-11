@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createSpacesDraftWorkspace} from '../migration/cloudflare/app/admin/editor-spaces-draft.mjs';
-import {createMemberDirectoryTransport} from '../migration/cloudflare/app/admin/editor-member-spaces-integration.mjs';
+import {createMemberDirectoryTransport} from './fixtures/m011c-legacy-member-transport.mjs';
 import {canReadSpacePage} from '../migration/cloudflare/app/domain/celebration-spaces.mjs';
 
 const original={
