@@ -2,6 +2,7 @@
 // Deliberately not imported by production/staging Worker entrypoints.
 // Never trust role/type/person assertions from a browser for authorization.
 import {authorize} from '../../auth-api.mjs';
+import {m021DemoAllowed,m021DemoList,m021DemoCreate,m021DemoDelete} from './m021-demo-members.mjs';
 import {getMemberAccessStatus,inviteMember,revokeMember} from '../../member-account-api.mjs';
 import {createContactDirectoryD1,toD1CelebrationId}
   from '../persistence/contact-directory-d1.mjs';
@@ -181,6 +182,7 @@ export async function handleMemberDirectoryAdmin(request,env,{
     if(request.method==='GET') {
       const url=new URL(request.url);
       const action=url.searchParams.get('action')||'snapshot';
+      if(action==='m021_demo_list') return m021DemoAllowed(request,env)?ok({data:await m021DemoList(env.DB)}):error(404,'Introuvable');
       if(action==='snapshot') return ok({data:await snapshot(env.DB,directory,url)});
       if(action==='person_detail') return ok({data:await personDetail(env.DB,directory,
         url.searchParams.get('personId'))});
@@ -188,6 +190,13 @@ export async function handleMemberDirectoryAdmin(request,env,{
       return error(400,'Opération inconnue');
     }
     const command=await readBody(request);
+    if(['m021_demo_create','m021_demo_delete'].includes(command?.action)){
+      if(!m021DemoAllowed(request,env))return error(404,'Introuvable');
+      const item=command.action==='m021_demo_create'?
+        await m021DemoCreate(env.DB,env,directory,actor,command):
+        await m021DemoDelete(env.DB,actor,command.personId);
+      return ok({result:item,audited:true});
+    }
     const updated=await edit(directory,env.DB,env,actor,command,{resolveCanonicalSpace});
     return ok(updated);
   } catch(e) {

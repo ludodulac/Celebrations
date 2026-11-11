@@ -3,7 +3,8 @@
 import {handleMediaAdmin} from "./media-admin-api.mjs";
 import {handleMedia} from "./media-gateway.mjs";
 import {handleLegacyLink} from "./legacy-link-router.mjs";
-import {handleAuth} from "./auth-api.mjs";
+import {handleAuth,authorize} from "./auth-api.mjs";
+import {handleSiteIdentity} from "./site-identity-api.mjs";
 import {handleAudience} from "./audience-api.mjs";
 import {handleSafeSave} from "./safe-save-api.mjs";
 import {handleAdmin} from "./admin-api.mjs";
@@ -39,6 +40,25 @@ export default {
   // Do not serve ANY route if the exact new Worker loses its two opt-ins.
   if(url.hostname==='celebrations-m016-admin-preprod.rondes.workers.dev'&&!workingPreprod)
    return new Response('Preproduction unavailable',{status:503,headers:{'cache-control':'no-store','x-robots-tag':'noindex'}});
+  // M021-A: while demo accounts exist, the ENTIRE M016 preview requires
+  // the owner's EXISTING editor PIN cookie. The member login still checks
+  // its own participant session and server-side category/celebration grants.
+  // This boundary is never active for official or read-only domains.
+  // Existing D1 admin calls deliberately omit the PIN cookie and send a
+  // short-lived bearer instead. Validate that bearer server-side before bypass.
+  // Raw bearer presence alone never opens the preproduction boundary.
+  const m021VerifiedAdmin=workingPreprod&&path.startsWith('/api/admin/')&&
+    request.headers.get('authorization')?.startsWith('Bearer ')&&
+    !!(await authorize(request,env,true));
+  if(workingPreprod&&env.M021_PREPROD_ACCESS_GATE_ENABLED==='true'&&
+     path!=='/api/editor-access'&&!['/admin','/admin.html'].includes(path)&&
+     !m021VerifiedAdmin&&!(await hasEditorAccess(request,env))){
+    if((path==='/'||path==='/index.html')&&request.method==='GET')
+     return Response.redirect(url.origin+'/admin',302);
+    return new Response('Préproduction privée : code administrateur requis',{
+     status:403,headers:{'cache-control':'no-store','x-robots-tag':'noindex,nofollow,noarchive',
+      'x-content-type-options':'nosniff'}});
+  }
   const isolated=isReadonlyCandidateHost(url.hostname);
   // Before domain cutover the independent candidate is READ-ONLY, by design.
   // This gate prevents public signups, analytics writes and admin mutations.
@@ -126,6 +146,7 @@ export default {
     return handleTrialSite(new Request(viewUrl,request),env);
    }
   }
+  if(path==="/api/site-identity")return handleSiteIdentity(request,env);
   if(path==="/api/auth")return handleAuth(request,env);
   if(path==="/api/audience")return handleAudience(request,env);
   if(path==="/api/media-admin")return handleMediaAdmin(request,env);

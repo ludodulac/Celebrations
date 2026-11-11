@@ -1,0 +1,40 @@
+name: Célébrations M021-A — tests isolés, aucune publication
+on:
+  push:
+    branches: [feat/m021a-test-members-site-identity-20261111]
+  pull_request:
+    branches: [feat/m020e-consolidation-abcd-20261111]
+permissions:
+  contents: read
+jobs:
+  m021a-local-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - name: No official worker, domain or production DB changes
+        run: |
+          set -euo pipefail
+          test -f migration/cloudflare/d1-migrations/20261111_021a_demo_members.sql
+          grep -Fq 'celebrations-m016-admin-preprod.rondes.workers.dev' migration/cloudflare/app/application/m021-demo-members.mjs
+          grep -Fq 'M021_DEMO_D1_ISOLATED' migration/cloudflare/app/application/m021-demo-members.mjs
+          grep -Fq 'database_id = "3bb4108f-5ff8-4959-ba32-bd53f33156cb"' migration/cloudflare/wrangler.m018.existing-preprod.toml
+          ! grep -Eq '^[[:space:]]*(route|routes|zone_id|custom_domain)[[:space:]]*=' migration/cloudflare/wrangler.m018.existing-preprod.toml
+      - name: Existing generated editor bundles are synchronized
+        run: |
+          node scripts/build-m012b-member-spaces-inline.mjs --check
+          node scripts/build-m019-editor-client.mjs --check
+      - name: Syntax and synthetic local D1 regression
+        run: |
+          node --check migration/cloudflare/app/application/m021-demo-members.mjs
+          node --check migration/cloudflare/site-identity-api.mjs
+          node --check migration/cloudflare/production-worker.mjs
+          node --check migration/cloudflare/editor-trial-site-page.mjs
+          node --check migration/cloudflare/editor-trial-site-client.mjs
+          node --check migration/cloudflare/editor-demo-client.mjs
+          node --test tests/test_m021a_demo_identity.mjs tests/test_m021a_demo_flow.mjs
+      - name: Prior member login, eight languages and media protection
+        run: |
+          node --test tests/test_m020d_member_brevo.mjs tests/test_m020a_visitor_languages.mjs tests/test_m020e_integrated_migrations.mjs

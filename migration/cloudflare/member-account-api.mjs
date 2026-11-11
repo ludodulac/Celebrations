@@ -195,6 +195,9 @@ async function sessionStatus(request,env){
  if(!raw)return null;
  const row=await query(env.DB,'SELECT participant_email AS email,expires_at FROM celebrations_participant_sessions WHERE token_hash=? AND expires_at>?',await sha256(raw),now()).first();
  if(!row)return null;
+ const hostname=new URL(request.url).hostname;
+ if(['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu'].includes(hostname)&&
+    /^m021-[0-9a-f]{32}@test[.]invalid$/.test(row.email))return null;
  return row;
 }
 export async function handleMemberAccount(request,env){
@@ -209,6 +212,10 @@ export async function handleMemberAccount(request,env){
   if(!b||Array.isArray(b)||typeof b!=='object')throw Error('shape');
  }catch{return reply({ok:false,error:'Requête invalide'},400)}
  const action=b.action;
+ const official=['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu']
+  .includes(new URL(request.url).hostname);
+ if(official&&/^m021-[0-9a-f]{32}@test[.]invalid$/.test(String(b.email||'').toLowerCase()))
+  return reply({ok:false,error:'Compte indisponible'},403);
  try{
   if(action==='session'){
    const s=await sessionStatus(request,env);
