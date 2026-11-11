@@ -77,6 +77,9 @@ export async function inviteMember(db,env,personId,actor,{send=true,language='fr
  const participant=await query(db,'SELECT password_hash FROM celebrations_participants WHERE email=?',e).first();
  const linked=await query(db,'SELECT person_id,participant_email FROM celebrations_directory_identity_links WHERE participant_email=? OR person_id=? LIMIT 1',e,personId).first();
  const binding=await query(db,'SELECT status,participant_email FROM celebrations_member_invitation_bindings WHERE person_id=?',personId).first();
+ // A pending invitation can be activated only through its mailed one-time token.
+ if(binding?.status==='invited'&&participant?.password_hash)
+  throw new RangeError('Invitation à vérifier : un mot de passe existe déjà sans activation');
  // Never silently attach an EXISTING password-protected historical account.
  if(participant?.password_hash&&!linked)throw new RangeError('Compte historique : validez d’abord le rapprochement d’identité dans Membres');
  if(linked&&(linked.person_id!==personId||linked.participant_email!==e))throw new RangeError('Compte déjà associé à une autre identité : vérification indépendante nécessaire');
