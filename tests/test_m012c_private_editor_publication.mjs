@@ -244,3 +244,19 @@ test('M019 ordinary shared page transitions revoke public snapshots and require 
   assert.doesNotMatch(JSON.stringify(publicSnapshot(f.state,'41')),/ORDINARY_M019_SECRET/);
  }finally{f.close()}
 });
+
+test('M019 a true celebration copy has its own D1 identity, date and draft, with no copied grants; retries do not multiply copies',async()=>{
+ const f=await fixture();try{
+  await f.create();
+  const args={action:'create-celebration',archangel:'Gabriel',date:'2026-10-07',title:'Gabriel octobre — copie',copy:true};
+  const result=await f.send(args);assert.equal(result.status,200,JSON.stringify(result));
+  const id=result.targetCelebration;assert.match(id,/^\d+$/);assert.notEqual(id,'41');
+  assert.equal(f.db.prepare('SELECT status FROM celebrations_celebrations WHERE id=?').get(Number(id)).status,'draft');
+  assert.equal(f.state.drafts[id].celebrationDates.wednesday,'2026-10-07');
+  assert.equal(f.state.published.celebrationVisibility[id],'draft');
+  assert.equal(f.db.prepare('SELECT count(*) n FROM celebrations_directory_person_celebrations WHERE celebration_id=?').get(Number(id)).n,0);
+  assert.ok(f.state.drafts[id].spaces.every(s=>!s.accessPolicy.typeIds));
+  const retry=await f.send(args);assert.equal(retry.status,200,JSON.stringify(retry));assert.equal(retry.targetCelebration,id);
+  assert.equal(f.db.prepare('SELECT count(*) n FROM celebrations_celebrations').get().n,3);
+ }finally{f.close()}
+});

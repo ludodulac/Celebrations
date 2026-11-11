@@ -292,6 +292,23 @@ try{
  await admin.getByRole('button',{name:'Versions par catégorie',exact:true}).click();
  await admin.getByRole('button',{name:/Copie M019 retrouvable — English.*Brouillon/}).waitFor();
  await admin.screenshot({path:'docs/m019-smartphone/04-celebrations.png',fullPage:true});
+ // A complete celebration copy is a real selectable canonical draft, not a local plan.
+ await admin.locator('[data-tab="celebrations"]').click();
+ await admin.getByRole('button',{name:'Dupliquer la célébration',exact:true}).click();
+ await modal.getByLabel('Date du mercredi :',{exact:true}).fill('2026-10-07');
+ await modal.getByLabel('Titre',{exact:true}).fill('Gabriel octobre — copie de démonstration');
+ await Promise.all([
+  admin.waitForURL(u=>/^\d+$/.test(u.searchParams.get('celebration')||'')&&u.searchParams.get('celebration')!==C,{timeout:30000}),
+  modal.getByRole('button',{name:'Créer le brouillon',exact:true}).click()
+ ]);
+ const copiedId=new URL(admin.url()).searchParams.get('celebration');
+ const copied=ok(await get('/api/admin/private-editor?celebration='+copiedId,adminToken),'real canonical copy');
+ assert.equal(copied.celebrationVisibility,'draft');assert.equal(copied.record.celebrationDates.wednesday,'2026-10-07');
+ assert.ok(copied.record.spaces.every(s=>!s.accessPolicy.typeIds));
+ await admin.locator('[data-tab="members-spaces"]').click();
+ await admin.locator('.m019-member-form').getByLabel('Célébration',{exact:true}).selectOption(copiedId);
+ assert.equal((await fetch(origin+'/?celebration='+copiedId)).status,404,'new celebration remains a draft');
+ event('M019_CANONICAL_COPY_PASS',{date:'2026-10-07',selectable_for_members:true,copied_rights:0});
  assert.deepEqual(nativeDialogs,[],'No browser alert/prompt/confirm in phone flows');
  assert.equal(await admin.locator('[data-tab="participants"]').count(),0);
  assert.deepEqual(errs,[],'No admin JS errors');

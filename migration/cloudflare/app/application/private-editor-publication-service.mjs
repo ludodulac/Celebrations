@@ -1,5 +1,5 @@
 // M012-C — canonical editor persistence; no route or deployment is enabled here.
-import {authorize} from '../../auth-api.mjs';
+import {authorize,sha256} from '../../auth-api.mjs';
 import {readEditorState,writeEditorState,initialPublication} from '../../editor-publication-api.mjs';
 import {expectedRevisionMatches,EDITOR_SNAPSHOT_LIMIT} from '../ports/editor-snapshot-contract.mjs';
 import {ACCESS_MODES,SPACE_VISIBILITIES,isMemberTypeId} from '../domain/member-access.mjs';
@@ -352,6 +352,52 @@ function readResult(state,cid){
   celebrationAccessPolicy:pub.celebrationAccessPolicies?.[cid]??{mode:ACCESS_MODES.PUBLIC},
   languageRegistry:createLanguageRegistry(state.localization?.registry??pub.languageRegistry)};
 }
+// Create a real canonical celebration using the existing D1 identity and R2
+// snapshot. The audit key makes retries recover the same draft after a CAS fault.
+async function createCanonicalCelebration(env,current,source,b,actor,known,registry){
+ if(!['Michaël','Gabriel','Raphaël','Ouriel'].includes(b.archangel)||
+    typeof b.date!=='string'||!/^20[0-9]{2}-[0-9]{2}-[0-9]{2}$/.test(b.date)||
+    typeof b.copy!=='boolean')invalid();
+ const date=new Date(b.date+'T12:00:00Z');
+ if(!Number.isFinite(+date)||date.toISOString().slice(0,10)!==b.date||date.getUTCDay()!==3)invalid();
+ const title=name(b.title,100),auditId='audit:m019-create:'+await sha256(b.archangel+'|'+b.date);
+ const prior=await q(env.DB,'SELECT target_id FROM celebrations_directory_admin_audit WHERE id=? AND action=?',auditId,'create_celebration').first();
+ let id=prior?.target_id;
+ if(!id){
+  const next=await q(env.DB,'SELECT COALESCE(max(id),0)+1 AS next_id FROM celebrations_celebrations').first();
+  id=String(next?.next_id);if(!validCelebrationId(id))fail(409,'Création indisponible. Réessayez.');
+  await env.DB.batch([
+   q(env.DB,'INSERT INTO celebrations_celebrations(id,archangel,year,status) VALUES(?,?,?,?)',Number(id),b.archangel,b.date.slice(0,4),'draft'),
+   q(env.DB,'INSERT INTO celebrations_directory_admin_audit(id,actor_email,action,target_id) VALUES(?,?,?,?)',auditId,actor,'create_celebration',id)
+  ]);
+ }
+ const state=copy(current.state);state.published??=initialPublication(state);manifests(state.published);
+ if(state.drafts[id])return reply({...readResult(state,id),targetCelebration:id,existing:true});
+ if(b.copy&&state.drafts[source]){
+  const original=state.drafts[source];state.drafts[source]=copy(original);
+  for(const space of state.drafts[source].spaces??[]){space.accessPolicy={mode:ACCESS_MODES.PUBLIC};for(const page of space.pages)page.accessPolicy={mode:ACCESS_MODES.PUBLIC};}
+  for(const page of state.drafts[source].pages??[])if(managedPage(page))page.accessPolicy={mode:ACCESS_MODES.ALL_PRIVATE_TYPES};
+  const ids=duplicateDraft(state,source,id,known,registry);state.drafts[source]=original;
+  for(const [old,fresh]of Object.entries(ids.pageIds))if(state.localization?.pages?.[old])
+   state.localization.pages[fresh]=copy(state.localization.pages[old]);
+  // Content copies do not carry a category grant or individual enrollment.
+  for(const space of state.drafts[id].spaces??[]){
+   space.visibility=SPACE_VISIBILITIES.PRIVATE;space.accessScope='CELEBRATION';space.accessPolicy={mode:ACCESS_MODES.PUBLIC};
+   for(const page of space.pages)page.accessPolicy={mode:ACCESS_MODES.PUBLIC};
+  }
+  for(const page of state.drafts[id].pages)if(managedPage(page))page.accessPolicy={mode:ACCESS_MODES.ALL_PRIVATE_TYPES};
+ }else{
+  const labels=[['accueil-celebration','Accueil de la célébration'],['preparation','Préparation'],['mercredi','Mercredi'],['jeudi','Jeudi'],['vendredi','Vendredi'],['samedi','Samedi'],['dimanche','Dimanche'],['apres-celebration','Après célébration']];
+  state.drafts[id]={...emptyRecord(),pages:labels.map(([slug,name])=>({id:slug+'-'+id,name,group:'celebration',visibility:'draft',blocks:[]}))};
+ }
+ state.drafts[id].celebrationDates={wednesday:b.date,preparationDates:[]};
+ state.shared.celebrationVisibility={...state.shared.celebrationVisibility,[id]:'draft'};
+ state.published.celebrationVisibility={...state.published.celebrationVisibility,[id]:'draft'};
+ state.celebrationMetadata={...state.celebrationMetadata,[id]:{title,date:b.date}};
+ assertUnique(state);
+ if(!await writeEditorState(env.EDITOR_BUCKET,current,state))conflict();
+ return reply({...readResult(state,id),targetCelebration:id});
+}
 // Route owner A must gate the isolated host and feature flag. This service
 // independently checks the real D1 admin session and same-origin mutations.
 export async function handlePrivateEditorCommand(request,env){
@@ -374,10 +420,10 @@ export async function handlePrivateEditorCommand(request,env){
   if((request.headers.get('content-type')??'').split(';')[0]!=='application/json')return reply({ok:false,error:'Format invalide'},415);
   const raw=await request.text();if(raw.length>EDITOR_SNAPSHOT_LIMIT)fail(413,'Commande trop volumineuse');
   let b;try{b=JSON.parse(raw)}catch{invalid()}
-  if(!obj(b)||!['save','publish','unpublish','delete','celebration-visibility','celebration-access','duplicate','reconcile','page-access'].includes(b.action))invalid();
+  if(!obj(b)||!['save','publish','unpublish','delete','celebration-visibility','celebration-access','duplicate','reconcile','page-access','create-celebration'].includes(b.action))invalid();
   safeJSON(b);
   const fields={save:['spaces','pages'],publish:['kind','id','spaceId'],unpublish:['kind','id','spaceId'],
-   delete:['kind','id','spaceId'],'celebration-visibility':['visibility'],'celebration-access':['accessPolicy'],duplicate:['targetCelebration'],reconcile:[],'page-access':['id','accessPolicy']};
+   delete:['kind','id','spaceId'],'celebration-visibility':['visibility'],'celebration-access':['accessPolicy'],duplicate:['targetCelebration'],reconcile:[],'page-access':['id','accessPolicy'],'create-celebration':['archangel','date','title','copy']};
   keysOnly(b,['action','celebration','expectedRevision',...fields[b.action]]);
   if(!expectedRevisionMatches(b.expectedRevision,current.state.version))conflict();
   const cid=b.celebration,known=await catalogue(env.DB,cid);
@@ -390,6 +436,7 @@ export async function handlePrivateEditorCommand(request,env){
   }
   const state=copy(current.state);state.published??=initialPublication(state);manifests(state.published);
   const registry=createLanguageRegistry(state.localization?.registry??state.published.languageRegistry);
+  if(b.action==='create-celebration')return await createCanonicalCelebration(env,current,cid,b,actor,known,registry);
   const idMap=Object.create(null);let changed=false,duplicate;
   if(b.action==='reconcile'){
    // Only the current trusted canonical snapshot can be acknowledged.

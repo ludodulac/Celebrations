@@ -35,6 +35,7 @@ function normalizeLocalization(saved){
 let editorLocalization;
 try{editorLocalization=normalizeLocalization(JSON.parse(localStorage.getItem(LOCALIZATION_KEY)||'null'))}
 catch{editorLocalization=emptyLocalization()}
+let celebrationMetadata={};
 let editingLanguageId='fr',localeView=null,localeCanonical=null,localeLangId=null;
 function clearLocaleView(){localeView=null;localeCanonical=null;localeLangId=null}
 function saveLocalizationLocal(){localStorage.setItem(LOCALIZATION_KEY,JSON.stringify(editorLocalization))}
@@ -106,7 +107,7 @@ function plannedEntries(){
  }catch{return []}
 }
 function celebrationEntries(){
- return [...(window.__PREPARATION_SEED__?.celebrations||[]).map(p=>({id:String(p.id),archangel:String(p.archangel||''),year:String(p.year||''),kind:'historical',title:String(p.archangel||'')+' '+String(p.year||'')})),...plannedEntries()];
+ return [...(window.__PREPARATION_SEED__?.celebrations||[]).map(p=>({id:String(p.id),archangel:String(p.archangel||''),year:String(p.year||''),kind:'historical',visibility:p.status==='draft'?'draft':'published',title:celebrationMetadata[String(p.id)]?.title||String(p.archangel||'')+' '+String(p.year||'')})),...plannedEntries()];
 }
 function openCelebration(ref){
  if(!celebrationEntries().some(c=>c.id===String(ref)))return;
@@ -916,7 +917,7 @@ async function serverLoad(){
    serverMessage('Impossible de charger la version commune : vos modifications locales restent intactes.');return;
   }
   const payload=await response.json();
-  serverRevision=payload.revision;
+  serverRevision=payload.revision;if(payload.celebrationMetadata)celebrationMetadata=payload.celebrationMetadata;
   globalMedia=Array.isArray(payload.mediaCatalogue)?payload.mediaCatalogue:globalMedia;
   const remote=payload.record;
   serverBaseRecord=clone(remote);serverBaseShared=clone(payload.shared);
@@ -1115,7 +1116,7 @@ async function serverSave(){
    }
   }
   if(!response?.ok)throw Error(payload.error||'Enregistrement refusé.');
-  serverRevision=payload.revision;
+  serverRevision=payload.revision;if(payload.celebrationMetadata)celebrationMetadata=payload.celebrationMetadata;
   serverBaseRecord=clone(record);serverBaseShared=clone(shared);
   serverBaseLocalization=clone(localization);
   serverBasePlans=clone(plans);
@@ -2635,31 +2636,12 @@ function footerPages(){pageWorkspace('footer')}
   const date=choice?.date;
   if(!date)return;
   if(!validWednesday(date)){siteNotice('Choisissez une date de mercredi valide.');return}
-  const newId='plan-'+archSlug(entry.archangel)+'-'+date;
-  if(celebrationEntries().some(item=>item.id===newId)){
-   siteNotice('Cette célébration existe déjà.');return;
-  }
-  const suffix='-'+String(STAGE_SEED.celebrationId),versions={};
-  const pages=db.pages.filter(p=>p.group==='celebration').map(source=>{
-   const stem=source.id.endsWith(suffix)?source.id.slice(0,-suffix.length):'';
-   const copy=editorPageModel.createPage('celebration',source.name,crypto.randomUUID(),newId);
-   if(editorPageModel.fixedStages.includes(stem))copy.id=stem+'-'+newId;
-   copy.blocks=clone(source.blocks||[]);
-   if(editorLocalization.pages[source.id])versions[copy.id]=clone(editorLocalization.pages[source.id]);
-   return copy;
-  });
-  const next=plannedEntries();
-  next.push(editorPageModel.plannedEntry(newId,entry.archangel,date,
-   choice.title.slice(0,100),true));
   try{
-   localStorage.setItem('celebrations-demo-preparation-'+newId,
-    JSON.stringify({pages,celebrationDates:{...currentDates(),wednesday:date},_serverPending:true}));
-   localStorage.setItem(PLANS_KEY,JSON.stringify(next));
-   Object.assign(editorLocalization.pages,versions);saveLocalizationLocal();
-   db._serverPending=true;save();await serverSave();
-   if(db._serverPending)return;
-   openCelebration(newId);
+   ensureMemberPanel();save();await serverSave();if(db._serverPending)return;
+   const result=await memberPanel.commandContent('create-celebration',{archangel:entry.archangel,date,title:choice.title,copy:true});
+   location.assign(editorPageModel.editorUrl(result.targetCelebration));
   }catch(error){siteNotice('Copie impossible : '+(error.message||error))}
+
  }
 function celebrations(){
  if(!IS_STAGE){pageWorkspace('celebration');return}
@@ -2726,16 +2708,15 @@ publication.append(b('Public / Privé',()=>editAccess('celebration',selectedEntr
  };
  name.oninput=()=>name.dataset.auto='false';
  const create=n('button','btn primary','Créer '+next);create.type='submit';form.append(create);
- form.onsubmit=e=>{
+ form.onsubmit=async e=>{
   e.preventDefault();if(!validWednesday(date.value)){siteNotice('Choisissez un mercredi.');return}
-  const newId='plan-'+archSlug(next)+'-'+date.value;
-  const existing=celebrationEntries();if(existing.some(x=>x.id===newId)){openCelebration(newId);return}
-  const title=String(name.value||'').trim();
-  if(!title){name.focus();return}
-  const drafts=plannedEntries();
-  drafts.push(editorPageModel.plannedEntry(newId,next,date.value,title,name.dataset.auto==='false'));
-  try{localStorage.setItem(PLANS_KEY,JSON.stringify(drafts));openCelebration(newId)}
-  catch{siteNotice('Impossible de sauvegarder cette célébration.')}
+  const title=String(name.value||'').trim();if(!title){name.focus();return}
+  try{
+   ensureMemberPanel();if(dirty||db._serverPending){save();await serverSave();if(db._serverPending)return}
+   const result=await memberPanel.commandContent('create-celebration',{archangel:next,date:date.value,title,copy:false});
+   location.assign(editorPageModel.editorUrl(result.targetCelebration));
+  }catch(error){siteNotice('Création impossible : '+(error.message||error))}
+
  };
  details.append(form);w.append(details);
 }

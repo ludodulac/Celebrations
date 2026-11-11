@@ -129,7 +129,7 @@ export async function handleServerDraft(request,env){
    const {state}=await stored(draftBucket);
    const view=legacyEditorView(state);
    return json({ok:true,revision:state.version,record:view.drafts[id]||null,plans:state.plans,shared:view.shared,
-    localization:view.localization||null,
+    localization:view.localization||null,celebrationMetadata:state.celebrationMetadata??{},
     mediaCatalogue:discoverMedia(view),updatedAt:state.updatedAt||null});
   }
   if((request.headers.get('content-type')||'').split(';')[0]!=='application/json')return error('Format invalide',415);
