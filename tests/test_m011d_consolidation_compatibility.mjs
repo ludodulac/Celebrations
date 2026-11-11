@@ -114,8 +114,9 @@ test('M011-D: active official admin.html serves visual editor, not static 011-C 
   assert.doesNotMatch(html,/data-admin="members-spaces"/);
   assert.doesNotMatch(html,/admin-member-spaces-bridge\.js/);
   const staticAdmin=source('admin.html');
-  assert.match(staticAdmin,/data-admin="members-spaces"/);
-  assert.match(staticAdmin,/admin-member-spaces-bridge\.js/);
+  assert.doesNotMatch(staticAdmin,/data-admin="members-spaces"/);
+  assert.match(html,/data-tab="members-spaces"/);
+  assert.doesNotMatch(staticAdmin,/admin-member-spaces-bridge\.js/);
 });
 
 test('M011-D: private route handlers remain unmounted; explicit releases have no editor writer',()=>{
