@@ -560,10 +560,26 @@ export async function handleEditorMediaFile(request,env){
  if(!editorUploadFilename(filename))return err('Fichier inconnu',404);
  const format=editorUploadResponseFormat(filename);
  const bucket=env.EDITOR_BUCKET;if(!bucket)return err('Stockage indisponible',503);
- const o=await bucket.get(PREFIX+filename);
+ const range=request.headers.get('range');
+ let selected=null;
+ if(range){
+  const match=/^bytes=(\d*)-(\d*)$/.exec(range);
+  const meta=await bucket.head(PREFIX+filename);
+  if(!meta)return err('Fichier introuvable',404);
+  const invalid=()=>new Response(null,{status:416,headers:{'content-range':'bytes */'+meta.size,'cache-control':'no-store'}});
+  if(!match||(!match[1]&&!match[2]))return invalid();
+  const start=match[1]?Number(match[1]):Math.max(0,meta.size-Number(match[2]));
+  const end=match[1]&&match[2]?Math.min(Number(match[2]),meta.size-1):meta.size-1;
+  if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start>=meta.size||end<start)return invalid();
+  selected={offset:start,length:end-start+1,total:meta.size};
+ }
+ const o=await bucket.get(PREFIX+filename,selected?{range:{offset:selected.offset,length:selected.length}}:undefined);
  if(!o)return err('Fichier introuvable',404);
  const headers={'content-type':format.attachment?format.mime:(o.httpMetadata?.contentType||'application/octet-stream'),
   'cache-control':'public, max-age=3600','x-content-type-options':'nosniff',
   ...(format.attachment?{'content-disposition':'attachment'}:{})};
- return new Response(request.method==='HEAD'?null:o.body,{headers});
+ headers['accept-ranges']='bytes';
+ headers['content-length']=String(selected?selected.length:o.size);
+ if(selected)headers['content-range']='bytes '+selected.offset+'-'+(selected.offset+selected.length-1)+'/'+selected.total;
+ return new Response(request.method==='HEAD'?null:o.body,{status:selected?206:200,headers});
 }

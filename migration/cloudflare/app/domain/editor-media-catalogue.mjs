@@ -8,8 +8,7 @@ export function createMediaCatalogue({validHref}){
   if(type.startsWith('image/')||/\.(?:png|jpg|jpeg|gif|webp|svg|avif)$/.test(name))return 'images';
   if(type==='application/pdf'||/\.pdf$/.test(name))return 'pdf';
   if(type.startsWith('audio/')||/\.(?:mp3|wav|m4a|ogg|opus|flac)$/.test(name))return 'audios';
-  // Preserve current local-demo behaviour. Video uploads to the real server
-  // are not enabled by this refactor, and local video remains 'autres'.
+  if(type.startsWith('video/')||/\.(?:mp4|webm|mov|ogv)$/.test(name))return 'videos';
   return 'autres';
  }
  function mediaCategoryOf(record){

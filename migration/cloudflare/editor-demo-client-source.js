@@ -593,10 +593,11 @@ async function uploadToMediaServer(file,onProgress=null){
    xhr.withCredentials=true;
    xhr.upload.onprogress=e=>{
     if(e.lengthComputable&&e.total>0)onProgress(Math.min(99,Math.round(e.loaded*100/e.total)));
+    if(e.lengthComputable&&e.loaded===e.total)mediaUploadFeedback(99,'Envoi terminé. Vérification de l’enregistrement par le serveur…');
    };
    xhr.onload=()=>{
     const data=xhr.response||{};
-    if(xhr.status>=200&&xhr.status<300&&data.item)resolve(data);
+    if(xhr.status>=200&&xhr.status<300&&data.ok===true&&data.item)resolve(data);
     else reject(Error(data.error||'Envoi vers le serveur impossible ('+xhr.status+')'));
    };
    xhr.onerror=()=>reject(Error('Connexion interrompue pendant le transfert'));
@@ -606,7 +607,7 @@ async function uploadToMediaServer(file,onProgress=null){
  }else{
   const response=await fetch('/api/editor-media?action=upload',{method:'POST',body:form});
   result=await response.json().catch(()=>({}));
-  if(!response.ok||!result.item)throw Error(result.error||'Envoi vers le serveur impossible');
+  if(!response.ok||result.ok!==true||!result.item)throw Error(result.error||'Envoi vers le serveur impossible');
  }
  globalMedia=globalMedia.filter(x=>x.id!==result.item.id).concat(result.item);
  serverRevision=result.revision;
@@ -2750,6 +2751,7 @@ function mediaLinksFor(record,related=[]){
 }
 function libraryTypeLabel(record){
  const name=String(record.name||'')+' '+String(record.src||'');
+ if(/\.pdf(?:[?#\s]|$)/i.test(name))return 'PDF';
  if(/\.txt(?:[?#\s]|$)/i.test(name))return 'Texte';
  if(/\.csv(?:[?#\s]|$)/i.test(name))return 'Tableau CSV';
  if(/\.(?:doc|docx|odt|rtf)(?:[?#\s]|$)/i.test(name))return 'Document';
@@ -2798,6 +2800,38 @@ function attachChosenAudio(record){
  status.textContent='✓ Lecteur audio ajouté. Enregistrez puis publiez la page.';
  return true;
 }
+// Preview the existing URL: same cookies, ACL and Range gateway as the site.
+function libraryPreview(card,name,src,category){
+ if(!src||!['audios','videos','pdf'].includes(category))return;
+ const box=n('div','library-preview');
+ if(category==='pdf'){
+  const url=new URL(src,location.href);
+  if(url.origin===location.origin||url.protocol==='blob:'){
+  const details=n('details'),summary=n('summary','','Prévisualiser le PDF');
+  details.append(summary);
+  details.addEventListener('toggle',()=>{
+   if(!details.open||details.dataset.loaded)return;
+   // Embedded documents stay on the authenticated origin. External PDFs open by link.
+   const url=new URL(src,location.href);
+   if(url.origin!==location.origin&&url.protocol!=='blob:')return;
+   const frame=n('iframe');frame.title='Aperçu : '+name;frame.src=src;
+   frame.loading='lazy';details.append(frame);details.dataset.loaded='true';
+  });box.append(details);
+  }
+ }else{
+  const player=n(category==='audios'?'audio':'video');
+  player.controls=true;player.preload='metadata';player.src=src;
+  player.setAttribute('aria-label',name);
+  if(category==='videos')player.playsInline=true;
+  player.addEventListener('play',()=>document.querySelectorAll('.library-preview audio,.library-preview video').forEach(other=>{if(other!==player)other.pause()}));
+  player.addEventListener('error',()=>{
+   if(!box.querySelector('.hint'))box.append(n('p','hint','Lecture indisponible : vérifiez votre connexion, votre accès ou le format du fichier.'));
+  });box.append(player);
+ }
+ const open=n('a','media-open-link','Ouvrir '+(category==='pdf'?'le PDF':'le fichier')+' ↗');
+ open.href=src;open.target='_blank';open.rel='noopener noreferrer';box.append(open);card.append(box);
+}
+let mediaSearch='';
 function media(){
  if(IS_STAGE&&!remoteMediaLoading&&!globalMediaLoaded)void refreshGlobalMedia();
  if(!globalFilesLoading)
@@ -2809,8 +2843,8 @@ function media(){
  const {local,remote,usedUrls,countFor}=mediaCatalogue.libraryCollections(
   historical,[...fileRecords.values()],globalMedia);
  const tabs=n('div','file-category-tabs');
- for(const [value,label] of FILE_CATEGORIES){
-  const count=countFor(value);
+ for(const [value,label] of [['images','Images'],['audios','Audios'],['videos','Vidéos'],['autres','Documents']]){
+  const count=countFor(value)+(value==='autres'?countFor('pdf'):0);
   const button=b(label+' ('+count+')',()=>{mediaCategory=value;render()},
    mediaCategory===value?'primary sm':'sm');
   button.dataset.fileCategory=value;button.setAttribute('aria-pressed',String(mediaCategory===value));tabs.append(button);
@@ -2839,8 +2873,13 @@ function media(){
   bar.value=mediaUploadState?.percent||0;bar.hidden=!mediaUploadState;
   bar.setAttribute('aria-label','Progression de l’import MP3');w.append(bar);
  }
+ const search=n('input','media-search');search.type='search';search.placeholder='Rechercher un fichier';
+ search.setAttribute('aria-label','Rechercher un fichier');search.value=mediaSearch;w.append(search);
  const cards=n('div','cards');
- for(const record of remote.filter(x=>mediaCategoryOf(x)===mediaCategory&&!usedUrls.has(x.src))){
+ const filterCards=()=>{const query=mediaSearch.trim().toLocaleLowerCase('fr');let visible=0;for(const card of cards.children){card.hidden=!card.querySelector('h3')?.textContent.toLocaleLowerCase('fr').includes(query);if(!card.hidden)visible++}empty.hidden=visible>0;};
+ search.oninput=()=>{mediaSearch=search.value;filterCards()};
+ const matches=category=>category===mediaCategory||mediaCategory==='autres'&&category==='pdf';
+ for(const record of remote.filter(x=>matches(mediaCategoryOf(x))&&!usedUrls.has(x.src))){
   const refs=mediaLinksFor(record);
   const unused=refs.length===0&&!record.general;
   const hasImage=record.type==='image';
@@ -2850,6 +2889,7 @@ function media(){
   card.append(n('small','media-format-label',
    ({image:'Image',pdf:'PDF',audio:'Audio',video:'Vidéo'})[record.type]||'Fichier'));
   if(hasImage)libraryPicture(card,record.name,record.src,unused);
+  libraryPreview(card,record.name,record.src,record.category||mediaCategoryOf(record));
   libraryUnusedText(card,unused,hasImage);
   libraryLocationLinks(card,refs);
   const controls=n('div','file-actions');
@@ -2858,7 +2898,7 @@ function media(){
   controls.append(b('Supprimer si inutilisé',()=>void deleteGlobalMedia(record),'sm'));
   card.append(controls);cards.append(card);
  }
- for(const record of historical.filter(x=>x.category===mediaCategory)){
+ for(const record of historical.filter(x=>matches(x.category))){
   const remoteCopy=remote.find(x=>x.src===record.src&&mediaCategoryOf(x)===mediaCategory);
   const refs=mediaLinksFor(remoteCopy||record,fileUses(record));
   const unused=globalFilesComplete&&refs.length===0;
@@ -2870,6 +2910,7 @@ function media(){
   if(record.category==='autres')
    card.append(n('small','media-format-label',libraryTypeLabel(record)));
   if(hasImage)libraryPicture(card,record.name,record.src,unused);
+  libraryPreview(card,record.name,record.src,record.category||mediaCategoryOf(record));
   libraryUnusedText(card,unused,hasImage);
   libraryLocationLinks(card,refs);
   if(chosenBlock&&mediaCategory==='audios'&&record.category==='audios')
@@ -2880,7 +2921,7 @@ function media(){
   }
   cards.append(card);
  }
- for(const record of local.filter(x=>localCategory(x)===mediaCategory)){
+ for(const record of local.filter(x=>matches(localCategory(x)))){
   const localUrl=assetUrls.get(record.id)||'';
   const refs=fileUsages(record.id),unused=refs.length===0,hasImage=mediaCategory==='images';
   const card=n('article','card'+(unused?' unused-file':''));card.dataset.fileId=record.id;
@@ -2890,6 +2931,7 @@ function media(){
   if(mediaCategory==='autres')
    card.append(n('small','media-format-label',libraryTypeLabel(record)));
   if(hasImage)libraryPicture(card,record.name,localUrl,unused);
+  libraryPreview(card,record.name,localUrl,String(record.type||'').startsWith('video/')?'videos':localCategory(record));
   libraryUnusedText(card,unused,hasImage);
   const locations=n('div','file-usage-links');
   for(const use of refs)locations.append(n('p','',use.page));
@@ -2900,7 +2942,7 @@ function media(){
   }
   cards.append(card);
  }
- w.append(cards);
+ const empty=n('p','hint','Aucun fichier ne correspond à votre recherche.');w.append(cards,empty);filterCards();
  if(mediaCategory==='audios'&&window.__STAGING_AUDIO__&&!LIVE_MEDIA_UPLOAD_HOST){
   const details=n('details','audio-import-section'),summary=n('summary','','Importer MP3 / WAV');
   details.append(summary);w.append(details);

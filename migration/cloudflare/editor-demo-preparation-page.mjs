@@ -370,6 +370,6 @@ export async function handlePreparationDemo(request,env){
   '<style nonce="'+nonce+'">'+ADMIN_STAGE_LAYOUT+'</style>'+
   '<script nonce="'+nonce+'">window.__PREPARATION_SEED__='+jsSafe(seed)+';</script>'+
   '<script nonce="'+nonce+'">'+TRIAL_AUDIO_CLIENT+'\n'+MEMBER_SPACES_INLINE+'\n'+client+'</script></body></html>';
-  return new Response(request.method==='HEAD'?null:html,{headers:{...noCache,'content-security-policy':"default-src 'none'; script-src 'nonce-"+nonce+"'; style-src 'nonce-"+nonce+"'; img-src 'self' data: blob: https:; media-src 'self' blob:; worker-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"}});
+  return new Response(request.method==='HEAD'?null:html,{headers:{...noCache,'content-security-policy':"default-src 'none'; script-src 'nonce-"+nonce+"'; style-src 'nonce-"+nonce+"'; img-src 'self' data: blob: https:; media-src 'self' blob:; frame-src 'self' blob:; worker-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"}});
  }catch(e){const notFound=e?.message==='Unknown celebration'||e?.message==='No celebration';return new Response(notFound?'Célébration introuvable':'Données de préparation indisponibles',{status:notFound?404:503,headers:{'cache-control':'no-store'}});}
 }
