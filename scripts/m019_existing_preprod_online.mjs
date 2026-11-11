@@ -257,6 +257,7 @@ try{
  await admin.locator('.m018-language-panel').waitFor();
  await admin.screenshot({path:'docs/m019-smartphone/03-langues.png',fullPage:true});
  await admin.locator('[data-tab="members-spaces"]').click();
+ await admin.getByRole('button',{name:'+ Ajouter un membre',exact:true}).click();
  const createForm=admin.locator('.m019-member-form');
  await createForm.getByLabel('Prénom',{exact:true}).fill('Alice');
  await createForm.getByLabel('Nom',{exact:true}).fill('M019 Fictive');
@@ -267,7 +268,8 @@ try{
  try{await admin.getByText('Membre enregistré et inscrit.',{exact:true}).waitFor()}catch(e){console.log('M019_MEMBER_STATUS '+await admin.locator('.member-directory-009b > p').innerText());throw e}
  await admin.locator('.m019-member-list strong').filter({hasText:'Alice M019 Fictive'}).waitFor();
  await admin.screenshot({path:'docs/m019-smartphone/01-membres.png',fullPage:true});
- await admin.locator('.m019-member-list').getByRole('button',{name:'Modifier',exact:true}).click();
+ await admin.locator('.m019-member-row').first().click();
+ await admin.locator('.m019-assignments').getByRole('button',{name:'Modifier',exact:true}).click();
  const modal=admin.locator('dialog[open]');
  await modal.getByLabel('Nom',{exact:true}).fill('M019 Modifiée');
  await modal.getByRole('button',{name:'Enregistrer',exact:true}).click();
@@ -307,6 +309,7 @@ try{
  assert.equal(copied.celebrationVisibility,'draft');assert.equal(copied.record.celebrationDates.wednesday,'2026-10-07');
  assert.ok(copied.record.spaces.every(s=>!s.accessPolicy.typeIds));
  await admin.locator('[data-tab="members-spaces"]').click();
+ await admin.getByRole('button',{name:'+ Ajouter un membre',exact:true}).click();
  await admin.locator('.m019-member-form').getByLabel('Célébration',{exact:true}).selectOption(copiedId);
  assert.equal((await fetch(origin+'/?celebration='+copiedId)).status,404,'new celebration remains a draft');
  event('M019_CANONICAL_COPY_PASS',{date:'2026-10-07',selectable_for_members:true,copied_rights:0});
