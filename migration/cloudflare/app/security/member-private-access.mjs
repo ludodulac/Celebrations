@@ -51,7 +51,7 @@ export async function resolveVerifiedMember(request, env) {
 // Security read view of proposed M007-A tables. M008-B retains ownership of
 // writes/schema; its adapter can replace these SELECT implementations once ready.
 // Every grant is resolved afresh for each request (no stale cross-user cache).
-async function loadTrustedGrants(db, principal, space) {
+async function loadTrustedGrants(db, principal, space, celebrationId) {
   const rows = await db.prepare(
     'SELECT t.id AS type_id, t.disabled AS disabled ' +
     'FROM celebrations_directory_person_types pt ' +
@@ -66,8 +66,18 @@ async function loadTrustedGrants(db, principal, space) {
     types.push({id: row.type_id, disabled: row.disabled === 1 || row.disabled === true});
     memberships.push({memberId: principal.id, typeId: row.type_id});
   }
+  // Registration by the administrator to THIS celebration is mandatory
+  // before any private page can be read, regardless of the member category.
+  const cid = Number(celebrationId);
+  if(!Number.isSafeInteger(cid) || cid<1 || String(cid)!==String(celebrationId))
+    throw Error('Invalid celebration');
+  const registration=await db.prepare(
+    'SELECT 1 AS enrolled FROM celebrations_directory_person_celebrations '+
+    'WHERE person_id=? AND celebration_id=? LIMIT 1'
+  ).bind(principal.id,cid).first();
+  const celebrationEnrolled=registration?.enrolled===1;
   const enrollments = [];
-  if (space?.visibility === SPACE_VISIBILITIES.PRIVATE) {
+  if (space?.visibility === SPACE_VISIBILITIES.PRIVATE && space.accessScope!=='CELEBRATION') {
     const celebrationId = Number(space.celebrationId);
     if (!Number.isSafeInteger(celebrationId) || celebrationId < 1 ||
         String(celebrationId) !== space.celebrationId) throw Error('Invalid celebration');
@@ -83,7 +93,7 @@ async function loadTrustedGrants(db, principal, space) {
       memberId: principal.id, spaceId: space.id
     });
   }
-  return {principal, types, memberships, enrollments, space: space ?? null};
+  return {principal, types, memberships, celebrationEnrolled, enrollments, space: space ?? null};
 }
 
 function releasedPage(page, id) {
@@ -121,8 +131,8 @@ async function evaluate(request, env, {pageId, loadPublishedPage, loadPublishedS
   const space = own(page, 'spaceId')
     ? await loadPublishedSpace(page.spaceId, env) : null;
   if (!needsPrivateGate(page, space)) return null;
-  const context = await loadTrustedGrants(env.DB, principal, space);
-  if (!canAccessPage(page, context)) return null;
+  const context = await loadTrustedGrants(env.DB, principal, space, page.celebrationId);
+  if(!context.celebrationEnrolled || !canAccessPage(page, context)) return null;
   return {page, space, personId: principal.id};
 }
 
