@@ -7,7 +7,8 @@ export const OFFICIAL_EDITOR_HOSTS=Object.freeze([
 ]);
 export const READONLY_CANDIDATE_HOSTS=Object.freeze([
  'celebrations-exit-production.rondes.workers.dev',
- 'celebrations-visual-candidate.rondes.workers.dev'
+ 'celebrations-visual-candidate.rondes.workers.dev',
+ 'celebrations-m015-public-preprod.rondes.workers.dev'
 ]);
 const official=new Set(OFFICIAL_EDITOR_HOSTS);
 const readonly=new Set(READONLY_CANDIDATE_HOSTS);

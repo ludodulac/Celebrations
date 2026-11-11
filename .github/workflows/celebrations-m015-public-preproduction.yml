@@ -1,0 +1,172 @@
+name: "Célébrations M015 — vraie préproduction publique Cloudflare"
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type CHECKED_PREPROD to explicitly re-deploy the already-isolated candidate"
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-m015-public-preprod-isolated
+  cancel-in-progress: false
+jobs:
+  deploy-isolated-readonly:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      PREPROD_WORKER: celebrations-m015-public-preprod
+      SOURCE_PROD_VERSION: 87dba010-c719-4a52-97c1-027a9c9de9b6
+      USER_CONFIRMATION: ${{ inputs.confirm }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: "22"}
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Fail closed before cloud writes; official Worker must be unchanged
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const {CLOUDFLARE_ACCOUNT_ID:account,CLOUDFLARE_API_TOKEN:token,PREPROD_WORKER:target,SOURCE_PROD_VERSION:version}=process.env;
+          assert.equal(process.env.GITHUB_REF,'refs/heads/feat/celebrations-m015-public-preproduction-20261111');
+          assert.equal(process.env.USER_CONFIRMATION,'CHECKED_PREPROD','Explicit manual dispatch required');
+          assert.equal(account,'60a7b17758a93fe6681ce998e72ddff0');
+          assert.ok(token?.length>20,'No Cloudflare credential');
+          assert.equal(target,'celebrations-m015-public-preprod');
+          const base='https://api.cloudflare.com/client/v4/accounts/'+account+'/workers/scripts/';
+          async function req(path){
+            const r=await fetch(base+path,{headers:{Authorization:'Bearer '+token,Accept:'application/json'},signal:AbortSignal.timeout(20000)});
+            return {status:r.status,body:await r.json().catch(()=>({}))};
+          }
+          const existing=await req(target+'/settings');
+          assert.equal(existing.status,200,'Only the previously deployed candidate can be updated');
+          const previous=await req(target+'/deployments');
+          assert.equal(previous.status,200,'Cannot verify candidate immutable baseline');
+          assert.equal(previous.body.result.deployments[0].versions.length,1);
+          assert.equal(previous.body.result.deployments[0].versions[0].version_id,
+            'f7d7a994-2d53-4483-bb1e-ae2015e4ed75',
+            'Candidate was changed externally; refusing overwrite');
+          const binds=new Map((existing.body.result.bindings||[]).map(x=>[x.name,x.type]));
+          for(const [name,type] of [['DB','d1'],['MEDIA_ACL','d1'],
+            ['MEDIA_BUCKET','r2_bucket'],['EDITOR_BUCKET','r2_bucket'],['ASSETS','assets']])
+             assert.equal(binds.get(name),type,'Unsafe candidate binding: '+name);
+          assert.equal(binds.size,5,'Unexpected candidate bindings');
+          const live=await req('celebrations-exit-production/deployments');
+          assert.equal(live.status,200,'Cannot read official baseline');
+          assert.equal(live.body.result.deployments[0].versions.length,1);
+          assert.equal(live.body.result.deployments[0].versions[0].version_id,version,'Official version changed; abort');
+          assert.equal(live.body.result.deployments[0].versions[0].percentage,100);
+          console.log('PREPROD_SAFE_GATE official_version='+version+' candidate_exact_verified=true data_writes=0');
+          NODE
+      - name: Static security, public projection and member access checks
+        run: |
+          node --check migration/cloudflare/production-worker.mjs
+          node --check migration/cloudflare/app/security/editor-route-policy.mjs
+          node --test tests/test_m009a_public_projection_security.mjs tests/test_m009c_public_media_api_security.mjs tests/test_mission14_editor_security.mjs tests/test_m011b_private_content_integration.mjs
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {isReadonlyCandidateHost,isOfficialEditorHost,mayUseIsolatedMemberApi} from './migration/cloudflare/app/security/editor-route-policy.mjs';
+          const host='celebrations-m015-public-preprod.rondes.workers.dev';
+          assert.equal(isReadonlyCandidateHost(host),true);
+          assert.equal(isOfficialEditorHost(host),false);
+          assert.equal(mayUseIsolatedMemberApi(new URL('https://'+host+'/'),{
+            MEMBER_DIRECTORY_API_ENABLED:'true',MEMBER_DIRECTORY_API_HOST:host
+          }),false,'Private members must remain disabled on public preproduction');
+          console.log('PREPROD_PRIVATE_ROUTES_DENIED_BY_POLICY');
+          NODE
+      - name: Rebuild canonical site assets, no D1 or R2 write
+        run: |
+          python scripts/build_production_assets.py
+          test -s production-public/index.html
+          test -s production-public/admin.html
+      - name: Generate exact NEW Worker config, bind production data only behind readonly gate
+        run: |
+          cat > migration/cloudflare/wrangler.m015.preprod.toml <<'TOML'
+          name = "celebrations-m015-public-preprod"
+          main = "production-worker.mjs"
+          compatibility_date = "2026-10-16"
+          workers_dev = true
+          preview_urls = false
+          [assets]
+          directory = "../../production-public"
+          binding = "ASSETS"
+          run_worker_first = true
+          [[d1_databases]]
+          binding = "DB"
+          database_name = "celebrations-exit-production"
+          database_id = "28736d2a-479b-472b-bf82-703ad0affe10"
+          [[d1_databases]]
+          binding = "MEDIA_ACL"
+          database_name = "celebrations-exit-production"
+          database_id = "28736d2a-479b-472b-bf82-703ad0affe10"
+          [[r2_buckets]]
+          binding = "MEDIA_BUCKET"
+          bucket_name = "celebrations-exit-production"
+          [[r2_buckets]]
+          binding = "EDITOR_BUCKET"
+          bucket_name = "celebrations-exit-staging"
+          TOML
+          test "$(grep -c '^database_id = ' migration/cloudflare/wrangler.m015.preprod.toml)" -eq 2
+          if grep -Eq '^[[:space:]]*(route|routes|zone_id|custom_domain)[[:space:]]*=' migration/cloudflare/wrangler.m015.preprod.toml; then exit 1; fi
+          grep -Fq 'run_worker_first = true' migration/cloudflare/wrangler.m015.preprod.toml
+          echo PREPROD_UNIQUE_WORKER_NO_DNS_CHANGE
+      - name: Install Wrangler and deploy a NEW readonly Worker only
+        run: npm install --no-save --no-package-lock wrangler@4
+      - name: Deploy on workers.dev — NEVER touch the official production Worker
+        working-directory: migration/cloudflare
+        run: npx wrangler deploy --config wrangler.m015.preprod.toml
+      - name: Verify live candidate public pages, protected admin and official version unchanged
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const base='https://celebrations-m015-public-preprod.rondes.workers.dev';
+          const cases=[
+            ['public_home','GET','/',200],
+            ['preparation','GET','/preparation',200],
+            ['programme','GET','/programme',200],
+            ['admin_not_exposed','GET','/admin',404],
+            ['private_drafts_not_exposed','GET','/api/editor-open-draft',404],
+            ['member_admin_not_exposed','GET','/api/admin/member-directory',404],
+            ['member_space_not_exposed','GET','/api/participant/space-page',404],
+            ['private_media_not_exposed','GET','/media/new/private-test.mp3',404],
+            ['writes_denied','POST','/api/editor-publication',405]
+          ];
+          for(const [label,method,path,expected] of cases){
+            const r=await fetch(base+path,{method,headers:method==='POST'?{'origin':base}:{},signal:AbortSignal.timeout(25000)});
+            const marker=r.headers.get('x-robots-tag')||'';
+            console.log('PREPROD_HTTP '+JSON.stringify({label,status:r.status,expected,noindex:/noindex/.test(marker)}));
+            assert.equal(r.status,expected,label);
+            assert.match(marker,/noindex/,label+' robots');
+          }
+          const account=process.env.CLOUDFLARE_ACCOUNT_ID,token=process.env.CLOUDFLARE_API_TOKEN;
+          const p=await fetch('https://api.cloudflare.com/client/v4/accounts/'+account+'/workers/scripts/celebrations-exit-production/deployments',{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(20000)});
+          assert.equal(p.status,200);
+          const live=await p.json();
+          assert.equal(live.result.deployments[0].versions[0].version_id,process.env.SOURCE_PROD_VERSION);
+          console.log('PREPROD_DEPLOYED '+base+' official_worker_unchanged=true no_data_writes=true');
+          NODE
+      - name: Chromium real Internet smoke, no login or production writes
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+          node --input-type=module <<'NODE'
+          import {chromium} from 'playwright';
+          import assert from 'node:assert/strict';
+          const browser=await chromium.launch({headless:true});
+          for(const path of ['/','/programme','/preparation']){
+            const page=await browser.newPage({viewport:{width:390,height:844}});
+            const errors=[];page.on('pageerror',e=>errors.push(e.message.slice(0,150)));
+            const r=await page.goto('https://celebrations-m015-public-preprod.rondes.workers.dev'+path,{waitUntil:'domcontentloaded',timeout:30000});
+            console.log('PREPROD_CHROMIUM '+JSON.stringify({path,status:r?.status(),title:await page.title(),js_errors:errors.slice(0,3)}));
+            assert.equal(r.status(),200);
+            assert.equal(errors.length,0);
+            await page.close();
+          }
+          await browser.close();
+          NODE

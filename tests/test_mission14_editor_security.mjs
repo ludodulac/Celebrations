@@ -68,7 +68,8 @@ const saveBody=()=>({
 
 test('M14: official domains and read-only preview hosts are explicit whitelists',()=>{
  assert.deepEqual([...OFFICIAL_EDITOR_HOSTS],[apex.slice(8),official.slice(8)]);
- assert.deepEqual([...READONLY_CANDIDATE_HOSTS],[candidate.slice(8),preview.slice(8)]);
+ assert.deepEqual([...READONLY_CANDIDATE_HOSTS],[candidate.slice(8),preview.slice(8),
+  'celebrations-m015-public-preprod.rondes.workers.dev']);
  for(const host of OFFICIAL_EDITOR_HOSTS){
   assert.equal(isOfficialEditorHost(host),true);
   assert.equal(isReadonlyCandidateHost(host),false);

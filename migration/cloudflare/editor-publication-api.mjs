@@ -314,7 +314,7 @@ function celebrationVisibleFor(id,map,planState){
 }
 function hostCheck(request){
  const u=new URL(request.url);
- return isOfficialEditorHost(u.hostname)||u.hostname===PREVIEW||u.hostname===STAGING;
+ return isOfficialEditorHost(u.hostname)||isReadonlyCandidateHost(u.hostname)||u.hostname===PREVIEW||u.hostname===STAGING;
 }
 async function protectedWrite(request,env){
  const url=new URL(request.url);
