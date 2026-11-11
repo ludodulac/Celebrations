@@ -133,6 +133,10 @@ async function sendOneTimeLink(env,e,purpose,language){
  const today=new Date(Date.now()-86400000).toISOString();
  const count=await query(db,'SELECT COUNT(*) AS n FROM celebrations_member_mail_events WHERE outcome=\'sent\' AND created_at>?',today).first();
  if(Number(count?.n||0)>=300)return false;
+ const day=new Date().toISOString().slice(0,10);
+ await query(db,'INSERT INTO celebrations_member_mail_quota(utc_day,reserved) VALUES(?,0) ON CONFLICT(utc_day) DO NOTHING',day).run();
+ const reserved=await query(db,'UPDATE celebrations_member_mail_quota SET reserved=reserved+1 WHERE utc_day=? AND reserved<300',day).run();
+ if(Number(reserved?.meta?.changes)!==1)return false;
  const raw=random(),hash=await sha256(raw);
  await db.batch([
   query(db,'DELETE FROM celebrations_member_email_tokens WHERE participant_email=? AND purpose=?',e,purpose),
@@ -155,7 +159,12 @@ async function sendOneTimeLink(env,e,purpose,language){
   delivered=res.ok;
  }catch{/* Fail closed; never log provider payload or secrets. */}
  if(delivered)await query(db,'INSERT INTO celebrations_member_mail_events(id,identity_hash,outcome,purpose) VALUES(?,?,\'sent\',?)',crypto.randomUUID(),await sha256(e),purpose).run();
- else await query(db,'DELETE FROM celebrations_member_email_tokens WHERE token_hash=?',hash).run();
+ else {
+  await db.batch([
+   query(db,'DELETE FROM celebrations_member_email_tokens WHERE token_hash=?',hash),
+   query(db,'UPDATE celebrations_member_mail_quota SET reserved=reserved-1 WHERE utc_day=? AND reserved>0',day)
+  ]);
+ }
  return delivered;
 }
 async function applyPassword(db,b,purpose){
