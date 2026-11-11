@@ -100,3 +100,16 @@
 .m020-access{display:grid;gap:.4rem;min-width:0}.m020-access fieldset{border:0;margin:0;padding:.3rem}.m020-access fieldset label{display:flex;align-items:center;gap:.4rem;min-height:36px}
 .m020-access [hidden]{display:none!important}.m020-settings .publication-status-controls{display:flex;flex-wrap:wrap;gap:.4rem;align-items:end}
 @media(max-width:600px){.m020-settings>*,.celebration-publication-controls>*{max-width:100%}.m020-settings .editor-language-choice{min-width:0}.m020-access{flex:1 1 100%}.m020-settings button{min-height:44px}}
+
+/* M021-A: simple, clearly marked disposable accounts in M016 only. */
+.member-directory-009b .m021-demo-members{padding:1rem;margin:1rem 0;border:1px solid #c1d0d8;background:#f8fafb;border-radius:12px}
+.m021-demo-members>p{max-width:66ch;color:#374957}
+.m021-demo-members .m021-demo-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:.7rem}
+.m021-demo-members .m021-demo-form fieldset{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:.6rem;border:1px solid #ccd6db;border-radius:9px}
+.m021-demo-members .m021-demo-form fieldset label{display:flex;gap:.5rem;align-items:center;min-height:40px}
+.m021-demo-members .m021-demo-form>.btn{grid-column:1/-1;justify-self:start;min-height:44px}
+.m021-demo-list{display:grid;gap:.45rem;margin:1rem 0}
+.m021-demo-row{display:flex;flex-wrap:wrap;gap:.45rem;align-items:center;border-top:1px solid #dde5e7;padding:.65rem 0;min-width:0}
+.m021-demo-row strong{flex:1 1 130px}.m021-demo-row small{flex:1 1 180px;overflow-wrap:anywhere}
+.m021-demo-row .btn{min-height:42px}
+@media(max-width:500px){.m021-demo-members .m021-demo-form{grid-template-columns:1fr}.m021-demo-row>*{flex-basis:100%}}
