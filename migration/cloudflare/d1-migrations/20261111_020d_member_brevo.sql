@@ -36,3 +36,9 @@ CREATE INDEX idx_member_mail_limits
   ON celebrations_member_mail_events(identity_hash,created_at);
 CREATE INDEX idx_member_mail_daily
   ON celebrations_member_mail_events(outcome,created_at);
+
+-- Atomic daily reservations prevent concurrent requests exceeding the free cap.
+CREATE TABLE celebrations_member_mail_quota (
+  utc_day TEXT NOT NULL PRIMARY KEY,
+  reserved INTEGER NOT NULL DEFAULT 0 CHECK(reserved BETWEEN 0 AND 300)
+);
