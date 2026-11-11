@@ -141,9 +141,11 @@ export function publicSnapshot(state,celebration){
  const published=state.published||initialPublication(state);
  const privateIds=privatePublicationIds(state,published);
  const visibility=published.celebrationVisibility||{};
+ const mayDisplayCelebration=id=>published.celebrationAccessPolicies?.[String(id)]?.mode===undefined||
+  published.celebrationAccessPolicies[String(id)].mode==='PUBLIC';
  const original=published.drafts?.[celebration]||null;
  const plan=published.plans?.find(p=>p.id===celebration);
- const celebrationVisible=celebrationVisibleFor(celebration,visibility,plan?.visibility)&&
+ const celebrationVisible=mayDisplayCelebration(celebration)&&celebrationVisibleFor(celebration,visibility,plan?.visibility)&&
   (!plan||!!projectPublicPlan(plan));
  const record=celebrationVisible&&original?{
   pages:projectPublicPages(original.pages,privateIds)
@@ -153,7 +155,7 @@ export function publicSnapshot(state,celebration){
   ?published.shared.homeId:(pages[0]?.id||'neutral-accueil-general');
  const shared={homeId,pages};
  const plans=(published.plans||[])
-  .filter(p=>celebrationVisibleFor(p.id,visibility,p.visibility))
+  .filter(p=>mayDisplayCelebration(p.id)&&celebrationVisibleFor(p.id,visibility,p.visibility))
   .map(projectPublicPlan).filter(Boolean);
  // The visibility of a HIDDEN celebration is itself private metadata.
  const publicVisibility=Object.fromEntries(plans.map(p=>[p.id,'published']));
@@ -175,6 +177,8 @@ function textOnlySpaceBlocks(blocks){
  });
 }
 export async function releasedPublicSpaces(state,cid,db){
+ if(state.published?.celebrationAccessPolicies?.[cid]?.mode&&
+    state.published.celebrationAccessPolicies[cid].mode!=='PUBLIC')return [];
  if(!Object.values(state.published?.privateSpaceReleases??{}).some(r=>r?.celebrationId===cid))return [];
  try{
   const data=indexCanonicalPublishedContent(state);
@@ -227,6 +231,8 @@ export function publishedMedia(state,privateIds){
  const drafts={};
  for(const [id,record] of Object.entries(published.drafts||{})){
   const plan=published.plans?.find(x=>String(x.id)===String(id));
+  if(published.celebrationAccessPolicies?.[id]?.mode&&
+     published.celebrationAccessPolicies[id].mode!=='PUBLIC')continue;
   if(!celebrationVisibleFor(id,visibility,plan?.visibility)||
      plan&&!projectPublicPlan(plan))continue;
   drafts[id]={pages:projectPublicPages(record.pages,blocked)};
