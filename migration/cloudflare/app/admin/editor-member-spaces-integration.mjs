@@ -45,7 +45,7 @@ export function createMemberDirectoryTransport({
 }
 
 export function mountExistingEditorMemberSpaces(root,{
-  transport,celebrations=[],currentCelebrationId=null,allocateId
+  transport,celebrations=[],currentCelebrationId=null,allocateId,styleNonce,canDuplicate=()=>true
 }={}) {
   if(!root?.ownerDocument||typeof root.replaceChildren!=='function' ||
      typeof transport!=='function')throw new TypeError('Existing editor root and admin transport required');
@@ -85,7 +85,12 @@ export function mountExistingEditorMemberSpaces(root,{
   container.append(header,tabs,warning,directory,spaces);
   root.replaceChildren(container);
   // Mount only once: the existing M007-B component owns type/member changes.
-  memberMount=mountMemberDirectoryAdmin(directory,{transport});
+  function refreshMembers(){
+    if(destroyed)return;
+    memberMount?.destroy();
+    memberMount=mountMemberDirectoryAdmin(directory,{transport,styleNonce});
+  }
+  refreshMembers();
   function activate(showSpaces) {
     if(destroyed)return;
     directory.hidden=showSpaces;spaces.hidden=!showSpaces;
@@ -146,6 +151,8 @@ export function mountExistingEditorMemberSpaces(root,{
     const choose=node('div');choose.className='member-spaces-actions';
     choose.append(label('Célébration',choice));
     const duplicate=button('Dupliquer en brouillon');
+    duplicate.disabled=!canDuplicate(celebrationId);
+    if(duplicate.disabled)duplicate.title='Ouvrez cette célébration dans l’éditeur pour charger ses pages avant duplication';
     duplicate.addEventListener('click',()=>{
       try {
         celebrationId=workspace.duplicate(celebrationId);
@@ -243,6 +250,7 @@ export function mountExistingEditorMemberSpaces(root,{
   activate(false);
   return {
     getDraft:()=>workspace.list(),
+    refreshMembers,
     get changed(){return workspace.changed;},
     showSpaces(){activate(true);},
     showMembers(){activate(false);},
