@@ -68,6 +68,12 @@ jobs:
           node scripts/build-m012b-member-spaces-inline.mjs --check
           node scripts/build-m019-editor-client.mjs --check
           node --test tests/test_m021a_demo_identity.mjs tests/test_m021a_demo_flow.mjs tests/test_m020d_member_brevo.mjs
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Build static files required by the existing M016 Worker
+        run: |
+          python scripts/build_production_assets.py
+          test -s production-public/admin.html
       - name: Prepare Wrangler and mobile Chromium
         run: |
           npm install --no-save --no-package-lock wrangler@4 playwright@1.58.2
