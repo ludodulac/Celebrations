@@ -173,7 +173,7 @@ export function mountExistingEditorMemberSpaces(root,{
     const discard=button('Abandonner le brouillon');
     discard.disabled=!workspace.changed;
     discard.addEventListener('click',()=>{
-      workspace.discard();celebrationId=selected();
+      workspace.discard();if(!canonical)celebrationId=selected();
       renderSpaces('Brouillon abandonné. Les contenus existants sont inchangés.');
     });
     const save=button('Enregistrer les espaces');
@@ -270,7 +270,7 @@ export function mountExistingEditorMemberSpaces(root,{
       edit.append(label('Nom',title),label('Visibilité',visibility),
         label('Politique M002',mode),label('Identifiants des types autorisés',types),saveSpace);
       edit.addEventListener('submit',event=>{
-        event.preventDefault();
+        event.preventDefault();if(canonical&&!ready())return;
         try {
           const ids=types.value.split(',').map(s=>s.trim()).filter(Boolean);
           workspace.updateSpace(celebrationId,space.id,{name:title.value,
@@ -304,7 +304,7 @@ export function mountExistingEditorMemberSpaces(root,{
       addPageButton.type='submit';
       addPage.append(label('Nouvelle page',pageName),addPageButton);
       addPage.addEventListener('submit',event=>{
-        event.preventDefault();
+        event.preventDefault();if(canonical&&!ready())return;
         try{workspace.addPage(celebrationId,space.id,{title:pageName.value});
           renderSpaces('Page préparée en brouillon, non publiée.');
         }catch(e){renderSpaces('Page refusée : '+e.message);}
@@ -336,7 +336,7 @@ export function mountExistingEditorMemberSpaces(root,{
     const add=button('Créer dans le brouillon');add.type='submit';if(canonical)add.disabled=!ready();
     create.append(label('Nom',name),label('Visibilité',visibility),add);
     create.addEventListener('submit',event=>{
-      event.preventDefault();
+      event.preventDefault();if(canonical&&!ready())return;
       try {
         workspace.addSpace(celebrationId,{name:name.value,visibility:visibility.value});
         renderSpaces('Espace préparé : non enregistré, non publié.');
