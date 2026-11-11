@@ -1,0 +1,370 @@
+// M011-B: native Node 22 SQLite (D1 semantics) + simulated, disjoint R2.
+// Never connects to Cloudflare, mutates a real bucket, or enables a Worker.
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {DatabaseSync} from 'node:sqlite';
+import {sha256} from '../migration/cloudflare/auth-api.mjs';
+import {EDITOR_SNAPSHOT_KEY}
+  from '../migration/cloudflare/app/ports/editor-snapshot-contract.mjs';
+import {createCanonicalPrivateLoaders}
+  from '../migration/cloudflare/app/persistence/private-canonical-content.mjs';
+import {handleCanonicalPrivatePage,handleCanonicalPrivateMedia,
+  handleCanonicalPrivateList,listAuthorizedPrivatePages}
+  from '../migration/cloudflare/app/application/private-content-read-service.mjs';
+import {duplicateCelebration}
+  from '../migration/cloudflare/app/domain/celebration-spaces.mjs';
+import {handleMedia} from '../migration/cloudflare/media-gateway.mjs';
+
+const P='person:550e8400-e29b-41d4-a716-446655440000';
+const CLAIM='claim:550e8400-e29b-41d4-a716-446655440000';
+const EMAIL='alice@example.org', TOKEN='x'.repeat(64),ADMIN='a'.repeat(64);
+const TYPE='member-type:chant',OTHER='member-type:visitor';
+const ROOT='page:41:private-root',INNER='page:41:chapelle';
+const SPACE='space:41:chapelle',MEDIA='private-asset:pdf-41';
+const URL='https://www.ronde-des-archanges-universelle.eu';
+const policy={mode:'SELECTED_TYPES',typeIds:[TYPE]};
+const page=(id,more={})=>({id,celebrationId:'41',
+  name:id===ROOT?'Cantique autorisé':'Chapelle interdite',
+  group:'celebration',visibility:'published',publicationStatus:'published',
+  accessPolicy:structuredClone(policy),blocks:[
+    {id:1,kind:'text',text:id===ROOT?'AUTHORIZED_CANONICAL':'HIDDEN_SPACE_SECRET',
+      xPrivateEmail:'do-not-show@example.org'},
+    ...(id===ROOT?[{id:2,kind:'button',mediaId:MEDIA,text:'PDF personnel',
+      remoteKey:'private-members/41/NEVER_EXPOSE.pdf'}]:[])
+  ],...more});
+const space=()=>({id:SPACE,celebrationId:'41',visibility:'PRIVATE',
+  publicationStatus:'published',accessPolicy:structuredClone(policy),
+  pages:[page(INNER,{spaceId:SPACE,accessPolicy:{mode:'PUBLIC'}})]});
+const langRegistry=()=>({version:1,defaultLanguageId:'fr',languages:[
+  {id:'fr',name:'Français',flag:'🇫🇷',active:true},
+  {id:'en',name:'English',flag:'🇬🇧',active:true}
+]});
+function initialState(){
+ const root=page(ROOT), chapel=space();
+ return {version:11,drafts:{'41':{pages:[{...root,visibility:'draft'}],
+   spaces:[{...chapel,publicationStatus:'draft'}]}},
+   shared:{pages:[],homeId:''},plans:[],mediaCatalogue:[{
+    id:'sneaky',src:'/media/private-members/41/report.pdf',general:true
+   }],
+   publishedRevision:2,publishedAt:'2026-11-11T00:00:00.000Z',
+   localization:{pages:{[ROOT]:{en:{
+     name:'UNRELEASED_EDITOR_TRANSLATION',blocks:[{kind:'text',text:'UNRELEASED'}]
+   }}}},
+   published:{drafts:{'41':{pages:[root],spaces:[chapel]}},
+    shared:{pages:[]},plans:[],celebrationVisibility:{'41':'published'},
+    languageRegistry:langRegistry(),
+    privateTranslationReleases:{[ROOT]:{pageId:ROOT,publication:'published',
+      variants:{en:{name:'Allowed English title',blocks:[
+        {id:1,kind:'text',text:'AUTHORIZED_ENGLISH'},
+        {id:2,kind:'button',mediaId:MEDIA,text:'Private file'}
+      ]}}}},
+    privateMedia:[{id:MEDIA,pageId:ROOT,celebrationId:'41',
+      visibility:'private',publicationStatus:'published',
+      storageKey:'private-members/41/report.pdf',mimeType:'application/pdf'}]
+   }};
+}
+function makeD1(db,queries){
+ return {prepare(sql){return {bind(...params){
+   queries.push({sql,params});
+   const statement=db.prepare(sql);
+   return {first:async()=>statement.get(...params)??null,
+     all:async()=>({results:statement.all(...params)}),
+     run:async()=>({meta:{changes:Number(statement.run(...params).changes)}})};
+ }}}};
+}
+function req(token=TOKEN,path='/private/read',method='GET',headers={}){
+ return new Request(URL+path,{method,headers:{
+  ...(token?{authorization:'Bearer '+token}:{}),...headers
+ }});
+}
+async function setup(){
+ const db=new DatabaseSync(':memory:');
+ db.exec('PRAGMA foreign_keys=ON');
+ for(const file of ['celebrations-schema.sql',
+  'd1-migrations/20261110_007a_contact_directory.sql',
+  'd1-migrations/20261110_008b_directory_integrity.sql',
+  'd1-migrations/20261110_009b_explicit_identity_links.sql']){
+  db.exec(readFileSync(new URL('../migration/cloudflare/'+file,import.meta.url),'utf8'));
+ }
+ for(const id of [41,42])db.prepare(
+   'INSERT INTO celebrations_celebrations(id,archangel) VALUES(?,?)').run(id,'Gabriel');
+ db.prepare('INSERT INTO celebrations_participants(email,password_hash,audience) VALUES(?,?,?)')
+  .run(EMAIL,'synthetic-password-hash','angel');
+ db.prepare('INSERT INTO celebrations_participant_sessions(token_hash,participant_email,expires_at) VALUES(?,?,?)')
+  .run(await sha256(TOKEN),EMAIL,new Date(Date.now()+3600000).toISOString());
+ db.prepare('INSERT INTO celebrations_admin_sessions(token_hash,admin_email,expires_at) VALUES(?,?,?)')
+  .run(await sha256(ADMIN),'admin@example.org',new Date(Date.now()+3600000).toISOString());
+ db.prepare('INSERT INTO celebrations_directory_people(id,email_normalized) VALUES(?,?)').run(P,EMAIL);
+ for(const type of [TYPE,OTHER])db.prepare(
+   'INSERT INTO celebrations_directory_member_types(id,name) VALUES(?,?)').run(type,type);
+ db.prepare('INSERT INTO celebrations_directory_person_types(person_id,type_id) VALUES(?,?)')
+  .run(P,TYPE);
+ db.prepare('INSERT INTO celebrations_directory_person_celebrations(person_id,celebration_id) VALUES(?,?)')
+  .run(P,41);
+ db.prepare('INSERT INTO celebrations_directory_private_spaces(space_id,celebration_id) VALUES(?,?)')
+  .run(SPACE,41);
+ db.prepare('INSERT INTO celebrations_directory_private_space_enrollments(person_id,celebration_id,space_id) VALUES(?,?,?)')
+  .run(P,41,SPACE);
+ const state=initialState(),queries=[],reads={editor:0,private:0,public:0};
+ const EDITOR_BUCKET={async get(key){
+   reads.editor++;
+   assert.equal(key,EDITOR_SNAPSHOT_KEY,'only the existing published editor snapshot');
+   return {etag:'etag-1',body:true,text:async()=>JSON.stringify(state)};
+ }};
+ const PRIVATE_MEMBER_BUCKET={async get(key){
+   reads.private++;
+   assert.equal(key,'private-members/41/report.pdf');
+   return {body:'ONLY_PRIVATE_PDF_BYTES',size:22,
+     writeHttpMetadata(h){h.set('content-type','application/pdf');h.set('etag','not-public')}}
+ }};
+ const MEDIA_BUCKET={async get(){reads.public++;throw Error('Public R2 must not read private media')}};
+ const env={DB:makeD1(db,queries),EDITOR_BUCKET,PRIVATE_MEMBER_BUCKET,MEDIA_BUCKET};
+ const approve=()=>{
+   db.prepare('INSERT INTO celebrations_directory_identity_claims '+
+     '(claim_id,participant_email,person_id,status,reviewed_at,reviewed_by,verification_method) '+
+     'VALUES(?,?,?,\'approved\',?,?,?)')
+    .run(CLAIM,EMAIL,P,'2026-11-11T00:00:00.000Z','admin@example.org','video_verified');
+   db.prepare('INSERT INTO celebrations_directory_identity_links '+
+     '(participant_email,person_id,approved_claim_id) VALUES(?,?,?)')
+    .run(EMAIL,P,CLAIM);
+ };
+ return {db,state,env,reads,queries,approve,close:()=>db.close()};
+}
+const readPage=(f,id=ROOT,request=req(),lang='fr')=>
+  handleCanonicalPrivatePage(request,f.env,{pageId:id,languageId:lang});
+const readMedia=(f,id=MEDIA,pageId=ROOT,request=req())=>
+  handleCanonicalPrivateMedia(request,f.env,{mediaId:id,pageId});
+const list=(f,options={},request=req())=>
+  listAuthorizedPrivatePages(request,f.env,{celebrationId:'41',...options});
+async function noLeak(r){
+ assert.match(r.headers.get('cache-control')||'',/no-store/);
+ assert.match(r.headers.get('vary')||'',/Authorization/);
+ const body=await r.text();
+ assert.doesNotMatch(body,/HIDDEN_SPACE_SECRET|UNRELEASED|private-members|person:|SQL_SECRET/);
+}
+test('M011-B: no approval, admin-only token or browser-provided grants can authorize a page',async()=>{
+ const f=await setup();
+ try{
+  for(const request of [req(),req(null),req(ADMIN),
+    req(TOKEN,'/private?accessPolicy=PUBLIC&types='+TYPE,'GET',{
+      'x-member-type':TYPE,'x-member-id':P,'x-verified':'true'})]){
+   const r=await readPage(f,ROOT,request);
+   assert.equal(r.status,404);
+   await noLeak(r);
+  }
+  assert.equal(f.reads.private,0);
+  assert.deepEqual(await list(f),[]);
+ }finally{f.close()}
+});
+test('M011-B: live D1 permissions + approved identity reveal only safe canonical fields',async()=>{
+ const f=await setup();
+ try{
+  f.approve();
+  const r=await readPage(f);
+  assert.equal(r.status,200,await r.clone().text());
+  assert.equal(r.headers.get('etag'),null);
+  const body=await r.json();
+  assert.equal(body.id,ROOT);assert.equal(body.celebrationId,'41');
+  assert.equal(body.blocks[0].text,'AUTHORIZED_CANONICAL');
+  assert.equal(body.blocks[1].mediaId,MEDIA);
+  const serialized=JSON.stringify(body);
+  for(const secret of ['private-members','accessPolicy','UNRELEASED',
+    'person:','remoteKey','xPrivateEmail','privateMedia','storageKey'])
+   assert.equal(serialized.includes(secret),false,secret);
+  assert.equal(f.reads.editor,1,'single canonical R2 read per HTTP request');
+  assert.equal(f.reads.private,0,'page read never fetches media bytes');
+ }finally{f.close()}
+});
+test('M011-B: published English changes content, never identity/ACL; draft translations cannot leak',async()=>{
+ const f=await setup();
+ try{
+  f.approve();
+  let r=await readPage(f,ROOT,req(TOKEN,'/private?lang=en&accessPolicy=PUBLIC'),'en');
+  assert.equal(r.status,200);
+  let body=await r.json();
+  assert.equal(body.name,'Allowed English title');
+  assert.equal(body.blocks[0].text,'AUTHORIZED_ENGLISH');
+  assert.equal(body.id,ROOT);
+  f.state.published.privateTranslationReleases[ROOT].variants.en={
+    id:'forged-id',accessPolicy:{mode:'PUBLIC'},name:'Bad',
+    blocks:[{kind:'text',text:'LEAK_FROM_UNRELEASED'}]
+  };
+  r=await readPage(f,ROOT,req(),'en');
+  body=await r.json();
+  assert.equal(body.name,'Cantique autorisé');
+  assert.doesNotMatch(JSON.stringify(body),/LEAK_FROM_UNRELEASED|UNRELEASED_EDITOR/);
+  f.db.prepare('UPDATE celebrations_directory_member_types SET disabled=1 WHERE id=?').run(TYPE);
+  assert.equal((await readPage(f,ROOT,req(),'en')).status,404,
+    'language never overrides disabled type');
+ }finally{f.close()}
+});
+test('M011-B: space membership AND matching celebration AND active member type on every request',async()=>{
+ const f=await setup();
+ try{
+  f.approve();
+  assert.equal((await readPage(f,INNER)).status,200);
+  f.db.prepare('DELETE FROM celebrations_directory_private_space_enrollments WHERE person_id=?').run(P);
+  const denied=await readPage(f,INNER);
+  assert.equal(denied.status,404);await noLeak(denied);
+  assert.equal((await readPage(f,ROOT)).status,200,'root type still valid');
+  f.db.prepare('INSERT INTO celebrations_directory_private_space_enrollments(person_id,celebration_id,space_id) VALUES(?,?,?)')
+   .run(P,41,SPACE);
+  assert.equal((await readPage(f,INNER)).status,200);
+  f.db.prepare('DELETE FROM celebrations_directory_person_types WHERE person_id=?').run(P);
+  assert.equal((await readPage(f,ROOT)).status,404);
+  assert.equal((await readPage(f,INNER)).status,404);
+ }finally{f.close()}
+});
+test('M011-B: private media uses ONLY linked published canonical manifest and disjoint R2',async()=>{
+ const f=await setup();
+ try{
+  f.approve();
+  let r=await readMedia(f);
+  assert.equal(r.status,200,await r.clone().text());
+  assert.equal(await r.text(),'ONLY_PRIVATE_PDF_BYTES');
+  assert.equal(r.headers.get('content-type'),'application/pdf');
+  assert.equal(r.headers.get('content-disposition'),'attachment');
+  assert.equal(r.headers.get('etag'),null);
+  assert.equal(f.reads.private,1);assert.equal(f.reads.public,0);
+  r=await readMedia(f,MEDIA,ROOT,req(TOKEN,'/private','HEAD'));
+  assert.equal(r.status,200);assert.equal(await r.text(),'');
+  f.state.published.privateMedia[0].storageKey='private-members/42/foreign.pdf';
+  assert.equal((await readMedia(f)).status,404);
+  f.state.published.privateMedia[0].storageKey='private-members/41/report.pdf';
+  f.state.published.drafts['41'].pages[0].blocks.pop();
+  assert.equal((await readMedia(f)).status,404,'orphaned media not published');
+  f.state.published.drafts['41'].pages[0]=page(ROOT);
+  f.env.PRIVATE_MEMBER_BUCKET=f.env.MEDIA_BUCKET;
+  assert.equal((await readMedia(f)).status,503,'never alias to public R2');
+  assert.equal(f.reads.public,0);
+ }finally{f.close()}
+});
+test('M011-B: revocation of a person link, type, individual enrollment or session is immediate',async()=>{
+ const f=await setup();
+ try{
+  f.approve();
+  assert.equal((await readMedia(f)).status,200);
+  f.db.prepare('DELETE FROM celebrations_directory_identity_links WHERE participant_email=?').run(EMAIL);
+  assert.equal((await readPage(f)).status,404);
+  assert.equal((await readMedia(f)).status,404);
+  assert.equal((await readPage(f,INNER)).status,404);
+  assert.deepEqual(await list(f),[]);
+  assert.equal(f.reads.private,1,'no second private R2 read after revocation');
+ }finally{f.close()}
+});
+test('M011-B: pages require an explicit release, published celebration, valid ownership',async()=>{
+ const f=await setup();
+ try{
+  f.approve();
+  const original=f.state.published.drafts['41'].pages[0];
+  for(const patch of [
+   {visibility:'draft'}, {visibility:'hidden'},
+   {publicationStatus:'draft'}, {publicationStatus:undefined},
+   {celebrationId:'42'}, {spaceId:'space:41:forged'},
+   {accessPolicy:{mode:'PUBLIC'}}, {accessPolicy:null},
+   {blocks:'not-a-list'}, {published:false}
+  ]){
+    f.state.published.drafts['41'].pages[0]={...original,...patch};
+    assert.equal((await readPage(f)).status,404,JSON.stringify(patch));
+  }
+  f.state.published.drafts['41'].pages[0]=original;
+  f.state.published.celebrationVisibility['41']='draft';
+  assert.equal((await readPage(f)).status,404);
+  f.state.published.celebrationVisibility['41']='published';
+  f.state.publishedRevision=0;
+  assert.equal((await readPage(f)).status,404);
+  f.state.publishedRevision=2;
+  f.state.published.drafts['41'].pages.push(structuredClone(original));
+  assert.equal((await readPage(f)).status,404,'duplicate page ID invalidates both');
+  f.state.published.drafts['41'].pages.pop();
+  f.state.published.drafts['41'].spaces.push(structuredClone(space()));
+  assert.equal((await readPage(f,INNER)).status,404,'duplicate space ID invalidates');
+ }finally{f.close()}
+});
+test('M011-B: search, navigation and lists reveal no unauthorized title, count or snippet',async()=>{
+ const f=await setup();
+ try{
+  f.approve();
+  let rows=await list(f);
+  assert.deepEqual(rows.map(x=>x.id),[ROOT,INNER]);
+  f.db.prepare('DELETE FROM celebrations_directory_private_space_enrollments WHERE person_id=?').run(P);
+  rows=await list(f);
+  assert.deepEqual(rows.map(x=>x.id),[ROOT]);
+  assert.doesNotMatch(JSON.stringify(rows),/Chapelle|HIDDEN_SPACE/);
+  assert.deepEqual(await list(f,{search:'Chapelle'}),[]);
+  assert.deepEqual(await list(f,{search:'HIDDEN_SPACE_SECRET'}),[]);
+  rows=await list(f,{languageId:'en',search:'Allowed English'});
+  assert.deepEqual(rows.map(x=>x.id),[ROOT]);
+  const response=await handleCanonicalPrivateList(req(),f.env,{
+   celebrationId:'41',search:'Chapelle'});
+  assert.equal(response.status,200);
+  assert.deepEqual(await response.json(),{pages:[]});
+  const head=await handleCanonicalPrivateList(req(TOKEN,'/private/list','HEAD'),
+   f.env,{celebrationId:'41'});
+  assert.equal(head.status,200);assert.equal(await head.text(),'');
+  assert.match(head.headers.get('cache-control'),/no-store/);
+ }finally{f.close()}
+});
+test('M011-B: cloned celebration pages/spaces and copied media never inherit access',async()=>{
+ const f=await setup();
+ try{
+  f.approve();
+  const aggregate={id:'41',pages:[page(ROOT)],spaces:[space()]};
+  const clone=duplicateCelebration(aggregate,{
+   id:'42',pageIds:{[ROOT]:'page:42:private-root',[INNER]:'page:42:chapelle'},
+   spaceIds:{[SPACE]:'space:42:chapelle'}
+  });
+  assert.equal(clone.pages[0].visibility,'draft');
+  assert.equal(clone.spaces[0].pages[0].publicationStatus,'draft');
+  assert.equal(JSON.stringify(clone).includes('enrollments'),false);
+  // An unrelated publication of another page cannot release cloned drafts.
+  f.state.published.drafts['42']={pages:clone.pages,spaces:clone.spaces};
+  f.state.published.celebrationVisibility['42']='published';
+  assert.equal((await readPage(f,'page:42:private-root')).status,404);
+  assert.equal((await readPage(f,'page:42:chapelle')).status,404);
+  // Even when an operator deliberately releases the clone, M008-C must
+  // consult the new celebration's distinct D1 enrollment registry.
+  const cp=f.state.published.drafts['42'];
+  cp.spaces[0].publicationStatus='published';
+  cp.spaces[0].pages[0].visibility='published';
+  cp.spaces[0].pages[0].publicationStatus='published';
+  f.db.prepare('INSERT INTO celebrations_directory_private_spaces(space_id,celebration_id) VALUES(?,?)')
+    .run('space:42:chapelle',42);
+  f.db.prepare('INSERT INTO celebrations_directory_person_celebrations(person_id,celebration_id) VALUES(?,?)')
+    .run(P,42);
+  assert.equal((await readPage(f,'page:42:chapelle')).status,404,
+    'no cloned individual space enrollment');
+ }finally{f.close()}
+});
+test('M011-B: public legacy gateway never reads private member keys',async()=>{
+ const f=await setup();
+ try{
+  for(const path of ['/media/private-members/41/report.pdf',
+    '/media/private-members%252F41%252Freport.pdf']){
+   const result=await handleMedia(req(null,path),f.env);
+   assert.equal(result.status,404);
+   assert.equal(f.reads.public,0);assert.equal(f.reads.private,0);
+  }
+  for(const worker of ['production-worker.mjs','staging-worker.mjs']){
+   const source=readFileSync(new URL('../migration/cloudflare/'+worker,import.meta.url),'utf8');
+   assert.doesNotMatch(source,/private-content-read-service\.mjs|private-canonical-content\.mjs/,
+     'Worker owner M011-A must not be modified by M011-B');
+  }
+ }finally{f.close()}
+});
+test('M011-B: storage errors produce generic no-cache failure without private metadata',async()=>{
+ const f=await setup();
+ try{
+  f.approve();
+  f.env.EDITOR_BUCKET={get:async()=>{throw Error('SQL_SECRET_STORAGE')}};
+  let r=await readPage(f);
+  assert.equal(r.status,503);await noLeak(r);
+  f.env.EDITOR_BUCKET=null;
+  r=await readPage(f);
+  assert.equal(r.status,503);await noLeak(r);
+  r=await readPage(f,ROOT,req(TOKEN,'/private','POST'));
+  assert.equal(r.status,405);
+  assert.equal(f.reads.private,0);
+ }finally{f.close()}
+});
