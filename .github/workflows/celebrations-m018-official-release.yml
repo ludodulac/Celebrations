@@ -237,3 +237,5 @@ jobs:
             tests/test_m011b_private_content_integration.mjs \
             tests/test_m012c_private_editor_publication.mjs \
             tests/test_m006_public_language_navigation.mjs
+
+# M018: relance après alignement des contrats historiques aux règles finales, aucune production.
