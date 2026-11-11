@@ -54,7 +54,8 @@ export async function handleTrialSite(request,env){
  '<nav class="steps" id="stage-navigation" aria-label="Pages de la célébration"></nav>'+
  '<main class="site-paper" id="site-paper"><div id="stage-main"></div></main>'+
  '<footer class="footer"><nav id="footer-pages" class="footer-pages" aria-label="Pages de bas de page"></nav><a id="back-admin" href="/__editor/demo-preparation?celebration='+encodeURIComponent(result.celebration.id)+'">Administration</a></footer>'+
- '<script nonce="'+nonce+'">window.__TRIAL_SITE_SEED__='+safeJson(result.seed)+';window.__MEMBER_SITE_ENABLED__='+JSON.stringify(memberSite)+';</script>'+
+ '<script nonce="'+nonce+'">window.__TRIAL_SITE_SEED__='+safeJson(result.seed)+';</script>'+
+ '<script nonce="'+nonce+'">window.__MEMBER_SITE_ENABLED__='+JSON.stringify(memberSite)+';</script>'+
  '<script nonce="'+nonce+'">'+siteClient+'</script></body></html>';
  const h={'content-type':'text/html; charset=utf-8','cache-control':'no-store',...(isOfficial?{}:{'x-robots-tag':'noindex,nofollow,noarchive'}),'x-content-type-options':'nosniff','referrer-policy':'no-referrer','content-security-policy':"default-src 'none'; script-src 'nonce-"+nonce+"'; style-src 'nonce-"+nonce+"'; img-src 'self' blob: data: https:; media-src 'self' blob: https:; connect-src 'self'; base-uri 'none'; frame-src https://www.youtube-nocookie.com https://player.vimeo.com; frame-ancestors 'none'; form-action 'none'"};
  return new Response(request.method==='HEAD'?null:html,{headers:h});
