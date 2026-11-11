@@ -19,6 +19,18 @@ const privatePaths=new Set([
  '/api/editor-media','/api/editor-access','/api/editor-logout'
 ]);
 export function isOfficialEditorHost(host){return official.has(host)}
+const M016_HOST='celebrations-m016-admin-preprod.rondes.workers.dev';
+// Fail-closed: this one exact Worker hostname, with two explicit deployment
+// opt-ins, can use the EXISTING editor against separately bound test D1/R2.
+// It is never a member of the official or public-readonly host sets.
+export function isM016AdminPreprodHost(host,env){
+ return host===M016_HOST && env?.M016_PREPROD_WRITE_ENABLED==='true' &&
+  env?.M016_ADMIN_PREPROD_HOST===M016_HOST;
+}
+export function isWritableEditorHost(host,env){
+ return isOfficialEditorHost(host)||isM016AdminPreprodHost(host,env);
+}
+
 export function isReadonlyCandidateHost(host){return readonly.has(host)}
 export function isPrivateEditorPath(path){return privatePaths.has(path)}
 export function sameOriginEditorWrite(request){
