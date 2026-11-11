@@ -100,6 +100,7 @@ jobs:
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
       - name: Refuse if original production Worker, credentials, media or backup drifted
+        id: baseline
         run: |
           node scripts/m018_official_validate.mjs
           node scripts/m018_official_release_gate.mjs before
@@ -118,6 +119,7 @@ jobs:
           npm install --no-save --no-package-lock wrangler@4
           (cd migration/cloudflare && npx wrangler deploy --dry-run --config wrangler.m018.official.toml)
       - name: Apply six ADDITIVE D1 migrations to exact existing official DB only
+        if: ${{ steps.baseline.outputs.apply_migrations == 'yes' }}
         id: migrations
         working-directory: migration/cloudflare
         run: |
@@ -174,7 +176,9 @@ jobs:
       - name: Real Chromium official visitor/admin link and server security, no user-data writes
         run: |
           npm install --no-save --no-package-lock playwright@1.58.2
-          npx playwright install --with-deps chromium
+          # Do not re-run apt/Ubuntu dependency installation: previous release
+          # rolled back solely because Ubuntu package DNS was unavailable.
+          npx playwright install chromium
           node scripts/m018_official_smoke.mjs
       - name: Confirm success on the real official domain
         run: echo M018_OFFICIAL_RELEASE_COMPLETE_REAL_DOMAIN_EXISTING_CODE_AND_DATA_PRESERVED
