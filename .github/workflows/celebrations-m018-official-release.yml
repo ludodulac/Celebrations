@@ -121,7 +121,6 @@ jobs:
         working-directory: migration/cloudflare
         run: |
           set -euo pipefail
-          w='npx wrangler d1 execute celebrations-exit-production --remote --config wrangler.m018.official.toml'
           for file in \
             d1-migrations/20261110_007a_contact_directory.sql \
             d1-migrations/20261110_008b_directory_integrity.sql \
@@ -129,7 +128,8 @@ jobs:
             d1-migrations/20261111_010b_member_admin_revisions.sql \
             d1-migrations/20261111_012a_editor_admin_challenges.sql \
             d1-migrations/20261111_012c_private_release_fences.sql; do
-            "$w" --file "$file"
+            npx wrangler d1 execute celebrations-exit-production --remote \
+              --config wrangler.m018.official.toml --file "$file"
           done
           echo M018_ONLY_TWELVE_ADDITIVE_TABLES_NO_HISTORICAL_DATA_CHANGE
       - name: Confirm existing production Worker still serving after additive DB changes
