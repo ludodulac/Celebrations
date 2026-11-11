@@ -77,6 +77,14 @@ try{
  if(resp.status()!==200)console.log('M021A_MEMBER_PAGE_DEBUG '+JSON.stringify({
   status:resp.status(),body:(await resp.text()).slice(0,280)}));
  assert.equal(resp.status(),200);
+ try{
+  await page.locator('form.member-login input[type="email"]').waitFor({state:'visible',timeout:12000});
+ }catch(e){
+  console.log('M021A_MEMBER_FORM_DEBUG '+JSON.stringify({
+   text:(await page.locator('body').innerText()).slice(0,1600),
+   errors,url:page.url()}));
+  throw e;
+ }
  await page.screenshot({path:folder+'/04-connexion-mobile.png',fullPage:true});
  assert.deepEqual(errors,[],'browser must not raise JS exceptions');
  console.log('M021A_M016_PIN_RESPONSIVE_SMOKE_PASS');
