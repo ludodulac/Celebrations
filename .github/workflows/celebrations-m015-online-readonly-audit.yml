@@ -149,7 +149,9 @@ jobs:
                 method,headers:method==='POST'?{'origin':base}:{},redirect:'manual',
                 signal:AbortSignal.timeout(18000)
               });
+              const errorText=response.status>=400?String(await response.text()).slice(0,140):null;
               console.log('PREPROD_AUDIT '+JSON.stringify({label,http_status:response.status,
+                error_summary:errorText,
                 content_type:response.headers.get('content-type'),
                 noindex:response.headers.get('x-robots-tag'),
                 server:response.headers.get('server'),
