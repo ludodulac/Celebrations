@@ -1,0 +1,34 @@
+name: Celebrations M011-A member Worker routes (HTTP + local D1)
+on:
+  push:
+    branches:
+      - feat/celebrations-m011a-member-admin-worker-routing-20261111
+  pull_request:
+    paths:
+      - 'migration/cloudflare/production-worker.mjs'
+      - 'migration/cloudflare/staging-worker.mjs'
+      - 'migration/cloudflare/app/security/member-admin-worker-routes.mjs'
+      - 'tests/test_m011a_member_admin_worker_routes.mjs'
+      - '.github/workflows/celebrations-m011a-member-worker-routes.yml'
+  workflow_dispatch:
+jobs:
+  http-local-d1:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Node syntax check
+        run: |
+          node --check migration/cloudflare/production-worker.mjs
+          node --check migration/cloudflare/staging-worker.mjs
+          node --check migration/cloudflare/app/security/member-admin-worker-routes.mjs
+      - name: Simulated HTTP routes against transactional local SQLite D1 facade
+        run: |
+          node --test tests/test_m011a_member_admin_worker_routes.mjs
+      - name: Previous member security and D1 regressions
+        run: |
+          node --test tests/test_m010b_member_admin_final.mjs tests/test_m010d_identity_admin_cross.mjs tests/test_m009b_member_identity_admin.mjs tests/test_m008c_private_server_access.mjs

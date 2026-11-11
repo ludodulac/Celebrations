@@ -24,6 +24,7 @@ import {handleServerDraft} from "./editor-server-draft-api.mjs";
 import {handleEditorPublication} from "./editor-publication-api.mjs";
 import {handlePublicEditorUpload} from "./public-upload-gateway.mjs";
 import {isBlockedPublicAssetPath,privatePublicAssetNotFound} from "./app/security/public-media-boundary.mjs";
+import {isMemberAdminWorkerRoute,routeMemberAdminWorkerRequest} from "./app/security/member-admin-worker-routes.mjs";
 export default {
  async fetch(request,env){
   const url=new URL(request.url),path=url.pathname;
@@ -43,6 +44,9 @@ export default {
     path.startsWith('/api/')&&!['/api/public-data','/api/editor-publication'].includes(path))
     return new Response('Introuvable',{status:404,headers:denied});
   }
+  // M011-A: same protected, default-OFF API boundary as the other Worker.
+  // The obsolete staging hostname remains read-only and cannot opt in.
+  if(isMemberAdminWorkerRoute(path))return routeMemberAdminWorkerRequest(request,env);
   if((path==="/"||path==="/index.html"||path==="/admin.html"||path==="/admin")&&!url.searchParams.has("staging")){
    url.searchParams.set("staging","1");
    return Response.redirect(url.toString(),302);
