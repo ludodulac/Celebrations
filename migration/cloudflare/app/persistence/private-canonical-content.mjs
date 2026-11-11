@@ -41,6 +41,22 @@ function makeIndex(state) {
       state.publishedRevision<1||!obj(published.drafts)||
       !obj(published.celebrationVisibility))return null;
 
+  // Old initialPublication() copies editor drafts into published.drafts on the
+  // first unrelated publication. An explicit, independently published private
+  // release ledger is therefore MANDATORY: visibility/status alone is unsafe.
+  const pageReleases=obj(published.privatePageReleases)?published.privatePageReleases:{};
+  const spaceReleases=obj(published.privateSpaceReleases)?published.privateSpaceReleases:{};
+  const pageIsReleased=(page,cid,spaceId)=>{
+    const release=pageReleases[page.id];
+    return obj(release)&&release.publication==='published'&&
+      release.pageId===page.id&&release.celebrationId===cid&&
+      (release.spaceId??null)===(spaceId??null);
+  };
+  const spaceIsReleased=(space,cid)=>{
+    const release=spaceReleases[space.id];
+    return obj(release)&&release.publication==='published'&&
+      release.spaceId===space.id&&release.celebrationId===cid;
+  };
   const pages=new Map(),spaces=new Map(),media=new Map();
   const duplicatePages=new Set(),duplicateSpaces=new Set(),duplicateMedia=new Set();
   const put=(index,duplicates,id,value)=>{
@@ -63,18 +79,18 @@ function makeIndex(state) {
     for(const page of Array.isArray(record.pages)?record.pages:[]){
       if(++examined>10000)throw Error('Canonical snapshot too large');
       observe(seenPages,duplicatePages,page?.id);
-      if(visible&&releasedPage(page,celebrationId,null))
+      if(visible&&releasedPage(page,celebrationId,null)&&pageIsReleased(page,celebrationId,null))
         put(pages,duplicatePages,page.id,page);
     }
     for(const space of Array.isArray(record.spaces)?record.spaces:[]){
       if(++examined>10000)throw Error('Canonical snapshot too large');
       observe(seenSpaces,duplicateSpaces,space?.id);
-      const spaceOK=visible&&releasedSpace(space,celebrationId);
+      const spaceOK=visible&&releasedSpace(space,celebrationId)&&spaceIsReleased(space,celebrationId);
       if(spaceOK)put(spaces,duplicateSpaces,space.id,space);
       for(const page of Array.isArray(space?.pages)?space.pages:[]){
         if(++examined>10000)throw Error('Canonical snapshot too large');
         observe(seenPages,duplicatePages,page?.id);
-        if(spaceOK&&releasedPage(page,celebrationId,space.id))
+        if(spaceOK&&releasedPage(page,celebrationId,space.id)&&pageIsReleased(page,celebrationId,space.id))
           put(pages,duplicatePages,page.id,page);
       }
     }
