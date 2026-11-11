@@ -55,6 +55,7 @@ def main():
         print("M016_BUCKET_INVENTORY_PASS bucket=" + label + " objects=" + str(len(items)), flush=True)
 
     # Reuse exactly the pre-existing and tested encrypted export/recovery code.
+    os.environ["M03_ALLOW_ONE_PORTABLE_BACKUP"] = "yes"  # legacy library guard after M016 live-source checks
     backup.BRANCH = BRANCH
     backup.EXPECTED_DEPLOYMENT = latest["id"]
     backup.EXPECTED_VERSION = PINNED_OFFICIAL_VERSION
