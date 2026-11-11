@@ -47,6 +47,11 @@ try{
  await page.screenshot({path:folder+'/03-comptes-fictifs-mobile.png',fullPage:true});
  await page.getByRole('heading',{name:/Comptes fictifs/}).waitFor({timeout:12000});
  const response=await page.request.get(HOST+'/api/site-identity');
+ console.log('M021A_IDENTITY_API_DEBUG '+JSON.stringify({
+  status:response.status(),type:response.headers()['content-type'],
+  text:(await response.clone().text()).slice(0,280),
+  cookies:(await context.cookies()).map(c=>({name:c.name,path:c.path,domain:c.domain}))
+ }));
  assert.equal(response.status(),200,'identity read protected by owner cookie');
  assert.equal((await response.json()).ok,true);
  resp=await page.goto(HOST+'/?celebration=90000002&page=member-area&lang=fr',
