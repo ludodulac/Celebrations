@@ -9,6 +9,7 @@ import {Miniflare} from 'miniflare';
 import {build} from 'esbuild';
 import {chromium} from 'playwright';
 import {schemaFiles,schema,flags,signedEditorCookie} from '../tests/fixtures/m012a-editor-session-http.mjs';
+import {EDITOR_SNAPSHOT_KEY} from '../migration/cloudflare/app/ports/editor-snapshot-contract.mjs';
 const ORIGIN='https://ronde-des-archanges-universelle.eu';
 const demo=process.argv.includes('--demo');
 const temp=await mkdtemp(join(tmpdir(),'celebrations-m013-'));
@@ -144,6 +145,42 @@ try{
   await visitor.close();
   await page.reload();await page.locator('#status').waitFor();
   assert.equal((await (await local(draftPath+cid,{admin:true})).json()).record.celebrationTimes.mercredi,'09:30');
+  // M014: real visitor; canonical R2 release fixtures, not a simulated editor.
+  const bucket=await mf.getR2Bucket('EDITOR_BUCKET');
+  const state=JSON.parse(await (await bucket.get(EDITOR_SNAPSHOT_KEY)).text());
+  const sid='space:550e8400-e29b-41d4-a716-446655440010';
+  const pid='page:550e8400-e29b-41d4-a716-446655440011';
+  const hidden='page:550e8400-e29b-41d4-a716-446655440012';
+  const token='550e8400-e29b-41d4-a716-446655440013';
+  const mk=(id,name,accessPolicy)=>({id,name,spaceId:sid,celebrationId:'41',group:'celebration',
+    visibility:'published',publicationStatus:'published',accessPolicy,blocks:[{id:1,kind:'text',text:name+' CONTENU'}]});
+  state.published.drafts['41']={pages:[],spaces:[{id:sid,name:'Espace public M014',celebrationId:'41',visibility:'PUBLIC',publicationStatus:'published',
+   accessPolicy:{mode:'PUBLIC'},pages:[mk(pid,'Page publique M014',{mode:'PUBLIC'}),mk(hidden,'TITRE INTERDIT M014',{mode:'SELECTED_TYPES',typeIds:['member-type:secret']})]}]};
+  state.published.celebrationVisibility['41']='published';
+  state.publishedRevision++;
+  state.published.privateSpaceReleases={...(state.published.privateSpaceReleases||{}),[sid]:{spaceId:sid,celebrationId:'41',publication:'published'}};
+  state.published.privatePageReleases={...(state.published.privatePageReleases||{}),...Object.fromEntries([pid,hidden].map(id=>[id,{pageId:id,spaceId:sid,celebrationId:'41',publication:'published'}]))};
+  state.published.privateReleaseRevisions={...(state.published.privateReleaseRevisions||{}),'41':{revision:state.publishedRevision,token}};
+  await bucket.put(EDITOR_SNAPSHOT_KEY,JSON.stringify(state));
+  await db.prepare('INSERT INTO celebrations_private_release_fences(celebration_id,revision,token) VALUES(?,?,?)').bind(41,state.publishedRevision,token).run();
+  const projection=await (await local('/api/editor-publication?celebration=41')).json();
+  assert.deepEqual(projection.record.spaces[0].pages.map(p=>p.id),[pid]);
+  assert.doesNotMatch(JSON.stringify(projection),/TITRE INTERDIT M014|446655440012/);
+  const memberless=await context(false,390),spaceVisitor=await memberless.newPage();
+  spaceVisitor.on('pageerror',e=>errors.push(String(e)));
+  await spaceVisitor.goto(ORIGIN+'/__editor/voir-le-site?celebration=41&page='+encodeURIComponent(pid));
+  await spaceVisitor.getByText('Page publique M014 CONTENU',{exact:true}).waitFor();
+  await spaceVisitor.getByRole('button',{name:'Espace public M014 · Page publique M014',exact:true}).waitFor();
+  assert.doesNotMatch(await spaceVisitor.locator('body').innerText(),/TITRE INTERDIT M014/);
+  assert.ok(await spaceVisitor.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth<=1));
+  await spaceVisitor.goto(ORIGIN+'/__editor/voir-le-site?celebration=41&page='+encodeURIComponent(hidden));
+  await spaceVisitor.getByText('Cette page n’est pas publiée.',{exact:true}).waitFor();
+  assert.doesNotMatch(await spaceVisitor.locator('body').innerText(),/TITRE INTERDIT M014/);
+  await db.prepare('DELETE FROM celebrations_private_release_fences WHERE celebration_id=?').bind(41).run();
+  await spaceVisitor.goto(ORIGIN+'/__editor/voir-le-site?celebration=41&page='+encodeURIComponent(pid));
+  await spaceVisitor.getByText('Cette page n’est pas publiée.',{exact:true}).waitFor();
+  await memberless.close();
+  console.log('M014_PUBLIC_SPACE_VISITOR_LOCAL_PASS');
   assert.deepEqual(errors,[]);
   console.log('M013_PUBLIC_REAL_WORKER_D1_R2_PASS');
  }

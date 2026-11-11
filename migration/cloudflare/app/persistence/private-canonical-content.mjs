@@ -37,7 +37,7 @@ function releasedSpace(space,celebrationId) {
     (space.visibility!==SPACE_VISIBILITIES.PUBLIC||
       space.accessPolicy.mode===ACCESS_MODES.PUBLIC)&&Array.isArray(space.pages);
 }
-function makeIndex(state) {
+export function indexCanonicalPublishedContent(state) {
   const published=state?.published;
   if(!obj(published)||!Number.isSafeInteger(state.publishedRevision)||
       state.publishedRevision<1||!obj(published.drafts)||
@@ -153,7 +153,7 @@ export function createCanonicalPrivateLoaders(env) {
         empty:()=>null,requireBody:true,
         validate:x=>x===null||obj(x)
       });
-      const data=makeIndex(state);
+      const data=indexCanonicalPublishedContent(state);
       if(!data)return null;
       // No legacy/copied ledger is sufficient without exact D1 acknowledgement.
       // A partial commit blocks the entire celebration before any protected read.

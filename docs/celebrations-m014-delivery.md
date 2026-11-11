@@ -4,7 +4,7 @@
 - Le service de liste des pages privées renvoie le nom canonique de l'espace uniquement après autorisation d'une page publiée de cet espace. Le client peut regrouper les pages par espace sans charger un répertoire de titres interdits.
 - Le rendu de blocs privés réutilise la liste interne des IDs non publics pour supprimer les liens éditoriaux qui désignent une page ou un espace géré. Cette mesure est conservatrice : les liens directs entre espaces restent indisponibles même pour les membres autorisés; aucune prétention de sécuriser du texte libre rédigé par un administrateur.
 - Les médias et traductions privés restent désactivés dans les routes isolées M013; aucune nouvelle route, migration, dépendance ni écriture distante.
-- Le raccordement du véritable éditeur de blocs, la navigation publique des espaces et l'interface membre ne sont **pas terminés**. Les deux environnements de démo restent distincts. Ne pas présenter les espaces comme livrés.
+- La navigation publique des espaces est raccordée au véritable visiteur pour les blocs de texte simple, titres et séparateurs (publication canonique, ACL page/espace et confirmation D1). Les liens, médias, textes riches et traductions d'espaces restent indisponibles. Le raccordement du véritable éditeur de blocs et l'interface membre ne sont **pas terminés**. Les deux environnements de démo restent distincts. Ne pas présenter les espaces comme livrés.
 
 ## Démonstration
 Reprendre [la procédure M013](celebrations-m013-demonstration.md) sur la branche M014, Node 22.
@@ -16,7 +16,7 @@ node scripts/test-m013-public-worker-editor.mjs --demo
 node scripts/test-m012d-real-worker-editor.mjs --demo
 ```
 Le navigateur jetable est intercepté, les données D1/R2 sont locales, aucun compte réel.
-La première démo montre le parcours public; la seconde, le panneau membres/espaces et les API.
+La première démo montre le parcours public; la seconde, le panneau membres/espaces et les API. La recette M014 ajoute des données canoniques synthétiques pour vérifier la navigation publique des espaces, sans simuler un éditeur de blocs.
 Pour une recette non interactive, enlever --demo. Le workflow M014 reprend les deux suites et les trois recettes Chromium M013; le résultat doit être constaté sur le SHA exact, pas déduit du code.
 
 ## Propreté : constats limités mais vérifiables
@@ -32,4 +32,4 @@ Pour une recette non interactive, enlever --demo. Le workflow M014 reprend les d
 
 Retour arrière : arrêter les écritures concernées, désactiver les nouvelles routes si elles ont été activées, revenir à la version Worker et bindings validés précédents; conserver les données nouvelles; restaurer uniquement après analyse des différences et autorisation. Pour transfert Cloudflare, recréer les bindings et secrets dans le compte du collègue, copier D1/R2 avec vérification d'intégrité, refaire les recettes isolées, organiser une fenêtre sans écritures pour le delta final puis basculer le domaine après accord. Conserver les URLs historiques.
 
-Blocages : raccordements visiteurs/éditeur incomplets, résultat Workers Builds non expliqué sans journaux Cloudflare, recette M014 à confirmer. Aucun déploiement effectué ni autorisé par ce document.
+Blocages : raccordements membres/éditeur incomplets, médias des espaces non raccordés, résultat Workers Builds non expliqué sans journaux Cloudflare, recette M014 à confirmer. Aucun déploiement effectué ni autorisé par ce document.
