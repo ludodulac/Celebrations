@@ -7,8 +7,7 @@ import {createHmac} from 'node:crypto';
 import productionWorker from '../migration/cloudflare/production-worker.mjs';
 import stagingWorker from '../migration/cloudflare/staging-worker.mjs';
 import {authorize,sha256} from '../migration/cloudflare/auth-api.mjs';
-import {createMemberDirectoryTransport}
-  from '../migration/cloudflare/app/admin/editor-member-spaces-integration.mjs';
+import {createMemberDirectoryTransport} from './fixtures/m011c-legacy-member-transport.mjs';
 
 const source=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const official='https://www.ronde-des-archanges-universelle.eu';
@@ -43,7 +42,7 @@ const envFor=(host,DB=db())=>({
 
 test('M011-D: 011-C keeps old Supabase token; D1 authorize checks stored session hash instead',async()=>{
   const auth=source('admin-auth.js');
-  const bridge=source('admin-member-spaces-bridge.js');
+  const bridge=source('tests/fixtures/m011c-legacy-member-bridge.js');
   assert.match(auth,/celebrationsAccessInvoke\('admin_login'/);
   assert.match(auth,/sb\.functions\.invoke\('celebrations-access'/);
   assert.match(auth,/getCelebrationsAdminToken=\(\)=>localStorage/);
