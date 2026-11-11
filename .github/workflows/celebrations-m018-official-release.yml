@@ -211,3 +211,5 @@ jobs:
       - name: Verify old Worker restored; keep additive D1 tables and all media untouched
         if: ${{ failure() && steps.rollback-check.outputs.should_rollback == 'yes' }}
         run: node scripts/m018_official_release_gate.mjs after-rollback
+
+# Owner-approval marker is deliberately ABSENT; dry-run only.
