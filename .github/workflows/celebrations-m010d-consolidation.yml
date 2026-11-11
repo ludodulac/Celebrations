@@ -1,0 +1,183 @@
+name: "CÉLÉBRATIONS M010-D — consolidation identité + administration (offline)"
+on:
+  push:
+    branches:
+      - feat/celebrations-m010d-consolidation-010a-010b-20261111
+  pull_request:
+    branches:
+      - feat/celebrations-m009d-consolidation-009a-009b-009c-20261111
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  merge-integrity:
+    name: Two real merge commits and exact preservation of 18 source blobs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify source base, both parents and all file modes and contents
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=8a9a2940d27c018fd6ea46b2603485e9ab24ce3b
+          A=da5c7db58c278ff15996a6bc25c4b56734ed502d
+          B=9f6cad9fdb1e6c6322c968b1759933c07ed9e722
+          M1=87078d076c37bfe1b5dac21ce89aeda0a9fcae7e
+          M2=ee6ed2302ffca88cef6ce00ff9304ff943b23fcf
+          for sha in "$BASE" "$A" "$B" "$M1" "$M2"; do
+            git merge-base --is-ancestor "$sha" HEAD
+          done
+          test "$(git show -s --format='%P' "$M1")" = "$BASE $A"
+          test "$(git show -s --format='%P' "$M2")" = "$M1 $B"
+          test "$(git merge-base "$BASE" "$A")" = "$BASE"
+          test "$(git merge-base "$BASE" "$B")" = "$BASE"
+          test "$(git diff --name-only "$BASE" "$A" | wc -l)" -eq 8
+          test "$(git diff --name-only "$BASE" "$B" | wc -l)" -eq 10
+          test "$(git diff --name-only "$BASE" "$M2" | wc -l)" -eq 18
+          ! comm -12 <(git diff --name-only "$BASE" "$A" | sort) \
+            <(git diff --name-only "$BASE" "$B" | sort) | grep .
+          for source in "$A" "$B"; do
+            while IFS= read -r path; do
+              test "$(git rev-parse "$source:$path")" = "$(git rev-parse "$M2:$path")"
+              test "$(git ls-tree "$source" -- "$path" | cut -f1)" = \
+                "$(git ls-tree "$M2" -- "$path" | cut -f1)"
+            done < <(git diff --name-only "$BASE" "$source")
+          done
+          echo "M010D_TWO_GENUINE_GIT_MERGES_18_SOURCE_PATHS_PRESERVED"
+  combined-node:
+    name: M002-M010B, editor, API, media and M010D cross-security
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax checks
+        run: |
+          for file in \
+            migration/cloudflare/app/security/member-identity-links.mjs \
+            migration/cloudflare/app/security/member-private-access.mjs \
+            migration/cloudflare/app/application/member-directory-admin-service.mjs \
+            migration/cloudflare/app/application/member-directory-admin-transaction.mjs \
+            migration/cloudflare/app/admin/member-directory-admin-integration.mjs \
+            migration/cloudflare/app/security/public-media-boundary.mjs \
+            migration/cloudflare/app/domain/editor-public-projection-security.mjs \
+            migration/cloudflare/app/application/public-language-release.mjs \
+            migration/cloudflare/media-gateway.mjs \
+            migration/cloudflare/public-data-api.mjs \
+            migration/cloudflare/public-upload-gateway.mjs \
+            migration/cloudflare/editor-publication-api.mjs \
+            migration/cloudflare/production-worker.mjs \
+            migration/cloudflare/staging-worker.mjs \
+            tests/test_m010d_identity_admin_cross.mjs; do
+            node --check "$file"
+          done
+      - name: Combined tests of all sources; no test disabled
+        run: |
+          node --test \
+            tests/test_mission002_member_access.mjs \
+            tests/test_m003_localization.mjs \
+            tests/test_m004_page_localization.mjs \
+            tests/test_m005_celebration_spaces.mjs \
+            tests/test_m006_public_language_navigation.mjs \
+            tests/test_m006_language_selector.mjs \
+            tests/test_m007a_contact_directory.mjs \
+            tests/test_m007b_member_admin.mjs \
+            tests/test_m007c_cross_module_contracts.mjs \
+            tests/test_m008a_public_language_integration.mjs \
+            tests/test_m008b_contact_directory_d1.mjs \
+            tests/test_m008c_private_server_access.mjs \
+            tests/test_m008d_cross_integration.mjs \
+            tests/test_m009a_public_projection_security.mjs \
+            tests/test_m009b_member_identity_admin.mjs \
+            tests/test_m009c_public_media_api_security.mjs \
+            tests/test_m009d_cross_integration.mjs \
+            tests/test_m010a_explicit_private_identity.mjs \
+            tests/test_m010b_member_admin_final.mjs \
+            tests/test_m010d_identity_admin_cross.mjs \
+            tests/test-editor-publication-media.mjs \
+            tests/test-editor-server-drafts.mjs \
+            tests/test_mission12_public_renderer.mjs \
+            tests/test_mission14_editor_security.mjs \
+            tests/test_mission09_page_lifecycle.mjs \
+            tests/test_editor_m11_mobile_insert_footer_delete.mjs \
+            tests/test-editor-trial-site.mjs \
+            tests/test-editor-demo-preparation.mjs \
+            tests/test-exit-auth.mjs \
+            tests/test-exit-media-gateway.mjs \
+            tests/test-exit-public-data.mjs \
+            tests/test-exit-production-candidate.mjs
+      - name: Identity must fail closed; private Worker routes stay DISABLED
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -F 'd.email_normalized=?' \
+            migration/cloudflare/app/security/member-private-access.mjs
+          grep -F 'resolveExplicitMemberIdentity(request, env)' \
+            migration/cloudflare/app/security/member-private-access.mjs
+          if grep -E '(member-private-access|member-identity-links|member-directory-admin-service|member-directory-admin-transaction)\.mjs' \
+            migration/cloudflare/production-worker.mjs migration/cloudflare/staging-worker.mjs; then
+            echo "UNEXPECTED_PRIVATE_ROUTE_ACTIVATED"; exit 1
+          fi
+          echo "M010D_NO_IMPLICIT_IDENTITY_AND_PRIVATE_ROUTES_OFF"
+  chromium-local:
+    name: Chromium French/English site and admin 1440/390/320px
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install test-only browser
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Public FR/EN desktop/mobile
+        run: node scripts/test-m008a-public-language-browser.mjs
+      - name: Existing member administration desktop/mobile
+        run: node scripts/test-m009b-admin-mobile-browser.mjs
+      - name: Pagination, search, create and phone widths
+        run: node scripts/test-m010b-admin-responsive-browser.mjs
+  d1-local-only:
+    name: Disposable local Wrangler D1 migrations M007A through M010B
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Local schema, additive migrations and foreign-key smoke
+        shell: bash
+        env:
+          WRANGLER_SEND_METRICS: 'false'
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/m010d-d1-local-only"
+          CFG=tests/fixtures/wrangler.m008b.local.toml
+          DB=celebrations-m008b-local-only
+          invoke() {
+            npx --yes wrangler@4 d1 execute "$DB" --local --config "$CFG" \
+              --persist-to "$RUNNER_TEMP/m010d-d1-local-only" "$@"
+          }
+          invoke --file=migration/cloudflare/celebrations-schema.sql
+          invoke --file=migration/cloudflare/d1-migrations/20261110_007a_contact_directory.sql
+          invoke --file=migration/cloudflare/d1-migrations/20261110_008b_directory_integrity.sql
+          invoke --file=migration/cloudflare/d1-migrations/20261110_009b_explicit_identity_links.sql
+          invoke --file=migration/cloudflare/d1-migrations/20261111_010b_member_admin_revisions.sql
+          invoke --file=tests/fixtures/m008b-local-smoke.sql
+          invoke --command="SELECT COUNT(*) AS n FROM celebrations_directory_admin_revisions;"
+          invoke --command='PRAGMA foreign_key_check;'
+          echo "M010D_D1_LOCAL_ONLY_ALL_4_MIGRATIONS_PASS"
