@@ -35,7 +35,8 @@ test('M018-C retains the editor shell and adds compact admin navigation',()=>{
  assert.match(html,/data-tab="languages-categories"/);
  assert.ok(DEMO_CLIENT.includes('function m018LanguagesCategories('));
  assert.ok(DEMO_CLIENT.includes('renameLanguage(editorLocalization.registry'));
- assert.ok(DEMO_CLIENT.includes('setLanguageActive(editorLocalization.registry'));
+ assert.ok(!DEMO_CLIENT.includes('setLanguageActive(editorLocalization.registry'),'M020: no manual language activation');
+ assert.ok(DEMO_CLIENT.includes('createPreparedLanguageRegistry(saved.registry'));
 });
 test('M018-C duplicate page keeps blocks and language content, not private rights',()=>{
  const original={id:'neutral-original',group:'page',name:'Accueil',
