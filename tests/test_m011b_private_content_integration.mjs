@@ -386,3 +386,38 @@ test('M011-B: storage errors produce generic no-cache failure without private me
   assert.equal(f.reads.private,0);
  }finally{f.close()}
 });
+
+test('M014: navigation exposes a space label only through an authorized published page, including after revocation',async()=>{
+ const f=await setup();
+ try{
+  f.approve();
+  f.state.published.drafts['41'].spaces[0].name='Espace réservé test';
+  let rows=await list(f);
+  assert.equal(rows.find(row=>row.id===INNER)?.spaceName,'Espace réservé test');
+  assert.equal(Object.hasOwn(rows.find(row=>row.id===ROOT),'spaceName'),false);
+  f.db.prepare('DELETE FROM celebrations_directory_private_space_enrollments WHERE person_id=?').run(P);
+  rows=await list(f);
+  assert.deepEqual(rows.map(row=>row.id),[ROOT]);
+  assert.doesNotMatch(JSON.stringify(rows),/Espace réservé test|space:41:chapelle/);
+  assert.equal((await readPage(f,INNER)).status,404);
+  assert.deepEqual(await list(f,{},req(ADMIN)),[]);
+ }finally{f.close()}
+});
+test('M014: authorized private content does not serialize editorial links naming forbidden managed pages or spaces',async()=>{
+ const f=await setup();
+ try{
+  f.approve();
+  f.db.prepare('DELETE FROM celebrations_directory_private_space_enrollments WHERE person_id=?').run(P);
+  const root=f.state.published.drafts['41'].pages[0];
+  root.blocks.push(
+   {id:10,kind:'button',href:'/programme?page='+encodeURIComponent(INNER),text:'Lien page interdite'},
+   {id:11,kind:'section',columns:[[{id:12,kind:'button',href:'/programme?space='+encodeURIComponent(SPACE),text:'Lien espace interdit'}]]},
+   {id:13,kind:'button',href:'/programme',text:'Programme public'});
+  const r=await readPage(f);
+  assert.equal(r.status,200);
+  const body=await r.json();
+  const serialized=JSON.stringify(body);
+  assert.doesNotMatch(serialized,/page:41:chapelle|space:41:chapelle|page%3A41%3Achapelle|space%3A41%3Achapelle|Lien page interdite|Lien espace interdit/);
+  assert.equal(body.blocks.find(b=>b.id===13)?.href,'/programme');
+ }finally{f.close()}
+});
