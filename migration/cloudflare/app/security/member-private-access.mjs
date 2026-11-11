@@ -2,7 +2,7 @@
 // NOT imported by production/staging entrypoints: no private endpoint is enabled.
 // Reuse the existing participant session verifier and M002 domain rules.
 import {resolveExplicitMemberIdentity} from './member-identity-links.mjs';
-import {canAccessPage, ACCESS_MODES, SPACE_VISIBILITIES, isMemberTypeId}
+import {canAccessPage, canAccessPolicy, ACCESS_MODES, SPACE_VISIBILITIES, isMemberTypeId}
   from '../domain/member-access.mjs';
 
 
@@ -121,7 +121,7 @@ function needsPrivateGate(page, space) {
 // All data loaders MUST be server-owned and consult authoritative PUBLISHED
 // records. They must never read request-supplied page/policy/grants or editor
 // drafts. Generic ID is only a lookup key, never proof of permission.
-async function evaluate(request, env, {pageId, loadPublishedPage, loadPublishedSpace}) {
+async function evaluate(request, env, {pageId, loadPublishedPage, loadPublishedSpace, loadPublishedCelebrationPolicy}) {
   if (!stable(pageId) || typeof loadPublishedPage !== 'function' ||
       typeof loadPublishedSpace !== 'function') return null;
   const principal = await resolveVerifiedMember(request, env);
@@ -133,6 +133,10 @@ async function evaluate(request, env, {pageId, loadPublishedPage, loadPublishedS
   if (!needsPrivateGate(page, space)) return null;
   const context = await loadTrustedGrants(env.DB, principal, space, page.celebrationId);
   if(!context.celebrationEnrolled || !canAccessPage(page, context)) return null;
+  if(typeof loadPublishedCelebrationPolicy==='function'){
+    const policy=await loadPublishedCelebrationPolicy(String(page.celebrationId));
+    if(!policy || !canAccessPolicy(policy,context))return null;
+  }
   return {page, space, personId: principal.id};
 }
 
