@@ -1,0 +1,47 @@
+name: Celebrations M012-A admin D1 session (local only)
+on:
+  push:
+    branches:
+      - feat/celebrations-m012a-d1-admin-session-integration-20261111
+  pull_request:
+    paths:
+      - 'migration/cloudflare/auth-api.mjs'
+      - 'migration/cloudflare/app/security/member-admin-worker-routes.mjs'
+      - 'migration/cloudflare/d1-migrations/20261111_012a_editor_admin_challenges.sql'
+      - 'tests/test_m012a_editor_admin_session.mjs'
+      - 'tests/fixtures/m012a-editor-session-http.mjs'
+      - 'scripts/test-m012a-workerd.mjs'
+      - '.github/workflows/celebrations-m012a-editor-admin-session.yml'
+permissions:
+  contents: read
+jobs:
+  node-http-local-sqlite:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: M012-A and all active M002-M011-D security tests
+        run: |
+          node --check migration/cloudflare/auth-api.mjs
+          node --check migration/cloudflare/app/security/member-admin-worker-routes.mjs
+          node --test tests/test_m012a_editor_admin_session.mjs
+          node --test tests/test_m0*.mjs tests/test_mission002_member_access.mjs tests/test-exit-auth.mjs
+  actual-local-workerd-d1:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install local runtime only (no Cloudflare credentials)
+        run: npm install --no-save --no-package-lock miniflare@4 esbuild@0.25
+      - name: Both actual Workers with isolated local D1 (no remote)
+        run: node scripts/test-m012a-workerd.mjs
