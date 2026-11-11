@@ -13,6 +13,8 @@ export function mountMemberDirectoryAdmin(root,{transport,styleNonce,celebration
  const names=[...new Map(celebrations.filter(c=>/^\d+$/.test(String(c.id))).map(c=>[String(c.id),c.title||[c.archangel,c.year].filter(Boolean).join(' ')])).entries()];
  const celebrationName=id=>names.find(x=>x[0]===String(id))?.[1]||'Célébration archivée';
  let types=[],members=[],memberships=[],selected='',search='',celebrationId='',typeId='',cursor='',cursors=[],next=null,busy=false,destroyed=false,epoch=0;
+ const demoHost=globalThis.location?.hostname==='celebrations-m016-admin-preprod.rondes.workers.dev';
+ let demoMembers=[],demoLoaded=false;
  const shell=n('section');shell.className='member-directory-009b';
  const status=n('p','Chargement…');status.setAttribute('role','status');
  const people=n('section');people.className='m019-people';
@@ -30,6 +32,58 @@ export function mountMemberDirectoryAdmin(root,{transport,styleNonce,celebration
   if(destroyed||attempt!==epoch)return;
   types=data.types;members=data.members;memberships=data.memberships||[];next=data.nextCursor;onCategories(types);
   renderPeople();renderCategories();
+  if(demoHost&&!demoLoaded){demoLoaded=true;void loadDemoMembers();}
+ }
+ async function loadDemoMembers(){
+  try{demoMembers=await call({method:'GET',action:'m021_demo_list'});if(!destroyed)renderPeople();}
+  catch(e){demoMembers=[];if(!destroyed)status.textContent='Comptes de démonstration indisponibles : '+e.message;}
+ }
+ function renderDemoMembers(){
+  if(!demoHost)return;
+  const card=n('section');card.className='card m021-demo-members';
+  card.append(n('h3','Comptes fictifs · préproduction'),
+   n('p','Ces identités n’existent que sur la base de test. Mot de passe commun : poule. Ne renseignez jamais de véritables données.'));
+  const form=n('form');form.className='m019-member-form m021-demo-form';
+  const given=input('text','Marie'),family=input('text','Test');
+  given.required=family.required=true;
+  const type=select([['','Choisir une catégorie'],...activeTypes()]);
+  type.required=true;
+  const celebrations=n('fieldset');celebrations.append(n('legend','Célébrations accessibles'));
+  const checks=[];
+  for(const [id,title] of names){
+   const check=input('checkbox');check.value=id;checks.push(check);
+   celebrations.append(label(title,check));
+  }
+  if(checks.length)checks[0].checked=true;
+  const add=b('Créer ce compte fictif');add.type='submit';
+  form.append(label('Prénom fictif',given),label('Nom fictif',family),
+   label('Catégorie',type),celebrations,add);
+  form.onsubmit=e=>{e.preventDefault();if(!form.reportValidity())return;
+   const celebrationIds=checks.filter(c=>c.checked).map(c=>c.value);
+   if(!celebrationIds.length){status.textContent='Choisissez au moins une célébration.';return;}
+   void run(()=>call({method:'POST',action:'m021_demo_create',givenName:given.value,
+    familyName:family.value,typeId:type.value,celebrationIds}),
+    'Compte fictif créé. Connectez-vous avec son e-mail et « poule ».').then(loadDemoMembers);
+  };
+  const list=n('div');list.className='m021-demo-list';
+  for(const member of demoMembers){
+   const row=n('div');row.className='m021-demo-row';
+   row.append(n('strong',[member.givenName,member.familyName].filter(Boolean).join(' ')),
+    n('small',member.email),
+    n('small',member.celebrations.map(celebrationName).join(' · ')));
+   row.append(b('Supprimer',async()=>{
+    const yes=await adminDialog(doc,{title:'Supprimer ce compte fictif ?',
+     message:'Le membre et ses sessions de test seront définitivement supprimés.',
+     confirm:'Supprimer le compte'});
+    if(yes)await run(()=>call({method:'POST',action:'m021_demo_delete',personId:member.personId}),
+     'Compte fictif supprimé.').then(loadDemoMembers);
+   }));
+   list.append(row);
+  }
+  if(!demoMembers.length)list.append(n('p','Aucun compte fictif créé.'));
+  const visit=n('a','Ouvrir la connexion des membres ↗');visit.href='/?page=member-area';
+  visit.target='_blank';visit.rel='noopener noreferrer';visit.className='btn';
+  card.append(form,list,visit);people.append(card);
  }
  function renderPeople(){
   people.replaceChildren();
@@ -74,6 +128,7 @@ export function mountMemberDirectoryAdmin(root,{transport,styleNonce,celebration
    },'Membre enregistré et inscrit.');
   };
   people.append(form);
+  renderDemoMembers();
 
   const filter=n('form');filter.className='m019-filters';
   const query=input('search',search);
