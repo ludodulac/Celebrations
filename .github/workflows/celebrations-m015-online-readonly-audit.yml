@@ -22,14 +22,22 @@ jobs:
             ['official_root','https://ronde-des-archanges-universelle.eu/'],
             ['official_www','https://www.ronde-des-archanges-universelle.eu/'],
             ['official_admin_login','https://ronde-des-archanges-universelle.eu/admin'],
-            ['official_publication','https://ronde-des-archanges-universelle.eu/api/editor-publication']
+            ['official_publication','https://ronde-des-archanges-universelle.eu/api/editor-publication'],
+            ['preprod_root','https://celebrations-m015-public-preprod.rondes.workers.dev/'],
+            ['preprod_programme','https://celebrations-m015-public-preprod.rondes.workers.dev/programme'],
+            ['preprod_preparation','https://celebrations-m015-public-preprod.rondes.workers.dev/preparation'],
+            ['preprod_admin_denied','https://celebrations-m015-public-preprod.rondes.workers.dev/admin']
           ];
           for (const [label,url] of cases){
             const page=await browser.newPage({viewport:{width:390,height:844}});
             const errors=[]; page.on('pageerror',e=>errors.push(e.message.slice(0,150)));
             try {
               const response=await page.goto(url,{waitUntil:'domcontentloaded',timeout:25000});
-              console.log('LIVE_BROWSER '+JSON.stringify({
+              const expected=label==='preprod_admin_denied'?404:(label.startsWith('preprod_')?200:null);
+              if(expected!==null && response?.status()!==expected)
+                throw new Error('Preproduction unexpected status '+response?.status()+' expected '+expected);
+              if(label.startsWith('preprod_')&&errors.length)throw new Error('Preproduction browser JS error');
+              console.log('LIVE_BROWSER +JSON.stringify({
                 label,http_status:response?.status()??null,
                 final_host:new URL(page.url()).host,
                 title:(await page.title()).slice(0,150),
