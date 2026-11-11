@@ -128,13 +128,18 @@ try{
   .bind('participant@example.test',personId,claim).run();
  await db.prepare('INSERT INTO celebrations_directory_person_types(person_id,type_id) VALUES(?,?)').bind(personId,'member-type:m015').run();
  await db.prepare('INSERT INTO celebrations_directory_private_space_enrollments(person_id,celebration_id,space_id) VALUES(?,?,?)').bind(personId,41,sid).run();
+ const directList=await dispatch(request('/api/participant/space-pages?celebration=41',{method:'GET',token:'a'.repeat(64)}));
+ console.log('M015_DIRECT_MEMBER_LIST',directList.status,await directList.text());
  // RECETTE B — existing visitor, historical participant auth, real private APIs.
  const {context:memberContext,page:member}=await localBrowser(390);
  const memberResponse=await member.goto(ORIGIN+'/__editor/voir-le-site?celebration=41&page=member-area');
  console.log('M015_DIAGNOSTIC_MEMBER_SITE',JSON.stringify({http:memberResponse?.status(),view:await member.evaluate(()=>({enabled:window.__MEMBER_SITE_ENABLED__,title:document.title,body:document.body.innerText.slice(0,500)})),errors}));
  await member.getByLabel('Adresse e-mail membre').fill('participant@example.test');
  await member.getByLabel('Mot de passe membre').fill(password);
+ const memberResponses=[];member.on('response',r=>{if(r.url().includes('/api/auth')||r.url().includes('/api/participant/'))memberResponses.push({path:new URL(r.url()).pathname,status:r.status()})});
  await member.getByRole('button',{name:'Se connecter',exact:true}).click();
+ await member.waitForTimeout(1000);
+ console.log('M015_MEMBER_LOGIN_DIAGNOSTIC',JSON.stringify({body:(await member.locator('#stage-main').innerText()).slice(0,400),responses:memberResponses,errors}));
  const entry=member.getByRole('button',{name:'Espace M015 · Page M015',exact:true});
  await entry.waitFor();await entry.click();
  await member.getByText('Texte M015 durable',{exact:true}).waitFor();
