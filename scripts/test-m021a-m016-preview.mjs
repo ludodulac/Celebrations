@@ -6,11 +6,26 @@ import {chromium} from 'playwright';
 const HOST='https://celebrations-m016-admin-preprod.rondes.workers.dev';
 assert.equal(process.env.M021A_ISOLATED_ONLY,'YES');
 assert.ok((process.env.M017_ADMIN_PASSWORD||'').length>=16);
-const anonymous=await fetch(HOST+'/',{redirect:'manual'});
+// Edge code propagates after Wrangler returns; never mistake an older Worker
+// for a security regression. Both root AND settings must reach the new gate.
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+let anonymous,blocked;
+for(let attempt=0;attempt<16;attempt++){
+ const nonce=String(Date.now())+'-'+attempt;
+ [anonymous,blocked]=await Promise.all([
+  fetch(HOST+'/?m021_probe='+nonce,{redirect:'manual',cache:'no-store'}),
+  fetch(HOST+'/api/site-identity?m021_probe='+nonce,{redirect:'manual',cache:'no-store'})
+ ]);
+ if(anonymous.status===302&&blocked.status===403)break;
+ await sleep(1800);
+}
+console.log('M021A_GATE_DIAGNOSTICS '+JSON.stringify({
+ root:anonymous.status,identity:blocked.status,
+ location:anonymous.headers.get('location')||'',identityBody:(await blocked.text()).slice(0,140)
+}));
 assert.equal(anonymous.status,302,'anonymous visitors must get PIN redirect');
 assert.equal(new URL(anonymous.headers.get('location')).pathname,'/admin');
-const blocked=await fetch(HOST+'/api/site-identity');
-assert.ok([401,403,404].includes(blocked.status),'site identity API must refuse anonymous requests');
+assert.equal(blocked.status,403,'anonymous settings API must be gated by PIN');
 const folder='docs/m021a-smartphone';
 await mkdir(folder,{recursive:true});
 const browser=await chromium.launch({headless:true});
