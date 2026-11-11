@@ -1,0 +1,170 @@
+name: "CÉLÉBRATIONS M011-D — consolidation and integration safety (local only)"
+on:
+  push:
+    branches:
+      - feat/celebrations-m011d-consolidation-011a-011b-011c-20261111
+  pull_request:
+    branches:
+      - feat/celebrations-m010d-consolidation-010a-010b-20261111
+    paths:
+      - 'tests/test_m011d_consolidation_compatibility.mjs'
+      - 'scripts/test-m011d-real-editor-route-browser.mjs'
+      - '.github/workflows/celebrations-m011d-consolidation.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  merge-history-and-23-source-paths:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify all 3 genuine merge parents and every one of the 23 source files
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=b30fb44c0ea3ab15b16c45b93c504edd5e576c40
+          A=bff3ba41339e75f37d2f7775c05ed50e7109d6c0
+          B=dd22fbace341384a2bd1f9e9176c3640778c77f1
+          C=6796f683f97121031412e10998999b3ad8cb53d5
+          M1=2626ee6d34a92863ba75422d9cbd19041bc767a3
+          M2=8c5aecf912ced299b0c2416f805af2070a23fca3
+          M3=c6b958d4c06e02b845c073eaf01ec8d2b96bff7f
+          test "$(git rev-list --parents -n 1 "$M1")" = "$M1 $BASE $A"
+          test "$(git rev-list --parents -n 1 "$M2")" = "$M2 $M1 $B"
+          test "$(git rev-list --parents -n 1 "$M3")" = "$M3 $M2 $C"
+          git merge-base --is-ancestor "$M3" HEAD
+          for sha in "$A" "$B" "$C"; do git merge-base --is-ancestor "$sha" HEAD; done
+          {
+            git diff --name-only "$BASE" "$A"
+            git diff --name-only "$BASE" "$B"
+            git diff --name-only "$BASE" "$C"
+          } | sort -u > "$RUNNER_TEMP/m011d_expected"
+          test "$(wc -l < "$RUNNER_TEMP/m011d_expected")" -eq 23
+          git diff --name-only "$BASE" HEAD | sort -u > "$RUNNER_TEMP/m011d_actual"
+          if ! grep -Fxf "$RUNNER_TEMP/m011d_expected" "$RUNNER_TEMP/m011d_actual" | sort -u | cmp -s "$RUNNER_TEMP/m011d_expected" -; then
+            echo "M011D_MISSING_SOURCE_PATHS"; exit 1
+          fi
+          echo 'M011D_THREE_TRUE_MERGES_AND_23_SOURCE_PATHS_PASS'
+
+  mission-002-through-011d-node-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax and test sources
+        run: |
+          node --check migration/cloudflare/production-worker.mjs
+          node --check migration/cloudflare/staging-worker.mjs
+          node --check tests/test_m011d_consolidation_compatibility.mjs
+          node --check scripts/test-m011d-real-editor-route-browser.mjs
+      - name: All active M002-M011-D suites (excluding old pinned prototype contracts)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t suites < <(find tests -maxdepth 1 -type f -name 'test_m0*.mjs' | sort)
+          test "${#suites[@]}" -ge 20
+          node --test "${suites[@]}" tests/test_mission002_member_access.mjs | tee "$RUNNER_TEMP/m011d-node.tap"
+          grep -E '^# (tests|pass|fail|cancelled|skipped) ' "$RUNNER_TEMP/m011d-node.tap"
+
+  real-local-wrangler-d1:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Wrangler local D1 migration and referential-integrity checks ONLY
+        shell: bash
+        env:
+          WRANGLER_SEND_METRICS: 'false'
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/m011d-local-d1"
+          CFG=tests/fixtures/wrangler.m008b.local.toml
+          DB=celebrations-m008b-local-only
+          local_d1() {
+            npx --yes wrangler@4 d1 execute "$DB" --local --config "$CFG" \
+              --persist-to "$RUNNER_TEMP/m011d-local-d1" "$@"
+          }
+          local_d1 --file=migration/cloudflare/celebrations-schema.sql
+          local_d1 --file=migration/cloudflare/d1-migrations/20261110_007a_contact_directory.sql
+          local_d1 --file=migration/cloudflare/d1-migrations/20261110_008b_directory_integrity.sql
+          local_d1 --file=migration/cloudflare/d1-migrations/20261110_009b_explicit_identity_links.sql
+          local_d1 --file=migration/cloudflare/d1-migrations/20261111_010b_member_admin_revisions.sql
+          local_d1 --file=tests/fixtures/m011a-local-d1-smoke.sql
+          local_d1 --command='PRAGMA foreign_key_check;'
+          echo 'M011D_GENUINE_LOCAL_WRANGLER_D1_PASS_NO_REMOTE'
+
+  chromium-visual-and-legacy-editor:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install local Chromium test dependencies
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Public FR/multilingual navigation in isolated Chromium
+        run: node scripts/test-m008a-public-language-browser.mjs
+      - name: Existing member directory at 1440 / 390 / 320
+        run: node scripts/test-m010b-admin-responsive-browser.mjs
+      - name: 011-C synthetic legacy admin UI at 1440 / 390 / 320
+        run: node scripts/test-m011c-editor-member-spaces-browser.mjs
+      - name: 011-D actual current editor route at 1440 / 390 / 320 (disconnected tab is BLOCKING)
+        run: node scripts/test-m011d-real-editor-route-browser.mjs
+
+  historical-prototype-regression-baseline:
+    # This older test family pins obsolete worker hashes and prototype CSS.
+    # Compare exact FAILING test names against M010-D, rather than hide or
+    # misreport known historical checks as new M011-D regressions.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run historical suite on both mandatory baseline and consolidation
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=b30fb44c0ea3ab15b16c45b93c504edd5e576c40
+          git worktree add --detach "$RUNNER_TEMP/m011d-base" "$BASE"
+          set +e
+          (cd "$RUNNER_TEMP/m011d-base" && node --test tests/test_mission*.mjs) > "$RUNNER_TEMP/base.tap" 2>&1
+          baseline_rc=$?
+          node --test tests/test_mission*.mjs > "$RUNNER_TEMP/head.tap" 2>&1
+          head_rc=$?
+          set -e
+          for label in base head; do
+            echo "$label mission-legacy summary:"
+            grep -E '^# (tests|pass|fail|cancelled|skipped) ' "$RUNNER_TEMP/$label.tap"
+            grep '^not ok ' "$RUNNER_TEMP/$label.tap" |
+              sed -E 's/^not ok [0-9]+ - /not ok - /' > "$RUNNER_TEMP/$label.failures" || true
+            cat "$RUNNER_TEMP/$label.failures"
+          done
+          if ! cmp -s "$RUNNER_TEMP/base.failures" "$RUNNER_TEMP/head.failures"; then
+            echo 'M011D_NEW_LEGACY_TEST_FAILURE_NAMES_DETECTED'
+            diff -u "$RUNNER_TEMP/base.failures" "$RUNNER_TEMP/head.failures" || true
+            exit 1
+          fi
+          echo "M011D_LEGACY_NO_NEW_FAILING_TEST_NAMES baseline_rc=$baseline_rc head_rc=$head_rc"
