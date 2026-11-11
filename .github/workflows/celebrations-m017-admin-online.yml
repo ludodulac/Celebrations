@@ -137,3 +137,5 @@ jobs:
           assert.equal(v[0].percentage,100);
           console.log('M017_OFFICIAL_WORKER_VERSION_UNCHANGED');
           NODE
+
+# M017: deployment only with explicit commit marker and the protected staging GitHub Environment secret.
