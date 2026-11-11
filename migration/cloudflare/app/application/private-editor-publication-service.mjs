@@ -309,8 +309,17 @@ function publishOrRevoke(state,cid,b,known,registry){
     policy(s.accessPolicy,known);dest=s.pages;
    }
    const clean=pageDraft(item,item,item.id,cid,b.spaceId??null,known,registry);
+   // Only this explicit publication releases manually edited language
+   // versions. No machine translation and no draft variant is exposed.
    delete clean.translations;clearPageExtras(pub,item.id);
+   if(obj(item.translations)&&Object.keys(item.translations).length){
+    pub.privateTranslationReleases??={};
+    pub.privateTranslationReleases[item.id]={
+     pageId:item.id,publication:'published',variants:copy(item.translations)
+    };
+   }
    upsert(dest,{...clean,visibility:'published',publicationStatus:'published'});
+   pub.languageRegistry=copy(registry);
    pub.privatePageReleases[item.id]={pageId:item.id,celebrationId:cid,
     ...(b.spaceId?{spaceId:b.spaceId}:{}),publication:'published'};
   }
