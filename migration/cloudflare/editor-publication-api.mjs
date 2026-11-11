@@ -280,6 +280,8 @@ export async function publicHistoricalMedia(db,state){
  const pagesByCelebration=new Map();
  for(const [id,record] of Object.entries(published.drafts||{})){
   const plan=published.plans?.find(p=>String(p.id)===String(id));
+  if(published.celebrationAccessPolicies?.[id]?.mode&&
+     published.celebrationAccessPolicies[id].mode!=='PUBLIC')continue;
   if(!celebrationVisibleFor(id,visibility,plan?.visibility)||
      plan&&!projectPublicPlan(plan))continue;
   pagesByCelebration.set(String(id),new Map(
