@@ -19,12 +19,16 @@ const result=(body,status=200)=>new Response(JSON.stringify(body),{status,header
 const token=()=>hex(crypto.getRandomValues(new Uint8Array(32)));
 const email=v=>String(v||"").trim().toLowerCase();
 const now=()=>new Date().toISOString();
-async function readSession(db,raw,admin=false){
+async function readSessionRow(db,raw,admin=false){
  if(typeof raw!=="string"||raw.length<32)return null;
  const table=admin?"celebrations_admin_sessions":"celebrations_participant_sessions";
  const col=admin?"admin_email":"participant_email";
  const row=await db.prepare(`SELECT ${col} AS email, expires_at FROM ${table} WHERE token_hash=?`).bind(await sha256(raw)).first();
- return row&&Date.parse(row.expires_at)>Date.now()?row.email:null;
+ return row&&Date.parse(row.expires_at)>Date.now()?row:null;
+}
+async function readSession(db,raw,admin=false){
+ const row=await readSessionRow(db,raw,admin);
+ return row?row.email:null;
 }
 export async function authorize(request,env,admin=false){
  const bearer=request.headers.get("authorization")||"";
@@ -77,10 +81,7 @@ export async function handleAuth(request,env){
     await failure(env.DB,"admin");return result({ok:false,error:"Identifiants incorrects"},401);
    }
    await reset(env.DB,"admin");
-   const raw=token(),expires=new Date(Date.now()+12*3600*1000).toISOString();
-   await env.DB.prepare("INSERT INTO celebrations_admin_sessions(token_hash,admin_email,expires_at) VALUES(?,?,?)")
-    .bind(await sha256(raw),email(b.email),expires).run();
-   return result({ok:true,token:raw,expires_at:expires});
+   return result({ok:true,...await issueAdminSession(env.DB,email(b.email))});
   }
   if(action==="participant_login_derived"){
    const e=email(b.email);
@@ -166,9 +167,7 @@ export async function handleAuth(request,env){
    const computed=await pbkdf(String(b.password||""),env.ADMIN_PASSWORD_SALT);
    if(!equal(computed,env.ADMIN_PASSWORD_HASH)){await failure(env.DB,"admin");return result({ok:false,error:"Identifiants incorrects."},401)}
    await reset(env.DB,"admin");
-   const raw=token(),expires=new Date(Date.now()+12*3600*1000).toISOString();
-   await env.DB.prepare("INSERT INTO celebrations_admin_sessions(token_hash,admin_email,expires_at) VALUES(?,?,?)").bind(await sha256(raw),email(b.email),expires).run();
-   return result({ok:true,token:raw,expires_at:expires});
+   return result({ok:true,...await issueAdminSession(env.DB,email(b.email))});
   }
   if(action==="admin_session"){
    const e=await readSession(env.DB,b.admin_token,true);
@@ -229,5 +228,136 @@ export async function handleAuth(request,env){
   const synthetic=/^migration-check-[a-f0-9-]{36}@invalid\.example$/.test(email(b?.email));
   return result({ok:false,error:"Authentication unavailable",
    ...(synthetic?{diagnostic_category:category,diagnostic_name:String(err?.name||"unknown").slice(0,45)}:{})},503);
+ }
+}
+
+
+// M012-A: additional isolated editor authentication transport, NOT a new
+// identity/session store. Existing D1 credential, rate limiter, random bearer,
+// hashed session table and authorize() are shared with the historical API.
+// Never exchange the legacy Supabase bearer or signed visual-editor cookie.
+const EDITOR_ADMIN_ACTOR='admin@celebrations.local';
+const ADMIN_SESSION_TTL=12*3600*1000;
+const CHALLENGE_TTL=2*60*1000;
+const hex64=v=>typeof v==='string'&&/^[a-f0-9]{64}$/.test(v);
+async function issueAdminSession(db,actor,replaceRaw=null){
+ const raw=token(),at=now(),expires=new Date(Date.now()+ADMIN_SESSION_TTL).toISOString();
+ const hash=await sha256(raw);
+ if(replaceRaw){
+  // Atomic rotation: at most one renewal can replace this live bearer.
+  const changed=await db.prepare("UPDATE celebrations_admin_sessions SET token_hash=?,admin_email=?,created_at=?,expires_at=? WHERE token_hash=? AND expires_at>?")
+   .bind(hash,actor,at,expires,await sha256(replaceRaw),at).run();
+  if(changed.meta?.changes!==1)return null;
+ }else{
+  await db.prepare("INSERT INTO celebrations_admin_sessions(token_hash,admin_email,expires_at) VALUES(?,?,?)")
+   .bind(hash,actor,expires).run();
+ }
+ return {token:raw,expires_at:expires};
+}
+const editorSessionResult=(body,status=200)=>Response.json(body,{status,headers:{
+ "cache-control":"private, no-store, max-age=0","pragma":"no-cache",
+ "vary":"Authorization, Origin, Cookie","x-content-type-options":"nosniff",
+ "referrer-policy":"no-referrer","x-robots-tag":"noindex, nofollow, noarchive"
+}});
+const editorDenied=(status,error)=>editorSessionResult({ok:false,error},status);
+async function editorHmac(secret,message){
+ const key=await crypto.subtle.importKey("raw",encoder.encode(secret),{name:"HMAC",hash:"SHA-256"},false,["sign"]);
+ return hex(await crypto.subtle.sign("HMAC",key,encoder.encode(message)));
+}
+const challengeMessage=(origin,payload)=>"celebrations-admin-challenge-v1:"+origin+":"+payload;
+const responseMessage=(origin,challenge)=>"celebrations-admin-login-v1:"+origin+":"+challenge;
+async function newEditorChallenge(origin,secret){
+ const payload=String(Date.now())+"."+token();
+ return payload+"."+await editorHmac(secret,challengeMessage(origin,payload));
+}
+async function checkEditorChallenge(origin,secret,challenge){
+ if(typeof challenge!=="string"||!/^\d{13}\.[a-f0-9]{64}\.[a-f0-9]{64}$/.test(challenge))return null;
+ const [stamp,nonce,signature]=challenge.split(".");
+ const at=Number(stamp),age=Date.now()-at;
+ if(age<0||age>=CHALLENGE_TTL)return null;
+ const expected=await editorHmac(secret,challengeMessage(origin,stamp+"."+nonce));
+ return equal(signature,expected)?new Date(at+CHALLENGE_TTL).toISOString():null;
+}
+async function readEditorCommand(request){
+ if(!/^application\/json(?:\s*;|$)/i.test(request.headers.get("content-type")||""))
+  throw new TypeError("JSON required");
+ const reader=request.body?.getReader();
+ if(!reader)throw new TypeError("Body required");
+ let size=0,text="";
+ const decoder=new TextDecoder("utf-8",{fatal:true});
+ try{
+  for(;;){
+   const {value,done}=await reader.read();
+   if(done)break;
+   size+=value.byteLength;
+   if(size>4096){await reader.cancel();throw new TypeError("Body too large")}
+   text+=decoder.decode(value,{stream:true});
+  }
+  text+=decoder.decode();
+ }finally{reader.releaseLock()}
+ const b=JSON.parse(text);
+ if(!b||typeof b!=="object"||Array.isArray(b))throw new TypeError("Invalid command");
+ const allowed=b.action==="login"?["action","challenge","response"]:["action"];
+ if(Object.keys(b).some(k=>!allowed.includes(k)))throw new TypeError("Unexpected field");
+ return b;
+}
+function editorBearer(request){
+ const value=request.headers.get("authorization")||"";
+ return /^Bearer [a-f0-9]{64}$/.test(value)?value.slice(7):null;
+}
+export async function handleEditorAdminSession(request,env){
+ const url=new URL(request.url),origin=url.origin;
+ if(request.method!=="POST")return editorDenied(405,"Méthode interdite");
+ if(url.protocol!=="https:"||request.headers.get("origin")!==origin||
+    request.headers.get("sec-fetch-site")==="cross-site")return editorDenied(403,"Origine refusée");
+ if(!env?.DB)return editorDenied(503,"Service indisponible");
+ let b;try{b=await readEditorCommand(request)}catch{return editorDenied(400,"Requête invalide")}
+ try{
+  const raw=editorBearer(request);
+  if(b.action==="session"||b.action==="logout"){
+   // Same session-row lookup as authorize(), with the admin table only.
+   const row=raw?await readSessionRow(env.DB,raw,true):null;
+   if(!row?.email)return editorDenied(401,"Session administrateur requise");
+   if(b.action==="logout"){
+    await env.DB.prepare("DELETE FROM celebrations_admin_sessions WHERE token_hash=?")
+     .bind(await sha256(raw)).run();
+    return editorSessionResult({ok:true});
+   }
+   return editorSessionResult({ok:true,email:row.email,expires_at:row.expires_at});
+  }
+  if(b.action!=="challenge"&&b.action!=="login")return editorDenied(400,"Opération inconnue");
+  const secret=env.ADMIN_PASSWORD_HASH,salt=env.ADMIN_PASSWORD_SALT;
+  if(!hex64(secret)||typeof salt!=="string"||!salt||salt.length>256)
+   return editorDenied(503,"Service indisponible");
+  if(await blocked(env.DB,"admin"))return editorDenied(429,"Réessayez plus tard");
+  if(b.action==="challenge"){
+   // Stateless issuance, no D1 write or token disclosure.
+   return editorSessionResult({ok:true,salt,challenge:await newEditorChallenge(origin,secret),
+    iterations:180000,expires_in:CHALLENGE_TTL/1000});
+  }
+  // Optional current D1 bearer is for explicit password-based rotation only.
+  // A participant, legacy token, or fabricated Authorization is never enough.
+  if(request.headers.has("authorization")&&(!raw||!await authorize(request,env,true)))
+   return editorDenied(401,"Session administrateur requise");
+  const challengeExpiry=await checkEditorChallenge(origin,secret,b.challenge);
+  if(!challengeExpiry||!hex64(b.response)||
+      !equal(b.response,await editorHmac(secret,responseMessage(origin,b.challenge)))){
+   await failure(env.DB,"admin");
+   return editorDenied(401,"Identifiants incorrects ou défi expiré");
+  }
+  // Claim a signed challenge ONCE, atomically, before creating a session.
+  // Only a correct credential reaches this write. No raw challenge is stored.
+  const consumed=await env.DB.prepare("INSERT OR IGNORE INTO celebrations_editor_admin_challenges(challenge_hash,expires_at) VALUES(?,?)")
+   .bind(await sha256(b.challenge),challengeExpiry).run();
+  if(consumed.meta?.changes!==1)return editorDenied(401,"Défi déjà utilisé");
+  // Keep consumed records until the challenge is no longer valid.
+  await env.DB.prepare("DELETE FROM celebrations_editor_admin_challenges WHERE expires_at<=?").bind(now()).run();
+  await reset(env.DB,"admin");
+  const issued=await issueAdminSession(env.DB,EDITOR_ADMIN_ACTOR,raw);
+  if(!issued)return editorDenied(401,"Session administrateur requise");
+  return editorSessionResult({ok:true,email:EDITOR_ADMIN_ACTOR,...issued});
+ }catch{
+  // Never reflect request payload, D1 errors, hashes, proofs, or tokens.
+  return editorDenied(503,"Service indisponible");
  }
 }
