@@ -1,0 +1,186 @@
+name: "Célébrations M017 — véritable éditeur isolé sur Internet"
+on:
+  push:
+    branches:
+      - feat/celebrations-m017-admin-online-20261111
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-m017-admin-online-isolated
+  cancel-in-progress: false
+jobs:
+  deploy-test-preprod-only:
+    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M017_DEPLOY_ISOLATED]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      M017_ADMIN_PASSWORD: ${{ secrets.CELEBRATIONS_M017_ADMIN_PASSWORD }}
+      TARGET: celebrations-m016-admin-preprod
+      DB_ID: 3bb4108f-5ff8-4959-ba32-bd53f33156cb
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check isolated D1/R2 inventory, official Worker version and distinct protected password
+        run: node scripts/m017_preprod_gate.mjs
+      - name: Existing secure server and browser module syntax, focused security tests
+        run: |
+          node --check migration/cloudflare/production-worker.mjs
+          node --check migration/cloudflare/editor-demo-client.mjs
+          node --check migration/cloudflare/editor-server-draft-api.mjs
+          node --check migration/cloudflare/editor-publication-api.mjs
+          node --check scripts/m017_online_smoke.mjs
+          node --test tests/test_m009a_public_projection_security.mjs tests/test_m009c_public_media_api_security.mjs
+      - name: Build canonical production-style assets for separate preproduction
+        run: |
+          python scripts/build_production_assets.py
+          test -s production-public/index.html
+          test -s production-public/admin.html
+      - name: Generate exact isolated Worker bindings, never any official D1/R2 or domain
+        run: |
+          cat > migration/cloudflare/wrangler.m017.admin.toml <<'TOML'
+          name = "celebrations-m016-admin-preprod"
+          main = "production-worker.mjs"
+          compatibility_date = "2026-10-16"
+          compatibility_flags = ["nodejs_compat"]
+          workers_dev = true
+          preview_urls = false
+
+          [assets]
+          directory = "../../production-public"
+          binding = "ASSETS"
+          run_worker_first = true
+
+          [[d1_databases]]
+          binding = "DB"
+          database_name = "celebrations-m016-admin-preprod"
+          database_id = "3bb4108f-5ff8-4959-ba32-bd53f33156cb"
+          [[d1_databases]]
+          binding = "MEDIA_ACL"
+          database_name = "celebrations-m016-admin-preprod"
+          database_id = "3bb4108f-5ff8-4959-ba32-bd53f33156cb"
+          [[r2_buckets]]
+          binding = "MEDIA_BUCKET"
+          bucket_name = "celebrations-m016-admin-media"
+          [[r2_buckets]]
+          binding = "EDITOR_BUCKET"
+          bucket_name = "celebrations-m016-admin-editor"
+
+          [vars]
+          M016_PREPROD_WRITE_ENABLED = "true"
+          M016_ADMIN_PREPROD_HOST = "celebrations-m016-admin-preprod.rondes.workers.dev"
+          MEMBER_DIRECTORY_API_ENABLED = "true"
+          MEMBER_DIRECTORY_API_HOST = "celebrations-m016-admin-preprod.rondes.workers.dev"
+          EDITOR_D1_SESSION_API_ENABLED = "true"
+          MEMBER_PAGE_READ_API_ENABLED = "true"
+          TOML
+          ! grep -Eq '^[[:space:]]*(route|routes|zone_id|custom_domain)[[:space:]]*=' migration/cloudflare/wrangler.m017.admin.toml
+          ! grep -Eq 'celebrations-exit-(production|staging)' migration/cloudflare/wrangler.m017.admin.toml
+          test "$(grep -c 'database_id = "3bb4108f-5ff8-4959-ba32-bd53f33156cb"' migration/cloudflare/wrangler.m017.admin.toml)" -eq 2
+          echo M017_EXACT_ISOLATED_BINDINGS_ONLY
+      - name: Install Wrangler pinned major version
+        run: npm install --no-save --no-package-lock wrangler@4
+      - name: Install D1 base, additive migrations and fictional fixtures ONLY on new M016 D1
+        working-directory: migration/cloudflare
+        run: |
+          set -euo pipefail
+          w='npx wrangler d1 execute celebrations-m016-admin-preprod --remote --config wrangler.m017.admin.toml'
+          $w --file celebrations-schema.sql
+          for sql in d1-migrations/20261110_007a_contact_directory.sql            d1-migrations/20261110_008b_directory_integrity.sql            d1-migrations/20261110_009b_explicit_identity_links.sql            d1-migrations/20261111_010b_member_admin_revisions.sql            d1-migrations/20261111_012a_editor_admin_challenges.sql            d1-migrations/20261111_012c_private_release_fences.sql; do
+            $w --file "$sql"
+          done
+          $w --file m016-isolated-fixtures.sql
+          echo M017_TEST_ONLY_D1_SCHEMA_AND_FICTIONAL_DATA_INSTALLED
+      - name: Deploy only NEW exact Worker on workers.dev, never route a production domain
+        working-directory: migration/cloudflare
+        run: npx wrangler deploy --config wrangler.m017.admin.toml
+      - name: Install password verifiers and challenge signer as protected Worker secrets (never log values)
+        shell: bash
+        working-directory: migration/cloudflare
+        run: |
+          set -euo pipefail
+          umask 077
+          secret_file="$(mktemp /tmp/m017-cloudflare-secrets-XXXXXXXX.json)"
+          trap 'rm -f "$secret_file"' EXIT
+          node ../../scripts/m017_prepare_worker_secrets.mjs "$secret_file"
+          npx wrangler secret bulk "$secret_file" --config wrangler.m017.admin.toml
+          echo M017_SECRETS_DEPLOYED_NO_VALUES_PRINTED
+      - name: Check live HTTP security and real browser CRUD publication and membership
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+          node scripts/m017_online_smoke.mjs
+      - name: Verify official Worker deployment unchanged once again
+        if: always()
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const account=process.env.CLOUDFLARE_ACCOUNT_ID;
+          if(account!=='60a7b17758a93fe6681ce998e72ddff0')throw Error('Account mismatch');
+          const r=await fetch('https://api.cloudflare.com/client/v4/accounts/'+account+'/workers/scripts/celebrations-exit-production/deployments',{
+           headers:{authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN},
+           signal:AbortSignal.timeout(25000)});
+          assert.equal(r.status,200);
+          const j=await r.json();
+          const v=j.result?.deployments?.[0]?.versions;
+          assert.equal(v?.length,1);
+          assert.equal(v[0].version_id,'87dba010-c719-4a52-97c1-027a9c9de9b6');
+          assert.equal(v[0].percentage,100);
+          console.log('M017_OFFICIAL_WORKER_VERSION_UNCHANGED');
+          NODE
+
+# M017: deployment only with explicit commit marker and the protected staging GitHub Environment secret.
+
+# Deployment requested by owner after adding CELEBRATIONS_M017_ADMIN_PASSWORD.
+
+  verify-deployed-preprod:
+    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M017_VERIFY_ISOLATED]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    environment: celebrations-staging
+    env:
+      M017_ADMIN_PASSWORD: ${{ secrets.CELEBRATIONS_M017_ADMIN_PASSWORD }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Verify exact independent live Worker and no production resource bindings
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const account=process.env.CLOUDFLARE_ACCOUNT_ID;
+          assert.equal(account,'60a7b17758a93fe6681ce998e72ddff0');
+          assert.ok((process.env.M017_ADMIN_PASSWORD||'').length>=16);
+          const root='https://api.cloudflare.com/client/v4/accounts/'+account;
+          async function req(path) {
+           const r=await fetch(root+path,{headers:{authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN},signal:AbortSignal.timeout(25000)});
+           assert.equal(r.status,200,'Read-only Cloudflare verification '+path);
+           const j=await r.json();assert.equal(j.success,true);return j.result;
+          }
+          const live=await req('/workers/scripts/celebrations-exit-production/deployments');
+          const vs=live.deployments[0].versions;
+          assert.equal(vs.length,1);assert.equal(vs[0].version_id,'87dba010-c719-4a52-97c1-027a9c9de9b6');
+          const config=await req('/workers/scripts/celebrations-m016-admin-preprod/settings');
+          const bindings=new Map(config.bindings.map(b=>[b.name,b]));
+          for(const x of ['DB','MEDIA_ACL'])assert.equal(bindings.get(x)?.id||bindings.get(x)?.database_id,'3bb4108f-5ff8-4959-ba32-bd53f33156cb');
+          assert.equal(bindings.get('MEDIA_BUCKET')?.bucket_name,'celebrations-m016-admin-media');
+          assert.equal(bindings.get('EDITOR_BUCKET')?.bucket_name,'celebrations-m016-admin-editor');
+          console.log('M017_ONLINE_BOUNDARY_VERIFIED official_unchanged=true candidate_independent=true');
+          NODE
+      - name: Run only real online Chromium and API workflow
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+          node scripts/m017_online_smoke.mjs
