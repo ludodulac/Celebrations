@@ -263,7 +263,7 @@ try{
  await createForm.getByLabel('Catégorie',{exact:true}).selectOption({label:category});
  await createForm.getByLabel('Célébration',{exact:true}).selectOption(C);
  await createForm.getByRole('button',{name:'Enregistrer',exact:true}).click();
- await admin.getByText('Membre enregistré et inscrit.',{exact:true}).waitFor();
+ try{await admin.getByText('Membre enregistré et inscrit.',{exact:true}).waitFor()}catch(e){console.log('M019_MEMBER_STATUS '+await admin.locator('.member-directory-009b > p').innerText());throw e}
  await admin.locator('.m019-member-list strong').filter({hasText:'Alice M019 Fictive'}).waitFor();
  await admin.screenshot({path:'docs/m019-smartphone/01-membres.png',fullPage:true});
  await admin.locator('.m019-member-list').getByRole('button',{name:'Modifier',exact:true}).click();

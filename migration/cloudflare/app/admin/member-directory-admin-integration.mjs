@@ -15,7 +15,7 @@ export function mountMemberDirectoryAdmin(root,{transport,styleNonce,celebration
  const people=n('section');people.className='m019-people';
  const categories=n('section');categories.className='m019-categories';
  shell.append(status,people,categories);root.replaceChildren(shell);
- const call=async command=>{const r=await transport(command);if(!r?.ok)throw Error(r?.error||'Enregistrement impossible. Réessayez.');return r.data??r.result??r};
+ const call=async command=>{const r=await transport(command);if(!r?.ok)throw Object.assign(Error(r?.error||'Enregistrement impossible. Réessayez.'),{status:r?.status});return r.data??r.result??r};
  const activeTypes=()=>types.filter(t=>!t.disabled).map(t=>[t.id,t.name]);
  async function run(action,message='Enregistré.'){
   if(busy)return;busy=true;shell.setAttribute('aria-busy','true');status.textContent='Enregistrement…';
@@ -39,7 +39,22 @@ export function mountMemberDirectoryAdmin(root,{transport,styleNonce,celebration
   form.onsubmit=event=>{event.preventDefault();if(!form.reportValidity())return;
    if(!given.value.trim()||!family.value.trim()){status.textContent='Renseignez le prénom et le nom.';return;}
    void run(async()=>{
-    const result=await call({method:'POST',action:'create_person',givenName:given.value.trim(),familyName:family.value.trim(),email:email.value.trim(),displayName:'',typeIds:category.value?[category.value]:[],celebrationId:celebration.value});
+    const command={method:'POST',action:'create_person',givenName:given.value.trim(),familyName:family.value.trim(),email:email.value.trim(),displayName:'',typeIds:category.value?[category.value]:[],celebrationId:celebration.value};
+    let result;
+    try{result=await call(command)}catch(error){
+      if(error.status&&error.status<500||/e-mail existe déjà/.test(error.message))throw error;
+      // A lost response can follow a committed transaction. Confirm every
+      // field and grant from the server before announcing success; never retry
+      // a person creation blindly and never infer an identity link from email.
+      const check=await call({method:'GET',action:'snapshot',search:command.email,limit:50});
+      const member=check.members.find(p=>p.emailNormalized===command.email.trim().toLowerCase());
+      if(!member)throw error;
+      const detail=await call({method:'GET',action:'person_detail',personId:member.id});
+      if(detail.person.givenName!==command.givenName||detail.person.familyName!==command.familyName||
+        !detail.celebrations.some(c=>String(c.celebrationId)===command.celebrationId)||
+        !command.typeIds.every(id=>detail.types.some(t=>t.typeId===id)))throw error;
+      result={result:member};
+    }
     selected=result.result?.id||'';search='';cursor='';cursors=[];celebrationId=celebration.value;typeId=category.value;
    },'Membre enregistré et inscrit.');
   };
