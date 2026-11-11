@@ -30,7 +30,10 @@ export async function resolveExplicitMemberIdentity(request,env) {
     'JOIN celebrations_participants p ON p.email=l.participant_email ' +
     'AND p.password_hash IS NOT NULL ' +
     'JOIN celebrations_directory_people d ON d.id=l.person_id ' +
-    'WHERE l.participant_email=? LIMIT 1',email).first();
+    // An M020-D revocation/invitation blocks every server-side private read.
+    // Historic independently verified links without an M020-D binding survive.
+    'LEFT JOIN celebrations_member_invitation_bindings b ON b.person_id=l.person_id ' +
+    "WHERE l.participant_email=? AND (b.person_id IS NULL OR b.status='active') LIMIT 1",email).first();
   return isDirectoryPersonId(row?.id) ?
     Object.freeze({id:row.id,authenticated:true}) : null;
 }
