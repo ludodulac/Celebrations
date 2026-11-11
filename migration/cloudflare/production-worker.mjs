@@ -40,6 +40,19 @@ export default {
   // Do not serve ANY route if the exact new Worker loses its two opt-ins.
   if(url.hostname==='celebrations-m016-admin-preprod.rondes.workers.dev'&&!workingPreprod)
    return new Response('Preproduction unavailable',{status:503,headers:{'cache-control':'no-store','x-robots-tag':'noindex'}});
+  // M021-A: while demo accounts exist, the ENTIRE M016 preview requires
+  // the owner's EXISTING editor PIN cookie. The member login still checks
+  // its own participant session and server-side category/celebration grants.
+  // This boundary is never active for official or read-only domains.
+  if(workingPreprod&&env.M021_PREPROD_ACCESS_GATE_ENABLED==='true'&&
+     path!=='/api/editor-access'&&!['/admin','/admin.html'].includes(path)&&
+     !(await hasEditorAccess(request,env))){
+    if((path==='/'||path==='/index.html')&&request.method==='GET')
+     return Response.redirect(url.origin+'/admin',302);
+    return new Response('Préproduction privée : code administrateur requis',{
+     status:403,headers:{'cache-control':'no-store','x-robots-tag':'noindex,nofollow,noarchive',
+      'x-content-type-options':'nosniff'}});
+  }
   const isolated=isReadonlyCandidateHost(url.hostname);
   // Before domain cutover the independent candidate is READ-ONLY, by design.
   // This gate prevents public signups, analytics writes and admin mutations.
