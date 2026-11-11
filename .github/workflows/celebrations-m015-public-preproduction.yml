@@ -1,7 +1,11 @@
 name: "Célébrations M015 — vraie préproduction publique Cloudflare"
 on:
-  push:
-    branches: [feat/celebrations-m015-public-preproduction-20261111]
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type CHECKED_PREPROD to explicitly re-deploy the already-isolated candidate"
+        required: true
+        type: string
 permissions:
   contents: read
 concurrency:
@@ -17,6 +21,7 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
       PREPROD_WORKER: celebrations-m015-public-preprod
       SOURCE_PROD_VERSION: 87dba010-c719-4a52-97c1-027a9c9de9b6
+      USER_CONFIRMATION: ${{ inputs.confirm }}
     steps:
       - uses: actions/checkout@v4
         with: {persist-credentials: false}
@@ -30,6 +35,7 @@ jobs:
           import assert from 'node:assert/strict';
           const {CLOUDFLARE_ACCOUNT_ID:account,CLOUDFLARE_API_TOKEN:token,PREPROD_WORKER:target,SOURCE_PROD_VERSION:version}=process.env;
           assert.equal(process.env.GITHUB_REF,'refs/heads/feat/celebrations-m015-public-preproduction-20261111');
+          assert.equal(process.env.USER_CONFIRMATION,'CHECKED_PREPROD','Explicit manual dispatch required');
           assert.equal(account,'60a7b17758a93fe6681ce998e72ddff0');
           assert.ok(token?.length>20,'No Cloudflare credential');
           assert.equal(target,'celebrations-m015-public-preprod');
@@ -44,7 +50,7 @@ jobs:
           assert.equal(previous.status,200,'Cannot verify candidate immutable baseline');
           assert.equal(previous.body.result.deployments[0].versions.length,1);
           assert.equal(previous.body.result.deployments[0].versions[0].version_id,
-            'b9175c3a-be77-4cc0-8c37-586ca6f2d0d8',
+            'f7d7a994-2d53-4483-bb1e-ae2015e4ed75',
             'Candidate was changed externally; refusing overwrite');
           const binds=new Map((existing.body.result.bindings||[]).map(x=>[x.name,x.type]));
           for(const [name,type] of [['DB','d1'],['MEDIA_ACL','d1'],
