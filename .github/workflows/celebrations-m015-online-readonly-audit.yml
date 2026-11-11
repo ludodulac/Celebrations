@@ -6,7 +6,7 @@ permissions:
   contents: read
 jobs:
   official-browser:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - name: Browser setup (no app deployment)
@@ -42,7 +42,7 @@ jobs:
           await browser.close();
           NODE
   cloudflare-readonly:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 8
     environment: celebrations-staging
     env:
