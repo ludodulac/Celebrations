@@ -7,11 +7,11 @@ try{
  const page=await b.newPage();
  const response=await page.goto(origin+'/',{waitUntil:'domcontentloaded',timeout:35000});
  assert.equal(response?.status(),200);
- const admin=page.locator('a[href$="/admin"],a[href$="/admin.html"],a[href*="/admin?"]').first();
+ const admin=page.locator('a#back-admin,a[href^="/__editor/demo-preparation"],a[href$="/admin"],a[href$="/admin.html"],a[href*="/admin?"]').first();
  const found=await admin.count();
  assert.ok(found,'Existing homepage must have an Administration link');
  await admin.click();
- await page.waitForURL(u=>['/admin','/admin.html'].includes(u.pathname),{timeout:15000});
+ await page.waitForURL(u=>['/admin','/admin.html','/__editor/demo-preparation'].includes(u.pathname),{timeout:15000});
  assert.equal(new URL(page.url()).origin,origin);
  assert.equal(await page.locator('input[name="code"]').count(),1,
   'Owner usual PIN form must remain');
