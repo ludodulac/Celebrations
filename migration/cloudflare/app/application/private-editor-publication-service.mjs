@@ -142,12 +142,7 @@ function assertUnique(state){
   for(const p of aggregate?.shared?.pages??[])add(pages,p.id);
   for(const [cid,r] of Object.entries(aggregate?.drafts??{})){
    for(const p of r?.pages??[]){add(pages,p.id);if(p.privateManaged&&p.celebrationId!==cid)invalid()}
-   const variants=new Set();
    for(const s of r?.spaces??[]){
-    const audience=s.visibility+'|'+s.accessPolicy.mode+'|'+[...(s.accessPolicy.typeIds||[])].sort().join(',');
-    for(const p of s.pages??[])for(const lang of [...(p.blocks.length||!Object.keys(p.translations||{}).length?['fr']:[]),...Object.keys(p.translations||{})]){
-     const key=audience+'|'+p.name.trim().toLocaleLowerCase()+'|'+lang;if(variants.has(key))conflict();variants.add(key);
-    }
     add(spaces,s.id);if(s.celebrationId!==cid)invalid();
     for(const p of s.pages??[]){add(pages,p.id);if(p.celebrationId!==cid||p.spaceId!==s.id)invalid()}
    }

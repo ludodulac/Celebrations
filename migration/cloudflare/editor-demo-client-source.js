@@ -2591,7 +2591,7 @@ function footerPages(){pageWorkspace('footer')}
  async function m018DuplicateCelebration(entry){
   if(!IS_STAGE||privateEdit||!entry)return;
   if(dirty){save();if(dirty)return}
-  const choice=await siteDialog({title:'Dupliquer la célébration',fields:[{name:'date',label:'Date du mercredi :',type:'date',value:currentDateForDraft(entry)||entry.date||currentDates().wednesday||'',required:true},{name:'title',label:'Titre',value:celebrationLabel(entry)+' (copie)',required:true}],confirm:'Créer le brouillon'});
+  const choice=await siteDialog({title:'Dupliquer la célébration',fields:[{name:'date',label:'Date du mercredi :',type:'date',value:currentDateForDraft(entry)||entry.date||privateCatalogue?.record?.celebrationDates?.wednesday||currentDates().wednesday||'',required:true},{name:'title',label:'Titre',value:celebrationLabel(entry)+' (copie)',required:true}],confirm:'Créer le brouillon'});
   const date=choice?.date;
   if(!date)return;
   if(!validIso(date)){siteNotice('Choisissez une date valide.');return}
