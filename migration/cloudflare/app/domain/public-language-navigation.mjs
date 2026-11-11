@@ -125,7 +125,10 @@ export function preparePublicLanguageNavigation({
    ?publishedPageReleases[key]:null));
  }
  // Reuse M003's canonical-ID projection rather than a second translation engine.
- const projected=projectPageMenu(eligible,r,selected.languageId);
+ // M018: never substitute a French page for a visitor-chosen language.
+ // The administrator writes and explicitly publishes each variant manually.
+ const projected=projectPageMenu(eligible,r,selected.languageId)
+  .filter(item=>item.languageId===selected.languageId);
  const byId=new Map(eligible.map(page=>[String(page.id),page]));
  const menu=projected.map(item=>{
   const resolved=resolvePageTranslation(byId.get(String(item.pageId)),r,selected.languageId);
