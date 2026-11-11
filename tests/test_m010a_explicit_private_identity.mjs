@@ -206,6 +206,9 @@ test('M018-A: revoking celebration enrollment blocks private root and space imme
     f.approve();
     assert.equal((await handlePrivatePage(f.req(),f.env,f.pageOptions(root))).status,200);
     assert.equal((await handlePrivatePage(f.req(),f.env,f.pageOptions(interior))).status,200);
+    // The D1 foreign key requires withdrawing space grants before enrollment.
+    f.sqlite.prepare('DELETE FROM celebrations_directory_private_space_enrollments WHERE person_id=?')
+      .run(P);
     f.sqlite.prepare('DELETE FROM celebrations_directory_person_celebrations WHERE person_id=?')
       .run(P);
     assert.equal((await handlePrivatePage(f.req(),f.env,f.pageOptions(root))).status,404);
