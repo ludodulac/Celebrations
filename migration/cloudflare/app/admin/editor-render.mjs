@@ -7,7 +7,7 @@ export function renderEditorFrame(ctx){
   if(see){
    const current=page(),stage=pageSlug(current);
    see.href='/__editor/voir-le-site?celebration='+encodeURIComponent(STAGE_SEED.celebrationId)+'&page='+encodeURIComponent(stage);
-   see.hidden=stateOfPage(current)!=='published';
+   see.hidden=!current||stateOfPage(current)!=='published';
    see.title=see.hidden?'Page en brouillon : utilisez Aperçu ou Publier cette page.':'Voir la page publiée';
   }
  }

@@ -34,7 +34,7 @@ export function createEditorD1Session({origin,fetchImpl=globalThis.fetch,cryptoI
     if(attempt!==generation)throw Error('Connexion interrompue');
     const end=Date.parse(result.expires_at);
     if(typeof result.token!=='string'||!result.token||!Number.isFinite(end)||end<=Date.now())
-      throw Error('Session D1 non confirmée');
+      throw Error('Connexion non confirmée');
     token=result.token;expires=end;onChange(true);
   }
   async function loginWithEditorPin(){
@@ -65,7 +65,7 @@ export function createEditorD1Session({origin,fetchImpl=globalThis.fetch,cryptoI
     if(!['GET','POST'].includes(command?.method))return {ok:false,error:'Commande invalide'};
     if(!connected()){
       if(token)clear();
-      return {ok:false,error:'Non connecté à D1'};
+      return {ok:false,error:'Veuillez vous reconnecter.'};
     }
     const bearer=token;
     try{
@@ -76,34 +76,34 @@ export function createEditorD1Session({origin,fetchImpl=globalThis.fetch,cryptoI
       return result;
     }catch(e){return {ok:false,error:e.message||'Service D1 indisponible',status:e.status,saved:e.saved===true};}
   }
-  const transport=command=>send(command,'/api/admin/member-directory',['action','search','cursor','limit','personId']);
+  const transport=command=>send(command,'/api/admin/member-directory',['action','search','cursor','limit','personId','celebrationId','typeId']);
   const privateTransport=command=>send(command,'/api/admin/private-editor',['celebration']);
   return {login,loginWithEditorPin,logout,connected,transport,privateTransport};
 }
 
-export function mountRealEditorMemberSpaces(root,{celebrations,currentCelebrationId,styleNonce,css='',origin=location.origin,onEditPage,onSessionChange=()=>{}}={}){
+export function mountRealEditorMemberSpaces(root,{celebrations,currentCelebrationId,styleNonce,css='',origin=location.origin,onEditPage,onSessionChange=()=>{},onCategories=()=>{}}={}){
   const doc=root.ownerDocument,node=(tag,text)=>{const x=doc.createElement(tag);if(text!==undefined)x.textContent=text;return x;};
   const shell=node('section'),style=node('style');if(styleNonce)style.nonce=styleNonce;style.textContent=css;
   const officialEditor=['ronde-des-archanges-universelle.eu',
-    'www.ronde-des-archanges-universelle.eu'].includes(new URL(origin).hostname);
+    'www.ronde-des-archanges-universelle.eu','celebrations-m016-admin-preprod.rondes.workers.dev'].includes(new URL(origin).hostname);
   const authBox=node('section');authBox.className='member-session-box';
-  const heading=node('h2',officialEditor?'Administration des membres':'Connexion administrateur D1'),status=node('p','Connexion aux membres…');
+  const heading=node('h2',officialEditor?'Administration des membres':'Connexion administrateur'),status=node('p','Connexion aux membres…');
   status.setAttribute('role','status');
-  const form=node('form'),label=node('label','Mot de passe administrateur D1 '),input=node('input');
+  const form=node('form'),label=node('label','Code administrateur '),input=node('input');
   input.type='password';input.required=!officialEditor;input.autocomplete='current-password';label.append(input);label.hidden=officialEditor;
-  const login=node('button',officialEditor?'Réactiver les membres':'Se connecter à D1');login.type='submit';login.className='btn';
-  const logout=node('button','Se déconnecter de D1');logout.type='button';logout.className='btn';logout.hidden=true;
+  const login=node('button',officialEditor?'Réactiver les membres':'Se connecter');login.type='submit';login.className='btn';
+  const logout=node('button','Se déconnecter');logout.type='button';logout.className='btn';logout.hidden=true;
   form.append(label,login);
-  authBox.append(heading,node('p',officialEditor?'Vous utilisez votre code administrateur habituel.':'Connexion D1 distincte pour la préproduction.'),status,form,logout);
+  authBox.append(heading,node('p',officialEditor?'Vous utilisez votre code administrateur habituel.':'Utilisez votre code administrateur habituel.'),status,form,logout);
   const body=node('div');shell.append(style,authBox,body);root.replaceChildren(shell);
   let mounted,busy=false;
   const session=createEditorD1Session({origin,onChange:active=>{
-    form.hidden=active;logout.hidden=!active;
+    form.hidden=active;logout.hidden=!active;authBox.hidden=active;
     status.textContent=active?'Gestion des membres activée.':'Gestion des membres déconnectée.';
     mounted?.refreshMembers();
     mounted?.sessionChanged(active);onSessionChange(active);
   }});
-  mounted=mountExistingEditorMemberSpaces(body,{transport:session.transport,privateTransport:session.privateTransport,isConnected:session.connected,celebrations,currentCelebrationId,styleNonce,onEditPage});
+  mounted=mountExistingEditorMemberSpaces(body,{transport:session.transport,privateTransport:session.privateTransport,isConnected:session.connected,celebrations,currentCelebrationId,styleNonce,onEditPage,onCategories});
   form.addEventListener('submit',async event=>{
     event.preventDefault();if(busy)return;
     busy=true;login.disabled=true;status.textContent='Connexion en cours…';
@@ -112,18 +112,20 @@ export function mountRealEditorMemberSpaces(root,{celebrations,currentCelebratio
       const pending=officialEditor?session.loginWithEditorPin():session.login(password);
       password='';await pending;
     }
-    catch(e){status.textContent='Connexion D1 impossible : '+(e.message||'erreur réseau');}
+    catch(e){status.textContent='Connexion impossible : '+(e.message||'erreur réseau');}
     finally{busy=false;login.disabled=false;}
   });
   // No second password prompt after the owner has used the usual admin code.
-  if(officialEditor)session.loginWithEditorPin().catch(error=>{
+  const initialSession=officialEditor?session.loginWithEditorPin().catch(error=>{
     status.textContent='Accès aux membres indisponible : '+(error.message||'erreur réseau');
-  });
+  }):Promise.resolve();
   logout.addEventListener('click',async()=>{
     if(busy)return;busy=true;login.disabled=true;logout.disabled=true;
-    try{await session.logout();status.textContent='Déconnexion D1 confirmée.';}
+    try{await session.logout();status.textContent='Déconnexion confirmée.';}
     catch{status.textContent='Session effacée localement ; révocation serveur non confirmée.';}
     finally{busy=false;login.disabled=false;logout.disabled=false;}
   });
-  return {get changed(){return mounted.changed;},getDraft:()=>mounted.getDraft()};
+  const readContent=async()=>{await initialSession;const r=await session.privateTransport({method:'GET',celebration:String(currentCelebrationId)});if(!r.ok)throw Error(r.error);return r};
+  const commandContent=async(action,fields={})=>{const current=await readContent();const r=await session.privateTransport({method:'POST',action,celebration:String(currentCelebrationId),expectedRevision:current.revision,...fields});if(!r.ok)throw Error(r.error);return r};
+  return {openVersion:(...args)=>mounted.openVersion(...args),readContent,commandContent,categories:async()=>{await initialSession;const r=await session.transport({method:'GET',action:'snapshot',limit:1});if(!r.ok)throw Error(r.error);return (r.data??r).types;},get changed(){return mounted.changed;},getDraft:()=>mounted.getDraft(),showMembers:()=>mounted.showMembers(),showCategories:()=>mounted.showCategories(),showSpaces:()=>mounted.showSpaces()};
 }

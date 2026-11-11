@@ -319,10 +319,10 @@ export async function handleEditorAdminSession(request,env,{hasEditorAccess=asyn
   // authorizes member mutations: every subsequent API call requires bearer.
   // The explicit same-origin custom header prevents silent cross-site forms.
   if(b.action==="editor-pin-session"){
-   if(env.MEMBER_DIRECTORY_OFFICIAL_ENABLED!=="true" ||
-      env.EDITOR_PIN_D1_BRIDGE_ENABLED!=="true" ||
-      !["ronde-des-archanges-universelle.eu",
-         "www.ronde-des-archanges-universelle.eu"].includes(url.hostname))
+   if(!((env.MEMBER_DIRECTORY_OFFICIAL_ENABLED==="true" && env.EDITOR_PIN_D1_BRIDGE_ENABLED==="true" &&
+       ["ronde-des-archanges-universelle.eu","www.ronde-des-archanges-universelle.eu"].includes(url.hostname)) ||
+       (env.M016_PREPROD_WRITE_ENABLED==="true" && env.EDITOR_PIN_D1_BRIDGE_ENABLED==="true" &&
+        url.hostname==="celebrations-m016-admin-preprod.rondes.workers.dev" && env.M016_ADMIN_PREPROD_HOST===url.hostname)))
     return editorDenied(404,"Introuvable");
    if(request.headers.has("authorization") ||
       request.headers.get("x-celebrations-editor-bridge")!=="1")

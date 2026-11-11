@@ -7,10 +7,10 @@ import {createPageModel} from '../migration/cloudflare/app/domain/editor-pages.m
 import {createLanguageRegistry,addLanguage,setPageTranslation} from '../migration/cloudflare/app/domain/editor-localization.mjs';
 
 function extract(from,to) {
- const start=DEMO_CLIENT.indexOf('function '+from+'(');
- const end=[DEMO_CLIENT.indexOf('\n function '+to+'(',start),DEMO_CLIENT.indexOf('\nfunction '+to+'(',start)].filter(x=>x>start).sort((a,b)=>a-b)[0]??-1;
- assert.ok(start>=0&&end>start,from+' and '+to+' should be adjacent');
- return DEMO_CLIENT.slice(start,end);
+ const find=name=>new RegExp('(?:async )?function '+name+'\\(').exec(DEMO_CLIENT);
+ const start=find(from),end=find(to);
+ assert.ok(start&&end&&end.index>start.index);
+ return DEMO_CLIENT.slice(start.index,end.index);
 }
 function baseContext(page){
  const ctx={
@@ -31,7 +31,7 @@ test('M018-C retains the editor shell and adds compact admin navigation',()=>{
  assert.match(html,/data-tab="pages"/);
  assert.match(html,/data-tab="celebrations"/);
  assert.match(html,/data-tab="members-spaces"/);
- assert.match(html,/data-tab="participants"/);
+ assert.doesNotMatch(html,/data-tab="participants"/);
  assert.match(html,/data-tab="languages-categories"/);
  assert.ok(DEMO_CLIENT.includes('function m018LanguagesCategories('));
  assert.ok(DEMO_CLIENT.includes('renameLanguage(editorLocalization.registry'));
@@ -75,7 +75,12 @@ test('M018-C language variant duplication only carries authored content',()=>{
  assert.equal(ctx.db.pages.length,1,'no second celebration or page');
 });
 test('M018-C private access is delegated to existing guarded member editor',()=>{
- assert.ok(DEMO_CLIENT.includes("enter('members-spaces')"));
+ assert.ok(DEMO_CLIENT.includes("editAccess('page',p)"));
  assert.ok(DEMO_CLIENT.includes('M012B.mount(memberPanelRoot'));
  assert.ok(!DEMO_CLIENT.includes("localStorage.setItem('celebrations-members-grants'"));
+});
+
+test('M019 empty canonical page list has no active page slug and keeps admin navigation usable',()=>{
+ assert.equal(createPageModel().pageSlug(undefined,'90000002'),'');
+ new vm.Script(DEMO_CLIENT);
 });

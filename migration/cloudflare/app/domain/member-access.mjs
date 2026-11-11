@@ -76,7 +76,7 @@ export function canAccessPolicy(policy, context = {}) {
  if (policy.mode === ACCESS_MODES.PUBLIC) return true;
  if (!signedIn(context.principal)) return false;
  const assigned = memberTypeIds(context);
- if (policy.mode === ACCESS_MODES.ALL_PRIVATE_TYPES) return assigned.size > 0;
+ if (policy.mode === ACCESS_MODES.ALL_PRIVATE_TYPES) return context.celebrationEnrolled === true || assigned.size > 0;
  return policy.typeIds.some(id => assigned.has(id));
 }
 

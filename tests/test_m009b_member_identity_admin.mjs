@@ -272,7 +272,9 @@ test('M009-B modules are opt-in: production Worker unaffected; mobile layout ava
   assert.doesNotMatch(worker,/member-directory-admin-service|member-identity-links|member-directory-admin-integration/);
   assert.doesNotMatch(staging,/member-directory-admin-service|member-identity-links|member-directory-admin-integration/);
   const ui=readFileSync(new URL('../migration/cloudflare/app/admin/member-directory-admin-integration.mjs',import.meta.url),'utf8');
-  assert.match(ui,/mountMemberAccessAdmin/);
-  assert.match(ui,/@media\(max-width:720px\)/);
-  assert.match(ui,/min-height:44px/);
+  assert.match(ui,/mountMemberDirectoryAdmin/);
+  assert.match(ui,/action:'create_person'/);
+  const css=sql('app/admin/editor-member-spaces.css');
+  assert.match(css,/@media\(max-width:720px\)/);
+  assert.match(css,/min-height:44px/);
 });

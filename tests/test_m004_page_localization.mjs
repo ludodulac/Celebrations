@@ -81,7 +81,7 @@ test('M004: existing M003 functions are embedded into the existing inline editor
  const source=editorLocalizationInlineSource();
  assert.match(source,/function setPageTranslation/);
  assert.match(source,/function createLanguageRegistry/);
- assert.match(DEMO_CLIENT,/Langue à modifier/);
+ assert.match(DEMO_CLIENT,/editor-language-choice','Langue'/);
  assert.match(DEMO_CLIENT,/LOCALIZATION_KEY/);
  assert.match(DEMO_CLIENT,/commitLocalizedView/);
  assert.match(DEMO_CLIENT,/saveLocalizationLocal/);

@@ -221,3 +221,46 @@ test('M012C: old editor cookie does not disclose managed drafts or overwrite/rel
   assert.equal(r.status,403);
  }finally{f.close()}
 });
+
+test('M019 ordinary shared page transitions revoke public snapshots and require live membership',async()=>{
+ const f=await fixture();try{
+  const id='neutral-550e8400-e29b-41d4-a716-446655440022';
+  const normal={id,group:'page',name:'Ordinaire M019',visibility:'published',blocks:[{kind:'text',text:'ORDINARY_M019_SECRET'}]};
+  f.state.shared.pages.push(normal);
+  // Make a genuine public baseline, then revoke it via the authenticated ACL command.
+  const changed=await f.send({action:'page-access',id,accessPolicy:{mode:'ALL_PRIVATE_TYPES'}});
+  assert.equal(changed.status,200,JSON.stringify(changed));
+  assert.equal(f.state.shared.pages.some(p=>p.id===id),false);
+  assert.doesNotMatch(JSON.stringify(publicSnapshot(f.state,'41')),/ORDINARY_M019_SECRET/);
+  assert.equal((await f.member(id)).status,404,'private draft is not a release');
+  assert.equal((await f.publish('page',id)).status,200);
+  assert.equal((await f.member(id)).status,200);
+  f.db.prepare('DELETE FROM celebrations_directory_person_celebrations WHERE person_id=? AND celebration_id=41').run(P);
+  assert.equal((await f.member(id)).status,404,'revocation takes effect without changing the session');
+  const restored=await f.send({action:'page-access',id,accessPolicy:{mode:'PUBLIC'}});
+  assert.equal(restored.status,200,JSON.stringify(restored));
+  assert.equal(f.state.shared.pages.find(p=>p.id===id).visibility,'draft');
+  assert.equal((await f.member(id)).status,404);
+  assert.doesNotMatch(JSON.stringify(publicSnapshot(f.state,'41')),/ORDINARY_M019_SECRET/);
+ }finally{f.close()}
+});
+
+test('M019 a true celebration copy has its own D1 identity, date and draft, with no copied grants; retries do not multiply copies',async()=>{
+ const f=await fixture();try{
+  await f.create();
+  const args={action:'create-celebration',archangel:'Gabriel',date:'2026-10-07',title:'Gabriel octobre — copie',copy:true};
+  const result=await f.send(args);assert.equal(result.status,200,JSON.stringify(result));
+  const id=result.targetCelebration;assert.match(id,/^\d+$/);assert.notEqual(id,'41');
+  assert.equal(f.db.prepare('SELECT status FROM celebrations_celebrations WHERE id=?').get(Number(id)).status,'draft');
+  assert.equal(f.state.drafts[id].celebrationDates.wednesday,'2026-10-07');
+  assert.equal(f.state.published.celebrationVisibility[id],'draft');
+  assert.equal(f.db.prepare('SELECT count(*) n FROM celebrations_directory_person_celebrations WHERE celebration_id=?').get(Number(id)).n,0);
+  assert.ok(f.state.drafts[id].spaces.every(s=>!s.accessPolicy.typeIds));
+  const retry=await f.send(args);assert.equal(retry.status,200,JSON.stringify(retry));assert.equal(retry.targetCelebration,id);
+  assert.equal(f.db.prepare('SELECT count(*) n FROM celebrations_celebrations').get().n,3);
+  const recovery={...args,date:'2026-10-14'};f.failCAS=true;
+  assert.equal((await f.send(recovery)).status,409);f.failCAS=false;
+  assert.equal((await f.send(recovery)).status,200);
+  assert.equal(f.db.prepare('SELECT count(*) n FROM celebrations_celebrations').get().n,4,'failed snapshot retry reuses its canonical draft');
+ }finally{f.close()}
+});
