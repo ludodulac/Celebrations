@@ -363,7 +363,18 @@ export async function handleEditorPublication(request,env){
   // once per request without exposing unpublished editor drafts or private rows.
   const historic=await publicHistoricalMedia(env.DB,state);
   snapshot.media=mergePublicMedia(snapshot.media,historic);
-  return json(projectPublishedLanguage(snapshot,state.published,url.href));
+  // Discover languages across the site through the SAME anonymous projection.
+  // Hidden/private celebrations and their releases cannot advertise a language.
+  const availablePages=[...(snapshot.shared?.pages||[])];
+  for(const cid of Object.keys(state.published?.drafts||{})){
+   const visible=publicSnapshot(state,cid);
+   if(!visible.celebrationVisible)continue;
+   availablePages.push(...(visible.record?.pages||[]));
+   const spaces=cid===id?snapshot.record?.spaces||[]:await releasedPublicSpaces(state,cid,env.DB);
+   availablePages.push(...spaces.flatMap(s=>s.pages||[]));
+  }
+  const availability={shared:{pages:availablePages}};
+  return json(projectPublishedLanguage(snapshot,state.published,url.href,availability));
  }
  const denied=await protectedWrite(request,env);if(denied)return denied;
  let body;try{body=await request.json()}catch{return err('JSON invalide',400)}

@@ -3,6 +3,16 @@
 // The existing root content of a legacy page/celebration space is French.
 
 export const INITIAL_LANGUAGE_ID = 'fr';
+export const PREPARED_LANGUAGES = Object.freeze([
+ {id:'fr',name:'Français',flag:'🇫🇷',active:true},
+ {id:'en',name:'English',flag:'🇬🇧',active:true},
+ {id:'es',name:'Español',flag:'🇪🇸',active:true},
+ {id:'de',name:'Deutsch',flag:'🇩🇪',active:true},
+ {id:'pt',name:'Português',flag:'🇵🇹',active:true},
+ {id:'it',name:'Italiano',flag:'🇮🇹',active:true},
+ {id:'ar',name:'العربية',flag:'🌐',active:true},
+ {id:'zh-Hans',name:'简体中文',flag:'🌐',active:true}
+]);
 export const LOCALIZABLE_FIELDS = Object.freeze([
   'name', 'title', 'label', 'description', 'subtitle', 'text', 'rich',
   'blocks', 'documents', 'media', 'links', 'contentIds'
@@ -67,6 +77,17 @@ export function createLanguageRegistry(saved) {
   };
   assertRegistry(saved);
   return copy(saved);
+}
+
+// Runtime catalogue: migration-free enrichment; no publication or content is invented.
+export function createPreparedLanguageRegistry(saved){
+  const result=createLanguageRegistry(saved);
+  for(const prepared of PREPARED_LANGUAGES){
+    const existing=result.languages.find(l=>l.id===prepared.id);
+    if(existing)existing.active=true;
+    else result.languages.push({...prepared});
+  }
+  return result;
 }
 export function addLanguage(registry, {id, name, flag = '', active = false}) {
   assertRegistry(registry);
@@ -207,6 +228,7 @@ export function projectPageMenu(pages, registry, requestedLanguageId) {
 export function editorLocalizationInlineSource() {
   const declarations=[
     'const INITIAL_LANGUAGE_ID='+JSON.stringify(INITIAL_LANGUAGE_ID)+';',
+    'const PREPARED_LANGUAGES='+JSON.stringify(PREPARED_LANGUAGES)+';',
     'const LOCALIZABLE_FIELDS=Object.freeze('+JSON.stringify(LOCALIZABLE_FIELDS)+');',
     'const LANGUAGE_ID_PATTERN='+LANGUAGE_ID_PATTERN.toString()+';',
     'const LOCALIZABLE=new Set(LOCALIZABLE_FIELDS);',
@@ -215,7 +237,7 @@ export function editorLocalizationInlineSource() {
   ];
   return declarations.join('\n')+'\n'+[
     requireLanguageId,requireLabel,requireIdentity,assertRegistry,withLanguage,
-    createLanguageRegistry,addLanguage,renameLanguage,setLanguageFlag,
+    createLanguageRegistry,createPreparedLanguageRegistry,addLanguage,renameLanguage,setLanguageFlag,
     setLanguageActive,setDefaultLanguage,selectLanguage,validateContent,
     sourceLanguageOf,sourceContent,withVariant,resolveVariant,
     setPageTranslation,resolvePageTranslation,setCelebrationSpaceTranslation,
