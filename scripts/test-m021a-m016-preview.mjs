@@ -39,8 +39,13 @@ try{
  await page.screenshot({path:folder+'/02-identite-preview-mobile.png',fullPage:true});
  // Restore untouched: preview changes are unsaved.
  await page.locator('[data-tab="members-spaces"]').click();
- await page.getByRole('heading',{name:/Comptes fictifs/}).waitFor({timeout:20000});
+ await page.waitForTimeout(2200);
+ const memberText=await page.locator('body').innerText();
+ console.log('M021A_MEMBER_DEBUG '+JSON.stringify({
+  text:memberText.slice(0,3200),errors,visiblePanels:await page.locator('.m021-demo-members').count(),
+  path:page.url()}));
  await page.screenshot({path:folder+'/03-comptes-fictifs-mobile.png',fullPage:true});
+ await page.getByRole('heading',{name:/Comptes fictifs/}).waitFor({timeout:12000});
  const response=await page.request.get(HOST+'/api/site-identity');
  assert.equal(response.status(),200,'identity read protected by owner cookie');
  assert.equal((await response.json()).ok,true);
