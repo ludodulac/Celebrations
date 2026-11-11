@@ -34,15 +34,15 @@ jobs:
           test "$(stat -c%s /tmp/celebrations-m018/m016-source.zip)" = "$expected"
           unzip -tq /tmp/celebrations-m018/m016-source.zip >/dev/null
           sha256sum /tmp/celebrations-m018/m016-source.zip > /tmp/celebrations-m018/source.sha256
-          split --bytes=220M --numeric-suffixes=0 --suffix-length=2 \
+          split --bytes=94M --numeric-suffixes=0 --suffix-length=2 \
             --additional-suffix=.part \
             /tmp/celebrations-m018/m016-source.zip /tmp/celebrations-m018/backup-m016.zip.
-          for n in 00 01 02 03; do test -s "/tmp/celebrations-m018/backup-m016.zip.$n.part"; done
+          for n in 00 01 02 03 04 05 06 07 08; do test -s "/tmp/celebrations-m018/backup-m016.zip.$n.part"; done
           sha256sum /tmp/celebrations-m018/backup-m016.zip.*.part > /tmp/celebrations-m018/parts.sha256
           cat /tmp/celebrations-m018/backup-m016.zip.*.part | sha256sum | \
             cut -d' ' -f1 > /tmp/celebrations-m018/reconstructed.sha256
           test "$(cut -d' ' -f1 /tmp/celebrations-m018/source.sha256)" = "$(cat /tmp/celebrations-m018/reconstructed.sha256)"
-          echo "M018_M016_ENCRYPTED_ARCHIVE_VERIFIED sha256=$(cut -d' ' -f1 /tmp/celebrations-m018/source.sha256) size=$expected parts=4 expires_original=$expires"
+          echo "M018_M016_ENCRYPTED_ARCHIVE_VERIFIED sha256=$(cut -d' ' -f1 /tmp/celebrations-m018/source.sha256) size=$expected parts=9 expires_original=$expires"
       - uses: actions/upload-artifact@v4
         with:
           name: celebrations-m016-archive-part-00
@@ -79,4 +79,39 @@ jobs:
             /tmp/celebrations-m018/parts.sha256
             /tmp/celebrations-m018/reconstructed.sha256
           retention-days: 90
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: celebrations-m016-archive-part-04
+          path: /tmp/celebrations-m018/backup-m016.zip.04.part
+          retention-days: 90
+          compression-level: 0
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: celebrations-m016-archive-part-05
+          path: /tmp/celebrations-m018/backup-m016.zip.05.part
+          retention-days: 90
+          compression-level: 0
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: celebrations-m016-archive-part-06
+          path: /tmp/celebrations-m018/backup-m016.zip.06.part
+          retention-days: 90
+          compression-level: 0
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: celebrations-m016-archive-part-07
+          path: /tmp/celebrations-m018/backup-m016.zip.07.part
+          retention-days: 90
+          compression-level: 0
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: celebrations-m016-archive-part-08
+          path: /tmp/celebrations-m018/backup-m016.zip.08.part
+          retention-days: 90
+          compression-level: 0
           if-no-files-found: error
