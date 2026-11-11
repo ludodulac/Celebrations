@@ -264,3 +264,39 @@ test('M019 a true celebration copy has its own D1 identity, date and draft, with
   assert.equal(f.db.prepare('SELECT count(*) n FROM celebrations_celebrations').get().n,4,'failed snapshot retry reuses its canonical draft');
  }finally{f.close()}
 });
+
+
+test('M020-B moving a category/language variant is atomic, revokes releases, rejects collision and stale edits',async()=>{
+ const f=await fixture();try{
+  f.state.localization={registry:{version:1,defaultLanguageId:'fr',languages:[{id:'fr',name:'Français',flag:'',active:true},{id:'en',name:'Anglais',flag:'',active:true}]},pages:{}};
+  const ids=await f.create();
+  await f.publish('space',ids.sid);await f.publish('page',ids.pid,ids.sid);
+  const oldRevision=f.state.version;
+  const move={action:'change-version',spaceId:ids.sid,pageId:ids.pid,languageId:'fr',targetLanguageId:'en',typeIds:[]};
+  const result=await f.send(move);assert.equal(result.status,200,JSON.stringify(result));
+  const moved=f.state.drafts['41'].spaces.find(s=>s.accessPolicy.mode==='PUBLIC');
+  assert.equal(moved.pages[0].translations.en.blocks[0].text,'PRIVATE_SECRET');
+  assert.equal(f.state.published.privatePageReleases[ids.pid],undefined);
+  assert.equal((await f.member(ids.pid)).status,404);
+  assert.equal((await f.send({...move,expectedRevision:oldRevision})).status,409);
+  const saved=structuredClone(f.state);
+  const duplicate={...moved.pages[0],id:'draft-page:duplicate'};delete duplicate.spaceId;
+  const collision=await f.send({action:'save',spaces:f.state.drafts['41'].spaces.map(s=>s.id===moved.id?{...s,pages:[...s.pages,duplicate]}:s)});
+  assert.equal(collision.status,409);assert.deepEqual(f.state,saved);
+  const denied=await f.send({...move,pageId:moved.pages[0].id,spaceId:moved.id,languageId:'en',targetLanguageId:'fr'},PART);
+  assert.equal(denied.status,401);
+ }finally{f.close()}
+});
+
+test('M020-B full duplication accepts past and future calendar dates including non Wednesdays, without enrollment',async()=>{
+ const f=await fixture();try{
+  await f.create();
+  for(const date of ['1999-01-01','2099-12-31']){
+   const r=await f.send({action:'create-celebration',archangel:'Gabriel',date,title:'Copie '+date,copy:true});
+   assert.equal(r.status,200,JSON.stringify(r));assert.equal(f.state.drafts[r.targetCelebration].celebrationDates.wednesday,date);
+   assert.equal(f.state.published.celebrationVisibility[r.targetCelebration],'draft');
+   assert.equal(f.db.prepare('SELECT count(*) n FROM celebrations_directory_person_celebrations WHERE celebration_id=?').get(Number(r.targetCelebration)).n,0);
+  }
+  assert.equal((await f.send({action:'create-celebration',archangel:'Gabriel',date:'2027-02-30',title:'Impossible',copy:true})).status,400);
+ }finally{f.close()}
+});

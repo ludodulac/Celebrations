@@ -129,7 +129,7 @@ function saveShared(){
 function validWednesday(value){
  if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;
  const [y,m,d]=value.split('-').map(Number),date=new Date(Date.UTC(y,m-1,d));
- return date.getUTCFullYear()===y&&date.getUTCMonth()===m-1&&date.getUTCDate()===d&&date.getUTCDay()===3;
+ return date.getUTCFullYear()===y&&date.getUTCMonth()===m-1&&date.getUTCDate()===d;
 }
 
 restoreShared();
@@ -250,7 +250,6 @@ function dateSummary(p){
 }
 function updateDate(key,value){
  if(value&&!validIso(value)){siteNotice('Date invalide.');return}
- if(key==='wednesday'&&value&&!validWednesday(value)){siteNotice('Choisissez un mercredi.');return}
  const values={...currentDates(),[key]:value};
  db.celebrationDates=values;
  if(key==='wednesday'&&String(window.__PREPARATION_SEED__?.celebrationId).startsWith('plan-')){
@@ -2385,23 +2384,12 @@ function celebrationState(entry){
 function publicationActions(kind,q){
  const outer=n('div','publication-status-controls');
  const state=kind==='page'?stateOfPage(q):celebrationState(q);
- const stateBadge=n('span','publication-badge state-'+state);
- stateBadge.setAttribute('role','img');stateBadge.setAttribute('aria-label',VISIBILITY_LABELS[state]);
- stateBadge.title=VISIBILITY_LABELS[state];outer.append(stateBadge);
- for(const [visibility,caption] of [['draft','Brouillon'],['published','Publier'],['hidden','Masquer']]){
-  // A published page may hold changes in its private draft. Make it
-  // possible to explicitly republish the latest saved version.
-  if(visibility===state&&!(visibility==='published'&&kind==='page'))continue;
-  const name=visibility==='published'&&state==='published'?'Mettre à jour le site':caption;
-  const button=b(name,async event=>{
-   event.stopPropagation();
-   if(visibility==='hidden'&&!(await siteConfirm('Masquer « '+q.name+' » pour les visiteurs ? Le contenu sera conservé.')))return;
-   const command=editorPageModel.publicationIntent(kind,q,visibility);
-   const success=await serverPublish(command);
-   if(success){q.visibility=visibility;render()}
-  },'sm');
-  outer.append(button);
- }
+ const field=n('label','editor-language-choice','Visibilité'),select=n('select');select.setAttribute('aria-label','Visibilité '+(kind==='page'?'de la page':'de la célébration'));
+ for(const [value,label]of [['draft','Brouillon'],['published','Visible'],['hidden','Masqué']]){const option=n('option','',label);option.value=value;select.append(option)}select.value=state;
+ const apply=b(state==='published'?'Mettre à jour le site':'Appliquer',async()=>{
+  if(select.value==='hidden'&&!await siteConfirm('Masquer ce contenu pour les visiteurs ?'))return;
+  if(await serverPublish(editorPageModel.publicationIntent(kind,q,select.value))){q.visibility=select.value;render()}
+ },'sm');field.append(select);outer.append(field,apply);
  return outer;
 }
 function attachPagePublicationControls(list,group){
@@ -2419,9 +2407,7 @@ function attachPagePublicationControls(list,group){
   }
   let menu=opts.querySelector('.page-options-menu');
   if(!menu){menu=n('div','page-options-menu');opts.append(menu)}
-  menu.append(publicationActions('page',p));
 
-   menu.append(b('Public / Privé',()=>editAccess('page',p),'sm'));
   if(group==='celebration'&&/^extra-[0-9a-f-]{30,45}-/.test(p.id)&&
     p.id.endsWith('-'+String(window.__PREPARATION_SEED__?.celebrationId))){
    const remove=b('Supprimer la page',()=>removeCustomPage(p),'sm');
@@ -2509,42 +2495,14 @@ function pageWorkspace(group,mount=w){
  }
  layout.append(side);
  const right=n('section'),head=n('div','editor-head'),info=n('div');
- if(IS_STAGE&&!privateEdit&&!preview&&stateOfPage(p)!=='published'){
-  const notice=n('div','page-publish-banner');
-  notice.append(n('strong','','Cette page est en brouillon.'),
-   n('span','',' Enregistrer la conserve sur le serveur ; Publier la rend visible sur le site.'));
-  const publish=b('Publier cette page',async()=>{
-   publish.disabled=true;
-   const ok=await serverPublish({kind:'page',pageId:p.id,visibility:'published'});
-   if(!ok){publish.disabled=false;return}
-   status.textContent='✓ Cette page est maintenant visible sur le site.';
-  },'sm primary');
-  notice.append(publish);right.append(notice);
- }
-
-
-
  head.append(info);right.append(head);
- if(IS_STAGE&&!privateEdit&&!preview)right.append(b('Dupliquer en brouillon',()=>m018DuplicatePage(canonicalPage()),'sm'));
  if(IS_STAGE&&!privateEdit&&!preview&&['page','celebration'].includes(p.group)){
-  const row=n('div','editor-language-row'),label=n('label','editor-language-choice','Langue');
-  const picker=n('select');picker.setAttribute('aria-label','Langue');
-  for(const lang of editorLocalization.registry.languages){
-   const opt=n('option','',lang.name+
-    (lang.active?'':' (en préparation)'));
-   opt.value=lang.id;opt.selected=lang.id===editingLanguageId;picker.append(opt);
-  }
-  picker.onchange=()=>{
-   if(dirty){save();if(dirty)return}
-   editingLanguageId=picker.value;clearLocaleView();selectedBlockId=null;render();
-  };
-  label.append(picker);row.append(label);
-  const categoryLabel=n('label','editor-language-choice','Catégorie'),category=n('select');category.setAttribute('aria-label','Catégorie');
-  const empty=n('option','','Sans catégorie');empty.value='';category.append(empty);
-  for(const type of availableCategories.filter(t=>!t.disabled)){const option=n('option','',type.name);option.value=type.id;category.append(option)}
-  category.onchange=()=>{if(category.value)void memberPanel.openVersion(category.value,editingLanguageId,canonicalPage().name).catch(e=>siteNotice(e.message))};
-  categoryLabel.append(category);row.append(categoryLabel);
-  right.append(row);
+  const row=n('div','editor-language-row m020-settings');
+  row.append(n('strong','','Réglages de la page'),publicationActions('page',canonicalPage()),accessControls('page',canonicalPage()));
+  const label=n('label','editor-language-choice','Langue'),picker=n('select');picker.setAttribute('aria-label','Langue');
+  for(const lang of editorLocalization.registry.languages){const opt=n('option','',lang.name);opt.value=lang.id;picker.append(opt)}picker.value=editingLanguageId;
+  picker.onchange=()=>{if(dirty){save();if(dirty)return}editingLanguageId=picker.value;clearLocaleView();selectedBlockId=null;render()};
+  label.append(picker);row.append(label,b('Dupliquer',()=>duplicateChoice(null,canonicalPage()),'sm'));right.append(row);
   if(editingLanguageId!=='fr'){
    const field=n('label','editor-language-title','Titre de la page dans cette langue');
    const input=n('input');input.type='text';input.maxLength=180;input.value=p.name;
@@ -2632,10 +2590,10 @@ function footerPages(){pageWorkspace('footer')}
  async function m018DuplicateCelebration(entry){
   if(!IS_STAGE||privateEdit||!entry)return;
   if(dirty){save();if(dirty)return}
-  const choice=await siteDialog({title:'Dupliquer la célébration',fields:[{name:'date',label:'Date du mercredi :',type:'date',required:true},{name:'title',label:'Titre',value:celebrationLabel(entry)+' (copie)',required:true}],confirm:'Créer le brouillon'});
+  const choice=await siteDialog({title:'Dupliquer la célébration',fields:[{name:'date',label:'Date du mercredi :',type:'date',value:currentDateForDraft(entry)||entry.date||currentDates().wednesday||'',required:true},{name:'title',label:'Titre',value:celebrationLabel(entry)+' (copie)',required:true}],confirm:'Créer le brouillon'});
   const date=choice?.date;
   if(!date)return;
-  if(!validWednesday(date)){siteNotice('Choisissez une date de mercredi valide.');return}
+  if(!validIso(date)){siteNotice('Choisissez une date valide.');return}
   try{
    ensureMemberPanel();save();await serverSave();if(db._serverPending)return;
    const result=await memberPanel.commandContent('create-celebration',{archangel:entry.archangel,date,title:choice.title,copy:true});
@@ -2658,9 +2616,9 @@ function celebrations(){
   const publication=n('div','celebration-publication-controls');
   publication.append(n('strong','','Visibilité de cette célébration'));
   publication.append(publicationActions('celebration',selectedEntry));
-publication.append(b('Public / Privé',()=>editAccess('celebration',selectedEntry),'sm'));
+publication.append(accessControls('celebration',selectedEntry));
  publication.append(b('Versions par catégorie',()=>showContentVersions(),'sm'));
-   publication.append(b('Dupliquer la célébration',()=>m018DuplicateCelebration(selectedEntry),'sm'));
+   publication.append(b('Dupliquer',()=>duplicateChoice(selectedEntry,canonicalPage()),'sm'));
   w.append(publication);
  }
  const current=plannedEntries().find(p=>p.id===String(window.__PREPARATION_SEED__.celebrationId));
@@ -2709,7 +2667,7 @@ publication.append(b('Public / Privé',()=>editAccess('celebration',selectedEntr
  name.oninput=()=>name.dataset.auto='false';
  const create=n('button','btn primary','Créer '+next);create.type='submit';form.append(create);
  form.onsubmit=async e=>{
-  e.preventDefault();if(!validWednesday(date.value)){siteNotice('Choisissez un mercredi.');return}
+  e.preventDefault();if(!validIso(date.value)){siteNotice('Choisissez une date valide.');return}
   const title=String(name.value||'').trim();if(!title){name.focus();return}
   try{
    ensureMemberPanel();if(dirty||db._serverPending){save();await serverSave();if(db._serverPending)return}
@@ -3208,10 +3166,47 @@ async function openManagedPage(pageId,language='fr'){
    isPublished:()=>privateCatalogue.pageReleases.some(r=>r.pageId===pageId)});
  }catch(e){siteNotice(e.message)}
 }
-function showContentVersions(){
- ensureMemberPanel();w.replaceChildren();
- w.append(b('← Célébrations',()=>{tab='celebrations';render()}));
- memberPanel.showSpaces();w.append(memberPanelRoot);
+async function showContentVersions(){
+ try{
+  ensureMemberPanel();if(dirty){save();await serverSave();if(db._serverPending)return}
+  availableCategories=await memberPanel.categories();await refreshPrivateCatalogue();
+  w.replaceChildren();w.append(b('← Célébrations',()=>{tab='celebrations';render()}));
+  memberPanel.showSpaces();w.append(memberPanelRoot);
+ }catch(e){siteNotice('Versions indisponibles : '+e.message)}
+}
+async function duplicateChoice(entry,q){
+ const answer=await siteDialog({title:'Dupliquer',fields:[{name:'kind',label:'Que souhaitez-vous dupliquer ?',radio:true,value:'version',options:[['version','Dupliquer une version'],[entry?'celebration':'page',entry?'Dupliquer toute la célébration':'Dupliquer toute la page']]}],confirm:'Continuer'});
+ if(!answer)return;
+ if(answer.kind==='celebration')return m018DuplicateCelebration(entry);
+ if(answer.kind==='page')return m018DuplicatePage(q);
+ ensureMemberPanel();if(dirty){save();await serverSave();if(db._serverPending)return}
+ try{await memberPanel.duplicateVersion({...clone(q),name:q.name,translations:editorLocalization.pages[q.id]},editingLanguageId)}catch(e){siteNotice(e.message)}
+}
+function accessControls(kind,p){
+ const box=n('div','m020-access'),label=n('label','editor-language-choice','Accès'),select=n('select');select.setAttribute('aria-label','Accès '+(kind==='page'?'de la page':'à la célébration'));
+ const currentSpace=p.spaceId?privateCatalogue?.record.spaces.find(s=>s.id===p.spaceId):null;
+ const policy=currentSpace?(currentSpace.visibility==='PUBLIC'?{mode:'PUBLIC'}:currentSpace.accessPolicy.mode==='PUBLIC'?{mode:'ALL_PRIVATE_TYPES'}:currentSpace.accessPolicy):kind==='celebration'?privateCatalogue?.celebrationAccessPolicy:p.accessPolicy;
+ for(const [value,text]of [['PUBLIC','Public'],['PRIVATE','Privé']]){const option=n('option','',text);option.value=value;select.append(option)}select.value=policy&&policy.mode!=='PUBLIC'?'PRIVATE':'PUBLIC';
+ const categories=n('fieldset');categories.append(n('legend','','Catégories'));
+ const all=n('input');all.type='checkbox';all.checked=policy?.mode!=='SELECTED_TYPES';const allLabel=n('label','','Tous les inscrits à cette célébration');allLabel.prepend(all);categories.append(allLabel);
+ const checks=[];
+ for(const type of availableCategories.filter(t=>!t.disabled)){const check=n('input');check.type='checkbox';check.value=type.id;check.checked=policy?.typeIds?.includes(type.id)||false;const item=n('label','',type.name);item.prepend(check);categories.append(item);checks.push(check);check.onchange=()=>{if(check.checked)all.checked=false}}
+ all.onchange=()=>{if(all.checked)checks.forEach(c=>c.checked=false)};
+ const apply=b('Enregistrer l’accès',async()=>{
+  const typeIds=checks.filter(c=>c.checked).map(c=>c.value);
+  if(select.value==='PRIVATE'&&!all.checked&&!typeIds.length){siteNotice('Choisissez une catégorie ou tous les inscrits.');return}
+  const accessPolicy=select.value==='PUBLIC'?{mode:'PUBLIC'}:all.checked?{mode:'ALL_PRIVATE_TYPES'}:{mode:'SELECTED_TYPES',typeIds};
+  try{
+   ensureMemberPanel();
+   if(privateEdit){if(dirty&&!await savePrivatePage())return}else if(dirty||db._serverPending){save();await serverSave();if(db._serverPending)return}
+   const describe=pol=>pol?.mode==='PUBLIC'?'Public':pol?.mode==='SELECTED_TYPES'?'Privé — '+pol.typeIds.map(id=>availableCategories.find(t=>t.id===id)?.name||id).join(', '):'Privé — Tous les inscrits';
+   if(policy&&JSON.stringify(policy)!==JSON.stringify(accessPolicy)&&!await siteConfirm('Ancien choix : '+describe(policy)+'\nNouveau choix : '+describe(accessPolicy)+'\nLe contenu modifié reste en brouillon.'))return;
+   if(currentSpace){const spaces=clone(privateCatalogue.record.spaces);const target=spaces.find(s=>s.id===currentSpace.id);target.visibility=accessPolicy.mode==='PUBLIC'?'PUBLIC':'PRIVATE';target.accessPolicy=accessPolicy.mode==='ALL_PRIVATE_TYPES'?{mode:'PUBLIC'}:accessPolicy;await memberPanel.commandContent('save',{spaces})}
+   else await memberPanel.commandContent(kind==='page'?'page-access':'celebration-access',{...(kind==='page'?{id:p.id}:{}),accessPolicy});
+   if(privateEdit)await closePrivatePage(true);else await serverLoad();await refreshPrivateCatalogue();render();
+  }catch(e){siteNotice(e.message)}
+ },'sm');
+ const toggle=()=>{categories.hidden=select.value!=='PRIVATE'};select.onchange=toggle;toggle();label.append(select);box.append(label,categories,apply);return box;
 }
 async function openPrivatePage(controller){
  if(privateEdit||!controller?.page||dirty)return;
@@ -3262,16 +3257,12 @@ async function publishPrivatePage(action){
 function privatePageWorkspace(){
  const selectors=n('div','editor-language-row');
  const langLabel=n('label','editor-language-choice','Langue'),lang=n('select');lang.setAttribute('aria-label','Langue');
- const categoryLabel=n('label','editor-language-choice','Catégorie'),cat=n('select');cat.setAttribute('aria-label','Catégorie');
- for(const l of privateCatalogue?.languageRegistry?.languages||editorLocalization.registry.languages){const option=n('option','',l.name);option.value=l.id;lang.append(option)}
- const blank=n('option','','Tous les inscrits');blank.value='';cat.append(blank);
- for(const type of availableCategories.filter(t=>!t.disabled)){const o=n('option','',type.name);o.value=type.id;cat.append(o)}
  lang.value=privateEdit.languageId||'fr';
- const space=privateCatalogue?.record.spaces?.find(s=>s.id===page().spaceId);
- cat.value=space?.accessPolicy.typeIds?.[0]||'';
- const switchVersion=async()=>{if(dirty&&!await savePrivatePage())return;const type=cat.value,language=lang.value,title=page().name;await closePrivatePage(true);await memberPanel.openVersion(type,language,title)};
- cat.onchange=()=>void switchVersion();lang.onchange=()=>void switchVersion();
- langLabel.append(lang);categoryLabel.append(cat);selectors.append(langLabel,categoryLabel);w.append(selectors);
+ lang.onchange=async()=>{if(dirty&&!await savePrivatePage())return;const language=lang.value,title=page().name,type=privateCatalogue.record.spaces.find(s=>s.id===page().spaceId)?.accessPolicy.typeIds?.[0]||'',pid=page().id,sid=page().spaceId;await closePrivatePage(true);if(sid)await memberPanel.openVersion(type,language,title);else await openManagedPage(pid,language)};
+ langLabel.append(lang);selectors.append(langLabel,accessControls('page',page()));
+ const visibilityLabel=n('label','editor-language-choice','Visibilité'),visibility=n('select');visibility.setAttribute('aria-label','Visibilité de la page');
+ for(const [value,label]of [['draft','Brouillon'],['published','Visible'],['hidden','Masqué']]){const option=n('option','',label);option.value=value;visibility.append(option)}visibility.value=privateEdit.isPublished()?'published':'draft';
+ visibility.onchange=()=>void publishPrivatePage(visibility.value==='published'?'publish':'unpublish');visibilityLabel.append(visibility);selectors.prepend(visibilityLabel);w.append(selectors);
  const actions=n('div','member-spaces-actions');
  const back=b('← Célébrations',()=>closePrivatePage());
  const saveButton=b('Enregistrer',()=>void savePrivatePage());
@@ -3280,7 +3271,9 @@ function privatePageWorkspace(){
  const unpublish=b('Dépublier cette page',()=>void publishPrivatePage('unpublish'));
  back.disabled=privateBusy;saveButton.disabled=privateBusy;
  reload.disabled=privateBusy;publish.disabled=privateBusy;unpublish.disabled=privateBusy;
- actions.append(back,saveButton,reload,publish,unpublish);
+ actions.append(back,saveButton,reload);
+ if(page().spaceId)actions.append(b('Dupliquer',async()=>{if(dirty&&!await savePrivatePage())return;const source=clone(page()),language=privateEdit.languageId||'fr';await closePrivatePage(true);await memberPanel.duplicateVersion(source,language)}));
+ else actions.append(b('Dupliquer',async()=>{if(dirty&&!await savePrivatePage())return;const source=clone(page()),language=privateEdit.languageId||'fr';await closePrivatePage(true);await memberPanel.duplicateVersion(source,language)}));
  w.append(actions,n('h2','',page().name));
  const editor=n('div','celebration-editor');w.append(editor);pageWorkspace(page().group==='page'?(page().placement==='footer'?'footer':'page'):'celebration',editor);
 }

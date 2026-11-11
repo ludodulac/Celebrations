@@ -1,0 +1,27 @@
+name: M020-B essential editor journeys
+on:
+  push:
+    branches: [feat/m020b-pages-celebrations-20261111]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  essential:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node scripts/build-m012b-member-spaces-inline.mjs --check && node scripts/build-m019-editor-client.mjs --check
+      - run: node --test tests/test_m010b_member_admin_final.mjs tests/test_m012c_private_editor_publication.mjs tests/test_m018c_admin_finalization.mjs tests/test_m018_final_functional_rules.mjs
+      - run: npm install --no-save --package-lock=false miniflare esbuild playwright
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/test-m020b-editor-chromium.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: m020b-smartphone
+          path: /tmp/m020b-smartphone.png
+          if-no-files-found: ignore
