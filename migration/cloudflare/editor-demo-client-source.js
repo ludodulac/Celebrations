@@ -408,6 +408,10 @@ function chooseFile(x){
   [...(globalFiles||[]),...publicFiles()],globalMedia
  );
  const select=file=>{
+  if(typeof x?.onSelect==='function'){
+   if(file.category!=='images'){siteNotice('Choisissez une image.');return}
+   x.onSelect(file);dialog.close();return;
+  }
   if(!editorMediaCommands.chooseFile(x,file,choosingVideo))return;
   mark();dialog.close();render();
  };
@@ -3099,7 +3103,84 @@ function userGuide(){
  display();
 }
 
-function settings(){const box=n('section','settings-actions');box.append(b('Réinitialiser',async ()=>{if(!(await siteConfirm('Effacer les modifications locales ?')))return;localStorage.removeItem(KEY);db=clone(seed);editorLocalization=emptyLocalization();saveLocalizationLocal();editingLanguageId='fr';clearLocaleView();id=db.pages[0]?.id||'home';tab='pages';dirty=false;render()}));w.append(box);}
+function settings(){
+ const box=n('section','settings-actions');
+ const heading=n('h2','','Identité du site');
+ box.append(heading,n('p','','Choisissez un titre et une image pour l’en-tête du site. Les pages intérieures conservent leur navigation compacte.'));
+ const status=n('p','', 'Chargement des paramètres…');status.setAttribute('role','status');
+ box.append(status);w.append(box);
+ const style=n('style');style.nonce=document.querySelector('script[nonce]')?.nonce||'';
+ style.textContent=`.m021-identity-form{display:grid;gap:12px;max-width:790px}.m021-identity-form label{display:grid;gap:5px;font-weight:600}.m021-identity-form input{min-height:42px;max-width:100%}.m021-identity-preview{border-radius:15px;min-height:115px;background:linear-gradient(110deg,#193548dd,#21344bbd);color:white;display:grid;place-items:center;text-align:center;overflow:hidden;padding:22px;position:relative}.m021-identity-preview img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.75}.m021-identity-preview:after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,#10202a9e,#10202a60)}.m021-identity-preview strong{position:relative;z-index:1;font-size:clamp(1.15rem,4vw,1.9rem);text-shadow:0 2px 6px #0008}.m021-identity-actions{display:flex;flex-wrap:wrap;gap:8px}.m021-identity-languages{border:1px solid #ccd5d7;border-radius:10px;padding:12px}.m021-identity-languages summary{cursor:pointer;font-weight:600}.m021-identity-position{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}.m021-identity-form .btn{min-height:40px}@media(max-width:600px){.m021-identity-preview{min-height:105px;padding:14px}.m021-identity-form{gap:10px}}`;
+ box.append(style);
+ let revision=0,identity={title:'',imageSrc:'',imageAlt:'',positionX:50,positionY:50,titles:{}};
+ const fields=n('form','m021-identity-form'),title=n('input'),alt=n('input');
+ title.maxLength=110;alt.maxLength=180;title.placeholder='Ronde des Archanges Universelle';
+ const posX=n('input'),posY=n('input');
+ for(const x of [posX,posY]){x.type='range';x.min=0;x.max=100;x.step=1;x.value=50}
+ const previewBox=n('div','m021-identity-preview'),previewImage=n('img'),previewTitle=n('strong');
+ previewBox.append(previewImage,previewTitle);
+ function caption(text,element){const label=n('label');label.append(n('span','',text),element);return label}
+ const imageButtons=n('div','m021-identity-actions');
+ const choose=b('Choisir / remplacer l’image',()=>chooseFile({kind:'image',onSelect:file=>{
+  if(!String(file.src||'').startsWith('/media/')){siteNotice('Choisissez un fichier enregistré dans la médiathèque du site.');return}
+  identity.imageSrc=file.src;refreshPreview();
+ }}));
+ const remove=b('Supprimer l’image',()=>{identity.imageSrc='';refreshPreview()});
+ imageButtons.append(choose,remove);
+ const positions=n('div','m021-identity-position');
+ positions.append(caption('Cadrage horizontal',posX),caption('Cadrage vertical',posY));
+ const localized=n('details','m021-identity-languages');
+ localized.append(n('summary','','Titres dans les autres langues (facultatif)'),
+  n('p','','Sans traduction saisie, le titre principal s’affiche automatiquement.'));
+ const locales=[['en','Anglais'],['es','Espagnol'],['de','Allemand'],
+  ['pt','Portugais'],['it','Italien'],['ar','Arabe'],['zh','Chinois simplifié']];
+ const localInputs=new Map();
+ for(const [code,name] of locales){const field=n('input');field.maxLength=110;
+  field.placeholder='Utiliser le titre principal';localInputs.set(code,field);
+  localized.append(caption(name,field));}
+ const actions=n('div','m021-identity-actions'),saveBtn=b('Enregistrer l’identité');
+ saveBtn.type='submit';actions.append(saveBtn);
+ fields.append(caption('Titre principal du site',title),imageButtons,
+  caption('Description de l’image (texte alternatif)',alt),positions,
+  n('h3','','Aperçu immédiat'),previewBox,localized,actions);
+ box.append(fields);
+ function refreshPreview(){
+  identity.title=title.value.trim();
+  identity.imageAlt=alt.value.trim();
+  identity.positionX=Number(posX.value);identity.positionY=Number(posY.value);
+  previewTitle.textContent=identity.title||'Titre du site';
+  previewImage.hidden=!identity.imageSrc;
+  if(identity.imageSrc){previewImage.src=identity.imageSrc;previewImage.alt=identity.imageAlt||'';}
+  previewImage.style.objectPosition=identity.positionX+'% '+identity.positionY+'%';
+ }
+ for(const control of [title,alt,posX,posY])control.addEventListener('input',refreshPreview);
+ fields.onsubmit=async event=>{
+  event.preventDefault();
+  const payload={...identity,title:title.value.trim(),imageAlt:alt.value.trim(),
+   positionX:Number(posX.value),positionY:Number(posY.value),
+   titles:Object.fromEntries([...localInputs].filter(([,input])=>input.value.trim()).map(([lang,input])=>[lang,input.value.trim()]))};
+  saveBtn.disabled=true;status.textContent='Enregistrement…';
+  try{
+   const response=await fetch('/api/site-identity',{method:'POST',headers:{'content-type':'application/json'},
+    credentials:'same-origin',body:JSON.stringify({expectedRevision:revision,identity:payload})});
+   const data=await response.json();
+   if(!response.ok||!data.ok)throw Error(data.error||'Enregistrement impossible');
+   revision=data.revision;identity=data.identity;
+   status.textContent='✓ Identité enregistrée. Vérifiez le résultat sur le site.';
+  }catch(e){status.textContent='❌ '+(e.message||e);}
+  finally{saveBtn.disabled=false}
+ };
+ void fetch('/api/site-identity',{credentials:'same-origin',cache:'no-store'}).then(async res=>{
+  const data=await res.json();
+  if(!res.ok||!data.ok)throw Error(data.error||'Identité indisponible');
+  if(tab!=='settings'||!box.isConnected)return;
+  revision=data.revision;identity=data.identity;
+  title.value=identity.title;alt.value=identity.imageAlt;
+  posX.value=identity.positionX;posY.value=identity.positionY;
+  for(const [code,input] of localInputs)input.value=identity.titles?.[code]||'';
+  refreshPreview();status.textContent='';
+ }).catch(e=>{if(box.isConnected)status.textContent='Paramètres indisponibles : '+(e.message||e)});
+}
 function m018LanguagesCategories(){
   const panel=n('section','m018-language-panel');
   panel.append(n('h2','','Langues'));
