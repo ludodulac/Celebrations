@@ -180,6 +180,18 @@ try{
  const browserErrors=[];visitor.on('pageerror',e=>browserErrors.push(String(e.message||e).slice(0,140)));
  const first=await visitor.goto(origin+'/?celebration=90000001&lang=en',{waitUntil:'domcontentloaded',timeout:30000});
  assert.equal(first.status(),200);
+ // PRIVÉ + VISIBLE: title only in the anonymous menu, with no selectable link
+ // and with zero private text/media. The canonical private route remains 404.
+ await visitor.goto(origin+'/?celebration=90000001&page=celebrations&lang=en',
+  {waitUntil:'domcontentloaded',timeout:30000});
+ const visiblePrivate=visitor.locator('.celebration-choice').filter({hasText:'Gabriel 2026'});
+ await visiblePrivate.waitFor({timeout:15000});
+ assert.equal(await visiblePrivate.evaluate(el=>el.tagName),'DIV');
+ assert.match(await visiblePrivate.innerText(),/Privée/);
+ assert.equal(await visiblePrivate.locator('a[href]').count(),0);
+ assert.ok(!(await visitor.locator('body').innerText()).includes(frCat[0]));
+ await visitor.goto(origin+'/?celebration=90000001&lang=en',
+  {waitUntil:'domcontentloaded',timeout:30000});
  await visitor.waitForSelector('#member-connection:not([hidden])',{timeout:12000});
  assert.ok((await visitor.locator('#public-language-control').innerText()).length>0);
  await visitor.locator('#member-connection').click();
@@ -200,6 +212,29 @@ try{
  await visitor.close();await visitCtx.close();
  event('normal_phone_browser',{login_from_any_page:true,language_en:true,
   only_authorized_page:true});
+ // Revoke a FICTIONAL enrollment through the real guarded D1 admin API.
+ // The previous bearer token must lose both list and page access immediately.
+ const person='person:77777777-7777-4777-8777-000000000001';
+ const detailUrl='/api/admin/member-directory?action=person_detail&personId='+encodeURIComponent(person);
+ const beforeRevoke=ok(await get(detailUrl,adminToken),'fictional person detail').data;
+ assert.ok(beforeRevoke.celebrations.some(x=>String(x.celebrationId)===C));
+ ok(await api('/api/admin/member-directory',{
+  action:'remove_celebration',personId:person,celebrationId:C,
+  expectedRevision:beforeRevoke.person.revision
+ },adminToken),'revoke fictional celebration enrollment');
+ assert.equal((await get('/api/participant/space-page?pageId='+allPageIds[0]+'&lang=fr',
+  members[0])).status,404,'revocation denies published page');
+ const revoked=await get('/api/participant/space-pages?celebration=all&lang=fr',members[0]);
+ assert.equal(revoked.status,200);
+ assert.deepEqual(revoked.body.pages,[],'revocation removes private menu');
+ const afterRevoke=ok(await get(detailUrl,adminToken),'fictional person after revoke').data;
+ ok(await api('/api/admin/member-directory',{
+  action:'add_celebration',personId:person,celebrationId:C,
+  expectedRevision:afterRevoke.person.revision
+ },adminToken),'restore fictional enrollment only');
+ assert.equal((await get('/api/participant/space-page?pageId='+allPageIds[0]+'&lang=fr',
+  members[0])).status,200,'restored fictional grant');
+ event('revocation',{user:'fictional-only',immediate_deny:true,restored_fixture:true});
  // Verify the existing admin browser continues without a second dashboard.
  assert.deepEqual(errs,[],'Admin browser errors');
  await api('/api/admin/editor-session',{action:'logout'},adminToken);
