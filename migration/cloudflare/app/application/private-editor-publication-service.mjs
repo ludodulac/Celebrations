@@ -347,7 +347,8 @@ function readResult(state,cid){
   pageReleases:Object.values(pub.privatePageReleases??{}).filter(e=>e.celebrationId===cid),
   spaceReleases:Object.values(pub.privateSpaceReleases??{}).filter(e=>e.celebrationId===cid),
   celebrationVisibility:pub.celebrationVisibility?.[cid]??'draft',
-  celebrationAccessPolicy:pub.celebrationAccessPolicies?.[cid]??{mode:ACCESS_MODES.PUBLIC}};
+  celebrationAccessPolicy:pub.celebrationAccessPolicies?.[cid]??{mode:ACCESS_MODES.PUBLIC},
+  languageRegistry:createLanguageRegistry(state.localization?.registry??pub.languageRegistry)};
 }
 // Route owner A must gate the isolated host and feature flag. This service
 // independently checks the real D1 admin session and same-origin mutations.
@@ -378,6 +379,13 @@ export async function handlePrivateEditorCommand(request,env){
   keysOnly(b,['action','celebration','expectedRevision',...fields[b.action]]);
   if(!expectedRevisionMatches(b.expectedRevision,current.state.version))conflict();
   const cid=b.celebration,known=await catalogue(env.DB,cid);
+  if(b.action==='celebration-access'&&b.accessPolicy?.mode!==ACCESS_MODES.PUBLIC){
+    const record=await q(env.DB,'SELECT archangel FROM celebrations_celebrations WHERE id=?',
+      Number(cid)).first();
+    if(String(record?.archangel||'').normalize('NFD')
+       .replace(/[\u0300-\u036f]/g,'').toLowerCase().includes('michael'))
+      fail(403,'Michaël doit rester public');
+  }
   const state=copy(current.state);state.published??=initialPublication(state);manifests(state.published);
   const registry=createLanguageRegistry(state.localization?.registry??state.published.languageRegistry);
   const idMap=Object.create(null);let changed=false,duplicate;
