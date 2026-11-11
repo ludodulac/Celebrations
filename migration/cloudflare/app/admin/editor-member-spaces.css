@@ -1,0 +1,39 @@
+/* M011-C scoped layout: reuses current admin buttons/cards and M007-B UI. */
+.admin-member-spaces-011c {max-width:100%;min-width:0;overflow-wrap:anywhere}
+.admin-member-spaces-011c .admin-view-head{display:flex;align-items:center;justify-content:space-between}
+.admin-member-spaces-011c .member-spaces-tabs,
+.admin-member-spaces-011c .member-spaces-actions {
+  display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;margin:.75rem 0;
+}
+.admin-member-spaces-011c [hidden]{display:none!important}
+.admin-member-spaces-011c .member-spaces-tabs button[aria-pressed="true"]{font-weight:700}
+.admin-member-spaces-011c #member-spaces-directory,
+.admin-member-spaces-011c #member-spaces-workspace{max-width:100%;min-width:0}
+.admin-member-spaces-011c .member-spaces-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:1rem;
+}
+.admin-member-spaces-011c .member-spaces-card,
+.admin-member-spaces-011c .member-spaces-create{min-width:0;padding:1rem;margin:1rem 0}
+.admin-member-spaces-011c .member-spaces-form{display:grid;gap:.65rem;margin:1rem 0}
+.admin-member-spaces-011c .member-spaces-form label,
+.admin-member-spaces-011c .member-spaces-actions label {min-width:0}
+.admin-member-spaces-011c input,
+.admin-member-spaces-011c select,
+.admin-member-spaces-011c button,
+.admin-member-spaces-011c textarea {max-width:100%;box-sizing:border-box}
+.admin-member-spaces-011c input,
+.admin-member-spaces-011c select {width:100%;min-height:40px}
+.admin-member-spaces-011c button{min-height:40px;white-space:normal;text-align:center}
+.admin-member-spaces-011c button:disabled{cursor:not-allowed;opacity:.55}
+.admin-member-spaces-011c .member-spaces-pages p{border-bottom:1px solid #ddd;padding:.35rem 0}
+.admin-member-spaces-011c .member-spaces-disclaimer{padding:.8rem;background:#fff3cd;border-radius:.4rem}
+.admin-member-spaces-011c .member-spaces-status{font-weight:600}
+.admin-member-spaces-011c code{display:block;overflow-wrap:anywhere}
+.admin-member-spaces-011c .member-admin-007b .member-admin-layout{min-width:0}
+.admin-member-spaces-011c .member-directory-009b {max-width:100%}
+@media(max-width:720px){
+ .admin-member-spaces-011c .member-spaces-tabs{display:grid;grid-template-columns:1fr}
+ .admin-member-spaces-011c .member-spaces-actions{display:grid;grid-template-columns:1fr}
+ .admin-member-spaces-011c .member-spaces-actions > *{width:100%}
+ .admin-member-spaces-011c button{min-height:44px}
+}

@@ -89,6 +89,7 @@ export function mountMemberDirectoryAdmin(root,{transport}={}) {
     if(!state.members.some(p=>p.id===selected)) selected=state.members[0]?.id||'';
     if(ui) ui.setState(state);
     else ui=mountMemberAccessAdmin(base,{initialState:state,
+      pagePolicyWritable:false,
       warningText:'Annuaire D1 relié au service administrateur vérifié. ' +
         'Les autorisations de pages ne sont pas encore sauvegardées dans le moteur éditorial ; ' +
         'aucun espace privé n’est activé en production.',onChange:(next,detail)=>{

@@ -18,7 +18,7 @@ const PAGE_LABELS = Object.freeze({
   [PAGE_KINDS.CELEBRATION]: 'Pages des célébrations'
 });
 
-export function mountMemberAccessAdmin(root, {initialState = {}, onChange = () => {}, warningText = null} = {}) {
+export function mountMemberAccessAdmin(root, {initialState = {}, onChange = () => {}, warningText = null, pagePolicyWritable = true} = {}) {
   if (!root || typeof root.replaceChildren !== 'function' ||
       !root.ownerDocument || typeof onChange !== 'function')
     throw new TypeError('A real DOM root and an optional onChange callback are required');
@@ -221,9 +221,17 @@ export function mountMemberAccessAdmin(root, {initialState = {}, onChange = () =
       toggleSelected();
       const error = node('p', 'member-admin-error');
       error.setAttribute('role', 'alert');
-      form.append(radios, selectedBox, button('Appliquer à cette page'), error);
+      const applyPolicy=button('Appliquer à cette page');
+      applyPolicy.disabled=!pagePolicyWritable;
+      if(!pagePolicyWritable){
+        applyPolicy.title='Sauvegarde sécurisée des politiques indisponible';
+        form.append(node('p','member-admin-muted',
+          'Lecture préparatoire uniquement : écriture de politique désactivée.'));
+      }
+      form.append(radios, selectedBox, applyPolicy, error);
       form.addEventListener('submit', event => {
         event.preventDefault();
+        if(!pagePolicyWritable) return;
         const mode = modes.find(input => input.checked)?.value;
         const policy = mode === ACCESS_MODES.SELECTED_TYPES ?
           {mode, typeIds: checks.filter(input => input.checked).map(input => input.value)} :
