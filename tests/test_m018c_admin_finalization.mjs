@@ -8,7 +8,7 @@ import {createLanguageRegistry,addLanguage,setPageTranslation} from '../migratio
 
 function extract(from,to) {
  const start=DEMO_CLIENT.indexOf('function '+from+'(');
- const end=DEMO_CLIENT.indexOf('\n function '+to+'(',start);
+ const end=[DEMO_CLIENT.indexOf('\n function '+to+'(',start),DEMO_CLIENT.indexOf('\nfunction '+to+'(',start)].filter(x=>x>start).sort((a,b)=>a-b)[0]??-1;
  assert.ok(start>=0&&end>start,from+' and '+to+' should be adjacent');
  return DEMO_CLIENT.slice(start,end);
 }
