@@ -2596,7 +2596,7 @@ function footerPages(){pageWorkspace('footer')}
   if(!date)return;
   if(!validIso(date)){siteNotice('Choisissez une date valide.');return}
   try{
-   ensureMemberPanel();save();await serverSave();if(db._serverPending)return;
+   ensureMemberPanel();if(dirty||db._serverPending){save();await serverSave();if(db._serverPending)return}
    const result=await memberPanel.commandContent('create-celebration',{archangel:entry.archangel,date,title:choice.title,copy:true});
    location.assign(editorPageModel.editorUrl(result.targetCelebration));
   }catch(error){siteNotice('Copie impossible : '+(error.message||error))}
