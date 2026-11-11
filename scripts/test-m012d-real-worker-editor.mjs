@@ -36,6 +36,10 @@ try{
  const personId='person:550e8400-e29b-41d4-a716-446655440000';
  await db.prepare('INSERT INTO celebrations_directory_people(id,email_normalized,display_name) VALUES(?,?,?)').bind(personId,'camille@example.test','Camille Démo').run();
  await db.prepare('INSERT INTO celebrations_directory_person_celebrations(person_id,celebration_id) VALUES(?,?)').bind(personId,41).run();
+ for(let i=0;i<50;i++){
+  const id='person:550e8400-e29b-41d4-a716-'+String(446655440100+i);
+  await db.prepare('INSERT INTO celebrations_directory_people(id,email_normalized,display_name) VALUES(?,?,?)').bind(id,'demo'+i+'@example.test','Contact fictif '+i).run();
+ }
  await bucket.put(EDITOR_SNAPSHOT_KEY,JSON.stringify({version:1,drafts:{'41':{pages:[]}},shared:{pages:[],homeId:'',celebrationVisibility:{'41':'published'}},plans:[],mediaCatalogue:[]}));
  const dispatch=req=>mf.dispatchFetch(req.url,{method:req.method,headers:[...req.headers],...(req.method==='POST'?{body:req.body,duplex:'half'}:{})});
  const admin=await login(dispatch);
@@ -65,7 +69,7 @@ try{
   await page.getByLabel('Mot de passe administrateur D1').fill('synthetic-only M012-A password');
   await button('Se connecter à D1').click();
   await page.getByText('Session D1 confirmée.',{exact:true}).waitFor();
-  await page.getByText('Page 1 · 1 personnes affichées').waitFor();
+  await page.getByText('Page 1 · 50 personnes affichées').waitFor();
  }
  await page.goto(ORIGIN+'/__editor/demo-preparation?celebration=41');
  if(demo){
@@ -73,9 +77,25 @@ try{
   await new Promise(resolve=>page.once('close',resolve));
  }else{
  await connect();
+ await button('Page suivante').click();
+ await page.getByText('Page 2 · 1 personnes affichées').waitFor();
+ await button('Page précédente').click();
+ await page.getByText('Page 1 · 50 personnes affichées').waitFor();
  await page.getByRole('searchbox',{name:'Rechercher une personne'}).fill('Camille');
  await button('Rechercher').click();
  await page.getByText('Résultats de la recherche actualisés.').waitFor();
+ await page.getByText('Page 1 · 1 personnes affichées').waitFor();
+ await page.getByLabel('Identifiant permanent',{exact:true}).fill('member-type:demo');
+ await page.getByLabel('Nom du type',{exact:true}).fill('Chorale démo');
+ await button('Créer ce type').click();
+ await page.getByText('Modification enregistrée et état D1 rechargé.').waitFor();
+ await page.getByLabel('Nom modifiable',{exact:true}).fill('Chorale de démonstration');
+ await button('Renommer').click();
+ await page.getByText('Modification enregistrée et état D1 rechargé.').waitFor();
+ await page.getByLabel('Nom affiché',{exact:true}).last().fill('Camille Démonstration');
+ await button('Mettre à jour la personne').click();
+ await page.getByText('Fiche mise à jour.').waitFor();
+ assert.equal((await db.prepare('SELECT display_name FROM celebrations_directory_people WHERE id=?').bind(personId).first()).display_name,'Camille Démonstration');
  await button('Espaces des célébrations').click();
  await page.getByText(/Espaces chargés depuis R2/).waitFor();
  await page.getByPlaceholder('Nom de l’espace').fill('Salle Démo');
