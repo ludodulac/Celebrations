@@ -165,6 +165,7 @@ test('navigation in existing bar, no mobile duplicate, PDF checkbox under admin 
  assert.match(page,/class="site-menu-bar'/);
  assert.match(page,/navigationHtml/);
  assert.match(page,/site-nav-title/);
+ assert.match(page,/isM016AdminPreprodHost\(url\.hostname,env\)/,'M016 uses the same strictly gated public renderer');
  assert.match(page,/@media\(max-width:700px\)\{\.site-nav-title\{display:none!important\}\}/);
  const settings=client.slice(client.indexOf('function settings(){'),client.indexOf('function m018LanguagesCategories(){'));
  assert.match(settings,/Titre dans la barre du menu/);
