@@ -73,6 +73,14 @@ jobs:
           (cd migration/cloudflare && npx wrangler deploy --dry-run --config wrangler.m018.official.toml)
           npx playwright install chromium
 
+      - name: Block official deployment unless the real M016 guide, PDF and menu pass
+        env:
+          M027_M016_ONLY: 'YES'
+        run: |
+          set -euo pipefail
+          node scripts/test-m027-m016-ui.mjs
+          echo M027_REQUIRED_M016_BROWSER_PASS
+
       # NOTE: All steps above are read-only or local. No production mutation
       # occurs before *both* encrypted production backups are archived.
       - name: Export and encrypt FULL official D1, with integrity checks
