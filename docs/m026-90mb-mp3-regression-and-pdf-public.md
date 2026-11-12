@@ -17,3 +17,7 @@ Le propriétaire demande que les PDF *affichés et envoyés par lien public* res
 ## Déploiement
 
 Générer le client via le script existant; réussir les tests unitaires et le parcours M016 réel; sauvegarder intégralement D1/R2 officiels chiffrés; promouvoir seulement le Worker existant sans migration; vérifier publiquement le site et la confidentialité, avec retour arrière automatique en cas d'échec.
+
+## Premier contrôle local
+
+La compilation déterministe de l'éditeur et les tests de renommage, médiathèque, multipart MP3 et détection d'extension ont réussi via GitHub Actions `43217237455`. Valider maintenant le navigateur réel M016 avec 90 Mo envoyés depuis le champ fichier.
