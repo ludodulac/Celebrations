@@ -26,3 +26,7 @@ La génération déterministe des modules de l'éditeur est terminée ; les test
 ## Compatibilité des anciens liens PDF
 
 Les tests existants des URL /media et /letter incluent désormais le binding R2 de l'éditeur que possède la production. Un PDF historique vérifie aussi la case « Privé » avant de servir les octets ; en cas de panne ou d'absence du stockage de confidentialité, le téléchargement échoue sans rendre un PDF privé public. Les liens publics restent inchangés.
+
+## Compilation finale
+
+La reconstruction canonique et les tests de régression étendus (PDF anciens, liens email, frontières privées, media R2 et navigation) ont réussi dans l'action 43222612641. Vérifier maintenant les changements sur le vrai navigateur M016 isolé avec restauration des données de test.
