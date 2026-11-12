@@ -1101,7 +1101,7 @@ async function serverSave(){
   return false;
  }
  serverSaving=true;
- const button=el('save-btn');button.disabled=true;button.textContent='Enregistrement sur le serveur…';
+ const button=el('save-btn');button.disabled=true;button.textContent='Enregistrement sur le serveur…';syncSecondarySave();
  button.classList.remove('save-confirmed','save-failed');
  serverMessage('Sauvegarde sécurisée en cours…');
  const started=serverLocalEditCounter;
@@ -1173,7 +1173,7 @@ async function serverSave(){
   const live=!!payload.publishedPageId;
   const label=live?'✓ Enregistré et mis à jour sur le site public':
    '✓ Enregistré sur le serveur (brouillon)';
-  button.textContent=label;button.classList.add('save-confirmed');
+  button.textContent=label;button.classList.add('save-confirmed');syncSecondarySave();
   serverMessage(label+' — contenu revérifié après enregistrement.');
   clearTimeout(saveFeedbackTimer);
   saveFeedbackTimer=setTimeout(()=>{
@@ -1188,7 +1188,7 @@ async function serverSave(){
   serverMessage('❌ '+(e.message||'Erreur réseau')+' Modifications conservées sur cet appareil.');
   return false;
  }finally{
-  serverSaving=false;button.disabled=false;
+  serverSaving=false;button.disabled=false;syncSecondarySave();
   if(serverSaveQueued){
    serverSaveQueued=false;
    // Another edit made while the first save was in flight is never discarded.
@@ -1293,10 +1293,17 @@ document.addEventListener('keydown',event=>{
   focus.matches?.('input,textarea')))return;
  if(undoStack.length){event.preventDefault();undoLastEditorAction()}
 });
+function syncSecondarySave(){
+ const secondary=document.querySelector('.stage-editor .m022-save'),primary=el('save-btn');
+ if(secondary&&primary){secondary.disabled=primary.disabled;secondary.textContent=primary.textContent;}
+}
+function saveCurrentContent(){if(IS_STAGE){save();void serverSave()}else save(true)}
 function mark(){
  commitLocalizedView();
  if(IS_STAGE&&!privateEdit){serverLocalEditCounter++;db._serverPending=true;}
- dirty=true;rememberUndoChange();el('save-btn').textContent='Enregistrer •';status.textContent='Modifications non enregistrées';}
+ dirty=true;rememberUndoChange();el('save-btn').textContent='Enregistrer •';
+ syncSecondarySave();status.textContent='Modifications non enregistrées';
+}
 let saveFeedbackTimer=null;
 function save(explicit=false){
  // Private M005 pages must NEVER enter localStorage or legacy editor R2.
@@ -1306,7 +1313,7 @@ function save(explicit=false){
   const button=el('save-btn');
   button.textContent='Enregistrer';button.classList.remove('save-failed');
   status.textContent='✓ Enregistré dans ce navigateur.';
-  refreshBlockEditBaseline();
+  syncSecondarySave();refreshBlockEditBaseline();
   if(explicit===true){
    button.textContent='✓ Enregistré';button.classList.add('save-confirmed');
    const toast=el('editor-save-toast');if(toast){toast.textContent='✓ Enregistré';toast.hidden=false}
@@ -2551,7 +2558,11 @@ function pageWorkspace(group,mount=w){
   const label=n('label','editor-language-choice','Langue'),picker=n('select');picker.setAttribute('aria-label','Langue');
   for(const lang of editorLocalization.registry.languages){const opt=n('option','',lang.name);opt.value=lang.id;picker.append(opt)}picker.value=editingLanguageId;
   picker.onchange=()=>{if(dirty){save();if(dirty)return}editingLanguageId=picker.value;clearLocaleView();selectedBlockId=null;render()};
-  label.append(picker);row.append(label,b('Dupliquer',()=>duplicateChoice(null,canonicalPage()),'sm'));right.append(row);
+  label.append(picker);row.append(label);
+   // The celebration already has a clear “＋ Page” action.
+   if(p.group!=='celebration')row.append(b('Dupliquer',()=>m018DuplicatePage(canonicalPage()),'sm'));
+   row.append(b('Enregistrer',saveCurrentContent,'sm m022-save'));
+   right.append(row);
   if(editingLanguageId!=='fr'){
    const field=n('label','editor-language-title','Titre de la page dans cette langue');
    const input=n('input');input.type='text';input.maxLength=180;input.value=p.name;
@@ -2669,7 +2680,7 @@ if(adminMembersEnabled){
   publication.append(accessControls('celebration',selectedEntry));
   publication.append(b('Versions par catégorie',()=>showContentVersions(),'sm'));
  }
-   publication.append(b('Dupliquer',()=>duplicateChoice(selectedEntry,canonicalPage()),'sm'));
+   publication.append(b('Dupliquer',()=>duplicateChoice(selectedEntry),'sm'));
   w.append(publication);
  }
  const current=plannedEntries().find(p=>p.id===String(window.__PREPARATION_SEED__.celebrationId));
@@ -3376,14 +3387,21 @@ async function showContentVersions(){
   memberPanel.showSpaces();w.append(memberPanelRoot);
  }catch(e){siteNotice('Versions indisponibles : '+e.message)}
 }
-async function duplicateChoice(entry,q){
- if(!adminMembersEnabled)return entry?m018DuplicateCelebration(entry):m018DuplicatePage(q);
- const answer=await siteDialog({title:'Dupliquer',fields:[{name:'kind',label:'Que souhaitez-vous dupliquer ?',radio:true,value:'version',options:[['version','Dupliquer une version'],[entry?'celebration':'page',entry?'Dupliquer toute la célébration':'Dupliquer toute la page']]}],confirm:'Continuer'});
- if(!answer)return;
- if(answer.kind==='celebration')return m018DuplicateCelebration(entry);
- if(answer.kind==='page')return m018DuplicatePage(q);
- ensureMemberPanel();if(dirty){save();await serverSave();if(db._serverPending)return}
- try{await memberPanel.duplicateVersion({...clone(q),name:q.name,translations:editorLocalization.pages[q.id]},editingLanguageId)}catch(e){siteNotice(e.message)}
+async function duplicateChoice(entry){
+ if(!entry)return;
+ if(!adminMembersEnabled)return m018DuplicateCelebration(entry);
+ if(dirty||db._serverPending){
+  siteNotice('Enregistrez vos modifications de contenu avant de créer une version.');
+  return;
+ }
+ try{
+  ensureMemberPanel();
+  const pages=db.pages.filter(p=>p.group==='celebration'&&
+   p.id.endsWith('-'+String(STAGE_SEED.celebrationId)))
+   .map(p=>({name:p.name,group:p.group,blocks:clone(p.blocks||[]),
+    translations:clone(editorLocalization.pages[p.id]||{})}));
+  await memberPanel.duplicateCelebrationVersion(pages,celebrationLabel(entry));
+ }catch(e){siteNotice('Duplication impossible : '+(e.message||e))}
 }
 function accessControls(kind,p){
  const box=n('div','m020-access'),label=n('label','editor-language-choice','Accès'),select=n('select');select.setAttribute('aria-label','Accès '+(kind==='page'?'de la page':'à la célébration'));
@@ -3492,10 +3510,11 @@ function render(){
   const control=el(key);if(control)control.hidden=inMembers||!!privateEdit&&key==='save-btn';
  }
  if((inMembers||privateEdit)&&el('view-site-btn'))el('view-site-btn').hidden=true;
+ syncSecondarySave();
  return result;
 }
 bindEditorShell({document,window,el,enter,onPreview:()=>{preview=!preview;selectedBlockId=null;blockEditSession=null;render()},isPreview:()=>preview,deselect:()=>{selectedBlockId=null;blockEditSession=null;document.querySelectorAll('.canvas .block.is-selected').forEach(box=>box.classList.remove('is-selected'))},shouldWarnBeforeUnload:()=>{if(memberPanel?.changed)return true;if(dirty||(IS_STAGE&&(db._serverPending||serverSaving)))return true;return false}});
-el('save-btn').onclick=IS_STAGE?()=>{save();void serverSave();}:()=>save(true);
+el('save-btn').onclick=saveCurrentContent;
 el('image-input').onchange=async function(){
  const file=this.files&&this.files[0],x=target;this.value='';
  if(!file||!x)return;
