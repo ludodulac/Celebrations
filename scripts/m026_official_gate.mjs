@@ -43,6 +43,11 @@ assert.equal(versions.length,1,'No split production traffic');
 assert.equal(versions[0].percentage,100);
 const version=versions[0].version_id;
 assert.match(version,/^[0-9a-f-]{36}$/i);
+if(mode==='before'&&process.env.M026_HOTFIX_EXPECTED_OFFICIAL_VERSION){
+ assert.equal(version,process.env.M026_HOTFIX_EXPECTED_OFFICIAL_VERSION,
+  'STOP: production Worker changed since verified M026. Never replace newer features with old branch.');
+ console.log('M026_HOTFIX_EXACT_BASELINE_OK '+version);
+}
 const baselineFile='/tmp/m026-official-baseline.json';
 const prev=mode==='before'?null:JSON.parse(readFileSync(baselineFile,'utf8'));
 if(prev) {
