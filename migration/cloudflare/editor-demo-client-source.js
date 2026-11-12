@@ -3134,6 +3134,45 @@ function userGuide(){
 }
 
 function settings(){
+ // A single persisted switch; changing it never writes access policies.
+ const mode=n('section','settings-actions m021b-admin-mode');
+ const modeCss=n('style');modeCss.nonce=document.querySelector('script[nonce]')?.nonce||'';
+ modeCss.textContent='.m021b-admin-mode{border:1px solid #cad7d8;border-radius:12px;padding:14px;margin:0 0 16px;max-width:790px}.m021b-mode-choice{display:flex;align-items:center;gap:12px;min-height:46px;cursor:pointer;font-weight:600}.m021b-mode-choice input{flex:0 0 auto;min-width:22px;min-height:22px;accent-color:#246a59}.m021b-admin-mode p{margin:.4rem 0;line-height:1.45}.m021-private-warning{color:#805316;background:#fff7dd;padding:.6rem;border-radius:8px;font-size:.93rem}.stage-editor [data-tab="members-spaces"][hidden]{display:none!important}@media(max-width:600px){.m021b-admin-mode{padding:12px}.m021b-mode-choice{align-items:flex-start}}';
+ const modeTitle=n('h2','','Mode de l’administration'),modeLabel=n('label','m021b-mode-choice');
+ const modeCheck=n('input');modeCheck.type='checkbox';modeCheck.checked=adminMembersEnabled;
+ modeCheck.disabled=!adminModeLoaded;
+ modeCheck.setAttribute('aria-label','Activer la gestion des membres et des accès privés');
+ modeLabel.append(modeCheck,n('span','','Activer la gestion des membres et des accès privés'));
+ const modeHelp=n('p','',adminMembersEnabled?
+  'Mode complet : membres, catégories et autorisations privées accessibles.':
+  'Mode simplifié : uniquement les fonctions nécessaires au site public.');
+ const modeStatus=n('p');modeStatus.setAttribute('role','status');
+ if(!adminModeLoaded)modeStatus.textContent='Réglage indisponible : actualisez la page avant de le modifier.';
+ mode.append(modeCss,modeTitle,modeLabel,modeHelp,modeStatus);
+ w.append(mode);
+ modeCheck.onchange=async()=>{
+  const desired=modeCheck.checked;
+  modeCheck.disabled=true;modeStatus.textContent='Enregistrement du mode…';
+  try{
+   // Obtain the current revision, refusing to overwrite newer editor data.
+   const fresh=await fetch('/api/site-identity',{credentials:'same-origin',cache:'no-store'});
+   const snapshot=await fresh.json();
+   if(!fresh.ok||!snapshot.ok)throw Error(snapshot.error||'Réglage indisponible');
+   if(snapshot.memberAccessUiEnabled!==adminMembersEnabled)
+    throw Error('Le mode a changé sur un autre appareil. Actualisez les paramètres.');
+   const response=await fetch('/api/site-identity',{method:'POST',credentials:'same-origin',
+    headers:{'content-type':'application/json'},
+    body:JSON.stringify({expectedRevision:snapshot.revision,memberAccessUiEnabled:desired})});
+   const result=await response.json();
+   if(!response.ok||!result.ok)throw Error(result.error||'Enregistrement refusé');
+   adminModeRevision=result.revision;adminMembersEnabled=result.memberAccessUiEnabled===true;
+   modeStatus.textContent='✓ Mode enregistré.';
+   render(); // Existing menu and form commands update immediately.
+  }catch(error){
+   modeCheck.checked=adminMembersEnabled;
+   modeStatus.textContent='❌ '+(error.message||error);
+  }finally{modeCheck.disabled=false;}
+ };
  const box=n('section','settings-actions');
  const heading=n('h2','','Identité du site');
  box.append(heading,n('p','','Choisissez un titre et une image pour l’en-tête du site. Les pages intérieures conservent leur navigation compacte.'));
