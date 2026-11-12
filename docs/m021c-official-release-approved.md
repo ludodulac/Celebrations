@@ -13,3 +13,7 @@ Le propriétaire autorise explicitement la mise en production de la version vali
 ## Sécurité du code administrateur
 
 Le secret GitHub de la préproduction M017 n'est **pas** le PIN historique du domaine officiel. La livraison doit conserver strictement le vérificateur et les secrets du site officiel et ne pas tenter une connexion avec un mauvais code. Les contrôles Chromium sans authentification examinent la page publique, le masquage de Connexion, le lien Administration, l'écran PIN et les refus d'accès aux données privées. Les fonctions authentifiées ont déjà été validées sur M016, mais leur parcours complet sur le domaine officiel nécessitera une validation par le propriétaire connecté.
+
+## Complément de compatibilité en production
+
+La lecture des bindings a révélé l'absence du secret indépendant `EDITOR_D1_CHALLENGE_SECRET` sur la version officielle antérieure. La nouvelle version préparée reçoit **uniquement** un signer cryptographique aléatoire de 64 caractères hexadécimaux via l'upload d'une version **inactive**, après sauvegardes, sans toucher au code PIN ni aux autres secrets. Le contrôle de la version active, de la configuration, des protections et des lignes historiques demeure impératif avant promotion. Les services d'e-mails Brevo restent facultatifs en mode simplifié ; aucune clé API n'est inventée.
