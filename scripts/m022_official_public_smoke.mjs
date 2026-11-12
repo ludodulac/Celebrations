@@ -20,18 +20,18 @@ try{
   const probe='/?m022_version_probe='+Date.now()+'-'+attempt;
   r=await page.goto(ORIGIN+probe,{waitUntil:'domcontentloaded',timeout:35000});
   if(r?.status()===200)modeMarker=await page.locator('body').getAttribute('data-member-login-visible');
-  if(r?.status()===200&&modeMarker==='0')break;
+  if(r?.status()===200&&['0','1'].includes(modeMarker))break;
   await page.waitForTimeout(1800);
  }
  assert.equal(r?.status(),200,'Actual official site must open');
- assert.equal(modeMarker,'0','New Worker not visible at official edge after propagation window');
+ assert.ok(['0','1'].includes(modeMarker),'New official visitor mode flag missing after propagation');
  await page.waitForTimeout(450);
  assert.equal(await page.locator('#back-admin').count(),1,'Historical admin footer link retained');
- assert.equal(await page.locator('#member-connection').isVisible(),false,
-  'Simplified official mode must hide member login button');
- assert.equal(await page.locator('body').getAttribute('data-member-login-visible'),'0');
+ assert.equal(await page.locator('#member-connection').isVisible(),modeMarker==='1',
+  'Member login button must follow the owner-selected mode without overriding it');
+ assert.equal(await page.locator('body').getAttribute('data-member-login-visible'),modeMarker);
  assert.equal(await page.locator('#general-navigation').count(),1,'Visitor pages/navigation intact');
- await page.screenshot({path:'docs/m022-official-smartphone/01-officiel-visiteur-simplifie.png',fullPage:true});
+ await page.screenshot({path:'docs/m022-official-smartphone/01-officiel-visiteur-mode-actuel.png',fullPage:true});
  const anonApi=await page.request.get(ORIGIN+'/api/site-identity',{failOnStatusCode:false});
  assert.equal(anonApi.status(),401,'Admin mode cannot be changed by anonymous visitors');
  const anonDraft=await page.request.get(ORIGIN+'/api/editor-open-draft?celebration='+cid,{failOnStatusCode:false});
@@ -53,7 +53,7 @@ try{
  assert.deepEqual(errors,[],'No browser JavaScript errors');
  console.log('M022_REAL_OFFICIAL_PUBLIC_AND_PIN_GATE_PASS '+JSON.stringify({
   official_public:200,celebration_public:200,login_form:true,
-  simplified_login_hidden:true,admin_footer_link:true,anonymous_drafts:401,
+  member_login_matches_saved_mode:true,admin_footer_link:true,anonymous_drafts:401,
   anonymous_members:401,anonymous_settings:401,
   official_pin_submitted:false,real_user_data_writes:0
  }));
