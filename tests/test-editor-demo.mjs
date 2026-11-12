@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
 import {handleEditorDemo} from '../migration/cloudflare/editor-demo-page.mjs';
@@ -352,4 +353,56 @@ test('a chosen divider survives publication, while historic pages get no automat
  assert.ok(render.includes("b.thickness")&&render.includes("b.widthPct")&&render.includes("b.color"));
  assert.ok(!render.includes('editor-zone-divider'),'No old automatic admin dividers on public pages');
  assert.ok(DEMO_CLIENT.includes("b('Trait de séparation'"),'Insertion between sections is explicit');
+});
+
+test('M028: language management is a local display preference under existing Settings',()=>{
+ const start=DEMO_CLIENT.indexOf('function settings(){');
+ const end=DEMO_CLIENT.indexOf('function m018LanguagesCategories(',start);
+ assert.ok(start>0&&end>start);
+ const settings=DEMO_CLIENT.slice(start,end);
+ assert.ok(settings.includes("n('details','settings-actions m028-language-settings')"),
+  'Languages live inside a closed-by-default native details panel');
+ assert.ok(settings.includes("n('summary','','🌍 Gestion des langues (facultatif)')"));
+ assert.ok(settings.includes("m018LanguagesCategories(languageTools)"),
+  'Reuses the original language management instead of adding a second one');
+ assert.ok(settings.includes("languageCheck.checked=adminLanguagesVisible"));
+ assert.ok(DEMO_CLIENT.includes('let adminLanguagesVisible=false;'),
+  'A fresh browser starts with translations tools hidden');
+ assert.ok(DEMO_CLIENT.includes('localStorage.getItem(LANGUAGE_TOOLS_PREF)'));
+ const changed=settings.slice(settings.indexOf('languageCheck.onchange=()=>{'),
+  settings.indexOf('languagesBox.append(',settings.indexOf('languageCheck.onchange=()=>{')));
+ assert.ok(changed.includes("localStorage.setItem(LANGUAGE_TOOLS_PREF"));
+ assert.ok(changed.includes("editingLanguageId='fr';clearLocaleView()"),
+  'Do not leave an invisible non-French editing context');
+ assert.doesNotMatch(changed,/fetch\(|serverSave\(|serverPublish\(|publishPage\(/,
+  'Changing the display preference cannot touch the server or publications');
+});
+test('M028: simplified navigation hides languages, complete navigation keeps Categories and private rights',()=>{
+ const start=DEMO_CLIENT.indexOf('function applyAdminMenu(){');
+ const end=DEMO_CLIENT.indexOf('const {validIso',start);
+ assert.ok(start>0&&end>start);
+ const menu=DEMO_CLIENT.slice(start,end);
+ assert.ok(menu.includes("languagesLink.hidden=!adminMembersEnabled"));
+ assert.ok(menu.includes("languagesLink.style.display=adminMembersEnabled?'':'none'"));
+ assert.ok(menu.includes("languagesLink.textContent='◇ Catégories'"));
+ const members=DEMO_CLIENT.slice(DEMO_CLIENT.indexOf('function memberSpaces(){'),
+  DEMO_CLIENT.indexOf('async function refreshPrivateCatalogue(){'));
+ assert.ok(members.includes("if(tab==='languages-categories')memberPanel.showCategories()"));
+ assert.ok(members.includes("else memberPanel.showMembers()"));
+ assert.ok(!members.includes("m018LanguagesCategories()"),
+  'Languages no longer duplicated in category/member navigation');
+ const html=readFileSync(new URL('../migration/cloudflare/editor-demo-preparation-page.mjs',import.meta.url),'utf8');
+ assert.match(html,/data-tab="languages-categories" hidden style="display:none">◇ Catégories/);
+});
+test('M028: French page editing is unchanged and language picker is explicitly opt-in',()=>{
+ const start=DEMO_CLIENT.indexOf("const row=n('div','editor-language-row m020-settings')");
+ const end=DEMO_CLIENT.indexOf("if(p.group==='celebration'&&IS_STAGE",start);
+ assert.ok(start>0&&end>start);
+ const row=DEMO_CLIENT.slice(start,end);
+ assert.match(row,/if\(adminLanguagesVisible\)\{\s*const label=n\('label','editor-language-choice','Langue'\)/);
+ assert.ok(row.includes("publicationActions('page',canonicalPage())"),'Keep page publishing');
+ assert.ok(row.includes("if(adminMembersEnabled)row.append(accessControls('page',canonicalPage()))"),'Keep private access controls');
+ assert.ok(row.includes("row.append(b('Enregistrer',saveCurrentContent"),'Keep Save');
+ assert.ok(DEMO_CLIENT.includes('if(IS_STAGE){await loadAdminMode();await serverLoad();'),
+  'Do not change server loading and pending-draft restoration');
 });
