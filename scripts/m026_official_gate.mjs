@@ -6,11 +6,16 @@ const ACCOUNT='60a7b17758a93fe6681ce998e72ddff0';
 const WORKER='celebrations-exit-production';
 const DB='28736d2a-479b-472b-bf82-703ad0affe10';
 const HOSTS=['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu'];
-const branch='refs/heads/fix/m026-mp3-detection-90mb-20261112';
+// Both workflows use the same read-only checks; only one explicitly approved ref may run.
+const isM028=process.env.M028_PROD_APPROVED==='YES';
+const branch=isM028?
+ 'refs/heads/feat/m028-language-options-in-settings-20261112':
+ 'refs/heads/fix/m026-mp3-detection-90mb-20261112';
 const mode=process.argv[2]||'before';
 assert.ok(['before','after-migration','before-promotion','after-promotion','after-rollback'].includes(mode));
 assert.equal(process.env.GITHUB_REF,branch);
-assert.equal(process.env.M026_PROD_APPROVED,'YES');
+if(isM028)assert.notEqual(process.env.M026_PROD_APPROVED,'YES','Never mix release approvals');
+else assert.equal(process.env.M026_PROD_APPROVED,'YES');
 assert.equal(process.env.CLOUDFLARE_ACCOUNT_ID,ACCOUNT);
 assert.ok((process.env.CLOUDFLARE_API_TOKEN||'').length>20);
 const base='https://api.cloudflare.com/client/v4/accounts/'+ACCOUNT;
