@@ -14,3 +14,7 @@ Le **titre de navigation** se saisit dans « Paramètres → Titre dans la barre
 - Les commandes serveur vérifient le PIN, l'origine et le numéro de révision, refusent les URLs externes/arbitraires, et s'appuient sur les enregistrements R2 éditeur/D1 historiques.
 - Un parcours de l'environnement M016 vérifie les cases PDF, la lecture anonyme avant/après et le titre sur mobile/ordinateur.
 - Aucune migration, aucun nouveau bucket, aucune seconde administration ; le déploiement officiel, si approuvé, reprend exactement les sauvegardes chiffrées D1 et R2 et le rollback Worker préexistants.
+
+## Préproduction M016 — parcours réel
+
+Le navigateur de préproduction définit provisoirement « Ronde des Archanges Universelle » à droite dans la barre existante ; contrôle sa présence sur deux pages de bureau et son absence sur mobile ; importe un minuscule PDF provisoire, vérifie que son URL est ouverte sans connexion, coche « Privé » et attend un HTTP 404 anonyme, puis décoche et attend HTTP 200 sur **la même URL**. Nettoie ensuite le PDF de test et restaure le titre et l'alignement précédents dans M016. Aucun contenu du site officiel n'est modifié.
