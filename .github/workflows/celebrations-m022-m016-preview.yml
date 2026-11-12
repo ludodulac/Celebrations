@@ -141,7 +141,7 @@ jobs:
         if: always()
         with:
           name: m022-real-M016-mobile-captures
-          path: docs/m022-smartphone
+          path: docs/m022-mobile
           if-no-files-found: ignore
       - name: Verify official worker deployment is unchanged
         if: always()
@@ -170,4 +170,4 @@ jobs:
           test -n "$PREVIOUS_M016_VERSION"
           npx wrangler versions deploy "${PREVIOUS_M016_VERSION}@100%" --yes \
             --config wrangler.m018.existing-preprod.toml \
-            --message "M021-B: restore isolated M016 Worker after failed smoke"
+            --message "M022: restore isolated M016 Worker after failed smoke"
