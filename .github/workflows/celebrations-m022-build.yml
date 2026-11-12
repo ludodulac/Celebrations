@@ -26,7 +26,7 @@ jobs:
           node scripts/build-m019-editor-client.mjs
           node scripts/build-m012b-member-spaces-inline.mjs --check
           node scripts/build-m019-editor-client.mjs --check
-          node --input-type=module --check < migration/cloudflare/editor-demo-client-source.js
+          node --check migration/cloudflare/editor-demo-client.mjs
           node --check migration/cloudflare/app/admin/editor-member-spaces-integration.mjs
           node --check migration/cloudflare/app/admin/real-editor-member-spaces.mjs
           node --check migration/cloudflare/app/styles/admin/stage-layout.mjs
