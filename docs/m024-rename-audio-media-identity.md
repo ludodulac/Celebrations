@@ -22,3 +22,7 @@
 - Tests de non-régression des commandes M022, pure media reference policy (sources D1, R2, traductions, brouillons, publications, droits privés), scripts de génération canoniques.
 - Déployer sur le Worker M016 isolé en sauvegardant D1/R2 M016, puis parcourir les paramètres et la médiathèque sur smartphone et ordinateur, sans créer de données officielles.
 - Après succès, sauvegarder D1 et R2 officiels de façon chiffrée et vérifiable et déployer **seulement** le Worker `celebrations-exit-production`, conserver l'ancien PIN et les bindings, comparer données et droits, contrôler directement le domaine officiel, pouvoir restaurer l'ancienne version.
+
+## Vérification UX supplémentaire
+
+Le renommage d'une page ne reconstruit pas le formulaire pendant le changement du champ : ainsi un clic immédiat sur « Enregistrer » n'est pas perdu. Le titre de navigation se met à jour sur place. Le bloc audio vide ne génère plus de conteneur visuel superflu.
