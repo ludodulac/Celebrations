@@ -581,7 +581,7 @@ function publicFiles(){return mediaCatalogue.publicFiles(window.__PREPARATION_SE
 // The file library is global; each public reference records all celebration/day uses.
 const fileSeeds=new Map(),fileGroups=new Map();
 let globalFiles=null,globalFilesLoading=null,globalFilesComplete=false,hiddenFileIds=new Set();
-let globalMedia=[],remoteMediaLoading=false,globalMediaLoaded=false;
+let globalMedia=[],globalPdfPrivacy={},remoteMediaLoading=false,globalMediaLoaded=false;
 const mediaCategoryOf=m=>mediaCatalogue.mediaCategoryOf(m);
 async function refreshGlobalMedia(){
  if(remoteMediaLoading)return;
@@ -591,6 +591,7 @@ async function refreshGlobalMedia(){
   if(!response.ok)throw Error('Bibliothèque distante indisponible');
   const result=await response.json();
   globalMedia=Array.isArray(result.items)?result.items:[];
+  globalPdfPrivacy=result.pdfPrivacy&&typeof result.pdfPrivacy==='object'?result.pdfPrivacy:{};
   globalMediaLoaded=true;
   if(tab==='media')render();
  }catch{status.textContent='La médiathèque du serveur n’est pas accessible. Les fichiers existants sont conservés.'}
@@ -760,6 +761,46 @@ async function uploadToMediaServer(file,onProgress=null){
  globalMedia=globalMedia.filter(x=>x.id!==result.item.id).concat(result.item);
  serverRevision=result.revision;
  return result.item;
+}
+// A PDF is PUBLIC unless the owner checks « Privé ». This is a single
+// authenticated server setting, not a page access-control rewrite.
+function pdfPrivacyControl(record){
+ const src=String(record?.src||'');
+ const box=n('label','m027-pdf-privacy');
+ if(!/^\/media\/(?!.*\.\.)[^?#]+\.pdf$/i.test(src))return null;
+ const check=n('input');check.type='checkbox';check.checked=globalPdfPrivacy[src]===true;
+ check.setAttribute('aria-label','Privé : '+String(record.name||'PDF'));
+ box.append(check,n('span','','Privé'));
+ check.onchange=async()=>{
+  const desired=check.checked;check.disabled=true;
+  try{
+   const fresh=await fetch('/api/editor-media',{credentials:'same-origin',cache:'no-store'});
+   const snapshot=await fresh.json();
+   if(!fresh.ok||!snapshot.ok)throw Error(snapshot.error||'Médiathèque indisponible');
+   // The catalogue GET is authenticated; use its current server revision
+   // rather than a potentially stale editor page revision.
+   const site=await fetch('/api/site-identity',{credentials:'same-origin',cache:'no-store'});
+   const preferences=await site.json();
+   if(!site.ok||!preferences.ok)throw Error(preferences.error||'Serveur indisponible');
+   if((snapshot.pdfPrivacy?.[src]===true)===(desired)){
+    globalPdfPrivacy={...snapshot.pdfPrivacy};return;
+   }
+   const response=await fetch('/api/editor-media?action=pdf-privacy',{
+    method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},
+    body:JSON.stringify({src,private:desired,expectedRevision:preferences.revision})
+   });
+   const result=await response.json().catch(()=>({}));
+   if(!response.ok||!result.ok)throw Error(result.error||'Réglage non enregistré');
+   serverRevision=result.revision;
+   globalPdfPrivacy={...globalPdfPrivacy};
+   if(desired)globalPdfPrivacy[src]=true;else delete globalPdfPrivacy[src];
+   status.textContent=desired?'✓ PDF privé : lien inaccessible aux visiteurs.':
+    '✓ PDF public : lien partageable sans connexion.';
+  }catch(error){
+   check.checked=!desired;siteNotice(error.message||String(error));
+  }finally{check.disabled=false;}
+ };
+ return box;
 }
 async function createExternalMedia(){
  const value=String((await sitePrompt('Lien HTTPS vers une vidéo, un PDF, une image, un audio ou une page :'))||'').trim();
@@ -3065,6 +3106,7 @@ function media(){
   const controls=n('div','file-actions');
   if(chosenBlock&&mediaCategory==='audios'&&record.type==='audio')
    controls.append(b('Insérer dans le lecteur',()=>attachChosenAudio(record),'sm primary'));
+  if(record.type==='pdf'){const privacy=pdfPrivacyControl(record);if(privacy)controls.append(privacy)}
   if(unused)controls.append(b('Supprimer si inutilisé',()=>void deleteGlobalMedia(record),'sm'));
   card.append(controls);cards.append(card);
  }
@@ -3085,6 +3127,9 @@ function media(){
   libraryPreview(card,record.name,record.src,record.category||mediaCategoryOf(record));
   libraryUnusedText(card,unused,hasImage);
   libraryLocationLinks(card,refs);
+  if((record.category==='pdf'||libraryTypeLabel(record)==='PDF')){
+   const privacy=pdfPrivacyControl(record);if(privacy)card.append(privacy);
+  }
   if(chosenBlock&&mediaCategory==='audios'&&record.category==='audios')
    card.append(b('Insérer dans le lecteur',()=>attachChosenAudio(record),'sm primary'));
   if(unused){
@@ -3352,7 +3397,48 @@ function settings(){
    modeStatus.textContent='❌ '+(error.message||error);
   }finally{modeCheck.disabled=false;}
  };
-
+ // Desktop-only label in the existing visitor menu bar. It does not create
+ // another header and never changes the title entered in page content.
+ const navPanel=n('section','settings-actions m027-navigation-settings');
+ navPanel.append(n('h2','','Titre dans la barre du menu'));
+ const label=n('label','m027-nav-field','Titre affiché sur ordinateur');
+ const title=n('input');title.type='text';title.maxLength=110;
+ title.setAttribute('aria-label','Titre dans la barre du menu');title.placeholder='Ronde des Archanges Universelle';
+ label.append(title);
+ const alignLabel=n('label','m027-nav-field','Position du titre');
+ const select=n('select');select.setAttribute('aria-label','Position du titre');
+ for(const [value,text]of [['left','À gauche'],['center','Au centre'],['right','À droite']]){
+  const option=n('option','',text);option.value=value;select.append(option);
+ }
+ alignLabel.append(select);
+ const saveTitle=b('Enregistrer le titre',async()=>{
+  saveTitle.disabled=true;navStatus.textContent='Enregistrement…';
+  try{
+   const current=await fetch('/api/site-identity',{credentials:'same-origin',cache:'no-store'});
+   const preferences=await current.json();
+   if(!current.ok||!preferences.ok)throw Error(preferences.error||'Paramètres indisponibles');
+   const response=await fetch('/api/site-identity',{
+    method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},
+    body:JSON.stringify({expectedRevision:preferences.revision,
+     navigation:{title:title.value.trim(),position:select.value}})
+   });
+   const result=await response.json().catch(()=>({}));
+   if(!response.ok||!result.ok)throw Error(result.error||'Enregistrement refusé');
+   serverRevision=result.revision;navStatus.textContent='✓ Titre enregistré sur toutes les pages du site.';
+  }catch(error){navStatus.textContent='❌ '+(error.message||String(error))}
+  finally{saveTitle.disabled=false}
+ },'sm primary');
+ const navStatus=n('p');navStatus.setAttribute('role','status');
+ const style=n('style');style.nonce=document.querySelector('script[nonce]')?.nonce||'';
+ style.textContent='.m027-navigation-settings{display:grid;gap:12px;max-width:790px;padding:14px;border:1px solid #cad7d8;border-radius:12px}.m027-nav-field{display:grid;gap:7px;font-weight:600}.m027-nav-field input,.m027-nav-field select{width:100%;max-width:100%;min-height:44px;padding:8px;border:1px solid #b7c2c8;border-radius:9px}.m027-navigation-settings button{justify-self:start}.m027-pdf-privacy{display:inline-flex;gap:8px;align-items:center;min-height:44px;font-weight:600;cursor:pointer}.m027-pdf-privacy input{width:20px;height:20px;accent-color:#28594b}';
+ navPanel.append(style,label,alignLabel,saveTitle,navStatus);
+ w.append(navPanel);
+ void fetch('/api/site-identity',{credentials:'same-origin',cache:'no-store'}).then(async response=>{
+  const value=await response.json();if(!response.ok||!value.ok)throw Error(value.error||'Paramètres indisponibles');
+  if(!navPanel.isConnected)return;
+  title.value=value.navigation?.title||'';
+  select.value=['left','center','right'].includes(value.navigation?.position)?value.navigation.position:'center';
+ }).catch(error=>{if(navPanel.isConnected)navStatus.textContent='❌ '+(error.message||String(error))});
 }
 function m018LanguagesCategories(){
   const panel=n('section','m018-language-panel');
