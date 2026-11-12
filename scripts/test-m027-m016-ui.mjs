@@ -36,6 +36,27 @@ try{
   page.locator('button[type="submit"]').click()]);
  original=(await call('/api/site-identity')).navigation;
  await page.goto(HOST+'/__editor/demo-preparation?celebration=90000002',{waitUntil:'domcontentloaded'});
+ // The help is a built-in part of the *real* administration, not a separate
+ // documentation page. Confirm its 38 sections, expansion and live search.
+ await page.locator('[data-tab="guide"]').click();
+ await page.getByRole('heading',{name:'Mode d’emploi du site'}).waitFor();
+ assert.equal(await page.locator('.editor-guide .guide-topic').count(),38,
+  'The updated full user guide must have 38 sections');
+ const guideSearch=page.getByRole('searchbox',{name:'Rechercher dans le mode d’emploi'});
+ await guideSearch.fill('200 Mo');
+ await page.getByText('Importer un MP3 jusqu’à 200 Mo et l’écouter',{exact:true}).waitFor();
+ assert.ok(await page.locator('.guide-topic:visible').count()>=1,
+  'A search for the updated MP3 limit must return a section');
+ await guideSearch.fill('');
+ await page.getByRole('button',{name:'Tout ouvrir'}).click();
+ assert.equal(await page.locator('.editor-guide .guide-topic[open]').count(),38);
+ const guideText=await page.locator('.editor-guide').innerText();
+ assert.match(guideText,/200 000 000 octets/);
+ assert.match(guideText,/Rendre un PDF public ou privé/);
+ assert.match(guideText,/mode simplifié/i);
+ await page.getByRole('button',{name:'Tout fermer'}).click();
+ assert.equal(await page.locator('.editor-guide .guide-topic[open]').count(),0);
+ console.log('M027_M016_GUIDE_BROWSER_PASS topics=38 search=true expand=true mp3_200mb=true pdf_help=true');
  await page.locator('[data-tab="settings"]').click();
  const heading=page.getByRole('heading',{name:'Titre dans la barre du menu'});
  await heading.waitFor();
