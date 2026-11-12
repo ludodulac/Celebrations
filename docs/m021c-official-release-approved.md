@@ -17,3 +17,7 @@ Le secret GitHub de la préproduction M017 n'est **pas** le PIN historique du do
 ## Complément de compatibilité en production
 
 La lecture des bindings a révélé l'absence du secret indépendant `EDITOR_D1_CHALLENGE_SECRET` sur la version officielle antérieure. La nouvelle version préparée reçoit **uniquement** un signer cryptographique aléatoire de 64 caractères hexadécimaux via l'upload d'une version **inactive**, après sauvegardes, sans toucher au code PIN ni aux autres secrets. Le contrôle de la version active, de la configuration, des protections et des lignes historiques demeure impératif avant promotion. Les services d'e-mails Brevo restent facultatifs en mode simplifié ; aucune clé API n'est inventée.
+
+## Correction de contrôle CDN
+
+Le premier essai a respecté la sauvegarde, ajouté seulement les migrations M020 additives, puis chargé la nouvelle version officielle. Le contrôle Chromium a rencontré immédiatement une réponse encore servie par l'ancienne version à l'edge ; le rollback automatique vers le Worker initial a été effectué et vérifié. Le contrôle officiel attend désormais explicitement l'arrivée de la nouvelle version via requêtes non mises en cache, avant de poursuivre. Les migrations M020 déjà appliquées ne sont pas rejouées.
