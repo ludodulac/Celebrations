@@ -5,7 +5,7 @@ import {loadSevenStageContent,STAGES} from './editor-demo-preparation-page.mjs';
 import {readEditorState} from './editor-publication-api.mjs';
 import {normalizedSiteIdentity} from './site-identity-api.mjs';
 import {navigationPreference} from './app/domain/editor-site-preferences.mjs';
-import {mayUseIsolatedMemberApi,isReadonlyCandidateHost} from './app/security/editor-route-policy.mjs';
+import {mayUseIsolatedMemberApi,isReadonlyCandidateHost,isM016AdminPreprodHost} from './app/security/editor-route-policy.mjs';
 import {TRIAL_SITE_CLIENT,TRIAL_SITE_STYLE} from './editor-trial-site-client.mjs';
 const HOST='celebrations-exit-staging.rondes.workers.dev';
 // M008-A responsive switcher; uses the existing CSP nonce and M006 DOM component.
@@ -51,7 +51,9 @@ const safeJson=x=>JSON.stringify(x).replace(/</g,'\\u003c').replace(/\u2028/g,'\
 export async function handleTrialSite(request,env){
  const url=new URL(request.url);
  const memberSite=mayUseIsolatedMemberApi(url,env)&&env.MEMBER_PAGE_READ_API_ENABLED==='true';
- if(!memberSite&&url.hostname!==HOST&&!['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu','celebrations-visual-candidate.rondes.workers.dev'].includes(url.hostname)&&!isReadonlyCandidateHost(url.hostname))return new Response('Not found',{status:404});
+ // The existing M016 public preview is permitted only under its exact
+ // two environment opt-ins; all private page projections remain sanitized.
+ if(!memberSite&&!isM016AdminPreprodHost(url.hostname,env)&&url.hostname!==HOST&&!['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu','celebrations-visual-candidate.rondes.workers.dev'].includes(url.hostname)&&!isReadonlyCandidateHost(url.hostname))return new Response('Not found',{status:404});
  if(request.method!=='GET'&&request.method!=='HEAD')return new Response('Method not allowed',{status:405});
  if(!env.DB)return new Response('Site d’essai momentanément indisponible',{status:503});
  const slug=url.searchParams.get('page');
