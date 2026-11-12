@@ -6,7 +6,7 @@ permissions:
   contents: read
   actions: read
 concurrency:
-  group: celebrations-m021a-isolated-m016
+  group: celebrations-m021b-isolated-m016
   cancel-in-progress: false
 jobs:
   m021b-local:
@@ -92,7 +92,7 @@ jobs:
         run: |
           npm install --no-save --no-package-lock wrangler@4 playwright@1.58.2
           npx playwright install --with-deps chromium
-      - name: Encrypted backup of isolated M016 D1 before migration
+      - name: Encrypted backup of isolated M016 D1 before UI-only deployment
         working-directory: migration/cloudflare
         run: |
           set -euo pipefail
