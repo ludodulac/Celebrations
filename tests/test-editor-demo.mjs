@@ -363,6 +363,8 @@ test('M028: language management is a local display preference under existing Set
  assert.ok(settings.includes("n('details','settings-actions m028-language-settings')"),
   'Languages live inside a closed-by-default native details panel');
  assert.ok(settings.includes("n('summary','','🌍 Gestion des langues (facultatif)')"));
+ assert.ok(settings.includes("languagesBox.open=adminLanguagesVisible"),
+  'The panel remains open after adding/renaming a language and rerendering Settings');
  assert.ok(settings.includes("m018LanguagesCategories(languageTools)"),
   'Reuses the original language management instead of adding a second one');
  assert.ok(settings.includes("languageCheck.checked=adminLanguagesVisible"));
