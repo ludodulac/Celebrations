@@ -1464,7 +1464,7 @@ function save(explicit=false){
   status.textContent='Enregistrement impossible : vérifiez l’espace disponible.';
  }
 }
-function enter(t,p){if(!adminMembersEnabled&&['members-spaces','participants'].includes(t))return;if(privateEdit){if(t==='members-spaces')closePrivatePage();return;}if(['members-spaces','participants','languages-categories'].includes(t))preview=false;if(dirty){save();if(dirty)return}if(p)id=p;clearLocaleView();selectedBlockId=null;blockEditSession=null;tab=t;render();}
+function enter(t,p){if(!adminMembersEnabled&&['members-spaces','participants','languages-categories'].includes(t))return;if(privateEdit){if(t==='members-spaces')closePrivatePage();return;}if(['members-spaces','participants','languages-categories'].includes(t))preview=false;if(dirty){save();if(dirty)return}if(p)id=p;clearLocaleView();selectedBlockId=null;blockEditSession=null;tab=t;render();}
 let blockEditSession=null;
 function refreshBlockEditBaseline(){
  if(!blockEditSession)return;
@@ -3672,7 +3672,7 @@ function privatePageWorkspace(){
  const editor=n('div','celebration-editor');w.append(editor);pageWorkspace(page().group==='page'?(page().placement==='footer'?'footer':'page'):'celebration',editor);
 }
 function render(){
- if(!adminMembersEnabled&&['members-spaces','participants'].includes(tab))tab='pages';
+ if(!adminMembersEnabled&&['members-spaces','participants','languages-categories'].includes(tab))tab='pages';
  applyAdminMenu();
  const inMembers=['members-spaces','participants','languages-categories'].includes(tab);
  document.querySelector('.stage-editor')?.classList.toggle('is-catalogue',inMembers);
