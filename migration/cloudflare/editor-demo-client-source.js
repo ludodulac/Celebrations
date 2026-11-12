@@ -1000,10 +1000,13 @@ async function serverLoad(){
 }
 // Saving creates a private draft. Publication is an explicit second action
 // and updates ONLY the chosen public page or celebration.
-async function serverPublish(command){
+async function serverPublish(command,{flushContent=true}={}){
  if(serverSaving){serverMessage('Un enregistrement est en cours. Réessayez après confirmation.');return false;}
- if(dirty||db._serverPending){
-  save();await serverSave();
+ // A visibility choice is not an implicit save of unsaved edits.
+ const unsavedContent=dirty||!!db._serverPending;
+ if(flushContent&&unsavedContent){
+  if(dirty)save();
+  await serverSave();
   if(db._serverPending||serverRevision===null)return false;
  }
  if(serverRevision===null){serverMessage('Rechargez la version du serveur avant de publier.');return false}
@@ -1029,7 +1032,8 @@ async function serverPublish(command){
    return false;
   }
   serverRevision=result.revision;
-  db._serverRevision=serverRevision;db._serverPending=false;
+  db._serverRevision=serverRevision;
+  if(!unsavedContent||flushContent)db._serverPending=false;
   if(command.kind==='page'){
    const item=db.pages.find(p=>p.id===command.pageId);if(item)item.visibility=command.visibility;
   }else if(command.kind==='celebration'){
@@ -1050,8 +1054,9 @@ async function serverPublish(command){
    '✓ Médiathèque générale actualisée.');
   // Publication is a remote operation, not an undoable local edit. Reset
   // history here so Ctrl+Z can never roll back a published/hidden status.
-  if(typeof resetUndoHistory==='function')resetUndoHistory();
+  if(typeof resetUndoHistory==='function'&&(!unsavedContent||flushContent))resetUndoHistory();
   render();
+  if(!flushContent&&unsavedContent)serverMessage('✓ Visibilité modifiée. Le contenu en cours reste à enregistrer.');
   return true;
  }catch(e){serverMessage('❌ Connexion indisponible : aucun changement public effectué.');return false}
 }
@@ -1096,7 +1101,7 @@ async function serverSave(){
   return false;
  }
  serverSaving=true;
- const button=el('save-btn');button.disabled=true;button.textContent='Enregistrement sur le serveur…';
+ const button=el('save-btn');button.disabled=true;button.textContent='Enregistrement sur le serveur…';syncSecondarySave();
  button.classList.remove('save-confirmed','save-failed');
  serverMessage('Sauvegarde sécurisée en cours…');
  const started=serverLocalEditCounter;
@@ -1168,7 +1173,7 @@ async function serverSave(){
   const live=!!payload.publishedPageId;
   const label=live?'✓ Enregistré et mis à jour sur le site public':
    '✓ Enregistré sur le serveur (brouillon)';
-  button.textContent=label;button.classList.add('save-confirmed');
+  button.textContent=label;button.classList.add('save-confirmed');syncSecondarySave();
   serverMessage(label+' — contenu revérifié après enregistrement.');
   clearTimeout(saveFeedbackTimer);
   saveFeedbackTimer=setTimeout(()=>{
@@ -1183,7 +1188,7 @@ async function serverSave(){
   serverMessage('❌ '+(e.message||'Erreur réseau')+' Modifications conservées sur cet appareil.');
   return false;
  }finally{
-  serverSaving=false;button.disabled=false;
+  serverSaving=false;button.disabled=false;syncSecondarySave();
   if(serverSaveQueued){
    serverSaveQueued=false;
    // Another edit made while the first save was in flight is never discarded.
@@ -1288,10 +1293,17 @@ document.addEventListener('keydown',event=>{
   focus.matches?.('input,textarea')))return;
  if(undoStack.length){event.preventDefault();undoLastEditorAction()}
 });
+function syncSecondarySave(){
+ const secondary=document.querySelector('.stage-editor .m022-save'),primary=el('save-btn');
+ if(secondary&&primary){secondary.disabled=primary.disabled;secondary.textContent=primary.textContent;}
+}
+function saveCurrentContent(){if(IS_STAGE){save();void serverSave()}else save(true)}
 function mark(){
  commitLocalizedView();
  if(IS_STAGE&&!privateEdit){serverLocalEditCounter++;db._serverPending=true;}
- dirty=true;rememberUndoChange();el('save-btn').textContent='Enregistrer •';status.textContent='Modifications non enregistrées';}
+ dirty=true;rememberUndoChange();el('save-btn').textContent='Enregistrer •';
+ syncSecondarySave();status.textContent='Modifications non enregistrées';
+}
 let saveFeedbackTimer=null;
 function save(explicit=false){
  // Private M005 pages must NEVER enter localStorage or legacy editor R2.
@@ -1301,7 +1313,7 @@ function save(explicit=false){
   const button=el('save-btn');
   button.textContent='Enregistrer';button.classList.remove('save-failed');
   status.textContent='✓ Enregistré dans ce navigateur.';
-  refreshBlockEditBaseline();
+  syncSecondarySave();refreshBlockEditBaseline();
   if(explicit===true){
    button.textContent='✓ Enregistré';button.classList.add('save-confirmed');
    const toast=el('editor-save-toast');if(toast){toast.textContent='✓ Enregistré';toast.hidden=false}
@@ -2415,14 +2427,27 @@ function publicationActions(kind,q){
  if(!adminMembersEnabled&&historicallyPrivate(kind,q))
   return n('p','m021-private-warning','Ce contenu est déjà privé. Réactivez la gestion des membres dans Paramètres pour modifier sa publication ou ses autorisations.');
  const outer=n('div','publication-status-controls');
- const state=kind==='page'?stateOfPage(q):celebrationState(q);
- const stateBadge=n('span','publication-badge state-'+state);stateBadge.setAttribute('role','img');stateBadge.setAttribute('aria-label',VISIBILITY_LABELS[state]);outer.append(stateBadge);
- const field=n('label','editor-language-choice','Visibilité'),select=n('select');select.setAttribute('aria-label','Visibilité '+(kind==='page'?'de la page':'de la célébration'));
- for(const [value,label]of [['draft','Brouillon'],['published','Visible'],['hidden','Masqué']]){const option=n('option','',label);option.value=value;select.append(option)}select.value=state;
- const apply=b(state==='published'?'Mettre à jour le site':'Appliquer',async()=>{
-  if(select.value==='hidden'&&!await siteConfirm('Masquer ce contenu pour les visiteurs ?'))return;
-  if(await serverPublish(editorPageModel.publicationIntent(kind,q,select.value))){q.visibility=select.value;render()}
- },'sm');field.append(select);outer.append(field,apply);
+ const current=kind==='page'?stateOfPage(q):celebrationState(q);
+ const badge=n('span','publication-badge state-'+current);
+ badge.setAttribute('role','img');badge.setAttribute('aria-label',VISIBILITY_LABELS[current]);outer.append(badge);
+ const field=n('label','editor-language-choice','Visibilité'),select=n('select');
+ select.setAttribute('aria-label','Visibilité '+(kind==='page'?'de la page':'de la célébration'));
+ for(const [value,label]of [['draft','Brouillon'],['published','Visible'],['hidden','Masqué']]){
+  const option=n('option','',label);option.value=value;select.append(option);
+ }
+ select.value=current;
+ select.onchange=async()=>{
+  const chosen=select.value;
+  if(chosen===current)return;
+  if(chosen==='hidden'&&!await siteConfirm('Masquer ce contenu pour les visiteurs ?')){
+   select.value=current;return;
+  }
+  select.disabled=true;badge.textContent='En cours…';
+  const success=await serverPublish(editorPageModel.publicationIntent(kind,q,chosen),{flushContent:false});
+  if(success){q.visibility=chosen;render();}
+  else{select.value=current;badge.textContent='';select.disabled=false;}
+ };
+ field.append(select);outer.append(field);
  return outer;
 }
 function attachPagePublicationControls(list,group){
@@ -2432,20 +2457,24 @@ function attachPagePublicationControls(list,group){
   if(!choose)continue;
   let row=choose.closest('.general-page-row');
   if(!row){row=n('div','general-page-row');choose.replaceWith(row);row.append(choose)}
-  let opts=row.querySelector('.page-options');
-  if(!opts){
-   opts=n('details','page-options');
-   const summary=n('summary','','⋯');summary.setAttribute('aria-label','Options de la page '+p.name);
-   opts.append(summary);row.append(opts);
-  }
-  let menu=opts.querySelector('.page-options-menu');
-  if(!menu){menu=n('div','page-options-menu');opts.append(menu)}
-
-  if(group==='celebration'&&/^extra-[0-9a-f-]{30,45}-/.test(p.id)&&
-    p.id.endsWith('-'+String(window.__PREPARATION_SEED__?.celebrationId))){
+  // Always expose useful actions: historical stages are protected from
+  // destructive deletion but can be edited or hidden and shown again.
+  const opts=n('details','page-options');
+  const summary=n('summary','','⋯');
+  summary.setAttribute('aria-label','Actions pour la page '+p.name);
+  summary.title='Modifier et gérer la visibilité de cette page';
+  const menu=n('div','page-options-menu');
+  menu.append(b('Modifier cette page',()=>enter('celebrations',p.id),'sm'));
+  menu.append(publicationActions('page',p));
+  const deletion=editorPageCommands.deletionPlan(db,p,STAGE_SEED?.celebrationId);
+  if(deletion.allowed){
    const remove=b('Supprimer la page',()=>removeCustomPage(p),'sm');
    remove.classList.add('danger');menu.append(remove);
+  }else{
+   menu.append(n('small','page-options-protected',
+    'Page historique protégée : utilisez « Masqué » pour la retirer du site.'));
   }
+  opts.append(summary,menu);row.append(opts);
   const state=stateOfPage(p),badge=n('span','inline-page-state state-'+state);
   badge.setAttribute('role','img');badge.setAttribute('aria-label',VISIBILITY_LABELS[state]);
   badge.title=VISIBILITY_LABELS[state];row.insertBefore(badge,opts);
@@ -2536,7 +2565,11 @@ function pageWorkspace(group,mount=w){
   const label=n('label','editor-language-choice','Langue'),picker=n('select');picker.setAttribute('aria-label','Langue');
   for(const lang of editorLocalization.registry.languages){const opt=n('option','',lang.name);opt.value=lang.id;picker.append(opt)}picker.value=editingLanguageId;
   picker.onchange=()=>{if(dirty){save();if(dirty)return}editingLanguageId=picker.value;clearLocaleView();selectedBlockId=null;render()};
-  label.append(picker);row.append(label,b('Dupliquer',()=>duplicateChoice(null,canonicalPage()),'sm'));right.append(row);
+  label.append(picker);row.append(label);
+   // The celebration already has a clear “＋ Page” action.
+   if(p.group!=='celebration')row.append(b('Dupliquer',()=>m018DuplicatePage(canonicalPage()),'sm'));
+   row.append(b('Enregistrer',saveCurrentContent,'sm m022-save'));
+   right.append(row);
   if(editingLanguageId!=='fr'){
    const field=n('label','editor-language-title','Titre de la page dans cette langue');
    const input=n('input');input.type='text';input.maxLength=180;input.value=p.name;
@@ -2654,7 +2687,7 @@ if(adminMembersEnabled){
   publication.append(accessControls('celebration',selectedEntry));
   publication.append(b('Versions par catégorie',()=>showContentVersions(),'sm'));
  }
-   publication.append(b('Dupliquer',()=>duplicateChoice(selectedEntry,canonicalPage()),'sm'));
+   publication.append(b('Dupliquer',()=>duplicateChoice(selectedEntry),'sm'));
   w.append(publication);
  }
  const current=plannedEntries().find(p=>p.id===String(window.__PREPARATION_SEED__.celebrationId));
@@ -3361,40 +3394,107 @@ async function showContentVersions(){
   memberPanel.showSpaces();w.append(memberPanelRoot);
  }catch(e){siteNotice('Versions indisponibles : '+e.message)}
 }
-async function duplicateChoice(entry,q){
- if(!adminMembersEnabled)return entry?m018DuplicateCelebration(entry):m018DuplicatePage(q);
- const answer=await siteDialog({title:'Dupliquer',fields:[{name:'kind',label:'Que souhaitez-vous dupliquer ?',radio:true,value:'version',options:[['version','Dupliquer une version'],[entry?'celebration':'page',entry?'Dupliquer toute la célébration':'Dupliquer toute la page']]}],confirm:'Continuer'});
- if(!answer)return;
- if(answer.kind==='celebration')return m018DuplicateCelebration(entry);
- if(answer.kind==='page')return m018DuplicatePage(q);
- ensureMemberPanel();if(dirty){save();await serverSave();if(db._serverPending)return}
- try{await memberPanel.duplicateVersion({...clone(q),name:q.name,translations:editorLocalization.pages[q.id]},editingLanguageId)}catch(e){siteNotice(e.message)}
+async function duplicateChoice(entry){
+ if(!entry)return;
+ if(!adminMembersEnabled)return m018DuplicateCelebration(entry);
+ if(dirty||db._serverPending){
+  siteNotice('Enregistrez vos modifications de contenu avant de créer une version.');
+  return;
+ }
+ try{
+  ensureMemberPanel();
+  const pages=db.pages.filter(p=>p.group==='celebration'&&
+   p.id.endsWith('-'+String(STAGE_SEED.celebrationId)))
+   .map(p=>({name:p.name,group:p.group,blocks:clone(p.blocks||[]),
+    translations:clone(editorLocalization.pages[p.id]||{})}));
+  const created=await memberPanel.duplicateCelebrationVersion(pages,celebrationLabel(entry));
+  if(created)status.textContent='✓ Version créée en brouillon : '+celebrationLabel(entry)+' — '+created.category+' — '+created.language+' ('+created.pages+' pages).';
+ }catch(e){siteNotice('Duplication impossible : '+(e.message||e))}
 }
 function accessControls(kind,p){
- const box=n('div','m020-access'),label=n('label','editor-language-choice','Accès'),select=n('select');select.setAttribute('aria-label','Accès '+(kind==='page'?'de la page':'à la célébration'));
+ const box=n('div','m020-access'),label=n('label','editor-language-choice','Accès'),select=n('select');
+ select.setAttribute('aria-label','Accès '+(kind==='page'?'de la page':'à la célébration'));
  const currentSpace=p.spaceId?privateCatalogue?.record.spaces.find(s=>s.id===p.spaceId):null;
- const policy=currentSpace?(currentSpace.visibility==='PUBLIC'?{mode:'PUBLIC'}:currentSpace.accessPolicy.mode==='PUBLIC'?{mode:'ALL_PRIVATE_TYPES'}:currentSpace.accessPolicy):kind==='celebration'?privateCatalogue?.celebrationAccessPolicy:p.accessPolicy;
- for(const [value,text]of [['PUBLIC','Public'],['PRIVATE','Privé']]){const option=n('option','',text);option.value=value;select.append(option)}select.value=policy&&policy.mode!=='PUBLIC'?'PRIVATE':'PUBLIC';
+ const original=currentSpace?
+  (currentSpace.visibility==='PUBLIC'?{mode:'PUBLIC'}:
+   currentSpace.accessPolicy.mode==='PUBLIC'?{mode:'ALL_PRIVATE_TYPES'}:currentSpace.accessPolicy):
+  kind==='celebration'?privateCatalogue?.celebrationAccessPolicy:p.accessPolicy;
+ let confirmed=clone(original||{mode:'PUBLIC'}),busy=false;
+ for(const [value,title]of [['PUBLIC','Public'],['PRIVATE','Privé']]){
+  const option=n('option','',title);option.value=value;select.append(option);
+ }
  const categories=n('fieldset');categories.append(n('legend','','Catégories'));
- const all=n('input');all.type='checkbox';all.checked=policy?.mode!=='SELECTED_TYPES';const allLabel=n('label','','Tous les inscrits à cette célébration');allLabel.prepend(all);categories.append(allLabel);
+ const all=n('input');all.type='checkbox';
+ const allLabel=n('label','','Tous les inscrits à cette célébration');allLabel.prepend(all);categories.append(allLabel);
  const checks=[];
- for(const type of availableCategories.filter(t=>!t.disabled)){const check=n('input');check.type='checkbox';check.value=type.id;check.checked=policy?.typeIds?.includes(type.id)||false;const item=n('label','',type.name);item.prepend(check);categories.append(item);checks.push(check);check.onchange=()=>{if(check.checked)all.checked=false}}
- all.onchange=()=>{if(all.checked)checks.forEach(c=>c.checked=false)};
- const apply=b('Enregistrer l’accès',async()=>{
+ for(const type of availableCategories.filter(t=>!t.disabled)){
+  const check=n('input');check.type='checkbox';check.value=type.id;
+  const item=n('label','',type.name);item.prepend(check);categories.append(item);checks.push(check);
+ }
+ const toggle=()=>{categories.hidden=select.value!=='PRIVATE'};
+ const restore=()=>{
+  select.value=confirmed.mode==='PUBLIC'?'PUBLIC':'PRIVATE';
+  all.checked=confirmed.mode!=='SELECTED_TYPES';
+  checks.forEach(c=>{c.checked=!!confirmed.typeIds?.includes(c.value)});
+  toggle();
+ };
+ const policyFromFields=()=>{
   const typeIds=checks.filter(c=>c.checked).map(c=>c.value);
-  if(select.value==='PRIVATE'&&!all.checked&&!typeIds.length){siteNotice('Choisissez une catégorie ou tous les inscrits.');return}
-  const accessPolicy=select.value==='PUBLIC'?{mode:'PUBLIC'}:all.checked?{mode:'ALL_PRIVATE_TYPES'}:{mode:'SELECTED_TYPES',typeIds};
+  return select.value==='PUBLIC'?{mode:'PUBLIC'}:
+   all.checked?{mode:'ALL_PRIVATE_TYPES'}:
+   typeIds.length?{mode:'SELECTED_TYPES',typeIds}:null;
+ };
+ const widens=(before,after)=>
+  before.mode!=='PUBLIC'&&(after.mode==='PUBLIC'||
+   before.mode==='SELECTED_TYPES'&&(after.mode==='ALL_PRIVATE_TYPES'||
+    after.mode==='SELECTED_TYPES'&&after.typeIds.some(id=>!before.typeIds?.includes(id))));
+ async function autoSaveAccess(){
+  if(busy)return;
+  const next=policyFromFields();
+  if(!next){status.textContent='Sélectionnez une catégorie ou « Tous les inscrits ». ';return}
+  if(JSON.stringify(next)===JSON.stringify(confirmed))return;
+  // Access changes must not trigger a hidden content save or discard local edits.
+  if(dirty||db._serverPending||privateBusy){
+   restore();siteNotice('Enregistrez d’abord vos modifications de contenu avant de changer les accès.');return;
+  }
+  if(widens(confirmed,next)&&!await siteConfirm('Cette modification élargit les accès au contenu. Confirmer ?')){
+   restore();return;
+  }
+  busy=true;for(const input of [select,all,...checks])input.disabled=true;
   try{
    ensureMemberPanel();
-   if(privateEdit){if(dirty&&!await savePrivatePage())return}else if(dirty||db._serverPending){save();await serverSave();if(db._serverPending)return}
-   const describe=pol=>pol?.mode==='PUBLIC'?'Public':pol?.mode==='SELECTED_TYPES'?'Privé — '+pol.typeIds.map(id=>availableCategories.find(t=>t.id===id)?.name||id).join(', '):'Privé — Tous les inscrits';
-   if(policy&&JSON.stringify(policy)!==JSON.stringify(accessPolicy)&&!await siteConfirm('Ancien choix : '+describe(policy)+'\nNouveau choix : '+describe(accessPolicy)+'\nLe contenu modifié reste en brouillon.'))return;
-   if(currentSpace){const spaces=clone(privateCatalogue.record.spaces);const target=spaces.find(s=>s.id===currentSpace.id);target.visibility=accessPolicy.mode==='PUBLIC'?'PUBLIC':'PRIVATE';target.accessPolicy=accessPolicy.mode==='ALL_PRIVATE_TYPES'?{mode:'PUBLIC'}:accessPolicy;await memberPanel.commandContent('save',{spaces})}
-   else await memberPanel.commandContent(kind==='page'?'page-access':'celebration-access',{...(kind==='page'?{id:p.id}:{}),accessPolicy});
-   if(privateEdit)await closePrivatePage(true);else await serverLoad();await refreshPrivateCatalogue();render();
-  }catch(e){siteNotice(e.message)}
- },'sm');
- const toggle=()=>{categories.hidden=select.value!=='PRIVATE'};select.onchange=toggle;toggle();label.append(select);box.append(label,categories,apply);return box;
+   if(currentSpace){
+    const spaces=clone(privateCatalogue.record.spaces);
+    const target=spaces.find(s=>s.id===currentSpace.id);
+    if(!target)throw Error('Espace introuvable');
+    target.visibility=next.mode==='PUBLIC'?'PUBLIC':'PRIVATE';
+    target.accessPolicy=next.mode==='ALL_PRIVATE_TYPES'?{mode:'PUBLIC'}:next;
+    await memberPanel.commandContent('save',{spaces});
+   }else{
+    await memberPanel.commandContent(kind==='page'?'page-access':'celebration-access',{
+     ...(kind==='page'?{id:p.id}:{}),accessPolicy:next
+    });
+   }
+   confirmed=clone(next);
+   if(privateEdit)await closePrivatePage(true);
+   else await serverLoad();
+   await refreshPrivateCatalogue();render();
+   status.textContent='✓ Accès enregistré automatiquement.';
+  }catch(error){
+   restore();
+   status.textContent='❌ Changement d’accès refusé : '+(error.message||error);
+  }finally{
+   busy=false;for(const input of [select,all,...checks])input.disabled=false;
+  }
+ }
+ select.onchange=()=>{toggle();void autoSaveAccess()};
+ all.onchange=()=>{if(all.checked)checks.forEach(c=>c.checked=false);void autoSaveAccess()};
+ checks.forEach(check=>{check.onchange=()=>{
+  if(check.checked)all.checked=false;
+  void autoSaveAccess();
+ }});
+ restore();label.append(select);box.append(label,categories);
+ return box;
 }
 async function openPrivatePage(controller){
  if(privateEdit||!controller?.page||dirty)return;
@@ -3462,8 +3562,6 @@ function privatePageWorkspace(){
  back.disabled=privateBusy;saveButton.disabled=privateBusy;
  reload.disabled=privateBusy;publish.disabled=privateBusy;unpublish.disabled=privateBusy;
  actions.append(back,saveButton,reload);
- if(page().spaceId)actions.append(b('Dupliquer',async()=>{if(dirty&&!await savePrivatePage())return;const source=clone(page()),language=privateEdit.languageId||'fr';await closePrivatePage(true);await memberPanel.duplicateVersion(source,language)}));
- else actions.append(b('Dupliquer',async()=>{if(dirty&&!await savePrivatePage())return;const source=clone(page()),language=privateEdit.languageId||'fr';await closePrivatePage(true);await memberPanel.duplicateVersion(source,language)}));
  w.append(actions,n('h2','',page().name));
  const editor=n('div','celebration-editor');w.append(editor);pageWorkspace(page().group==='page'?(page().placement==='footer'?'footer':'page'):'celebration',editor);
 }
@@ -3477,10 +3575,11 @@ function render(){
   const control=el(key);if(control)control.hidden=inMembers||!!privateEdit&&key==='save-btn';
  }
  if((inMembers||privateEdit)&&el('view-site-btn'))el('view-site-btn').hidden=true;
+ syncSecondarySave();
  return result;
 }
 bindEditorShell({document,window,el,enter,onPreview:()=>{preview=!preview;selectedBlockId=null;blockEditSession=null;render()},isPreview:()=>preview,deselect:()=>{selectedBlockId=null;blockEditSession=null;document.querySelectorAll('.canvas .block.is-selected').forEach(box=>box.classList.remove('is-selected'))},shouldWarnBeforeUnload:()=>{if(memberPanel?.changed)return true;if(dirty||(IS_STAGE&&(db._serverPending||serverSaving)))return true;return false}});
-el('save-btn').onclick=IS_STAGE?()=>{save();void serverSave();}:()=>save(true);
+el('save-btn').onclick=saveCurrentContent;
 el('image-input').onchange=async function(){
  const file=this.files&&this.files[0],x=target;this.value='';
  if(!file||!x)return;

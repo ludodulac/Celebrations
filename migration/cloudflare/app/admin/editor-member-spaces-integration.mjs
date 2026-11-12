@@ -331,6 +331,72 @@ export function mountExistingEditorMemberSpaces(root,{
       if(saved)openCanonicalPage(snapshot.record.spaces.find(s=>s.pages.some(p=>p.id===saved.id)).id,saved.id,answer.language);
     }catch(e){renderSpaces(e.message)}
   }
+  // Duplicate the ENTIRE celebration for one category/language, never an
+  // independent celebration and never any member enrollment or permission.
+  // The only dialog asks for its target category and language.
+  async function duplicateWholeCelebrationVersion(sourcePages,celebrationTitle){
+    if(!ready())throw Error('La session des membres est indisponible.');
+    if(!Array.isArray(sourcePages)||!sourcePages.length||sourcePages.length>75)
+      throw Error('Aucune page de célébration à dupliquer.');
+    const activeLanguages=snapshot.languageRegistry.languages;
+    const chosen=await adminDialog(doc,{
+      title:'Nouvelle version de '+String(celebrationTitle||'la célébration').slice(0,100),
+      message:'Choisissez la catégorie et la langue. Une nouvelle version de toutes les pages sera créée en brouillon, sans modifier les autres versions ni les droits des membres. Les traductions absentes seront à rédiger.',
+      fields:[
+        {name:'category',label:'Catégorie',options:[['','Tous les inscrits'],...activeTypes().map(t=>[t.id,t.name])],value:''},
+        {name:'language',label:'Langue',options:activeLanguages.map(l=>[l.id,l.name]),value:'fr'}
+      ],
+      confirm:'Créer la version'
+    });
+    if(!chosen)return null;
+    const language=activeLanguages.find(l=>l.id===chosen.language);
+    if(!language||chosen.category&&!activeTypes().some(t=>t.id===chosen.category))
+      throw Error('Catégorie ou langue non disponible.');
+    const source=sourcePages.map(p=>({
+      name:String(p.name||'').trim().slice(0,160),group:'celebration',
+      blocks:clone(p.blocks||[]),translations:clone(p.translations||{})
+    }));
+    if(source.some(p=>!p.name||!Array.isArray(p.blocks)))
+      throw Error('Une page à copier est invalide.');
+    const targetMatches=s=>chosen.category?
+      s.visibility===SPACE_VISIBILITIES.PRIVATE&&s.accessPolicy.mode===ACCESS_MODES.SELECTED_TYPES&&
+       s.accessPolicy.typeIds?.length===1&&s.accessPolicy.typeIds[0]===chosen.category:
+      s.visibility===SPACE_VISIBILITIES.PRIVATE&&s.accessPolicy.mode===ACCESS_MODES.PUBLIC;
+    let target=workspace.spaces(celebrationId).find(targetMatches);
+    if(!target){
+      workspace.addSpace(celebrationId,{
+        name:activeTypes().find(t=>t.id===chosen.category)?.name||'Tous les inscrits',
+        visibility:SPACE_VISIBILITIES.PRIVATE,mode:chosen.category?ACCESS_MODES.SELECTED_TYPES:ACCESS_MODES.PUBLIC,
+        typeIds:chosen.category?[chosen.category]:[],accessScope:'CELEBRATION'
+      });
+      target=workspace.spaces(celebrationId).find(targetMatches);
+    }
+    if(!target)throw Error('Impossible de créer la catégorie.');
+    const spaces=workspace.spaces(celebrationId);
+    const destination=spaces.find(s=>s.id===target.id);
+    // Preflight ALL pages: never partially replace an existing target version.
+    const conflicts=source.filter(p=>destination.pages.some(existing=>
+      existing.name.trim().toLocaleLowerCase()===p.name.toLocaleLowerCase()&&
+      (language.id==='fr'?(existing.blocks?.length>0||!Object.keys(existing.translations||{}).length):
+       Object.hasOwn(existing.translations||{},language.id))));
+    if(conflicts.length)throw Error('Une version existe déjà pour cette catégorie et cette langue. Aucun contenu n’a été écrasé.');
+    for(const p of source){
+      let existing=destination.pages.find(x=>x.name.trim().toLocaleLowerCase()===p.name.toLocaleLowerCase());
+      if(!existing){
+        existing={id:'draft-page:'+crypto.randomUUID(),name:p.name,group:'celebration',blocks:[],
+          accessPolicy:{mode:ACCESS_MODES.PUBLIC}};
+        destination.pages.push(existing);
+      }
+      if(language.id==='fr')existing.blocks=clone(p.blocks);
+      else existing.translations={...(existing.translations||{}),
+        [language.id]:{name:p.translations[language.id]?.name||p.name,
+          blocks:clone(p.translations[language.id]?.blocks||[])}};
+    }
+    const result=await mutate('save',{spaces});
+    if(!result?.ok)throw Error(result?.error||'Duplication non enregistrée');
+    return {category:activeTypes().find(t=>t.id===chosen.category)?.name||'Tous les inscrits',
+      language:language.name,pages:source.length};
+  }
   function renderSpaces(message=''){
     if(destroyed)return;
     spaces.replaceChildren();
@@ -400,6 +466,11 @@ export function mountExistingEditorMemberSpaces(root,{
     get changed(){return workspace.changed;},
     showSpaces(){activate(true);},
     async duplicateVersion(source,languageId='fr'){await reloadCategoryNames();await loadCanonical();await createVersion(source,languageId);},
+    async duplicateCelebrationVersion(pages,title){
+      await reloadCategoryNames();
+      await loadCanonical();
+      return duplicateWholeCelebrationVersion(pages,title);
+    },
     async openVersion(typeId,languageId='fr',title=''){
       directory.hidden=true;spaces.hidden=false;await reloadCategoryNames();await loadCanonical();
       const space=workspace.spaces(celebrationId).find(s=>typeId?
