@@ -18,6 +18,25 @@ let tab=stageTab,id=stageActive?.id||'home',
 
 const LIVE_MEDIA_UPLOAD_HOST=(location.hostname==='ronde-des-archanges-universelle.eu'||location.hostname==='www.ronde-des-archanges-universelle.eu'||location.hostname==='celebrations-m016-admin-preprod.rondes.workers.dev');
 const IS_STAGE=!!STAGE_SEED,SHARED_KEY='celebrations-demo-shared-pages-v1',PLANS_KEY='celebrations-demo-planned-v1';
+// M021-B: a persisted DISPLAY preference, never a permission or publication policy.
+let adminMembersEnabled=false,adminModeLoaded=false,adminModeRevision=null;
+async function loadAdminMode(){
+ if(!IS_STAGE)return;
+ try{
+  const response=await fetch('/api/site-identity',{credentials:'same-origin',cache:'no-store'});
+  const data=await response.json();
+  if(!response.ok||data.ok!==true||!Number.isSafeInteger(data.revision))throw Error(data.error||'Réglages indisponibles');
+  adminMembersEnabled=data.memberAccessUiEnabled===true;
+  adminModeRevision=data.revision;adminModeLoaded=true;
+ }catch{adminModeLoaded=false;adminMembersEnabled=false;}
+}
+function applyAdminMenu(){
+ if(!IS_STAGE)return;
+ const memberLink=document.querySelector('[data-tab="members-spaces"]');
+ if(memberLink)memberLink.hidden=!adminMembersEnabled;
+ const languagesLink=document.querySelector('[data-tab="languages-categories"]');
+ if(languagesLink)languagesLink.textContent=adminMembersEnabled?'◇ Langues et catégories':'◇ Langues';
+}
 const {validIso,prettyDate,validTime,validHref,validColor}=createEditorLocalRules();
 const ARCHANGELS=['Michaël','Gabriel','Raphaël','Ouriel'];
 const editorPageModel=createPageModel();
@@ -1298,7 +1317,7 @@ function save(explicit=false){
   status.textContent='Enregistrement impossible : vérifiez l’espace disponible.';
  }
 }
-function enter(t,p){if(privateEdit){if(t==='members-spaces')closePrivatePage();return;}if(['members-spaces','participants','languages-categories'].includes(t))preview=false;if(dirty){save();if(dirty)return}if(p)id=p;clearLocaleView();selectedBlockId=null;blockEditSession=null;tab=t;render();}
+function enter(t,p){if(!adminMembersEnabled&&['members-spaces','participants'].includes(t))return;if(privateEdit){if(t==='members-spaces')closePrivatePage();return;}if(['members-spaces','participants','languages-categories'].includes(t))preview=false;if(dirty){save();if(dirty)return}if(p)id=p;clearLocaleView();selectedBlockId=null;blockEditSession=null;tab=t;render();}
 let blockEditSession=null;
 function refreshBlockEditBaseline(){
  if(!blockEditSession)return;
@@ -2386,7 +2405,15 @@ function sharedVisibility(){
 function celebrationState(entry){
  return editorPageModel.celebrationVisibility(entry,sharedVisibility());
 }
+function historicallyPrivate(kind,q){
+ const policy=kind==='celebration'?
+  (privateCatalogue?.celebrationAccessPolicy||q?.accessPolicy):
+  (privateCatalogue?.record?.pages?.find(p=>p.id===q?.id)?.accessPolicy||q?.accessPolicy);
+ return q?.privateManaged===true||(policy&&policy.mode!=='PUBLIC');
+}
 function publicationActions(kind,q){
+ if(!adminMembersEnabled&&historicallyPrivate(kind,q))
+  return n('p','m021-private-warning','Ce contenu est déjà privé. Réactivez la gestion des membres dans Paramètres pour modifier sa publication ou ses autorisations.');
  const outer=n('div','publication-status-controls');
  const state=kind==='page'?stateOfPage(q):celebrationState(q);
  const stateBadge=n('span','publication-badge state-'+state);stateBadge.setAttribute('role','img');stateBadge.setAttribute('aria-label',VISIBILITY_LABELS[state]);outer.append(stateBadge);
@@ -2426,7 +2453,7 @@ function attachPagePublicationControls(list,group){
 }
 
 function pageWorkspace(group,mount=w){
- if(!privateEdit&&IS_STAGE){ensureMemberPanel();privatePageButtons(group,mount);}
+ if(!privateEdit&&IS_STAGE){ensureMemberPanel();if(adminMembersEnabled)privatePageButtons(group,mount);}
  const listed=editorPageModel.groupPages(db.pages,group);
  if(!listed.length){
   if(group!=='footer'){const empty=n('section','panel');empty.append(n('h2','',group==='celebration'?'Pages de la célébration':'Pages'),n('p','','Aucune page pour le moment.'),b('＋ Ajouter une page',()=>createPage(group),'sm primary'));mount.append(empty);}
@@ -2504,7 +2531,8 @@ function pageWorkspace(group,mount=w){
  head.append(info);right.append(head);
  if(IS_STAGE&&!privateEdit&&!preview&&['page','celebration'].includes(p.group)){
   const row=n('div','editor-language-row m020-settings');
-  row.append(n('strong','','Réglages de la page'),publicationActions('page',canonicalPage()),accessControls('page',canonicalPage()));
+  row.append(n('strong','','Réglages de la page'),publicationActions('page',canonicalPage()));
+  if(adminMembersEnabled)row.append(accessControls('page',canonicalPage()));
   const label=n('label','editor-language-choice','Langue'),picker=n('select');picker.setAttribute('aria-label','Langue');
   for(const lang of editorLocalization.registry.languages){const opt=n('option','',lang.name);opt.value=lang.id;picker.append(opt)}picker.value=editingLanguageId;
   picker.onchange=()=>{if(dirty){save();if(dirty)return}editingLanguageId=picker.value;clearLocaleView();selectedBlockId=null;render()};
@@ -2622,8 +2650,10 @@ function celebrations(){
   const publication=n('div','celebration-publication-controls');
   publication.append(n('strong','','Visibilité de cette célébration'));
   publication.append(publicationActions('celebration',selectedEntry));
-publication.append(accessControls('celebration',selectedEntry));
- publication.append(b('Versions par catégorie',()=>showContentVersions(),'sm'));
+if(adminMembersEnabled){
+  publication.append(accessControls('celebration',selectedEntry));
+  publication.append(b('Versions par catégorie',()=>showContentVersions(),'sm'));
+ }
    publication.append(b('Dupliquer',()=>duplicateChoice(selectedEntry,canonicalPage()),'sm'));
   w.append(publication);
  }
@@ -3104,6 +3134,45 @@ function userGuide(){
 }
 
 function settings(){
+ // A single persisted switch; changing it never writes access policies.
+ const mode=n('section','settings-actions m021b-admin-mode');
+ const modeCss=n('style');modeCss.nonce=document.querySelector('script[nonce]')?.nonce||'';
+ modeCss.textContent='.m021b-admin-mode{border:1px solid #cad7d8;border-radius:12px;padding:14px;margin:0 0 16px;max-width:790px}.m021b-mode-choice{display:flex;align-items:center;gap:12px;min-height:46px;cursor:pointer;font-weight:600}.m021b-mode-choice input{flex:0 0 auto;min-width:22px;min-height:22px;accent-color:#246a59}.m021b-admin-mode p{margin:.4rem 0;line-height:1.45}.m021-private-warning{color:#805316;background:#fff7dd;padding:.6rem;border-radius:8px;font-size:.93rem}.stage-editor [data-tab="members-spaces"][hidden]{display:none!important}@media(max-width:600px){.m021b-admin-mode{padding:12px}.m021b-mode-choice{align-items:flex-start}}';
+ const modeTitle=n('h2','','Mode de l’administration'),modeLabel=n('label','m021b-mode-choice');
+ const modeCheck=n('input');modeCheck.type='checkbox';modeCheck.checked=adminMembersEnabled;
+ modeCheck.disabled=!adminModeLoaded;
+ modeCheck.setAttribute('aria-label','Activer la gestion des membres et des accès privés');
+ modeLabel.append(modeCheck,n('span','','Activer la gestion des membres et des accès privés'));
+ const modeHelp=n('p','',adminMembersEnabled?
+  'Mode complet : membres, catégories et autorisations privées accessibles.':
+  'Mode simplifié : uniquement les fonctions nécessaires au site public.');
+ const modeStatus=n('p');modeStatus.setAttribute('role','status');
+ if(!adminModeLoaded)modeStatus.textContent='Réglage indisponible : actualisez la page avant de le modifier.';
+ mode.append(modeCss,modeTitle,modeLabel,modeHelp,modeStatus);
+ w.append(mode);
+ modeCheck.onchange=async()=>{
+  const desired=modeCheck.checked;
+  modeCheck.disabled=true;modeStatus.textContent='Enregistrement du mode…';
+  try{
+   // Obtain the current revision, refusing to overwrite newer editor data.
+   const fresh=await fetch('/api/site-identity',{credentials:'same-origin',cache:'no-store'});
+   const snapshot=await fresh.json();
+   if(!fresh.ok||!snapshot.ok)throw Error(snapshot.error||'Réglage indisponible');
+   if(snapshot.memberAccessUiEnabled!==adminMembersEnabled)
+    throw Error('Le mode a changé sur un autre appareil. Actualisez les paramètres.');
+   const response=await fetch('/api/site-identity',{method:'POST',credentials:'same-origin',
+    headers:{'content-type':'application/json'},
+    body:JSON.stringify({expectedRevision:snapshot.revision,memberAccessUiEnabled:desired})});
+   const result=await response.json();
+   if(!response.ok||!result.ok)throw Error(result.error||'Enregistrement refusé');
+   adminModeRevision=result.revision;adminMembersEnabled=result.memberAccessUiEnabled===true;
+   modeStatus.textContent='✓ Mode enregistré.';
+   render(); // Existing menu and form commands update immediately.
+  }catch(error){
+   modeCheck.checked=adminMembersEnabled;
+   modeStatus.textContent='❌ '+(error.message||error);
+  }finally{modeCheck.disabled=false;}
+ };
  const box=n('section','settings-actions');
  const heading=n('h2','','Identité du site');
  box.append(heading,n('p','','Choisissez un titre et une image pour l’en-tête du site. Les pages intérieures conservent leur navigation compacte.'));
@@ -3231,6 +3300,7 @@ function ensureMemberPanel(){
 }
 function memberSpaces(){
  if(!IS_STAGE||typeof M012B==='undefined')return;
+ if(!adminMembersEnabled){m018LanguagesCategories();return;}
  ensureMemberPanel();
  if(tab==='languages-categories'){
   const tabs=n('div','member-spaces-actions');
@@ -3292,6 +3362,7 @@ async function showContentVersions(){
  }catch(e){siteNotice('Versions indisponibles : '+e.message)}
 }
 async function duplicateChoice(entry,q){
+ if(!adminMembersEnabled)return entry?m018DuplicateCelebration(entry):m018DuplicatePage(q);
  const answer=await siteDialog({title:'Dupliquer',fields:[{name:'kind',label:'Que souhaitez-vous dupliquer ?',radio:true,value:'version',options:[['version','Dupliquer une version'],[entry?'celebration':'page',entry?'Dupliquer toute la célébration':'Dupliquer toute la page']]}],confirm:'Continuer'});
  if(!answer)return;
  if(answer.kind==='celebration')return m018DuplicateCelebration(entry);
@@ -3376,7 +3447,9 @@ function privatePageWorkspace(){
  const langLabel=n('label','editor-language-choice','Langue'),lang=n('select');lang.setAttribute('aria-label','Langue');
  lang.value=privateEdit.languageId||'fr';
  lang.onchange=async()=>{if(dirty&&!await savePrivatePage())return;const language=lang.value,title=page().name,type=privateCatalogue.record.spaces.find(s=>s.id===page().spaceId)?.accessPolicy.typeIds?.[0]||'',pid=page().id,sid=page().spaceId;await closePrivatePage(true);if(sid)await memberPanel.openVersion(type,language,title);else await openManagedPage(pid,language)};
- langLabel.append(lang);selectors.append(langLabel,accessControls('page',page()));
+ langLabel.append(lang);selectors.append(langLabel);
+ if(adminMembersEnabled)selectors.append(accessControls('page',page()));
+ else selectors.append(n('p','m021-private-warning','Page privée existante : les droits sont conservés. Réactivez le mode complet pour les modifier.'));
  const visibilityLabel=n('label','editor-language-choice','Visibilité'),visibility=n('select');visibility.setAttribute('aria-label','Visibilité de la page');
  for(const [value,label]of [['draft','Brouillon'],['published','Visible'],['hidden','Masqué']]){const option=n('option','',label);option.value=value;visibility.append(option)}visibility.value=privateEdit.isPublished()?'published':page().visibility==='hidden'?'hidden':'draft';
  visibility.onchange=()=>void publishPrivatePage(visibility.value==='published'?'publish':'unpublish',visibility.value);visibilityLabel.append(visibility);selectors.prepend(visibilityLabel);w.append(selectors);
@@ -3395,6 +3468,8 @@ function privatePageWorkspace(){
  const editor=n('div','celebration-editor');w.append(editor);pageWorkspace(page().group==='page'?(page().placement==='footer'?'footer':'page'):'celebration',editor);
 }
 function render(){
+ if(!adminMembersEnabled&&['members-spaces','participants'].includes(tab))tab='pages';
+ applyAdminMenu();
  const inMembers=['members-spaces','participants','languages-categories'].includes(tab);
  document.querySelector('.stage-editor')?.classList.toggle('is-catalogue',inMembers);
  const result=renderEditorFrame({IS_STAGE,document,STAGE_SEED,page,pageSlug,stateOfPage,editorDragState,editorDragFinish,undoAnchor,resetUndoHistory,ensureUndoButton,applyPalette,w,tab,preview,el,pages,footerPages,celebrations:privateEdit?privatePageWorkspace:celebrations,media,userGuide,settings,memberSpaces});
@@ -3440,7 +3515,7 @@ el('image-input').onchange=async function(){
 
 const uploadPicker=n('input');uploadPicker.id='asset-file-picker';uploadPicker.type='file';uploadPicker.accept=IS_STAGE&&LIVE_MEDIA_UPLOAD_HOST?'.pdf,.txt,.docx,.jpg,.jpeg,.png,.webp,.mp3,.wav':'.pdf,.txt,.doc,.docx,.odt,.rtf,.csv,image/*,audio/*,video/*';uploadPicker.multiple=true;uploadPicker.hidden=true;document.body.append(uploadPicker);
 uploadPicker.onchange=async()=>{const files=[...uploadPicker.files];uploadPicker.value='';await importFiles(files)};
-if(IS_STAGE){await serverLoad();if(db._serverPending){serverDiverged=false;await serverSave();}}
+if(IS_STAGE){await loadAdminMode();await serverLoad();if(db._serverPending){serverDiverged=false;await serverSave();}}
 render();loadFiles();
 
 })();

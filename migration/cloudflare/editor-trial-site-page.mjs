@@ -63,7 +63,7 @@ export async function handleTrialSite(request,env){
  const isOfficial=['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu'].includes(url.hostname);
  const siteClient=TRIAL_SITE_CLIENT;
  const html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'+(isOfficial?'<title>Célébrations des Archanges</title>':'<meta name="robots" content="noindex,nofollow"><title>Site d’essai — Célébrations</title>')+
- '<style nonce="'+nonce+'">'+TRIAL_SITE_STYLE+PUBLIC_LANGUAGE_STYLE+'</style></head><body data-member-site="'+(memberSite?'1':'0')+'">'+identityHtml+
+ '<style nonce="'+nonce+'">'+TRIAL_SITE_STYLE+PUBLIC_LANGUAGE_STYLE+'</style></head><body data-member-site="'+(memberSite?'1':'0')+'" data-member-login-visible="'+(memberSite&&publishedState?.adminMode?.memberAccessUiEnabled===true?'1':'0')+'">'+identityHtml+
 
 
  '<div class="site-menu-bar"><div class="site-menu-group"><button type="button" class="menu-toggle" id="menu-toggle" aria-expanded="false" aria-haspopup="true" aria-controls="general-navigation">☰ Menu</button>'+

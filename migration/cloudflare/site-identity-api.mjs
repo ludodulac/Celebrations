@@ -34,13 +34,25 @@ export async function handleSiteIdentity(request,env){
  try{
   const current=await readEditorState(env.EDITOR_BUCKET);
   if(request.method==='GET')return reply({ok:true,revision:current.state.version,
-   identity:normalizedSiteIdentity(current.state.siteIdentity)});
+   identity:normalizedSiteIdentity(current.state.siteIdentity),
+   memberAccessUiEnabled:current.state.adminMode?.memberAccessUiEnabled===true});
   const text=await request.text();
   if(text.length>2600)return reply({ok:false,error:'Requête trop longue'},413);
   const body=JSON.parse(text),raw=body?.identity;
-  if(!Number.isSafeInteger(body?.expectedRevision)||!raw||typeof raw!=='object'||Array.isArray(raw))
-   return reply({ok:false,error:'Requête invalide'},400);
+  if(!Number.isSafeInteger(body?.expectedRevision))return reply({ok:false,error:'Requête invalide'},400);
   if(current.state.version!==body.expectedRevision)return reply({ok:false,error:'Modifications récentes : rechargez les paramètres.'},409);
+  // M021-B: UI preference only. Never touch published content, private ACLs,
+  // enrollments or sessions. Off is the default for sites not yet configured.
+  if(Object.prototype.hasOwnProperty.call(body,'memberAccessUiEnabled')){
+   if(typeof body.memberAccessUiEnabled!=='boolean'||raw!==undefined)
+    return reply({ok:false,error:'Mode invalide'},400);
+   const state=structuredClone(current.state);
+   state.adminMode={...(state.adminMode||{}),memberAccessUiEnabled:body.memberAccessUiEnabled};
+   if(!await writeEditorState(env.EDITOR_BUCKET,current,state))
+    return reply({ok:false,error:'Une autre sauvegarde a eu lieu'},409);
+   return reply({ok:true,revision:state.version,memberAccessUiEnabled:state.adminMode.memberAccessUiEnabled});
+  }
+  if(!raw||typeof raw!=='object'||Array.isArray(raw))return reply({ok:false,error:'Requête invalide'},400);
   const identity=normalizedSiteIdentity(raw);
   if(raw.title!==identity.title||raw.imageSrc!==identity.imageSrc||
      raw.imageAlt!==identity.imageAlt||(raw.positionX??50)!==identity.positionX||
