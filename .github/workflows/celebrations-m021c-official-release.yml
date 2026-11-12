@@ -183,7 +183,19 @@ jobs:
           WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/m021c-version-output.ndjson
         run: |
           set -euo pipefail
+          umask 077
+          trap 'rm -f /tmp/m021c-worker-secrets.json' EXIT
+          node --input-type=module <<'NODE'
+          import {randomBytes} from 'node:crypto';
+          import {writeFileSync} from 'node:fs';
+          // This signer is independent of the owner PIN and was absent on
+          // the old official Worker. 64 hex characters is the server contract.
+          writeFileSync('/tmp/m021c-worker-secrets.json',
+            JSON.stringify({EDITOR_D1_CHALLENGE_SECRET:randomBytes(32).toString('hex')}),{mode:0o600});
+          console.log('M021C_INDEPENDENT_D1_CHALLENGE_SIGNER_GENERATED_NOT_LOGGED');
+          NODE
           npx wrangler versions upload --config wrangler.m018.official.toml \
+            --secrets-file /tmp/m021c-worker-secrets.json \
             --message "M021-C: official site simplified administration (owner approved)"
           node --input-type=module <<'NODE'
           import assert from 'node:assert/strict';
