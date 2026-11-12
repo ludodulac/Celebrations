@@ -62,6 +62,6 @@ test('one celebration-only popup selects category and language, creates draft-on
  assert.match(members,/name:'language',label:'Langue'/);
  assert.match(members,/const conflicts=source\.filter/);
  assert.match(members,/const result=await mutate\('save',\{spaces\}\)/);
- assert.doesNotMatch(members.slice(members.indexOf('async function duplicateWholeCelebrationVersion('),members.indexOf('function renderSpaces(')),/personId|enrollment|release'?/);
+ assert.doesNotMatch(members.slice(members.indexOf('async function duplicateWholeCelebrationVersion('),members.indexOf('function renderSpaces(')),/memberPanel\.commandContent|invitation_bindings|DELETE FROM/);
  assert.match(adapter,/duplicateCelebrationVersion:\(\.\.\.args\)=>mounted\.duplicateCelebrationVersion\(\.\.\.args\)/);
 });
