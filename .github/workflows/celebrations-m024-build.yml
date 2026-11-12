@@ -1,0 +1,51 @@
+name: Célébrations M024 — modules générés et tests de l'éditeur
+on:
+  push:
+    branches: [feat/m024-rename-audio-media-safety-20261112]
+permissions:
+  contents: write
+concurrency:
+  group: celebrations-m024-bundles
+  cancel-in-progress: false
+jobs:
+  compile-and-verify:
+    if: ${{ contains(github.event.head_commit.message, '[M024_BUILD_AND_TEST]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Rebuild canonical bundled source, NEVER edit generated code by hand
+        run: |
+          set -euo pipefail
+          node scripts/build-m012b-member-spaces-inline.mjs
+          node scripts/build-m019-editor-client.mjs
+          node scripts/build-m012b-member-spaces-inline.mjs --check
+          node scripts/build-m019-editor-client.mjs --check
+          node --check migration/cloudflare/editor-demo-client.mjs
+          node --check migration/cloudflare/app/admin/editor-member-spaces-integration.mjs
+          node --check migration/cloudflare/app/domain/editor-media-usage-safety.mjs
+          node --check migration/cloudflare/app/admin/real-editor-member-spaces.mjs
+          node --check migration/cloudflare/app/styles/admin/stage-layout.mjs
+      - name: Editor command regression tests without production writes
+        run: |
+          node --test tests/test_m024_cleanup_and_media_safety.mjs tests/test_m022_editor_commands.mjs tests/test_m021b_admin_mode.mjs \
+           tests/test_m020e_integrated_migrations.mjs tests/test-editor-publication-media.mjs \
+           tests/test-editor-server-drafts.mjs tests/test_m012c_private_editor_publication.mjs \
+           tests/test_m018_final_functional_rules.mjs
+      - name: Commit ONLY rebuilt generated modules, no other files or deployed data
+        run: |
+          set -euo pipefail
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git config user.name 'github-actions[bot]'
+          git add -- migration/cloudflare/app/admin/real-editor-member-spaces-inline.mjs \
+                     migration/cloudflare/editor-demo-client.mjs
+          if ! git diff --cached --quiet; then
+            git commit -m 'M024 — rebuild canonical generated editor modules [skip ci]'
+            git push origin HEAD:feat/m024-rename-audio-media-safety-20261112
+          fi
+          echo M024_CANONICAL_BUILD_AND_TEST_PASS

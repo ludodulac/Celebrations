@@ -1,0 +1,178 @@
+name: Célébrations M024 — préproduction M016 commandes propres
+on:
+  push:
+    branches: [feat/m024-rename-audio-media-safety-20261112]
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: celebrations-m024-isolated-m016
+  cancel-in-progress: false
+jobs:
+  m024-local:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - name: Deterministic bundles and both-mode security regression tests
+        run: |
+          node scripts/build-m012b-member-spaces-inline.mjs --check
+          node scripts/build-m019-editor-client.mjs --check
+          node --test tests/test_m024_cleanup_and_media_safety.mjs tests/test_m022_editor_commands.mjs tests/test_m021b_admin_mode.mjs tests/test_m021a_demo_identity.mjs tests/test_m021a_demo_flow.mjs tests/test_m020d_member_brevo.mjs
+  m016-private-preview:
+    needs: m024-local
+    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M024_ISOLATED_PREVIEW]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: celebrations-staging
+    env:
+      M024_M016_ONLY: 'YES'
+      M022_M016_ONLY: 'YES'
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      M017_ADMIN_PASSWORD: ${{ secrets.CELEBRATIONS_M017_ADMIN_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - name: Hard gate — M016 only, official baseline read-only
+        id: baseline
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/feat/m024-rename-audio-media-safety-20261112'
+          test "$M024_M016_ONLY" = 'YES'
+          test "$CLOUDFLARE_ACCOUNT_ID" = '60a7b17758a93fe6681ce998e72ddff0'
+          test "${#M017_ADMIN_PASSWORD}" -ge 16
+          ! grep -Eq '^[[:space:]]*(route|routes|zone_id|custom_domain)[[:space:]]*=' migration/cloudflare/wrangler.m018.existing-preprod.toml
+          grep -Fq 'M021_PREPROD_ACCESS_GATE_ENABLED = "true"' migration/cloudflare/wrangler.m018.existing-preprod.toml
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {writeFileSync,appendFileSync} from 'node:fs';
+          const account=process.env.CLOUDFLARE_ACCOUNT_ID,token=process.env.CLOUDFLARE_API_TOKEN;
+          assert.ok(token?.length>20);
+          const api=async path=>{
+            const r=await fetch('https://api.cloudflare.com/client/v4/accounts/'+account+path,{
+              headers:{authorization:'Bearer '+token},signal:AbortSignal.timeout(25000)});
+            assert.equal(r.status,200,path+' HTTP');
+            const j=await r.json();assert.equal(j.success,true);return j.result;
+          };
+          const settings=await api('/workers/scripts/celebrations-m016-admin-preprod/settings');
+          const binds=new Map((settings.bindings||[]).map(x=>[x.name,x]));
+          for(const name of ['DB','MEDIA_ACL'])
+            assert.equal(binds.get(name)?.id||binds.get(name)?.database_id,
+              '3bb4108f-5ff8-4959-ba32-bd53f33156cb',name+' must stay isolated');
+          assert.equal(binds.get('EDITOR_BUCKET')?.bucket_name,'celebrations-m016-admin-editor');
+          assert.equal(binds.get('MEDIA_BUCKET')?.bucket_name,'celebrations-m016-admin-media');
+          for(const name of ['ADMIN_PASSWORD_HASH','ADMIN_PASSWORD_SALT','M016_PIN_SALT','M016_PIN_VERIFIER','EDITOR_D1_CHALLENGE_SECRET'])
+            assert.equal(binds.get(name)?.type,'secret_text','existing PIN credential retained');
+          const version=async name=>{
+            const d=await api('/workers/scripts/'+name+'/deployments');
+            const v=d.deployments?.[0]?.versions||[];
+            assert.equal(v.length,1);assert.equal(v[0].percentage,100);return v[0].version_id;
+          };
+          writeFileSync('/tmp/m021a-official-baseline',await version('celebrations-exit-production'));
+          appendFileSync(process.env.GITHUB_OUTPUT,'previous_m016='+await version('celebrations-m016-admin-preprod')+'\n');
+          console.log('M024_DEPLOY_BOUNDARY_PASS target=isolated-M016 official=immutable');
+          NODE
+      - name: Verify generated bundles and local-only test identities
+        run: |
+          node scripts/build-m012b-member-spaces-inline.mjs --check
+          node scripts/build-m019-editor-client.mjs --check
+          node --test tests/test_m024_cleanup_and_media_safety.mjs tests/test_m022_editor_commands.mjs tests/test_m021b_admin_mode.mjs tests/test_m021a_demo_identity.mjs tests/test_m021a_demo_flow.mjs tests/test_m020d_member_brevo.mjs
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Build static files required by the existing M016 Worker
+        run: |
+          python scripts/build_production_assets.py
+          test -s production-public/admin.html
+      - name: Prepare Wrangler and mobile Chromium
+        run: |
+          npm install --no-save --no-package-lock wrangler@4 playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Encrypted backup of isolated M016 D1 before UI-only deployment
+        working-directory: migration/cloudflare
+        run: |
+          set -euo pipefail
+          umask 077
+          npx wrangler d1 export celebrations-m016-admin-preprod --remote \
+            --config wrangler.m018.existing-preprod.toml --output /tmp/m024-M016-before.sql
+          test -s /tmp/m024-M016-before.sql
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt \
+            -in /tmp/m024-M016-before.sql -out /tmp/m024-M016-before.sql.enc \
+            -pass env:M017_ADMIN_PASSWORD
+          test -s /tmp/m024-M016-before.sql.enc
+      - uses: actions/upload-artifact@v4
+        with:
+          name: m024-M016-D1-encrypted-backup
+          path: /tmp/m024-M016-before.sql.enc
+          retention-days: 7
+          if-no-files-found: error
+      - name: Encrypted backup of isolated M016 editor R2 before changing display settings
+        working-directory: migration/cloudflare
+        run: |
+          set -euo pipefail
+          umask 077
+          npx wrangler r2 object get celebrations-m016-admin-editor/editor-trials/server-drafts-v1.json \
+            --remote --file /tmp/m024-M016-editor.json
+          test -s /tmp/m024-M016-editor.json
+          python -c "import json; s=json.load(open('/tmp/m024-M016-editor.json')); assert isinstance(s.get('version'),int)"
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt \
+            -in /tmp/m024-M016-editor.json -out /tmp/m024-M016-editor.json.enc \
+            -pass env:M017_ADMIN_PASSWORD
+          rm -f /tmp/m024-M016-editor.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: m024-M016-editor-encrypted-backup
+          path: /tmp/m024-M016-editor.json.enc
+          retention-days: 7
+          if-no-files-found: error
+      - name: Deploy only the M016 test Worker, never official or a domain route
+        id: deploy
+        working-directory: migration/cloudflare
+        run: |
+          npx wrangler deploy --config wrangler.m018.existing-preprod.toml
+          echo M024_ISOLATED_M016_ONLY_DEPLOYED
+      - name: Verify owner PIN, site settings and mobile captures on M016
+        run: node scripts/test-m022-m016-preview.mjs
+      - name: M024 verify site identity removal and conservatively protected media UI
+        run: node scripts/test-m024-m016-browser.mjs
+      - name: M023 read-only historical page menus — Chromium mobile and desktop
+        run: node scripts/test-m023-historical-menus-staging.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: m024-real-M016-mobile-captures
+          path: docs/m022-mobile
+          if-no-files-found: ignore
+      - name: Verify official worker deployment is unchanged
+        if: always()
+        run: |
+          set -euo pipefail
+          test -s /tmp/m021a-official-baseline
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readFileSync} from 'node:fs';
+          const r=await fetch('https://api.cloudflare.com/client/v4/accounts/'+process.env.CLOUDFLARE_ACCOUNT_ID+'/workers/scripts/celebrations-exit-production/deployments',{
+            headers:{authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN},signal:AbortSignal.timeout(25000)});
+          assert.equal(r.status,200);
+          const j=await r.json();assert.equal(j.success,true);
+          const v=j.result?.deployments?.[0]?.versions||[];
+          assert.equal(v.length,1);
+          assert.equal(v[0].version_id,readFileSync('/tmp/m021a-official-baseline','utf8'));
+          console.log('M024_OFFICIAL_WORKER_UNCHANGED_PASS');
+          NODE
+      - name: Roll back M016 worker only if smoke test failed
+        if: ${{ failure() && steps.deploy.outcome == 'success' }}
+        env:
+          PREVIOUS_M016_VERSION: ${{ steps.baseline.outputs.previous_m016 }}
+        working-directory: migration/cloudflare
+        run: |
+          set -euo pipefail
+          test -n "$PREVIOUS_M016_VERSION"
+          npx wrangler versions deploy "${PREVIOUS_M016_VERSION}@100%" --yes \
+            --config wrangler.m018.existing-preprod.toml \
+            --message "M024: restore isolated M016 Worker after failed smoke"
