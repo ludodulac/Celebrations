@@ -33,7 +33,7 @@ jobs:
           node --check migration/cloudflare/app/styles/admin/stage-layout.mjs
       - name: Editor command regression tests without production writes
         run: |
-          node --test tests/test_m024_editor_commands.mjs tests/test_m021b_admin_mode.mjs \
+          node --test tests/test_m024_cleanup_and_media_safety.mjs tests/test_m022_editor_commands.mjs tests/test_m021b_admin_mode.mjs \
            tests/test_m020e_integrated_migrations.mjs tests/test-editor-publication-media.mjs \
            tests/test-editor-server-drafts.mjs tests/test_m012c_private_editor_publication.mjs \
            tests/test_m018_final_functional_rules.mjs
@@ -46,6 +46,6 @@ jobs:
                      migration/cloudflare/editor-demo-client.mjs
           if ! git diff --cached --quiet; then
             git commit -m 'M024 — rebuild canonical generated editor modules [skip ci]'
-            git push origin HEAD:feat/m024-clean-editor-commands-20261112
+            git push origin HEAD:feat/m024-rename-audio-media-safety-20261112
           fi
           echo M024_CANONICAL_BUILD_AND_TEST_PASS
