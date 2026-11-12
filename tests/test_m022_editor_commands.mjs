@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createPageModel} from '../migration/cloudflare/app/domain/editor-pages.mjs';
+import {createEditorPageCommands} from '../migration/cloudflare/app/application/editor-page-commands.mjs';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const client=read('migration/cloudflare/editor-demo-client-source.js');
 const members=read('migration/cloudflare/app/admin/editor-member-spaces-integration.mjs');
@@ -39,11 +40,25 @@ test('no duplicate button in celebration page settings or private page editor',(
  assert.doesNotMatch(privatePage,/b\('Dupliquer'/);
  assert.match(client,/b\('＋ Page',\(\)=>createPage\('celebration'\)\)/);
 });
-test('historical page menu is absent unless a genuine delete action exists',()=>{
+test('every historical stage keeps a meaningful clickable menu, never a dead ellipsis',()=>{
  const chunk=client.slice(client.indexOf('function attachPagePublicationControls('),client.indexOf('function pageWorkspace('));
- assert.match(chunk,/if\(removable\)\{/);
- assert.match(chunk,/const menu=n\('div','page-options-menu'\)/);
- assert.doesNotMatch(chunk,/opts\.querySelector\('\.page-options-menu'\)/);
+ assert.match(chunk,/const opts=n\('details','page-options'\)/);
+ assert.match(chunk,/menu\.append\(b\('Modifier cette page',\(\)=>enter\('celebrations',p\.id\),'sm'\)\)/);
+ assert.match(chunk,/menu\.append\(publicationActions\('page',p\)\)/);
+ assert.match(chunk,/editorPageCommands\.deletionPlan\(db,p,STAGE_SEED\?\.celebrationId\)/);
+ assert.match(chunk,/if\(deletion\.allowed\)\{/);
+ assert.match(chunk,/Page historique protégée/);
+ assert.doesNotMatch(chunk,/opts=null|if\(removable\)/);
+ assert.match(chunk,/const choose=\[\.\.\.list\.querySelectorAll\('button\.item'\)\]/);
+ const model=createPageModel(),cmd=createEditorPageCommands({model});
+ const db={pages:[
+  {id:'preparation-101',group:'celebration',name:'Préparation'},
+  {id:'mercredi-101',group:'celebration',name:'Mercredi'},
+  {id:'extra-550e8400-e29b-41d4-a716-446655440000-101',group:'celebration',name:'Ajoutée'}
+ ]};
+ assert.equal(cmd.deletionPlan(db,db.pages[0],'101').allowed,false,'historical preparation is protected');
+ assert.equal(cmd.deletionPlan(db,db.pages[1],'101').allowed,false,'historical weekday is protected');
+ assert.equal(cmd.deletionPlan(db,db.pages[2],'101').allowed,true,'explicitly added page can be deleted with confirmation');
 });
 test('member access auto-saves securely with explicit broadening consent',()=>{
  const chunk=client.slice(client.indexOf('function accessControls(kind,p){'),client.indexOf('async function openPrivatePage('));
