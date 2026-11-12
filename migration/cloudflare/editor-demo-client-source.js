@@ -3555,8 +3555,6 @@ function privatePageWorkspace(){
  back.disabled=privateBusy;saveButton.disabled=privateBusy;
  reload.disabled=privateBusy;publish.disabled=privateBusy;unpublish.disabled=privateBusy;
  actions.append(back,saveButton,reload);
- if(page().spaceId)actions.append(b('Dupliquer',async()=>{if(dirty&&!await savePrivatePage())return;const source=clone(page()),language=privateEdit.languageId||'fr';await closePrivatePage(true);await memberPanel.duplicateVersion(source,language)}));
- else actions.append(b('Dupliquer',async()=>{if(dirty&&!await savePrivatePage())return;const source=clone(page()),language=privateEdit.languageId||'fr';await closePrivatePage(true);await memberPanel.duplicateVersion(source,language)}));
  w.append(actions,n('h2','',page().name));
  const editor=n('div','celebration-editor');w.append(editor);pageWorkspace(page().group==='page'?(page().placement==='footer'?'footer':'page'):'celebration',editor);
 }
