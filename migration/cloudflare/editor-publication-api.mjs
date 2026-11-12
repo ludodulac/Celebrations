@@ -17,6 +17,7 @@ import {privateReleaseReady} from './app/persistence/private-release-fence.mjs';
 import {canAccessPage,SPACE_VISIBILITIES,ACCESS_MODES} from './app/domain/member-access.mjs';
 import {readLegacyMediaReferences,canSafelyDeleteMedia} from './app/domain/editor-media-usage-safety.mjs';
 import {handleEditorMultipartUpload} from './app/application/editor-multipart-upload.mjs';
+import {managedPdfUrl,privatePdfSources,withPdfPrivacy} from './app/domain/editor-site-preferences.mjs';
 
 const PREFIX='editor-trials/uploads/';
 const SITE=new Set(['www.ronde-des-archanges-universelle.eu','ronde-des-archanges-universelle.eu']);
@@ -141,7 +142,7 @@ const validVisibility=x=>['draft','published','hidden'].includes(x);
 export function publiclyVisible(p){return p&&p.visibility!=='hidden'&&p.visibility!=='draft'}
 export function publicSnapshot(state,celebration){
  const published=state.published||initialPublication(state);
- const privateIds=privatePublicationIds(state,published);
+ const privateIds=[...privatePublicationIds(state,published),...privatePdfSources(state)];
  const visibility=published.celebrationVisibility||{};
  const mayDisplayCelebration=id=>published.celebrationAccessPolicies?.[String(id)]?.mode===undefined||
   published.celebrationAccessPolicies[String(id)].mode==='PUBLIC';
@@ -237,7 +238,7 @@ function restrictedMediaSources(state,published){
 // the private media catalogue. Even general=true never overrides a private ACL.
 export function publishedMedia(state,privateIds){
  const published=state.published||initialPublication(state);
- const blocked=privateIds||privatePublicationIds(state,published);
+ const blocked=[...(privateIds||privatePublicationIds(state,published)),...privatePdfSources(state)];
  const visibility=published.celebrationVisibility||{};
  const sharedPages=projectPublicPages(published.shared?.pages,blocked);
  const drafts={};
@@ -288,7 +289,7 @@ export async function publicHistoricalMedia(db,state){
  const [events,steps]=await Promise.all(sql.map(q=>db.prepare(q).all()));
  const published=state.published||initialPublication(state);
  const visibility=published.celebrationVisibility||{};
- const blocked=privatePublicationIds(state,published);
+ const blocked=[...privatePublicationIds(state,published),...privatePdfSources(state)];
  const pagesByCelebration=new Map();
  for(const [id,record] of Object.entries(published.drafts||{})){
   const plan=published.plans?.find(p=>String(p.id)===String(id));
@@ -476,11 +477,32 @@ export async function handleEditorMedia(request,env){
   const items=discoverMedia(legacyEditorView(state)).map(item=>({
    ...item,canDelete:canSafelyDeleteMedia(item,state,legacyRefs)
   }));
-  return json({ok:true,items});
+  return json({ok:true,items,pdfPrivacy:state.pdfPrivacy||{}});
  }
  if(request.method!=='POST')return err('Méthode interdite',405);
  const denied=await protectedWrite(request,env);if(denied)return denied;
  const action=url.searchParams.get('action');
+ if(action==='pdf-privacy'){
+  let input;try{input=await request.json()}catch{return err('Requête invalide',400)}
+  if(typeof input?.src!=='string'||!managedPdfUrl(input.src)||
+     typeof input.private!=='boolean'||!Number.isSafeInteger(input.expectedRevision))
+   return err('PDF ou préférence invalide',400);
+  const current=await readEditorState(env.EDITOR_BUCKET);
+  if(current.state.version!==input.expectedRevision)
+   return err('Modifications récentes : actualisez la médiathèque.',409);
+  // Only site-owned PDFs already in the authenticated catalogue may be
+  // toggled. Historic paths must originate from the published D1 inventory.
+  const eligible=discoverMedia(current.state).some(x=>
+   x.src===input.src&&x.type==='pdf'&&x.source==='uploaded')||
+   (await publicHistoricalMedia(env.DB,current.state)).some(x=>
+    x.src===input.src&&x.type==='pdf');
+  if(!eligible)return err('PDF introuvable dans la médiathèque publique.',404);
+  const state=copy(current.state);
+  state.pdfPrivacy=withPdfPrivacy(state.pdfPrivacy,input.src,input.private);
+  if(!await writeEditorState(env.EDITOR_BUCKET,current,state))
+   return err('Une sauvegarde simultanée a eu lieu.',409);
+  return json({ok:true,revision:state.version,src:input.src,private:input.private});
+ }
  if(action?.startsWith('mpu-'))return handleEditorMultipartUpload(action,request,env,{
   readEditorState,writeEditorState,discoverMedia
  });
