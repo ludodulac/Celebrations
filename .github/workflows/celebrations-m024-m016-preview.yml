@@ -30,6 +30,7 @@ jobs:
     environment: celebrations-staging
     env:
       M024_M016_ONLY: 'YES'
+      M022_M016_ONLY: 'YES'
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
       M017_ADMIN_PASSWORD: ${{ secrets.CELEBRATIONS_M017_ADMIN_PASSWORD }}
