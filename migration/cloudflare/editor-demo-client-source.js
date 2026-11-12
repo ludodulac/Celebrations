@@ -491,7 +491,7 @@ function fileUsages(fileId){
  for(const group of savedPageSets()){
   for(const p of group.pages){
    let count=0;
-   const visit=blocks=>{for(const block of blocks||[]){if(block?.assetId===fileId)count++;
+   const visit=blocks=>{for(const block of blocks||[]){if(block?.assetId===fileId||block?.coverAssetId===fileId)count++;
     if(block?.kind==='section')for(const col of block.columns||[])visit(col);}};
    visit(p.blocks);
    if(!count)continue;
@@ -509,7 +509,7 @@ function fileUsages(fileId){
   for(const [lang,version] of Object.entries(versions||{})){
    let count=0;
    const visit=blocks=>{for(const block of blocks||[]){
-    if(block?.assetId===fileId)count++;
+    if(block?.assetId===fileId||block?.coverAssetId===fileId)count++;
     if(block?.kind==='section')for(const col of block.columns||[])visit(col);
    }};
    visit(version.blocks);
@@ -2913,7 +2913,7 @@ function media(){
  const matches=category=>category===mediaCategory||mediaCategory==='autres'&&category==='pdf';
  for(const record of remote.filter(x=>matches(mediaCategoryOf(x))&&!usedUrls.has(x.src))){
   const refs=mediaLinksFor(record);
-  const unused=refs.length===0&&!record.general;
+  const unused=record.canDelete===true&&refs.length===0;
   const hasImage=record.type==='image';
   const card=n('article','card global-media-card'+(unused?' unused-file':''));
   card.dataset.mediaId=record.id;card.dataset.usage=unused?'unused':'used';
@@ -2927,13 +2927,15 @@ function media(){
   const controls=n('div','file-actions');
   if(chosenBlock&&mediaCategory==='audios'&&record.type==='audio')
    controls.append(b('Insérer dans le lecteur',()=>attachChosenAudio(record),'sm primary'));
-  controls.append(b('Supprimer si inutilisé',()=>void deleteGlobalMedia(record),'sm'));
+  if(unused)controls.append(b('Supprimer si inutilisé',()=>void deleteGlobalMedia(record),'sm'));
   card.append(controls);cards.append(card);
  }
  for(const record of historical.filter(x=>matches(x.category))){
   const remoteCopy=remote.find(x=>x.src===record.src&&mediaCategoryOf(x)===mediaCategory);
   const refs=mediaLinksFor(remoteCopy||record,fileUses(record));
-  const unused=globalFilesComplete&&refs.length===0;
+  // The historical collection is not an authoritative inventory of every
+  // unpublished, multilingual or private reference. Never mark it unused.
+  const unused=false;
   const hasImage=record.category==='images';
   const card=n('article','card historic-file'+(unused?' unused-file':''));
   card.dataset.publicFileId=record.id;card.dataset.fileCategory=record.category;
