@@ -28,3 +28,11 @@ Une mission M016 isolée lance un import multipart réel de **55 000 001 octets*
 ## Première épreuve R2 réelle (réussite, validation générale à relancer)
 
 Exécution M016 `43212783453` : transfert réel **55 000 001 octets** par 6 morceaux, reprise après pause, exactitude des octets sur la route publique Range HTTP 206, suppression complète du média d'essai — **TOUS PASS**. Le seul échec du job concernait le test de navigation M023 après ce succès : le navigateur desktop cliquait un noeud DOM détaché lors du rerender d'une page historique. Ce test conserve maintenant sa vérification de navigation réelle et de l'existence du menu, sans cliquer deux fois un élément remplacé lors du rendu. Relancer l'ensemble.
+
+## Préproduction et validation complète — 12 novembre 2026
+
+Run `43213329108` **success**, sauvegardes chiffrées, compilation, tests de règles et Cloudflare M016. Test réel R2 : **55 000 001 octets** transportés en 6 morceaux, pause après le premier, reprise, HTTP Range 206 de 16 octets identiques, finalisation idempotente et **suppression du média d’essai confirmée**. Les pages historiques et les contrôles des médias ont passé les tests sur 390 px et 1280 px. Le Worker officiel est resté intact jusqu'à la promotion.
+
+## Approbation pour l'activation officielle
+
+Le propriétaire a explicitement décidé : **« Ok on va pas faire de compression on va autoriser à 200 mo »** après avoir demandé la capacité à coder cette fonctionnalité. La livraison consiste uniquement à rendre cette limite opérationnelle sur son domaine officiel, en reprenant les mécanismes Cloudflare R2 déjà présents. La mise en ligne n'est autorisée qu'après export et vérification des sauvegardes D1 et R2 de production. Aucune compression, migration D1, modification de catégorie, de rôle ou de PIN. Le rollback n'affecte que la version du Worker, jamais les données.
