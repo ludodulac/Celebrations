@@ -26,3 +26,9 @@ Validation test: la préproduction peut inclure huit étapes prédéfinies ; le 
 ## Test non destructif ajusté
 
 Le navigateur M016 fournit lui-même huit étapes historiques ; le test vérifie désormais ces vrais boutons de Préparation et Mercredi, les menus et la navigation, sans modifier une réponse API ni envoyer un POST.
+
+## Validation préalable réussie
+
+Workflow M016 `43195161063` : **success**. Chromium réel M016, huit étapes historiques, navigation et menus fonctionnels sur **390 px mobile** et **1280 px ordinateur**, zéro écriture de contenu. Ancien mode admin restauré après tests. Version officielle restée inchangée.
+
+Le propriétaire a déjà donné son autorisation pour les corrections et leur mise en service réelle dans la conversation; cette livraison répare précisément la régression causée par M022. Préserver avant déploiement les sauvegardes officielles chiffrées D1 et R2, puis vérifier pages, médias, PIN, accès privés, et restaurer le Worker officiel précédent si un contrôle échoue.
