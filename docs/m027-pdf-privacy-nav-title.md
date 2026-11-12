@@ -30,3 +30,7 @@ Les tests existants des URL /media et /letter incluent désormais le binding R2 
 ## Compilation finale
 
 La reconstruction canonique et les tests de régression étendus (PDF anciens, liens email, frontières privées, media R2 et navigation) ont réussi dans l'action 43222612641. Vérifier maintenant les changements sur le vrai navigateur M016 isolé avec restauration des données de test.
+
+## Test d'intégration préproduction — second passage
+
+Le premier test M016 a observé le formulaire de titre, mais a attendu un message d'état transitoire qui disparaît parfois lors d'un nouveau rendu de l'éditeur. Le test vérifie maintenant la préférence réellement persistée sur l'API serveur, puis l'affichage sur deux pages avant de tester le PDF. Le réglage initial a bien été restauré après le premier essai.
