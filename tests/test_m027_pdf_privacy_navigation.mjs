@@ -169,6 +169,8 @@ test('navigation in existing bar, no mobile duplicate, PDF checkbox under admin 
  const settings=client.slice(client.indexOf('function settings(){'),client.indexOf('function m018LanguagesCategories(){'));
  assert.match(settings,/Titre dans la barre du menu/);
  assert.match(settings,/Position du titre/);
+ assert.match(settings,/title.disabled=true;select.disabled=true;saveTitle.disabled=true/);
+ assert.match(settings,/title.disabled=false;select.disabled=false;saveTitle.disabled=false/);
  assert.doesNotMatch(settings,/Identité du site/);
  assert.match(client,/function pdfPrivacyControl\(record\)/);
  assert.match(client,/record\.type==='pdf'/);
