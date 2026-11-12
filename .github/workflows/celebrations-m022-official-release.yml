@@ -214,7 +214,7 @@ jobs:
           def read(f):return json.load(open(f))
           a=read('/tmp/m022-official-editor-before.json')
           b=read('/tmp/m022-official-editor-after.json')
-          assert b.get('adminMode',{}).get('memberAccessUiEnabled') is not True
+          assert b.get('adminMode',{}) == a.get('adminMode',{}), 'Existing owner-selected admin mode changed'
           for s in (a,b):
            for k in ('version','updatedAt','adminMode'):s.pop(k,None)
           assert a==b, 'Official pages, publications or authorizations changed'
