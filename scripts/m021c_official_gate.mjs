@@ -59,8 +59,12 @@ for(const name of ['DB','MEDIA_ACL'])
 assert.equal(bindings.get('MEDIA_BUCKET')?.bucket_name,'celebrations-exit-production');
 assert.equal(bindings.get('EDITOR_BUCKET')?.bucket_name,'celebrations-exit-staging');
 assert.equal(bindings.get('ASSETS')?.type,'assets');
-for(const name of ['ADMIN_PASSWORD_HASH','ADMIN_PASSWORD_SALT','EDITOR_D1_CHALLENGE_SECRET'])
+for(const name of ['ADMIN_PASSWORD_HASH','ADMIN_PASSWORD_SALT'])
  assert.equal(bindings.get(name)?.type,'secret_text','Preserve official administrative secret '+name);
+// A new independent D1 challenge signer is installed ONLY in the inactive
+// candidate Worker version. The owner's existing code signer never changes.
+if(mode==='after-promotion')assert.equal(bindings.get('EDITOR_D1_CHALLENGE_SECRET')?.type,'secret_text',
+ 'New member-session challenge secret missing on the promoted official version');
 // Only M016 can create test identities. Production must never enable their switches.
 for(const name of ['M021_DEMO_MEMBERS_ENABLED','M021_DEMO_D1_ISOLATED','M016_PREPROD_WRITE_ENABLED'])
  assert.notEqual(bindings.get(name)?.text,'true','Forbidden production test flag '+name);
