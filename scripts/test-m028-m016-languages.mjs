@@ -144,7 +144,7 @@ try{
  assert.match((await categories.innerText()).trim(),/Catégories/);
  assert.doesNotMatch((await categories.innerText()).trim(),/Langues/);
  await categories.click();
- assert.equal(await categories.getAttribute('class')?.then(v=>v.includes('active')),true);
+ assert.equal(await categories.evaluate(el=>el.classList.contains('active')),true);
  await page.screenshot({path:FOLDER+'/05-mobile-mode-complet-categories.png',fullPage:true});
  assert.equal(await content(),originalContent,'Category navigation does not edit private data');
  console.log('M028_M016_MOBILE_FULL_PASS member_controls_visible=true categories_retained=true no_language_tab=true');
