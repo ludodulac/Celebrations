@@ -27,8 +27,25 @@ try{
  assert.ok(['0','1'].includes(modeMarker),'New official visitor mode flag missing after propagation');
  await page.waitForTimeout(450);
  assert.equal(await page.locator('#back-admin').count(),1,'Historical admin footer link retained');
+ // Member CTA is intentionally hidden in the HTML to prevent flash before
+ // the public client hydrates; only after hydration is it shown in full mode.
+ if(modeMarker==='1'){
+  await page.waitForFunction(()=>{
+    const button=document.querySelector('#member-connection');
+    return button&&button.hidden===false;
+  },null,{timeout:12000}).catch(async error=>{
+    console.error('M022_MEMBER_CTA_HYDRATION_DEBUG',JSON.stringify(await page.evaluate(()=>({
+      hidden:document.querySelector('#member-connection')?.hidden,
+      dataMemberSite:document.body.dataset.memberSite,
+      dataLoginVisible:document.body.dataset.memberLoginVisible,
+      language:document.querySelector('#public-language-control')?.innerHTML?.slice(0,130),
+      nav:document.querySelector('#general-navigation')?.innerHTML?.slice(0,130)
+    }))));
+    throw error;
+  });
+ }
  assert.equal(await page.locator('#member-connection').isVisible(),modeMarker==='1',
-  'Member login button must follow the owner-selected mode without overriding it');
+  'Member login must reflect the owner-selected mode after public UI hydration');
  assert.equal(await page.locator('body').getAttribute('data-member-login-visible'),modeMarker);
  assert.equal(await page.locator('#general-navigation').count(),1,'Visitor pages/navigation intact');
  await page.screenshot({path:'docs/m022-official-smartphone/01-officiel-visiteur-mode-actuel.png',fullPage:true});
