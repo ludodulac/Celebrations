@@ -16,3 +16,7 @@ Contrôles : tests de domaine M022/M023, génération déterministe des modules,
 ## Preuve complémentaire
 
 Un test Chromium lecture seule crée quatre pages représentatives **uniquement dans la réponse réseau du navigateur de test** (M016), en mode mobile et ordinateur, puis vérifie les intitulés cliquables, les boutons ⋯, la présence de Modifier / Visibilité et Supprimer seulement pour les pages ajoutées. Il refuse toute écriture serveur.
+
+## Validation isolée M016
+
+La génération des modules et les tests locaux ont réussi. Exécuter maintenant le Worker M016 et les parcours mobiles/ordinateur, sans modification du Worker officiel.
