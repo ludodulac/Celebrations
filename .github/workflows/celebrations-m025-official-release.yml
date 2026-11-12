@@ -166,7 +166,7 @@ jobs:
           # Preserve existing secret_text bindings, including official PIN and
           # the independent D1 challenge signer, with keep_vars=true.
           npx wrangler versions upload --config wrangler.m018.official.toml \
-            --message "M025: one content-save action and automatic visibility (owner-approved)"
+            --message "M025: MP3 200 Mo R2 multipart sans compression (owner approved)"
           node --input-type=module <<'NODE'
           import assert from 'node:assert/strict';
           import {readFileSync,appendFileSync} from 'node:fs';
@@ -191,7 +191,7 @@ jobs:
           test -n "$NEW_VERSION"
           npx wrangler versions deploy "$NEW_VERSION@100%" --yes \
             --config wrangler.m018.official.toml \
-            --message "M025: owner-approved official simplified admin, preserve all site data"
+            --message "M025: MP3 200 Mo multipart R2, preserve all site data"
           echo M025_REAL_OFFICIAL_WORKER_DEPLOYED
 
       - name: Verify exact official code version and member flags against Cloudflare
