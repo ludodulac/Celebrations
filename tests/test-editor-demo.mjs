@@ -151,11 +151,12 @@ test('validation closes only after private server save succeeds, keeps editor op
 
 test('page/celebration status uses accessible green and orange circular indicators',()=>{
  assert.ok(DEMO_CLIENT.includes("badge.setAttribute('aria-label',VISIBILITY_LABELS[state])"));
- assert.ok(DEMO_CLIENT.includes("stateBadge.setAttribute('aria-label',VISIBILITY_LABELS[state])"));
+ assert.ok(DEMO_CLIENT.includes("badge.setAttribute('aria-label',VISIBILITY_LABELS[current])"),
+  'The current visibility badge remains accessible');
  assert.ok(DEMO_CSS.includes('.inline-page-state.state-published'));
  assert.ok(DEMO_CSS.includes('.inline-page-state.state-draft'));
  assert.match(DEMO_CSS,/grid-template-columns:230px minmax\(0,1fr\)/);
- assert.ok(DEMO_CLIENT.includes("serverPublish(editorPageModel.publicationIntent(kind,q,select.value))"),'Publishing actions are still explicit');
+ assert.ok(DEMO_CLIENT.includes("serverPublish(editorPageModel.publicationIntent(kind,q,chosen),{flushContent:false})"),'Visibility changes must remain explicit and not silently save text');
 });
 
 test('global library has clickable files but no insert/open action buttons',()=>{
@@ -218,8 +219,8 @@ test('published pages can be republished after image resizing; aligner is remove
  const start=DEMO_CLIENT.indexOf('function publicationActions(');
  const end=DEMO_CLIENT.indexOf('function attachPagePublicationControls(',start);
  const section=DEMO_CLIENT.slice(start,end);
- assert.ok(section.includes("select.value=state"));
- assert.ok(section.includes("'Mettre à jour le site'"));
+ assert.ok(section.includes("select.value=current"));
+ assert.ok(section.includes("serverPublish(editorPageModel.publicationIntent(kind,q,chosen),{flushContent:false})"),"Visibility saves separately from edits");
  assert.ok(DEMO_CLIENT.includes("b('Publier cette taille'"));
  assert.ok(DEMO_CLIENT.includes("serverPublish({kind:'page',pageId:p.id,visibility:'published'})"));
  assert.ok(DEMO_CLIENT.includes('x.widthPct=Math.round(size)'));
