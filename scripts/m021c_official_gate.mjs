@@ -35,7 +35,7 @@ const [deployed,settings,domains,rawSchema,rawCounts]=await Promise.all([
   sql:"SELECT name,type FROM sqlite_master WHERE (type='table' OR type='trigger' OR type='index') AND name NOT LIKE 'sqlite_%' ORDER BY name"
  }),
  cf('/d1/database/'+DB+'/query','POST',{
-  sql:"SELECT (SELECT count(*) FROM celebrations_celebrations) AS celebrations,(SELECT count(*) FROM celebrations_steps) AS steps,(SELECT count(*) FROM celebrations_contents) AS contents,(SELECT count(*) FROM celebrations_events) AS events,(SELECT count(*) FROM celebrations_links) AS links,(SELECT count(*) FROM celebrations_participants) AS participants,(SELECT count(*) FROM celebrations_admin_sessions) AS admin_sessions,(SELECT count(*) FROM celebrations_participants WHERE email LIKE 'm021-%@test.invalid') AS fake_participants"
+  sql:"SELECT (SELECT count(*) FROM celebrations_celebrations) AS celebrations,(SELECT min(id) FROM celebrations_celebrations) AS first_celebration_id,(SELECT count(*) FROM celebrations_steps) AS steps,(SELECT count(*) FROM celebrations_contents) AS contents,(SELECT count(*) FROM celebrations_events) AS events,(SELECT count(*) FROM celebrations_links) AS links,(SELECT count(*) FROM celebrations_participants) AS participants,(SELECT count(*) FROM celebrations_admin_sessions) AS admin_sessions,(SELECT count(*) FROM celebrations_participants WHERE email LIKE 'm021-%@test.invalid') AS fake_participants"
  })
 ]);
 const versions=deployed.deployments?.[0]?.versions||[];
