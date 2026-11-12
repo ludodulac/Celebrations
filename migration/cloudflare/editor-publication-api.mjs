@@ -16,6 +16,7 @@ import {indexCanonicalPublishedContent} from './app/persistence/private-canonica
 import {privateReleaseReady} from './app/persistence/private-release-fence.mjs';
 import {canAccessPage,SPACE_VISIBILITIES,ACCESS_MODES} from './app/domain/member-access.mjs';
 import {readLegacyMediaReferences,canSafelyDeleteMedia} from './app/domain/editor-media-usage-safety.mjs';
+import {handleEditorMultipartUpload} from './app/application/editor-multipart-upload.mjs';
 
 const PREFIX='editor-trials/uploads/';
 const SITE=new Set(['www.ronde-des-archanges-universelle.eu','ronde-des-archanges-universelle.eu']);
@@ -480,6 +481,9 @@ export async function handleEditorMedia(request,env){
  if(request.method!=='POST')return err('Méthode interdite',405);
  const denied=await protectedWrite(request,env);if(denied)return denied;
  const action=url.searchParams.get('action');
+ if(action?.startsWith('mpu-'))return handleEditorMultipartUpload(action,request,env,{
+  readEditorState,writeEditorState,discoverMedia
+ });
  if(action==='external'){
   let input;try{input=await request.json()}catch{return err('JSON invalide',400)}
   if(!input||!allowedUrl(input.src)||!['image','video','pdf','audio'].includes(input.type))return err('Lien invalide',400);
