@@ -45,6 +45,49 @@ async function signedCookie(){
 const env=async bucket=>({EDITOR_BUCKET:bucket,MEDIA_BUCKET:bucket,DB:{},ADMIN_PASSWORD_HASH:SECRET});
 const body=(args,cookie)=>new Request(host+'/api/editor-publication',{method:'POST',
  headers:{origin:host,cookie,'content-type':'application/json'},body:JSON.stringify(args)});
+// Regression for the on-phone “Échec — réessayer” /
+// “Traductions ou registre multilingue invalides” reported on many pages.
+// The editor submits one global translation catalogue while saving only
+// the currently selected celebration.
+test('saving Michaël keeps already-saved Gabriel translations without rejecting the whole page',async()=>{
+ const state=initial();
+ state.drafts['202']={pages:[{
+  id:'preparation-202',name:'Préparation',group:'celebration',blocks:[
+   {id:'gabriel-intro',kind:'text',text:'Texte original'}]
+ }],celebrationDates:{},celebrationTimes:{}};
+ state.localization={registry:{version:1,defaultLanguageId:'fr',languages:[
+  {id:'fr',name:'Français',active:true},{id:'en',name:'English',active:true}
+ ]},pages:{'preparation-202':{en:{
+  name:'Preparation',blocks:[{id:'gabriel-intro',kind:'text',text:'English text'}]
+ }}}};
+ const bucket=new Bucket(state),e=await env(bucket),cookie=await signedCookie();
+ const response=await handleServerDraft(new Request(host+'/api/editor-open-draft',{
+  method:'POST',headers:{origin:host,cookie,'content-type':'application/json'},
+  body:JSON.stringify({celebration:'101',expectedRevision:1,
+   record:state.drafts['101'],plans:[],shared:state.shared,localization:state.localization,
+   publishPageId:'mercredi-101'})
+ }),e);
+ assert.equal(response.status,200,await response.text());
+ const saved=(await readEditorState(bucket)).state;
+ assert.deepEqual(saved.localization,state.localization);
+ assert.equal(saved.drafts['202'].pages[0].blocks[0].text,'Texte original');
+ assert.equal(saved.drafts['101'].pages[0].blocks[0].src,'/media/media/historical.jpg');
+});
+test('a fabricated or private-language page cannot be smuggled into the global catalogue',async()=>{
+ const state=initial();
+ const bucket=new Bucket(state),e=await env(bucket),cookie=await signedCookie();
+ const invalid={registry:{version:1,defaultLanguageId:'fr',languages:[
+  {id:'fr',name:'Français',active:true},{id:'en',name:'English',active:true}
+ ]},pages:{'unknown-private-page':{en:{name:'Secret',blocks:[]}}}};
+ const response=await handleServerDraft(new Request(host+'/api/editor-open-draft',{
+  method:'POST',headers:{origin:host,cookie,'content-type':'application/json'},
+  body:JSON.stringify({celebration:'101',expectedRevision:1,record:state.drafts['101'],
+   plans:[],shared:state.shared,localization:invalid})
+ }),e);
+ assert.equal(response.status,400);
+ assert.match((await response.json()).error,/Traductions ou registre multilingue invalides/);
+ assert.equal((await readEditorState(bucket)).state.version,1);
+});
 test('new pages stay private, existing pages remain public and no admin data is returned',()=>{
  const snapshot=publicSnapshot(initial(),'101');
  assert.deepEqual(snapshot.record.pages.map(x=>x.id),['mercredi-101']);
