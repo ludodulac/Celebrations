@@ -18,3 +18,7 @@ Le **titre de navigation** se saisit dans « Paramètres → Titre dans la barre
 ## Préproduction M016 — parcours réel
 
 Le navigateur de préproduction définit provisoirement « Ronde des Archanges Universelle » à droite dans la barre existante ; contrôle sa présence sur deux pages de bureau et son absence sur mobile ; importe un minuscule PDF provisoire, vérifie que son URL est ouverte sans connexion, coche « Privé » et attend un HTTP 404 anonyme, puis décoche et attend HTTP 200 sur **la même URL**. Nettoie ensuite le PDF de test et restaure le titre et l'alignement précédents dans M016. Aucun contenu du site officiel n'est modifié.
+
+## Compilation et tests
+
+La génération déterministe des modules de l'éditeur est terminée ; les tests M027 et les régressions M026/M025/M024 ont réussi dans l'action GitHub #43222104477. Le premier job M016 de ce commit a couru avant le commit automatique du bundle : sa vérification `--check` a détecté un bundle ancien. Relancer le contrôle complet M016 **sur le code généré**, sans modifier le site officiel.
