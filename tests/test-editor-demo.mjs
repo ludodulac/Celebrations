@@ -391,6 +391,10 @@ test('M028: simplified navigation hides languages, complete navigation keeps Cat
  assert.ok(members.includes("else memberPanel.showMembers()"));
  assert.ok(!members.includes("m018LanguagesCategories()"),
   'Languages no longer duplicated in category/member navigation');
+ assert.ok(DEMO_CLIENT.includes("if(!adminMembersEnabled&&['members-spaces','participants','languages-categories'].includes(tab))tab='pages'"),
+  'Old saved language tab returns to Pages in simplified mode instead of rendering blank');
+ assert.ok(DEMO_CLIENT.includes("if(!adminMembersEnabled&&['members-spaces','participants','languages-categories'].includes(t))return"),
+  'Hidden language tab cannot be entered while simplified');
  const html=readFileSync(new URL('../migration/cloudflare/editor-demo-preparation-page.mjs',import.meta.url),'utf8');
  assert.match(html,/data-tab="languages-categories" hidden style="display:none">◇ Catégories/);
 });
