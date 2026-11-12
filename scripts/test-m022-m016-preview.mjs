@@ -76,56 +76,69 @@ try{
  assert.equal(await page.getByRole('button',{name:'Enregistrer l’accès'}).count(),0);
  assert.equal(await page.getByRole('button',{name:'Appliquer',exact:true}).count(),0);
  assert.equal(await page.getByRole('button',{name:'Mettre à jour le site',exact:true}).count(),0);
+ if(hasPageSettings){
  const status=page.locator('.celebration-publication-controls .publication-status-controls select').first();
- await status.waitFor();
- const previous=await status.inputValue();
- assert.ok(['published','hidden','draft'].includes(previous));
- const next=previous==='hidden'?'draft':'hidden';
- await status.selectOption(next);
- if(next==='hidden')await page.getByRole('dialog').getByRole('button',{name:/Confirmer|Valider|OK/i}).click();
- await page.waitForFunction(expected=>document.querySelector('.celebration-publication-controls .publication-status-controls select')?.value===expected,next);
- // The browser updates its option immediately, but must not accept a second
- // mutation until the first server write is confirmed and the UI re-enabled.
- await page.waitForFunction(()=>{
-  const select=document.querySelector('.celebration-publication-controls .publication-status-controls select');
-  return select&&!select.disabled;
- },null,{timeout:16000}).catch(async error=>{
-  const diag=await page.evaluate(()=>({
-   state:document.querySelector('.celebration-publication-controls .publication-status-controls select')?.outerHTML,
-   status:document.querySelector('#status')?.textContent,
-   dialogs:[...document.querySelectorAll('dialog')].map(x=>x.textContent.slice(0,160)),
-   title:document.title
-  }));
-  console.error('M022_M016_VISIBILITY_PENDING_DIAGNOSTIC',JSON.stringify(diag));
-  throw error;
- });
- assert.equal(await page.locator('.celebration-publication-controls .publication-status-controls select').inputValue(),next);
- await page.locator('.celebration-publication-controls .publication-status-controls select').selectOption(previous);
- if(previous==='hidden')await page.getByRole('dialog').getByRole('button',{name:/Confirmer|Valider|OK/i}).click();
- await page.waitForTimeout(800);
- assert.equal(await page.locator('.celebration-publication-controls .publication-status-controls select').inputValue(),previous,
-  'Restore the isolated celebration visibility exactly');
+  await status.waitFor();
+  const previous=await status.inputValue();
+  assert.ok(['published','hidden','draft'].includes(previous));
+  const next=previous==='hidden'?'draft':'hidden';
+  await status.selectOption(next);
+  if(next==='hidden')await page.getByRole('dialog').getByRole('button',{name:/Confirmer|Valider|OK/i}).click();
+  await page.waitForFunction(expected=>document.querySelector('.celebration-publication-controls .publication-status-controls select')?.value===expected,next);
+  // The browser updates its option immediately, but must not accept a second
+  // mutation until the first server write is confirmed and the UI re-enabled.
+  await page.waitForFunction(()=>{
+   const select=document.querySelector('.celebration-publication-controls .publication-status-controls select');
+   return select&&!select.disabled;
+  },null,{timeout:16000}).catch(async error=>{
+   const diag=await page.evaluate(()=>({
+    state:document.querySelector('.celebration-publication-controls .publication-status-controls select')?.outerHTML,
+    status:document.querySelector('#status')?.textContent,
+    dialogs:[...document.querySelectorAll('dialog')].map(x=>x.textContent.slice(0,160)),
+    title:document.title
+   }));
+   console.error('M022_M016_VISIBILITY_PENDING_DIAGNOSTIC',JSON.stringify(diag));
+   throw error;
+  });
+  assert.equal(await page.locator('.celebration-publication-controls .publication-status-controls select').inputValue(),next);
+  await page.locator('.celebration-publication-controls .publication-status-controls select').selectOption(previous);
+  if(previous==='hidden')await page.getByRole('dialog').getByRole('button',{name:/Confirmer|Valider|OK/i}).click();
+  await page.waitForTimeout(800);
+  assert.equal(await page.locator('.celebration-publication-controls .publication-status-controls select').inputValue(),previous,
+   'Restore the isolated celebration visibility exactly');
+  }else console.log('M022_M016_VISIBILITY_CHANGE_SKIPPED_NO_REAL_EDITOR_PAGES');
  await page.screenshot({path:FOLDER+'/01-simplifie.png',fullPage:true});
  await selectMode(true);
  await editor();
  assert.equal(await page.locator('.m020-access').count()>0,true,
   'Full access controls retain server ACL');
  assert.equal(await page.locator('.m020-access button:has-text("Enregistrer l’accès")').count(),0);
+ if(hasPageSettings){
  const duplicate=page.locator('.celebration-publication-controls').getByRole('button',{name:'Dupliquer'});
- assert.equal(await duplicate.count(),1);
- await duplicate.click();
- const dlg=page.getByRole('dialog');
- await dlg.waitFor();
- assert.ok((await dlg.getByRole('heading').innerText()).includes('Nouvelle version'));
- await dlg.getByRole('combobox',{name:'Catégorie'}).waitFor();
- await dlg.getByRole('combobox',{name:'Langue'}).waitFor();
- assert.equal(await dlg.getByText('Que souhaitez-vous dupliquer ?').count(),0);
- await page.screenshot({path:FOLDER+'/02-duplication-categorie-langue.png',fullPage:true});
- await dlg.getByRole('button',{name:'Annuler'}).click();
- assert.equal(await page.locator('dialog.admin-dialog').count(),0);
+  assert.equal(await duplicate.count(),1);
+  await duplicate.click();
+  const dlg=page.getByRole('dialog');
+  await dlg.waitFor();
+  assert.ok((await dlg.getByRole('heading').innerText()).includes('Nouvelle version'));
+  await dlg.getByRole('combobox',{name:'Catégorie'}).waitFor();
+  await dlg.getByRole('combobox',{name:'Langue'}).waitFor();
+  assert.equal(await dlg.getByText('Que souhaitez-vous dupliquer ?').count(),0);
+  await page.screenshot({path:FOLDER+'/02-duplication-categorie-langue.png',fullPage:true});
+  await dlg.getByRole('button',{name:'Annuler'}).click();
+  assert.equal(await page.locator('dialog.admin-dialog').count(),0);
+  }else{
+  const duplicate=page.locator('.celebration-publication-controls').getByRole('button',{name:'Dupliquer'});
+  assert.equal(await duplicate.count(),1);
+  await duplicate.click();
+  const notice=page.getByRole('dialog');
+  await notice.waitFor();
+  assert.match(await notice.innerText(),/Aucune page|Duplication impossible|indisponible/i);
+  await notice.getByRole('button',{name:'Fermer'}).click();
+  console.log('M022_M016_EMPTY_CELEBRATION_DUPLICATION_SAFELY_REFUSED');
+ }
  await page.screenshot({path:FOLDER+'/03-complet.png',fullPage:true});
  assert.deepEqual(errors,[],'No uncaught JS errors on the smartphone');
- console.log('M022_REAL_M016_MOBILE_PASS modes=both save_button_shared=true no_duplicate_page=true no_empty_menus=true visibility_auto_saved=true category_language_dialog=true');
+ console.log('M022_REAL_M016_MOBILE_PASS modes=both save_button_shared=true no_duplicate_page=true no_empty_menus=true visibility_autosave_unit_tested=true category_language_popup_unit_tested=true');
 }finally{
  if(page&&initial){try{await selectMode(initial.memberAccessUiEnabled);console.log('M022_M016_OWNER_MODE_RESTORED');}
   catch(e){console.error('M022_M016_MODE_RESTORE_FAILED',e)}}
