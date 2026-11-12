@@ -51,7 +51,16 @@ try{
  for(let n=0;n<18;n++){
   await editor();
   if(await page.locator('.m020-settings .m022-save').count()===1)break;
-  console.log('M022_M016_PROPAGATION_RETRY '+n+' '+await page.locator('.m020-settings').first().evaluate(el=>el.outerHTML.slice(0,650)));
+  const diag=await page.evaluate(()=>({
+   settings:document.querySelectorAll('.m020-settings').length,
+   save:document.querySelectorAll('.m022-save').length,
+   editor:document.querySelectorAll('.stage-editor').length,
+   celebrations:document.querySelectorAll('[data-tab="celebrations"]').length,
+   activeTab:document.querySelector('[data-tab="celebrations"]')?.getAttribute('aria-current'),
+   alert:document.querySelector('#status')?.textContent?.slice(0,120)||'',
+   path:location.pathname
+  }));
+  console.log('M022_M016_PROPAGATION_RETRY '+n+' '+JSON.stringify(diag));
   await page.waitForTimeout(1300);
  }
  assert.equal(await page.locator('.m020-settings button:has-text("Dupliquer")').count(),0,
