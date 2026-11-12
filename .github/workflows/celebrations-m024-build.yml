@@ -1,7 +1,7 @@
 name: Célébrations M024 — modules générés et tests de l'éditeur
 on:
   push:
-    branches: [feat/m024-clean-editor-commands-20261112]
+    branches: [feat/m024-rename-audio-media-safety-20261112]
 permissions:
   contents: write
 concurrency:
