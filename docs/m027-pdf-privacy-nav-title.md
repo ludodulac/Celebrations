@@ -34,3 +34,7 @@ La reconstruction canonique et les tests de régression étendus (PDF anciens, l
 ## Test d'intégration préproduction — second passage
 
 Le premier test M016 a observé le formulaire de titre, mais a attendu un message d'état transitoire qui disparaît parfois lors d'un nouveau rendu de l'éditeur. Le test vérifie maintenant la préférence réellement persistée sur l'API serveur, puis l'affichage sur deux pages avant de tester le PDF. Le réglage initial a bien été restauré après le premier essai.
+
+## Diagnostic ergonomique
+
+Le deuxième essai M016 confirme que le titre du menu n'a pas été persisté par le clic simulé, sans erreur serveur imprimée par le test. Avant mise en service, enregistrer les requêtes du navigateur et corriger l'interface au bon endroit ; les données de test ont été restaurées.
