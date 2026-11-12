@@ -2457,17 +2457,24 @@ function attachPagePublicationControls(list,group){
   if(!choose)continue;
   let row=choose.closest('.general-page-row');
   if(!row){row=n('div','general-page-row');choose.replaceWith(row);row.append(choose)}
-  // Historical pages offer no contextual action: never show an empty ⋯ menu.
-  const removable=group==='celebration'&&/^extra-[0-9a-f-]{30,45}-/.test(p.id)&&
-   p.id.endsWith('-'+String(window.__PREPARATION_SEED__?.celebrationId));
-  let opts=null;
-  if(removable){
-   opts=n('details','page-options');
-   const summary=n('summary','','⋯');summary.setAttribute('aria-label','Options de la page '+p.name);
-   const menu=n('div','page-options-menu'),remove=b('Supprimer la page',()=>removeCustomPage(p),'sm');
+  // Always expose useful actions: historical stages are protected from
+  // destructive deletion but can be edited or hidden and shown again.
+  const opts=n('details','page-options');
+  const summary=n('summary','','⋯');
+  summary.setAttribute('aria-label','Actions pour la page '+p.name);
+  summary.title='Modifier et gérer la visibilité de cette page';
+  const menu=n('div','page-options-menu');
+  menu.append(b('Modifier cette page',()=>enter('celebrations',p.id),'sm'));
+  menu.append(publicationActions('page',p));
+  const deletion=editorPageCommands.deletionPlan(db,p,STAGE_SEED?.celebrationId);
+  if(deletion.allowed){
+   const remove=b('Supprimer la page',()=>removeCustomPage(p),'sm');
    remove.classList.add('danger');menu.append(remove);
-   opts.append(summary,menu);row.append(opts);
+  }else{
+   menu.append(n('small','page-options-protected',
+    'Page historique protégée : utilisez « Masqué » pour la retirer du site.'));
   }
+  opts.append(summary,menu);row.append(opts);
   const state=stateOfPage(p),badge=n('span','inline-page-state state-'+state);
   badge.setAttribute('role','img');badge.setAttribute('aria-label',VISIBILITY_LABELS[state]);
   badge.title=VISIBILITY_LABELS[state];row.insertBefore(badge,opts);
