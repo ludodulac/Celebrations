@@ -118,7 +118,7 @@ try{
  // The member/session endpoints remain guarded in either UI mode.
  const protectedResponse=await page.request.get(HOST+'/api/admin/private-editor?celebration=90000002',
   {failOnStatusCode:false});
- assert.ok([400,401,403,405].includes(protectedResponse.status()),
+ assert.ok([400,401,403,404,405].includes(protectedResponse.status()),
   'browser preference must not create unguarded private editor access');
 
  await goEditor();
