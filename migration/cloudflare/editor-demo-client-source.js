@@ -3404,30 +3404,89 @@ async function duplicateChoice(entry){
  }catch(e){siteNotice('Duplication impossible : '+(e.message||e))}
 }
 function accessControls(kind,p){
- const box=n('div','m020-access'),label=n('label','editor-language-choice','Accès'),select=n('select');select.setAttribute('aria-label','Accès '+(kind==='page'?'de la page':'à la célébration'));
+ const box=n('div','m020-access'),label=n('label','editor-language-choice','Accès'),select=n('select');
+ select.setAttribute('aria-label','Accès '+(kind==='page'?'de la page':'à la célébration'));
  const currentSpace=p.spaceId?privateCatalogue?.record.spaces.find(s=>s.id===p.spaceId):null;
- const policy=currentSpace?(currentSpace.visibility==='PUBLIC'?{mode:'PUBLIC'}:currentSpace.accessPolicy.mode==='PUBLIC'?{mode:'ALL_PRIVATE_TYPES'}:currentSpace.accessPolicy):kind==='celebration'?privateCatalogue?.celebrationAccessPolicy:p.accessPolicy;
- for(const [value,text]of [['PUBLIC','Public'],['PRIVATE','Privé']]){const option=n('option','',text);option.value=value;select.append(option)}select.value=policy&&policy.mode!=='PUBLIC'?'PRIVATE':'PUBLIC';
+ const original=currentSpace?
+  (currentSpace.visibility==='PUBLIC'?{mode:'PUBLIC'}:
+   currentSpace.accessPolicy.mode==='PUBLIC'?{mode:'ALL_PRIVATE_TYPES'}:currentSpace.accessPolicy):
+  kind==='celebration'?privateCatalogue?.celebrationAccessPolicy:p.accessPolicy;
+ let confirmed=clone(original||{mode:'PUBLIC'}),busy=false;
+ for(const [value,title]of [['PUBLIC','Public'],['PRIVATE','Privé']]){
+  const option=n('option','',title);option.value=value;select.append(option);
+ }
  const categories=n('fieldset');categories.append(n('legend','','Catégories'));
- const all=n('input');all.type='checkbox';all.checked=policy?.mode!=='SELECTED_TYPES';const allLabel=n('label','','Tous les inscrits à cette célébration');allLabel.prepend(all);categories.append(allLabel);
+ const all=n('input');all.type='checkbox';
+ const allLabel=n('label','','Tous les inscrits à cette célébration');allLabel.prepend(all);categories.append(allLabel);
  const checks=[];
- for(const type of availableCategories.filter(t=>!t.disabled)){const check=n('input');check.type='checkbox';check.value=type.id;check.checked=policy?.typeIds?.includes(type.id)||false;const item=n('label','',type.name);item.prepend(check);categories.append(item);checks.push(check);check.onchange=()=>{if(check.checked)all.checked=false}}
- all.onchange=()=>{if(all.checked)checks.forEach(c=>c.checked=false)};
- const apply=b('Enregistrer l’accès',async()=>{
+ for(const type of availableCategories.filter(t=>!t.disabled)){
+  const check=n('input');check.type='checkbox';check.value=type.id;
+  const item=n('label','',type.name);item.prepend(check);categories.append(item);checks.push(check);
+ }
+ const toggle=()=>{categories.hidden=select.value!=='PRIVATE'};
+ const restore=()=>{
+  select.value=confirmed.mode==='PUBLIC'?'PUBLIC':'PRIVATE';
+  all.checked=confirmed.mode!=='SELECTED_TYPES';
+  checks.forEach(c=>{c.checked=!!confirmed.typeIds?.includes(c.value)});
+  toggle();
+ };
+ const policyFromFields=()=>{
   const typeIds=checks.filter(c=>c.checked).map(c=>c.value);
-  if(select.value==='PRIVATE'&&!all.checked&&!typeIds.length){siteNotice('Choisissez une catégorie ou tous les inscrits.');return}
-  const accessPolicy=select.value==='PUBLIC'?{mode:'PUBLIC'}:all.checked?{mode:'ALL_PRIVATE_TYPES'}:{mode:'SELECTED_TYPES',typeIds};
+  return select.value==='PUBLIC'?{mode:'PUBLIC'}:
+   all.checked?{mode:'ALL_PRIVATE_TYPES'}:
+   typeIds.length?{mode:'SELECTED_TYPES',typeIds}:null;
+ };
+ const widens=(before,after)=>
+  before.mode!=='PUBLIC'&&(after.mode==='PUBLIC'||
+   before.mode==='SELECTED_TYPES'&&(after.mode==='ALL_PRIVATE_TYPES'||
+    after.mode==='SELECTED_TYPES'&&after.typeIds.some(id=>!before.typeIds?.includes(id))));
+ async function autoSaveAccess(){
+  if(busy)return;
+  const next=policyFromFields();
+  if(!next){status.textContent='Sélectionnez une catégorie ou « Tous les inscrits ». ';return}
+  if(JSON.stringify(next)===JSON.stringify(confirmed))return;
+  // Access changes must not trigger a hidden content save or discard local edits.
+  if(dirty||db._serverPending||privateBusy){
+   restore();siteNotice('Enregistrez d’abord vos modifications de contenu avant de changer les accès.');return;
+  }
+  if(widens(confirmed,next)&&!await siteConfirm('Cette modification élargit les accès au contenu. Confirmer ?')){
+   restore();return;
+  }
+  busy=true;for(const input of [select,all,...checks])input.disabled=true;
   try{
    ensureMemberPanel();
-   if(privateEdit){if(dirty&&!await savePrivatePage())return}else if(dirty||db._serverPending){save();await serverSave();if(db._serverPending)return}
-   const describe=pol=>pol?.mode==='PUBLIC'?'Public':pol?.mode==='SELECTED_TYPES'?'Privé — '+pol.typeIds.map(id=>availableCategories.find(t=>t.id===id)?.name||id).join(', '):'Privé — Tous les inscrits';
-   if(policy&&JSON.stringify(policy)!==JSON.stringify(accessPolicy)&&!await siteConfirm('Ancien choix : '+describe(policy)+'\nNouveau choix : '+describe(accessPolicy)+'\nLe contenu modifié reste en brouillon.'))return;
-   if(currentSpace){const spaces=clone(privateCatalogue.record.spaces);const target=spaces.find(s=>s.id===currentSpace.id);target.visibility=accessPolicy.mode==='PUBLIC'?'PUBLIC':'PRIVATE';target.accessPolicy=accessPolicy.mode==='ALL_PRIVATE_TYPES'?{mode:'PUBLIC'}:accessPolicy;await memberPanel.commandContent('save',{spaces})}
-   else await memberPanel.commandContent(kind==='page'?'page-access':'celebration-access',{...(kind==='page'?{id:p.id}:{}),accessPolicy});
-   if(privateEdit)await closePrivatePage(true);else await serverLoad();await refreshPrivateCatalogue();render();
-  }catch(e){siteNotice(e.message)}
- },'sm');
- const toggle=()=>{categories.hidden=select.value!=='PRIVATE'};select.onchange=toggle;toggle();label.append(select);box.append(label,categories,apply);return box;
+   if(currentSpace){
+    const spaces=clone(privateCatalogue.record.spaces);
+    const target=spaces.find(s=>s.id===currentSpace.id);
+    if(!target)throw Error('Espace introuvable');
+    target.visibility=next.mode==='PUBLIC'?'PUBLIC':'PRIVATE';
+    target.accessPolicy=next.mode==='ALL_PRIVATE_TYPES'?{mode:'PUBLIC'}:next;
+    await memberPanel.commandContent('save',{spaces});
+   }else{
+    await memberPanel.commandContent(kind==='page'?'page-access':'celebration-access',{
+     ...(kind==='page'?{id:p.id}:{}),accessPolicy:next
+    });
+   }
+   confirmed=clone(next);
+   if(privateEdit)await closePrivatePage(true);
+   else await serverLoad();
+   await refreshPrivateCatalogue();render();
+   status.textContent='✓ Accès enregistré automatiquement.';
+  }catch(error){
+   restore();
+   status.textContent='❌ Changement d’accès refusé : '+(error.message||error);
+  }finally{
+   busy=false;for(const input of [select,all,...checks])input.disabled=false;
+  }
+ }
+ select.onchange=()=>{toggle();void autoSaveAccess()};
+ all.onchange=()=>{if(all.checked)checks.forEach(c=>c.checked=false);void autoSaveAccess()};
+ checks.forEach(check=>{check.onchange=()=>{
+  if(check.checked)all.checked=false;
+  void autoSaveAccess();
+ }});
+ restore();label.append(select);box.append(label,categories);
+ return box;
 }
 async function openPrivatePage(controller){
  if(privateEdit||!controller?.page||dirty)return;
