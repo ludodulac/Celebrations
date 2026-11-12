@@ -46,3 +46,7 @@ Le diagnostic M016 a montré un POST HTTP 200 enregistrant les valeurs vides de 
 ## Reconstruction M027 — nouvelle version
 
 Le modèle de formulaire corrigé est maintenant reconstruit et testé par workflow M027 #43224185257 (succès). Le job M016 du même push a été lancé avant la reconstruction et a trouvé le bundle non à jour. Relancer la préproduction sur le commit généré.
+
+## Prévisualisation sur M016
+
+Après validation du POST de titre, le parcours a révélé que le moteur public refusait jusqu'ici le nom d'hôte M016, même lorsque les deux options de préproduction étaient validées. La même route publique fonctionne sur le domaine officiel. Le contrôle d'hôte réutilise désormais **la fonction de sécurité M016 exacte** déjà présente, pour autoriser la lecture du rendu public en préproduction et éviter toute exception générale. Aucun accès aux espaces privés n'est ajouté.
