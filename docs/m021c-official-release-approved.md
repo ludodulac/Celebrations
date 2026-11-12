@@ -9,3 +9,7 @@ Le propriétaire autorise explicitement la mise en production de la version vali
 **Activation :** envoyer une version du Worker officiel, vérifier l'absence de changement concurrent, promouvoir à 100 %, tester l'interface réelle avec Chromium sur smartphone et le code habituel, essayer les deux modes puis laisser le mode simplifié actif (case décochée). Ne créer aucun faux membre ou contenu sur le site officiel.
 
 **Retour arrière :** si un contrôle échoue après activation et que la version en ligne est toujours celle de cette livraison, restaurer la version Worker précédente. Ne jamais supprimer des tables additives ni toucher aux médias/droits.
+
+## Sécurité du code administrateur
+
+Le secret GitHub de la préproduction M017 n'est **pas** le PIN historique du domaine officiel. La livraison doit conserver strictement le vérificateur et les secrets du site officiel et ne pas tenter une connexion avec un mauvais code. Les contrôles Chromium sans authentification examinent la page publique, le masquage de Connexion, le lien Administration, l'écran PIN et les refus d'accès aux données privées. Les fonctions authentifiées ont déjà été validées sur M016, mais leur parcours complet sur le domaine officiel nécessitera une validation par le propriétaire connecté.
