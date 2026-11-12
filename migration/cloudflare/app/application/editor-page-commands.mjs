@@ -22,6 +22,26 @@ export function createEditorPageCommands({model}){
   const a=db.pages.indexOf(page),b=db.pages.indexOf(other);
   db.pages[a]=other;db.pages[b]=page;return true;
  }
+ // Rename user-created pages without changing stable public URL, ID, rights
+ // or status. Fixed historical celebration stages keep their canonical names.
+ function renameEditablePage(db,page,name,celebrationId){
+  if(!db?.pages?.includes(page)||!model.removablePage(page,celebrationId).allowed)
+   return {ok:false,error:'Cette page historique conserve son nom.'};
+  const value=typeof name==='string'?name.trim():'';
+  if(!value||value.length>95)
+   return {ok:false,error:'Saisissez un nom de page de 1 à 95 caractères.'};
+  const group=page.placement==='footer'?'footer':page.group;
+  if(model.groupPages(db.pages,group).some(other=>other!==page&&
+     other.name.trim().toLocaleLowerCase('fr')===value.toLocaleLowerCase('fr')))
+   return {ok:false,error:'Une page porte déjà ce nom.'};
+  const previous=page.name;
+  if(previous===value)return {ok:true,changed:false};
+  page.name=value;
+  // Only update a generated heading, never an independently edited title.
+  for(const block of page.blocks||[])
+   if(block.kind==='heading'&&block.text===previous)block.text=value;
+  return {ok:true,changed:true};
+ }
  function deletionPlan(db,page,celebrationId){
   if(!page||!db.pages.includes(page))return {allowed:false,general:false,siblings:[]};
   const {allowed,general}=model.removablePage(page,celebrationId);
@@ -41,6 +61,6 @@ export function createEditorPageCommands({model}){
  function rememberDeletedPage(before,pageId){
   return [...new Set([...(Array.isArray(before?.deletedPageIds)?before.deletedPageIds:[]),pageId])].slice(-100);
  }
- return {restoreSharedPages,sharedSnapshot,moveGeneralPage,
+ return {restoreSharedPages,sharedSnapshot,moveGeneralPage,renameEditablePage,
   deletionPlan,removeConfirmedPage,rememberDeletedPage};
 }
