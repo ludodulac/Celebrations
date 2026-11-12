@@ -20,6 +20,10 @@ const LIVE_MEDIA_UPLOAD_HOST=(location.hostname==='ronde-des-archanges-universel
 const IS_STAGE=!!STAGE_SEED,SHARED_KEY='celebrations-demo-shared-pages-v1',PLANS_KEY='celebrations-demo-planned-v1';
 // M021-B: a persisted DISPLAY preference, never a permission or publication policy.
 let adminMembersEnabled=false,adminModeLoaded=false,adminModeRevision=null;
+// M028: browser-only display preference. No server writes or content changes.
+const LANGUAGE_TOOLS_PREF='celebrations-admin-show-language-tools-v1';
+let adminLanguagesVisible=false;
+try{adminLanguagesVisible=localStorage.getItem(LANGUAGE_TOOLS_PREF)==='1'}catch{}
 async function loadAdminMode(){
  if(!IS_STAGE)return;
  try{
@@ -35,7 +39,12 @@ function applyAdminMenu(){
  const memberLink=document.querySelector('[data-tab="members-spaces"]');
  if(memberLink)memberLink.hidden=!adminMembersEnabled;
  const languagesLink=document.querySelector('[data-tab="languages-categories"]');
- if(languagesLink)languagesLink.textContent=adminMembersEnabled?'◇ Langues et catégories':'◇ Langues';
+ if(languagesLink){
+  // Categories stay accessible in complete mode. Language tools move into Settings.
+  languagesLink.hidden=!adminMembersEnabled;
+  languagesLink.style.display=adminMembersEnabled?'':'none';
+  languagesLink.textContent='◇ Catégories';
+ }
 }
 const {validIso,prettyDate,validTime,validHref,validColor}=createEditorLocalRules();
 const ARCHANGELS=['Michaël','Gabriel','Raphaël','Ouriel'];
@@ -2710,10 +2719,12 @@ function pageWorkspace(group,mount=w){
   }
   row.append(publicationActions('page',canonicalPage()));
   if(adminMembersEnabled)row.append(accessControls('page',canonicalPage()));
-  const label=n('label','editor-language-choice','Langue'),picker=n('select');picker.setAttribute('aria-label','Langue');
-  for(const lang of editorLocalization.registry.languages){const opt=n('option','',lang.name);opt.value=lang.id;picker.append(opt)}picker.value=editingLanguageId;
-  picker.onchange=()=>{if(dirty){save();if(dirty)return}editingLanguageId=picker.value;clearLocaleView();selectedBlockId=null;render()};
-  label.append(picker);row.append(label);
+  if(adminLanguagesVisible){
+   const label=n('label','editor-language-choice','Langue'),picker=n('select');picker.setAttribute('aria-label','Langue');
+   for(const lang of editorLocalization.registry.languages){const opt=n('option','',lang.name);opt.value=lang.id;picker.append(opt)}picker.value=editingLanguageId;
+   picker.onchange=()=>{if(dirty){save();if(dirty)return}editingLanguageId=picker.value;clearLocaleView();selectedBlockId=null;render()};
+   label.append(picker);row.append(label);
+  }
    // The celebration already has a clear “＋ Page” action.
    if(p.group!=='celebration')row.append(b('Dupliquer',()=>m018DuplicatePage(canonicalPage()),'sm'));
    row.append(b('Enregistrer',saveCurrentContent,'sm m022-save'));
@@ -3353,8 +3364,35 @@ function settings(){
   }finally{modeCheck.disabled=false;}
  };
 
+ // Native disclosure reuses the existing multilingual editor under Settings.
+ // Changing this local display setting never calls serverSave().
+ const languagesBox=n('details','settings-actions m028-language-settings');
+ const summary=n('summary','','🌍 Gestion des langues (facultatif)');
+ const languageHelp=n('p','','Les langues déjà publiées restent accessibles. Cette préférence affiche seulement les outils sur cet appareil.');
+ const languageLabel=n('label','m021b-mode-choice');
+ const languageCheck=n('input');languageCheck.type='checkbox';languageCheck.checked=adminLanguagesVisible;
+ languageCheck.setAttribute('aria-label','Afficher les outils de traduction');
+ languageLabel.append(languageCheck,n('span','','Afficher les outils de traduction dans les pages'));
+ const languageStatus=n('p','');languageStatus.setAttribute('role','status');
+ const languageTools=n('div','m028-language-tools');languageTools.hidden=!adminLanguagesVisible;
+ m018LanguagesCategories(languageTools);
+ languageCheck.onchange=()=>{
+  adminLanguagesVisible=languageCheck.checked;
+  if(!adminLanguagesVisible){
+   // A hidden picker must never leave the page editing an invisible translation.
+   commitLocalizedView();editingLanguageId='fr';clearLocaleView();
+  }
+  try{localStorage.setItem(LANGUAGE_TOOLS_PREF,adminLanguagesVisible?'1':'0')}
+  catch{languageStatus.textContent='Préférence temporaire : stockage local indisponible.';languageTools.hidden=!adminLanguagesVisible;return}
+  languageTools.hidden=!adminLanguagesVisible;
+  languageStatus.textContent=adminLanguagesVisible?
+   '✓ Outils multilingues affichés sur cet appareil.':
+   '✓ Outils multilingues masqués sur cet appareil. Les contenus restent inchangés.';
+ };
+ languagesBox.append(summary,languageHelp,languageLabel,languageStatus,languageTools);
+ w.append(languagesBox);
 }
-function m018LanguagesCategories(){
+function m018LanguagesCategories(parent=w){
   const panel=n('section','m018-language-panel');
   panel.append(n('h2','','Langues'));
   panel.append(n('p','','Les huit langues sont prêtes. Une langue apparaît sur le site dès qu’un contenu publié est accessible. Les textes des pages sont rédigés par l’administrateur.'));
@@ -3389,10 +3427,10 @@ function m018LanguagesCategories(){
    row.append(name,rename);rows.append(row);
   }
   panel.append(rows);
-  w.append(panel);
+  parent.append(panel);
 
  }
-let catalogueTab='languages',privateCatalogue=null,availableCategories=[];
+let privateCatalogue=null,availableCategories=[];
 function ensureMemberPanel(){
  if(memberPanel)return;
  memberPanelRoot=n('div','real-member-spaces');
@@ -3404,14 +3442,11 @@ function ensureMemberPanel(){
 }
 function memberSpaces(){
  if(!IS_STAGE||typeof M012B==='undefined')return;
- if(!adminMembersEnabled){m018LanguagesCategories();return;}
+ if(!adminMembersEnabled)return;
  ensureMemberPanel();
- if(tab==='languages-categories'){
-  const tabs=n('div','member-spaces-actions');
-  tabs.append(b('Langues',()=>{catalogueTab='languages';render()}),b('Catégories',()=>{catalogueTab='categories';render()}));w.append(tabs);
-  if(catalogueTab==='languages'){m018LanguagesCategories();return}
-  memberPanel.showCategories();
- }else memberPanel.showMembers();
+ // The existing complete-mode entry now shows categories only.
+ if(tab==='languages-categories')memberPanel.showCategories();
+ else memberPanel.showMembers();
  w.append(memberPanelRoot);
 }
 async function refreshPrivateCatalogue(){
