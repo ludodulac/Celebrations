@@ -38,3 +38,7 @@ Le premier test M016 a observé le formulaire de titre, mais a attendu un messag
 ## Diagnostic ergonomique
 
 Le deuxième essai M016 confirme que le titre du menu n'a pas été persisté par le clic simulé, sans erreur serveur imprimée par le test. Avant mise en service, enregistrer les requêtes du navigateur et corriger l'interface au bon endroit ; les données de test ont été restaurées.
+
+## Correction d'une course de chargement côté formulaire
+
+Le diagnostic M016 a montré un POST HTTP 200 enregistrant les valeurs vides de l'ancien état. Le champ avait été rempli avant que son GET initial, asynchrone, ne revienne ; cette réponse tardive écrasait la saisie. Le formulaire est maintenant non interactif jusqu'à l'hydratation complète des valeurs, puis activé normalement. Cette correction de cycle de vie remplace tout délai artificiel de test.
