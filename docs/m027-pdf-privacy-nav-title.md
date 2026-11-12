@@ -22,3 +22,7 @@ Le navigateur de préproduction définit provisoirement « Ronde des Archanges U
 ## Compilation et tests
 
 La génération déterministe des modules de l'éditeur est terminée ; les tests M027 et les régressions M026/M025/M024 ont réussi dans l'action GitHub #43222104477. Le premier job M016 de ce commit a couru avant le commit automatique du bundle : sa vérification `--check` a détecté un bundle ancien. Relancer le contrôle complet M016 **sur le code généré**, sans modifier le site officiel.
+
+## Compatibilité des anciens liens PDF
+
+Les tests existants des URL /media et /letter incluent désormais le binding R2 de l'éditeur que possède la production. Un PDF historique vérifie aussi la case « Privé » avant de servir les octets ; en cas de panne ou d'absence du stockage de confidentialité, le téléchargement échoue sans rendre un PDF privé public. Les liens publics restent inchangés.
