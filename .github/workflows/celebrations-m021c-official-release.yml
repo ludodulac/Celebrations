@@ -199,6 +199,8 @@ jobs:
       - name: Promote validated version to 100 percent on SAME official Worker
         id: promote
         working-directory: migration/cloudflare
+        env:
+          NEW_VERSION: ${{ steps.upload.outputs.new_version }}
         run: |
           set -euo pipefail
           test -n "$NEW_VERSION"
@@ -251,8 +253,6 @@ jobs:
       - name: Rollback only if official current version is our failed new version
         id: rollback-decision
         if: ${{ failure() && steps.promote.outcome != 'skipped' }}
-        env:
-          NEW_VERSION: ${{ steps.upload.outputs.new_version }}
         run: |
           node --input-type=module <<'NODE'
           import assert from 'node:assert/strict';
