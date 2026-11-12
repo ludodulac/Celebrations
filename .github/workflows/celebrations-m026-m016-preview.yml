@@ -141,7 +141,7 @@ jobs:
         run: node scripts/test-m022-m016-preview.mjs
       - name: M024 verify site identity removal and conservatively protected media UI
         run: node scripts/test-m024-m016-browser.mjs
-      - name: M026 real 55 Mo multipart upload to staging R2, resume, verify and clean up
+      - name: M026 real 90 Mo MP3 through browser file picker, R2 verify and cleanup
         run: node scripts/test-m026-m016-mp3-90mo-ui.mjs
       - name: M023 read-only historical page menus — Chromium mobile and desktop
         run: node scripts/test-m023-historical-menus-staging.mjs
