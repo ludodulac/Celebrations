@@ -21,7 +21,7 @@ jobs:
         run: |
           node scripts/build-m012b-member-spaces-inline.mjs --check
           node scripts/build-m019-editor-client.mjs --check
-          node --test tests/test_m027_pdf_privacy_navigation.mjs tests/test_m026_real_mp3_detection.mjs tests/test_m025_mp3_multipart.mjs tests/test_m024_cleanup_and_media_safety.mjs tests/test_m022_editor_commands.mjs tests/test_m021b_admin_mode.mjs tests/test_m021a_demo_identity.mjs tests/test_m021a_demo_flow.mjs tests/test_m020d_member_brevo.mjs
+          node --test tests/test_m027_pdf_privacy_navigation.mjs tests/test-exit-media-gateway.mjs tests/test_m009c_public_media_api_security.mjs tests/test-editor-publication-media.mjs tests/test_m026_real_mp3_detection.mjs tests/test_m025_mp3_multipart.mjs tests/test_m024_cleanup_and_media_safety.mjs tests/test_m022_editor_commands.mjs tests/test_m021b_admin_mode.mjs tests/test_m021a_demo_identity.mjs tests/test_m021a_demo_flow.mjs tests/test_m020d_member_brevo.mjs
   m016-private-preview:
     needs: m027-local
     if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M027_ISOLATED_PREVIEW]') }}
@@ -84,7 +84,7 @@ jobs:
         run: |
           node scripts/build-m012b-member-spaces-inline.mjs --check
           node scripts/build-m019-editor-client.mjs --check
-          node --test tests/test_m027_pdf_privacy_navigation.mjs tests/test_m026_real_mp3_detection.mjs tests/test_m025_mp3_multipart.mjs tests/test_m024_cleanup_and_media_safety.mjs tests/test_m022_editor_commands.mjs tests/test_m021b_admin_mode.mjs tests/test_m021a_demo_identity.mjs tests/test_m021a_demo_flow.mjs tests/test_m020d_member_brevo.mjs
+          node --test tests/test_m027_pdf_privacy_navigation.mjs tests/test-exit-media-gateway.mjs tests/test_m009c_public_media_api_security.mjs tests/test-editor-publication-media.mjs tests/test_m026_real_mp3_detection.mjs tests/test_m025_mp3_multipart.mjs tests/test_m024_cleanup_and_media_safety.mjs tests/test_m022_editor_commands.mjs tests/test_m021b_admin_mode.mjs tests/test_m021a_demo_identity.mjs tests/test_m021a_demo_flow.mjs tests/test_m020d_member_brevo.mjs
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
       - name: Build static files required by the existing M016 Worker
