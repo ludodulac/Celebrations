@@ -4,6 +4,7 @@ import {visitorText} from './app/domain/visitor-ui-translations.mjs';
 import {loadSevenStageContent,STAGES} from './editor-demo-preparation-page.mjs';
 import {readEditorState} from './editor-publication-api.mjs';
 import {normalizedSiteIdentity} from './site-identity-api.mjs';
+import {navigationPreference} from './app/domain/editor-site-preferences.mjs';
 import {mayUseIsolatedMemberApi,isReadonlyCandidateHost} from './app/security/editor-route-policy.mjs';
 import {TRIAL_SITE_CLIENT,TRIAL_SITE_STYLE} from './editor-trial-site-client.mjs';
 const HOST='celebrations-exit-staging.rondes.workers.dev';
@@ -18,6 +19,18 @@ export const PUBLIC_LANGUAGE_STYLE=`
 @media(max-width:600px){.m021-site-identity{min-height:62px;max-height:100px;padding:8px 12px}.m021-site-identity.is-home{min-height:140px;max-height:190px}.m021-site-title{font-size:clamp(1rem,4.4vw,1.35rem)}.m021-site-identity.is-home .m021-site-title{font-size:clamp(1.25rem,5vw,1.75rem)}}
 
 .site-menu-bar{display:flex;align-items:center;justify-content:space-between;gap:12px}
+/* M027: label inside the EXISTING sticky menu bar, not an extra header.
+   Grid allocates spare width to the title; ellipsis prevents overlap. */
+@media(min-width:701px){
+ .site-menu-bar.has-nav-title{display:grid;grid-template-columns:max-content minmax(0,1fr) max-content max-content;gap:12px;flex-wrap:nowrap}
+ .site-nav-title{grid-column:2;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#263747;font:650 clamp(14px,1.4vw,20px)/1.35 system-ui,sans-serif}
+ .site-nav-title[data-align="left"]{justify-self:start;text-align:left}
+ .site-nav-title[data-align="center"]{justify-self:center;text-align:center}
+ .site-nav-title[data-align="right"]{justify-self:end;text-align:right}
+ .site-menu-bar.has-nav-title #member-connection{grid-column:3}
+ .site-menu-bar.has-nav-title #public-language-control{grid-column:4}
+}
+@media(max-width:700px){.site-nav-title{display:none!important}}
 #public-language-control{margin-left:auto;min-width:0}
 #member-connection{border:1px solid #35734d;background:#fff;color:#275638;padding:8px 12px;border-radius:8px;cursor:pointer;font:600 .95rem system-ui}
 #member-connection[hidden]{display:none!important}
@@ -55,8 +68,10 @@ export async function handleTrialSite(request,env){
  catch{return new Response(visitorText(url.searchParams.get('lang'),'Célébration introuvable'),{status:404,headers:{'cache-control':'no-store'}})}
  const nonce=Array.from(crypto.getRandomValues(new Uint8Array(16)),v=>v.toString(16).padStart(2,'0')).join('');
  const identity=normalizedSiteIdentity(publishedState?.siteIdentity);
+ const navigation=navigationPreference(publishedState?.navigation);
  const language=(url.searchParams.get('lang')||'fr').toLowerCase().split('-')[0];
  const identityTitle=identity.titles[language]||identity.title;
+ const navigationHtml=navigation.title?'<strong class="site-nav-title" data-align="'+navigation.position+'">'+esc(navigation.title)+'</strong>':'';
  const identityHtml=identityTitle||identity.imageSrc?'<header id="site-identity" class="m021-site-identity" aria-label="Identité du site">'+
   (identity.imageSrc?'<img class="m021-site-image" src="'+esc(identity.imageSrc)+'" alt="'+esc(identity.imageAlt)+'" style="object-position:'+identity.positionX+'% '+identity.positionY+'%">':'')+
   (identityTitle?'<strong class="m021-site-title">'+esc(identityTitle)+'</strong>':'')+'</header>':'';
@@ -66,8 +81,8 @@ export async function handleTrialSite(request,env){
  '<style nonce="'+nonce+'">'+TRIAL_SITE_STYLE+PUBLIC_LANGUAGE_STYLE+'</style></head><body data-member-site="'+(memberSite?'1':'0')+'" data-member-login-visible="'+(memberSite&&publishedState?.adminMode?.memberAccessUiEnabled===true?'1':'0')+'">'+identityHtml+
 
 
- '<div class="site-menu-bar"><div class="site-menu-group"><button type="button" class="menu-toggle" id="menu-toggle" aria-expanded="false" aria-haspopup="true" aria-controls="general-navigation">☰ Menu</button>'+
- '<nav id="general-navigation" class="general-navigation" aria-label="Pages hors célébration" hidden></nav></div><button type="button" id="member-connection" hidden>Connexion membre</button><div id="public-language-control" aria-label="Langues du site"></div></div>'+
+ '<div class="site-menu-bar'+(navigation.title?' has-nav-title':'')+'"><div class="site-menu-group"><button type="button" class="menu-toggle" id="menu-toggle" aria-expanded="false" aria-haspopup="true" aria-controls="general-navigation">☰ Menu</button>'+
+ '<nav id="general-navigation" class="general-navigation" aria-label="Pages hors célébration" hidden></nav></div>'+navigationHtml+'<button type="button" id="member-connection" hidden>Connexion membre</button><div id="public-language-control" aria-label="Langues du site"></div></div>'+
  '<nav class="celebration-shortcuts" id="celebration-shortcuts" aria-label="Célébration"></nav>'+
  '<nav class="steps" id="stage-navigation" aria-label="Pages de la célébration"></nav>'+
  '<main class="site-paper" id="site-paper"><div id="stage-main"></div></main>'+
