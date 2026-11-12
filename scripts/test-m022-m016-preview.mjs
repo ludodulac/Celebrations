@@ -47,7 +47,13 @@ try{
  ]);
  initial=await mode();
  await selectMode(false);
- await editor();
+ // A newly deployed Worker can take several seconds to reach the M016 edge.
+ for(let n=0;n<18;n++){
+  await editor();
+  if(await page.locator('.m020-settings .m022-save').count()===1)break;
+  console.log('M022_M016_PROPAGATION_RETRY '+n+' '+await page.locator('.m020-settings').first().evaluate(el=>el.outerHTML.slice(0,650)));
+  await page.waitForTimeout(1300);
+ }
  assert.equal(await page.locator('.m020-settings button:has-text("Dupliquer")').count(),0,
   'A celebration page must not offer a redundant duplicate');
  assert.equal(await page.locator('.m020-settings .m022-save').count(),1,
