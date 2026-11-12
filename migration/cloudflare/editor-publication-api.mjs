@@ -15,6 +15,7 @@ import {
 import {indexCanonicalPublishedContent} from './app/persistence/private-canonical-content.mjs';
 import {privateReleaseReady} from './app/persistence/private-release-fence.mjs';
 import {canAccessPage,SPACE_VISIBILITIES,ACCESS_MODES} from './app/domain/member-access.mjs';
+import {readLegacyMediaReferences,canSafelyDeleteMedia} from './app/domain/editor-media-usage-safety.mjs';
 
 const PREFIX='editor-trials/uploads/';
 const SITE=new Set(['www.ronde-des-archanges-universelle.eu','ronde-des-archanges-universelle.eu']);
@@ -467,7 +468,14 @@ export async function handleEditorMedia(request,env){
  if(request.method==='GET'){
   if(!await hasEditorAccess(request,env))return err('Code administrateur nécessaire',401);
   const {state}=await readEditorState(env.EDITOR_BUCKET);
-  return json({ok:true,items:discoverMedia(legacyEditorView(state))});
+  const legacyRefs=await readLegacyMediaReferences(env.DB);
+  // The UI can display DELETE only after the SERVER has established that the
+  // item is absent from all saved drafts, publications, translations, private
+  // versions, branding and historical D1 references. Unknown = protected.
+  const items=discoverMedia(legacyEditorView(state)).map(item=>({
+   ...item,canDelete:canSafelyDeleteMedia(item,state,legacyRefs)
+  }));
+  return json({ok:true,items});
  }
  if(request.method!=='POST')return err('Méthode interdite',405);
  const denied=await protectedWrite(request,env);if(denied)return denied;
@@ -550,13 +558,15 @@ export async function handleEditorMedia(request,env){
   const current=await readEditorState(env.EDITOR_BUCKET),state=copy(current.state);
   const entry=discoverMedia(state).find(x=>x.id===body.id);
   if(!entry)return err('Média introuvable',404);
-  // Only delete uploads owned by this application and not referenced in ANY
-  // draft, published snapshot, or public gallery. Legacy mail URLs are untouchable.
+  // Use exactly the same reference policy as the media catalogue UI.
+  // Refuse deletion whenever reference discovery is incomplete (D1, private
+  // spaces, translations or site identity), rather than relying on a badge.
   const newUpload=entry.source==='uploaded'&&editorUploadPath(entry.src);
   if(entry.source==='uploaded'&&!newUpload)return err('Ce fichier historique est protégé',403);
   if(entry.source!=='uploaded'&&entry.source!=='link')return err('Lien historique protégé',403);
-  const originals=JSON.stringify([state.drafts,state.shared?.pages,state.published]);
-  if(originals.includes(entry.src)||entry.general)return err('Fichier encore utilisé ou visible : retirez ses références avant la suppression.',409);
+  const legacyRefs=await readLegacyMediaReferences(env.DB);
+  if(!canSafelyDeleteMedia(entry,state,legacyRefs))
+   return err('Fichier utilisé ou non vérifié : suppression refusée.',409);
   state.mediaCatalogue=discoverMedia(state).filter(r=>r.id!==entry.id);
   if(!await writeEditorState(env.EDITOR_BUCKET,current,state))return err('Modifications simultanées',409);
   if(newUpload)await env.EDITOR_BUCKET.delete(PREFIX+entry.src.split('/').pop());
