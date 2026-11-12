@@ -21,3 +21,11 @@ Générer le client via le script existant; réussir les tests unitaires et le p
 ## Premier contrôle local
 
 La compilation déterministe de l'éditeur et les tests de renommage, médiathèque, multipart MP3 et détection d'extension ont réussi via GitHub Actions `43217237455`. Valider maintenant le navigateur réel M016 avec 90 Mo envoyés depuis le champ fichier.
+
+## Validation réelle M016 — SUCCÈS
+
+GitHub Actions `43217343149` : compilation et anciens tests validés. Chromium Android à 390 px : l'import de **90 000 000 octets** via le **vrai sélecteur de fichiers** a généré exactement **9 requêtes multipart R2 et 0 requête vers l'ancien endpoint upload**. Le fichier a été visible dans la médiathèque ; l'accès Range HTTP 206 a fonctionné ; le fichier temporaire a été supprimé de R2 M016. Les tests historiques et la confidentialité sont restés verts. Le Worker officiel est resté inchangé jusqu'ici.
+
+## Mise en service de la correction
+
+Cette correction répare une régression du transfert MP3 200 Mo que le propriétaire vient de constater en important son enregistrement réel de 90 Mo. La volonté explicite de prendre en charge les fichiers jusqu'à 200 Mo sur le site officiel est déjà acquise. N'activer **que les deux corrections de regex compilées depuis la source**, sans changement de données, sans élargir les permissions PDF privées. La mise en service utilise la procédure officielle M026 déjà éprouvée : sauvegardes D1 et R2 chiffrées, smoke test HTTPS et PIN, vérification des ACL privées et des métadonnées, rollback Worker si échec.
