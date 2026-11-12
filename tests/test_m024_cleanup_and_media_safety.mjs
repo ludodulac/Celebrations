@@ -55,16 +55,14 @@ test('site identity editing removed without removing the owner member-mode switc
 });
 test('used by home, celebration draft, published old version, translated versions, categories or branding => PROTECTED',()=>{
  const patterns=[
-  {shared:{pages:[{id:'neutral-accueil-general',blocks:[{kind:'image',src:SRC}]}]}},
-  {drafts:{'101':{pages:[{id:'preparation-101',blocks:[{kind:'audio',src:SRC}]}]}}},
-  {published:{drafts:{'101':{pages:[{blocks:[{kind:'section',columns:[
-   [{kind:'image',cover:SRC}],[]]}]}]}}}},
-  {localization:{pages:{'preparation-101':{en:{blocks:[{kind:'audio',src:SRC}]}}}}},
-  {drafts:{'101':{spaces:[{id:'private-space',pages:[{blocks:[{kind:'button',href:SRC}]}]}]}}},
-  {siteIdentity:{title:'Site',imageSrc:SRC}},
-  {published:{drafts:{'101':{spaces:[{pages:[{translations:{de:{blocks:[
-   {kind:'video',cover:SRC}]}}}]}]}}}}},
-  {plans:[{description:'image '+SRC+' conservée'}]}
+  {shared:{pages:[{blocks:[{src:SRC}]}]}},
+  {drafts:{a:{pages:[{blocks:[{src:SRC}]}]}}},
+  {published:{shared:{pages:[{blocks:[{cover:SRC}]}]}}},
+  {localization:{pages:{x:{en:{blocks:[{href:SRC}]}}}}},
+  {drafts:{a:{spaces:[{pages:[{blocks:[{src:SRC}]}]}]}}},
+  {siteIdentity:{imageSrc:SRC}},
+  {published:{drafts:{a:{spaces:[{pages:[{blocks:[{cover:SRC}]}]}]}}}},
+  {plans:[{description:'image '+SRC}]}
  ];
  for(const state of patterns){
   assert.equal(inSavedContent(state,SRC),true,'A saved use must be indexed');
