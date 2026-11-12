@@ -20,3 +20,5 @@ Un test Chromium lecture seule crée quatre pages représentatives **uniquement 
 ## Validation isolée M016
 
 La génération des modules et les tests locaux ont réussi. Exécuter maintenant le Worker M016 et les parcours mobiles/ordinateur, sans modification du Worker officiel.
+
+Validation test: la préproduction peut inclure huit étapes prédéfinies ; le test vérifie désormais chacune des pages représentatives sans supposer le nombre total.
