@@ -50,3 +50,11 @@ Le modèle de formulaire corrigé est maintenant reconstruit et testé par workf
 ## Prévisualisation sur M016
 
 Après validation du POST de titre, le parcours a révélé que le moteur public refusait jusqu'ici le nom d'hôte M016, même lorsque les deux options de préproduction étaient validées. La même route publique fonctionne sur le domaine officiel. Le contrôle d'hôte réutilise désormais **la fonction de sécurité M016 exacte** déjà présente, pour autoriser la lecture du rendu public en préproduction et éviter toute exception générale. Aucun accès aux espaces privés n'est ajouté.
+
+## Correctif sauvegarde multilingue — 12 novembre 2026
+
+Le bouton rouge « Échec — réessayer » observé sur plusieurs pages du site officiel est accompagné de « Traductions ou registre multilingue invalides ». Une anomalie du contrôle côté serveur a été identifiée : une sauvegarde de célébration contenait le **catalogue global** des traductions mais la validation ne connaissait que les pages de la célébration courante et les pages générales. Les traductions d'autres célébrations déjà enregistrées pouvaient donc être refusées, bloquant tout enregistrement alors que le contenu restait conservé sur l'appareil.
+
+Correctif ciblé : la validation prend aussi en compte les pages ordinaires des autres célébrations **déjà présentes dans le snapshot authentifié R2**, tout en excluant les pages privées gérées séparément et en refusant les identifiants inventés. Aucun fichier ni traduction existante n'est effacé. Les contrôles de révision, d'autorisation et de publication sont conservés. Tests de régression ajoutés : sauvegarde Michaël avec traduction Gabriel, et refus d'une traduction attachée à une fausse page.
+
+L'anomalie du code explique une cause probable, mais la reproduction à partir des données privées exactes de l'utilisateur n'est pas possible sans une session authentifiée ; vérifier le statut de la sauvegarde réelle après déploiement. Ne jamais vider le stockage du navigateur tant que des modifications locales sont à récupérer.
