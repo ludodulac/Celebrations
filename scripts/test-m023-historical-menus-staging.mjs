@@ -43,9 +43,13 @@ try{
   await page.goto(HOST+'/__editor/demo-preparation?celebration='+CID,{waitUntil:'domcontentloaded'});
   await page.locator('[data-tab="celebrations"]').click();
   await page.locator('.general-page-row').first().waitFor({timeout:15000});
-  assert.equal(await page.locator('.general-page-row').count(),4,'All fake historical plus custom rows appear');
-  assert.equal(await page.locator('.general-page-row .page-options>summary').count(),4,
-   'Every row must have actions');
+  const total=await page.locator('.general-page-row').count();
+  const ids=await page.locator('.general-page-row button.item').evaluateAll(xs=>xs.map(x=>x.dataset.pageId));
+  console.log('M023_HISTORICAL_PAGE_DOM_READONLY '+JSON.stringify({width,total,ids}));
+  assert.ok(total>=4,'Historical pages and custom page rows appear');
+  assert.equal(await page.locator('.general-page-row .page-options>summary').count(),total,
+   'Every row must have actions, even legacy ones');
+  for(const p of originalPages)assert.ok(ids.includes(p.id),'Representative page must be clickable: '+p.id);
   let row=page.locator('.general-page-row').filter({has:page.locator('button.item[data-page-id="preparation-'+CID+'"]')});
   assert.equal(await row.locator('button.item').isEnabled(),true,'Historical page title remains enabled');
   await row.locator('summary').click();
