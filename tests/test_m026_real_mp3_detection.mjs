@@ -31,7 +31,7 @@ test('90 Mo MP3 with an ordinary filename selects multipart R2 rather than legac
 });
 test('document access policy stays protected: public PDFs only if released, not private/drafts',()=>{
  const gateway=readFileSync(new URL('../migration/cloudflare/public-upload-gateway.mjs',import.meta.url),'utf8');
- assert.match(gateway,/if\(!state\.published\)return false/);
+ assert.match(gateway,/if\(pdfIsPrivate\(state,src\)\|\|!state\.published\)return false/);
  assert.match(gateway,/if\(referencedByPrivateOwner\(state,src\)\)return false/);
  assert.match(gateway,/if\(publishedPageReferences\(state,src\)\)return true/);
 });

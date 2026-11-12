@@ -581,7 +581,7 @@ function publicFiles(){return mediaCatalogue.publicFiles(window.__PREPARATION_SE
 // The file library is global; each public reference records all celebration/day uses.
 const fileSeeds=new Map(),fileGroups=new Map();
 let globalFiles=null,globalFilesLoading=null,globalFilesComplete=false,hiddenFileIds=new Set();
-let globalMedia=[],remoteMediaLoading=false,globalMediaLoaded=false;
+let globalMedia=[],globalPdfPrivacy={},remoteMediaLoading=false,globalMediaLoaded=false;
 const mediaCategoryOf=m=>mediaCatalogue.mediaCategoryOf(m);
 async function refreshGlobalMedia(){
  if(remoteMediaLoading)return;
@@ -591,6 +591,7 @@ async function refreshGlobalMedia(){
   if(!response.ok)throw Error('Bibliothèque distante indisponible');
   const result=await response.json();
   globalMedia=Array.isArray(result.items)?result.items:[];
+  globalPdfPrivacy=result.pdfPrivacy&&typeof result.pdfPrivacy==='object'?result.pdfPrivacy:{};
   globalMediaLoaded=true;
   if(tab==='media')render();
  }catch{status.textContent='La médiathèque du serveur n’est pas accessible. Les fichiers existants sont conservés.'}
@@ -760,6 +761,46 @@ async function uploadToMediaServer(file,onProgress=null){
  globalMedia=globalMedia.filter(x=>x.id!==result.item.id).concat(result.item);
  serverRevision=result.revision;
  return result.item;
+}
+// A PDF is PUBLIC unless the owner checks « Privé ». This is a single
+// authenticated server setting, not a page access-control rewrite.
+function pdfPrivacyControl(record){
+ const src=String(record?.src||'');
+ const box=n('label','m027-pdf-privacy');
+ if(!/^\/media\/(?!.*\.\.)[^?#]+\.pdf$/i.test(src))return null;
+ const check=n('input');check.type='checkbox';check.checked=globalPdfPrivacy[src]===true;
+ check.setAttribute('aria-label','Privé : '+String(record.name||'PDF'));
+ box.append(check,n('span','','Privé'));
+ check.onchange=async()=>{
+  const desired=check.checked;check.disabled=true;
+  try{
+   const fresh=await fetch('/api/editor-media',{credentials:'same-origin',cache:'no-store'});
+   const snapshot=await fresh.json();
+   if(!fresh.ok||!snapshot.ok)throw Error(snapshot.error||'Médiathèque indisponible');
+   // The catalogue GET is authenticated; use its current server revision
+   // rather than a potentially stale editor page revision.
+   const site=await fetch('/api/site-identity',{credentials:'same-origin',cache:'no-store'});
+   const preferences=await site.json();
+   if(!site.ok||!preferences.ok)throw Error(preferences.error||'Serveur indisponible');
+   if((snapshot.pdfPrivacy?.[src]===true)===(desired)){
+    globalPdfPrivacy={...snapshot.pdfPrivacy};return;
+   }
+   const response=await fetch('/api/editor-media?action=pdf-privacy',{
+    method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},
+    body:JSON.stringify({src,private:desired,expectedRevision:preferences.revision})
+   });
+   const result=await response.json().catch(()=>({}));
+   if(!response.ok||!result.ok)throw Error(result.error||'Réglage non enregistré');
+   serverRevision=result.revision;
+   globalPdfPrivacy={...globalPdfPrivacy};
+   if(desired)globalPdfPrivacy[src]=true;else delete globalPdfPrivacy[src];
+   status.textContent=desired?'✓ PDF privé : lien inaccessible aux visiteurs.':
+    '✓ PDF public : lien partageable sans connexion.';
+  }catch(error){
+   check.checked=!desired;siteNotice(error.message||String(error));
+  }finally{check.disabled=false;}
+ };
+ return box;
 }
 async function createExternalMedia(){
  const value=String((await sitePrompt('Lien HTTPS vers une vidéo, un PDF, une image, un audio ou une page :'))||'').trim();
@@ -3007,6 +3048,10 @@ function libraryPreview(card,name,src,category){
 }
 let mediaSearch='';
 function media(){
+ const pdfStyle=n('style');
+ pdfStyle.nonce=document.querySelector('script[nonce]')?.nonce||'';
+ pdfStyle.textContent='.m027-pdf-privacy{display:inline-flex;gap:8px;align-items:center;min-height:44px;font-weight:600;cursor:pointer}.m027-pdf-privacy input{width:20px;height:20px;accent-color:#28594b}';
+ w.append(pdfStyle);
  if(IS_STAGE&&!remoteMediaLoading&&!globalMediaLoaded)void refreshGlobalMedia();
  if(!globalFilesLoading)
   loadGlobalFiles().then(()=>{if(tab==='media'&&!document.querySelector('.audio-import-section[open]'))render()});
@@ -3065,6 +3110,7 @@ function media(){
   const controls=n('div','file-actions');
   if(chosenBlock&&mediaCategory==='audios'&&record.type==='audio')
    controls.append(b('Insérer dans le lecteur',()=>attachChosenAudio(record),'sm primary'));
+  if(record.type==='pdf'){const privacy=pdfPrivacyControl(record);if(privacy)controls.append(privacy)}
   if(unused)controls.append(b('Supprimer si inutilisé',()=>void deleteGlobalMedia(record),'sm'));
   card.append(controls);cards.append(card);
  }
@@ -3085,6 +3131,9 @@ function media(){
   libraryPreview(card,record.name,record.src,record.category||mediaCategoryOf(record));
   libraryUnusedText(card,unused,hasImage);
   libraryLocationLinks(card,refs);
+  if((record.category==='pdf'||libraryTypeLabel(record)==='PDF')){
+   const privacy=pdfPrivacyControl(record);if(privacy)card.append(privacy);
+  }
   if(chosenBlock&&mediaCategory==='audios'&&record.category==='audios')
    card.append(b('Insérer dans le lecteur',()=>attachChosenAudio(record),'sm primary'));
   if(unused){
@@ -3135,12 +3184,13 @@ const GUIDE_TOPICS=[
   steps:['Depuis le site, choisissez « Administration » (ou ouvrez /admin.html).','Saisissez le code d’accès qui vous a été remis, puis « Ouvrir l’administration ».','Une fois connecté, choisissez Pages, Pages de bas de page, Célébrations ou Médiathèque.','La connexion est conservée pendant une durée limitée sur votre navigateur : si le formulaire réapparaît, reconnectez-vous.'],
   note:'Ne mettez pas le code d’accès dans les textes publics du site.'},
  {group:'Premiers pas',title:'Comprendre les onglets et les boutons du haut',
-  info:'Chaque onglet ouvre directement son espace de travail.',
-  steps:['Pages : accueil général et autres pages indépendantes des célébrations.','Pages de bas de page : pages dont les titres s’affichent en bas du site, après publication.','Célébrations : programme et pages de chaque célébration.','Médiathèque de l’administration : fichiers conservés à usage privé jusqu’à insertion et publication.','Mode d’emploi : ce guide, consultable à tout moment.','Aperçu : masquer les outils pour contrôler la page en cours. « Revenir à l’édition » permet de poursuivre.','Voir le site : ouvrir la page côté visiteur dans un nouvel onglet. « Enregistrer » conserve les modifications.']},
- {group:'Premiers pas',title:'Enregistrer et retrouver les mêmes pages sur deux appareils',
-  info:'La page en cours peut changer visuellement avant d’être publiée dans la version commune.',
-  steps:['Modifiez votre page ou votre bloc.','Appuyez sur « Enregistrer » en haut de l’administration.','Attendez un message confirmant « Enregistré sur le serveur ».','Rouvrez ou actualisez le site sur votre autre téléphone ou ordinateur.'],
-  note:'« Enregistré dans ce navigateur » ne signifie pas « enregistré sur le serveur ». Les fichiers importés localement constituent un cas particulier : consultez aussi la rubrique Fichiers.'},
+  info:'Les outils disponibles dépendent de votre page et du mode de l’administration.',
+  steps:['Pages : accueil général et pages indépendantes des célébrations.','Pages de bas de page : liens ajoutés au pied du site une fois leur page publiée.','Célébrations : pages, dates, horaires et programmes.','Médiathèque : Images, Audios, Vidéos et Documents, recherche et import de fichiers.','Paramètres : mode simplifié/complet et titre dans le menu du site.','Mode d’emploi : guide consultable et recherchable.','Aperçu masque les commandes, Voir le site montre la version visiteur, Enregistrer sauvegarde le contenu.'],
+  note:'Voir le site ne remplace pas une publication. Une modification peut être sauvegardée comme brouillon sans apparaître immédiatement aux visiteurs.'},
+ {group:'Premiers pas',title:'Enregistrer un brouillon, publier et retrouver son travail',
+  info:'Une sauvegarde et une publication sont deux opérations différentes.',
+  steps:['Modifiez le contenu de la page ou d’un bloc.','Appuyez sur « Enregistrer » et attendez une confirmation du serveur.','Si la confirmation indique « brouillon », le contenu est conservé, mais n’est pas encore visible publiquement.','Dans les réglages de visibilité, choisissez « Visible » pour publier, ou « Brouillon » / « Masqué » selon le besoin.','Après la publication, ouvrez « Voir le site » depuis un autre onglet et actualisez.','Sur un autre appareil, rechargez la version commune depuis le serveur.'],
+  note:'Une simple sauvegarde locale « dans ce navigateur » ne synchronise pas les appareils. Changer la visibilité ne sauvegarde pas automatiquement un texte encore en cours de saisie.'},
  {group:'Premiers pas',title:'Utiliser l’éditeur sur téléphone',
   info:'Les commandes sont identiques mais les zones et colonnes se placent les unes sous les autres.',
   steps:['Choisissez l’onglet puis la page à modifier.','Touchez un titre, un texte ou une image pour sélectionner son élément.','Si le clavier masque les boutons, fermez-le avec la commande Retour du téléphone.','Faites défiler la page pour voir les + et les menus de la zone.','En deux colonnes, elles s’empilent verticalement sur un écran étroit, mais restent côte à côte sur ordinateur.'],
@@ -3153,10 +3203,10 @@ const GUIDE_TOPICS=[
   info:'Les options ⋯ des pages générales permettent de les organiser.',
   steps:['Dans Pages, repérez la page souhaitée.','Touchez « ⋯ » à côté de son nom.','Choisissez « Monter » ou « Descendre » pour la déplacer.','Utilisez « Définir comme accueil » si cette option est proposée.','Appuyez sur « Enregistrer » et vérifiez avec « Voir le site ».'],
   note:'La page déjà définie comme accueil n’affiche pas l’option pour se définir elle-même.'},
- {group:'Pages et célébrations',title:'Créer ou supprimer une page générale',
-  info:'Seules les pages que vous créez peuvent être supprimées par ce menu.',
-  steps:['Dans Pages, touchez « + Page » et indiquez son nom.','Pour supprimer une page créée, ouvrez « ⋯ » près de son nom puis « Supprimer la page ».','Lisez la confirmation avant de valider.','Enregistrez, puis contrôlez le résultat sur le site.'],
-  note:'Les anciennes pages historiques sont protégées contre cette suppression.'},
+ {group:'Pages et célébrations',title:'Créer, renommer, dupliquer ou supprimer une page',
+  info:'La création et la duplication ne donnent jamais automatiquement de nouveaux droits d’accès.',
+  steps:['Dans Pages, choisissez « + Page » pour créer une page, puis donnez-lui un nom.','Pour une page créée ou dupliquée, utilisez « Nom de la page » dans ses réglages pour la renommer sans modifier son URL.','Le bouton « Dupliquer » crée une copie éditable quand il est proposé ; la copie doit être enregistrée puis publiée séparément.','Dans « ⋯ », « Monter » et « Descendre » règlent l’ordre des pages.','La suppression n’est proposée que pour une page dont la suppression est autorisée ; confirmez avant de valider.'],
+  note:'Les pages historiques protégées ne peuvent pas toutes être renommées, dupliquées ou supprimées. Vérifiez la visibilité de chaque nouvelle page.'},
  {group:'Pages et célébrations',title:'Choisir une célébration et ses étapes',
   info:'Chaque célébration possède ses propres pages, notamment Préparation et les jours de la semaine.',
   steps:['Ouvrez « Célébrations ».','Choisissez la célébration dans la liste déroulante.','Touchez la page à modifier : accueil de la célébration, préparation, mercredi, jeudi, vendredi, samedi, dimanche ou après célébration.','Modifiez le contenu puis enregistrez.'],
@@ -3176,9 +3226,27 @@ const GUIDE_TOPICS=[
  {group:'Pages et célébrations',title:'Créer des pages de bas de page',
   info:'Le titre d’une page publiée devient automatiquement un lien à côté d’Administration, tout en bas du site.',
   steps:['Ouvrez « Pages de bas de page ».','Cliquez sur « + Page de bas de page » et saisissez son titre.','Rédigez la page avec les mêmes outils que les pages générales.','Enregistrez le brouillon puis publiez la page pour faire apparaître son lien.','Les pages de bas de page ne figurent pas dans le menu principal.']},
- {group:'Pages et célébrations',title:'Médiathèques visibles par les visiteurs',
-  info:'La médiathèque générale a été retirée du site public. Chaque célébration garde sa médiathèque.',
-  steps:['Les fichiers restent accessibles dans la médiathèque de l’administration.','La médiathèque des visiteurs se limite aux fichiers insérés dans les pages publiées de cette célébration.','Les images des pages générales et des pages de bas de page ne sont pas ajoutées à la médiathèque d’une célébration.','Un élément ou un bloc masqué aux visiteurs ne doit pas être affiché dans leur médiathèque.']},
+ {group:'Pages et célébrations',title:'Distinguer la médiathèque administrative et les fichiers visiteurs',
+  info:'La médiathèque administrative est un outil de gestion, pas une rubrique générale ouverte aux visiteurs.',
+  steps:['Dans l’administration, utilisez Médiathèque pour retrouver et insérer des fichiers.','Les visiteurs voient les médias présents sur les pages accessibles et, le cas échéant, dans la médiathèque liée à une célébration publiée.','Une page en brouillon ne devient pas visible simplement parce que son fichier est importé.','Exception importante : dans la médiathèque du site, un PDF nouvellement importé est accessible par son lien direct tant que sa case « Privé » n’est pas cochée.'],
+  note:'N’utilisez pas un PDF public par défaut pour des informations confidentielles. Les fichiers réservés aux membres gardent leurs propres contrôles d’accès.'},
+ {group:'Pages et célébrations',title:'Choisir la visibilité et les autorisations',
+  info:'Visible/Brouillon/Masqué ne signifie pas Public/Privé.',
+  steps:['Dans les réglages d’une page ou célébration, réglez « Visibilité » : Brouillon pour préparer, Visible pour afficher, Masqué pour retirer de la vue publique.','En mode complet, les réglages « Accès » proposent Public ou Privé et, pour le privé, les personnes autorisées selon les catégories disponibles.','En mode simplifié, les commandes membres disparaissent mais les anciennes autorisations ne changent pas.','Après chaque changement, vérifiez la page avec « Voir le site » sans être connecté.'],
+  note:'Enregistrer du contenu et modifier sa visibilité sont deux actions distinctes. Passer au mode simplifié n’ouvre jamais une page privée.'},
+ {group:'Pages et célébrations',title:'Gérer plusieurs langues',
+  info:'Les langues sont disponibles dans l’administration, mais les visiteurs ne voient que les versions publiées.',
+  steps:['Ouvrez « Langues » ou « Langues et catégories » selon le mode.','Préparez ou renommez les langues nécessaires.','Rédigez et enregistrez les versions linguistiques des pages concernées.','Publiez les pages ou versions souhaitées ; vérifiez le sélecteur de langue côté visiteur.'],
+  note:'Ajouter une langue ne traduit pas automatiquement les contenus.'},
+ {group:'Pages et célébrations',title:'Utiliser le mode simplifié ou complet',
+  info:'Le mode choisi change seulement les outils affichés dans l’administration.',
+  steps:['Ouvrez Paramètres → Mode de l’administration.','Laissez la case « Activer la gestion des membres et des accès privés » décochée pour un site public plus simple.','Cochez-la si vous devez gérer membres, catégories et accès privés.','Attendez « Mode enregistré », puis vérifiez les onglets disponibles.'],
+  note:'Le mode ne crée pas de droits, ne publie rien et ne modifie pas les inscriptions existantes.'},
+ {group:'Pages et célébrations',title:'Afficher un titre dans la barre du menu',
+  info:'Réglage de présentation du site : titre dans la barre de menu existante, uniquement sur ordinateur.',
+  steps:['Dans Paramètres, ouvrez « Titre dans la barre du menu ».','Saisissez le titre à afficher et choisissez À gauche, Au centre ou À droite.','Appuyez sur « Enregistrer le titre » et attendez la confirmation.','Ouvrez « Voir le site » sur ordinateur pour contrôler sa position : sur smartphone, le titre est masqué pour garder de la place au menu.'],
+  note:'Ce titre ne remplace pas le titre de la page d’accueil et ne crée pas une seconde barre.'},
+
  {group:'Construire les blocs',title:'Différence entre le + bleu et le + vert',
   info:'C’est la distinction essentielle pour construire une page.',
   steps:['Le + BLEU apparaît au bas du bloc survolé sur ordinateur et ajoute une nouvelle zone ; sur téléphone, utilisez le + affiché après sélection.','Après le + bleu, choisissez « Bloc seul » ou « Deux colonnes ».','Le + VERT apparaît au survol d’un élément et ajoute un élément DANS la zone : titre, texte, image, bouton, vidéo, audio ou titre d’événement.','Répétez le + vert autant de fois que nécessaire pour composer votre zone.'],
@@ -3227,38 +3295,43 @@ const GUIDE_TOPICS=[
   info:'Un événement dispose d’un titre et peut afficher une heure avant son texte.',
   steps:['Dans la zone souhaitée, appuyez sur le + vert puis « Titre événement ».','Touchez le texte « Titre de l’événement » pour le remplacer.','Choisissez son heure dans la liste (par pas de 15 minutes) ou saisissez HH:MM.','Enregistrez.'],
   note:'L’heure de l’événement est distincte de l’horaire général affiché pour le jour de la célébration.'},
- {group:'Fichiers et audio',title:'Comprendre l’onglet Fichiers et les catégories',
-  info:'Le catalogue regroupe les ressources publiques existantes et certains fichiers importés sur l’appareil.',
-  steps:['Ouvrez « Fichiers ».','Choisissez la catégorie : Images, PDF, Audios ou Autres.','Utilisez « Ouvrir » pour consulter une ressource.','Les liens d’utilisation indiquent dans quelles célébrations et pages certains fichiers publics sont référencés.','Utilisez « Insérer » pour associer un fichier à une page.'],
-  note:'Les fichiers historiques disposent d’adresses publiques déjà utilisées : il faut les conserver.'},
+ {group:'Fichiers et audio',title:'Retrouver un document dans la médiathèque',
+  info:'Une seule médiathèque administrative regroupe les fichiers du site.',
+  steps:['Ouvrez « Médiathèque ».','Choisissez Images, Audios, Vidéos ou Documents (dont PDF).','Utilisez « Rechercher un fichier » pour retrouver un nom.','Ouvrez l’aperçu d’un fichier pour vérifier qu’il s’agit du bon.','Les liens d’utilisation indiquent les pages où un fichier est référencé lorsqu’elles sont connues.','Utilisez « Insérer dans le lecteur » pour un audio si vous êtes venu depuis un bloc audio.'],
+  note:'Certains anciens fichiers possèdent une adresse déjà envoyée par e-mail ; ne remplacez pas cette URL sans raison.'},
  {group:'Fichiers et audio',title:'Insérer un fichier dans une célébration et à une heure',
   info:'Le bouton « Insérer » ouvre un petit formulaire.',
   steps:['Dans Fichiers, choisissez la catégorie et la ressource.','Touchez « Insérer ».','Sélectionnez la célébration et la page/jour souhaités.','Choisissez une heure si la ressource doit être placée dans le programme à un horaire précis.','Validez « Insérer », puis ouvrez la page pour vérifier son emplacement.','Appuyez sur « Enregistrer » pour enregistrer le brouillon commun.'],
   note:'L’insertion sur d’autres célébrations peut d’abord créer un brouillon local dans votre navigateur : vérifiez toujours la confirmation serveur de la célébration cible.'},
- {group:'Fichiers et audio',title:'Importer de nouveaux fichiers',
-  info:'« + Importer » ajoute des fichiers à la bibliothèque locale du navigateur.',
-  steps:['Dans Médiathèque, choisissez Audios puis « + Importer un MP3 » pour un audio ; les autres catégories utilisent « + Importer ».','Choisissez un ou plusieurs fichiers compatibles : images, PDF, MP3, WAV, texte ou document.','Le MP3 affiche sa progression réelle pendant le transfert (25 Mo maximum sur le site officiel). À la fin, il apparaît dans Audios.','Utilisez ensuite « Insérer » si vous voulez le placer dans une page.'],
-  note:'Important : cet import classique conserve le fichier sur CET APPAREIL (limite de 60 Mo par fichier). Il ne garantit pas qu’il sera disponible sur un autre appareil ni en public. Pour un lien durable, privilégiez un fichier déjà publié dans le catalogue du site.'},
- {group:'Fichiers et audio',title:'Ajouter un MP3, convertir un WAV et l’écouter',
-  info:'Les ressources audio peuvent être lues et insérées dans le programme.',
-  steps:['Dans Médiathèque, choisissez « Audios » pour retrouver les MP3.','Dans la page à modifier, ajoutez « Lecteur audio » à un bloc, puis « Choisir un MP3 ». Depuis Audios, cliquez sur « Insérer dans le lecteur ».','La rubrique « Importer MP3 / WAV » de l’atelier de test n’est pas l’import officiel : sur le site, utilisez « Importer un MP3 » et sa barre de progression.','Le lecteur possède les commandes de lecture et un titre personnalisable. Enregistrez puis publiez la page.'],
-  note:'Certaines commandes de stockage audio nécessitent une connexion spécifique au service audio : si l’interface la demande, ne confondez pas avec le simple code de l’administration.'},
- {group:'Fichiers et audio',title:'Supprimer un fichier sans casser ses liens',
-  info:'Les fichiers utilisés sont protégés contre une suppression accidentelle.',
-  steps:['Dans Fichiers, repérez les ressources et leurs utilisations.','Un fichier local inutilisé peut afficher « Supprimer » et demander confirmation.','Si un fichier est encore utilisé, retirez d’abord ses références des pages concernées.','Pour les fichiers publics historiques, la suppression physique n’est pas proposée avant vérification des références.'],
-  note:'Retirer une image d’une page avec « Supprimer l’image » ne supprime pas son fichier de la bibliothèque. Ne remplacez pas un ancien lien PDF par un nouveau chemin si ce lien a déjà été transmis.'},
- {group:'Vérification et sécurité',title:'Aperçu, vue du site et mise en ligne',
-  info:'Vérifiez le résultat avant de partager une page.',
-  steps:['Dans l’éditeur, utilisez « Aperçu » pour masquer les commandes sans changer de page.','Appuyez sur « Revenir à l’édition » pour poursuivre les modifications.','Utilisez « Voir le site » pour ouvrir la version visible par les visiteurs.','Après un changement, cliquez sur « Enregistrer », attendez le message du serveur puis actualisez la vue publique.'],
-  note:'« Aperçu » ne sauvegarde pas et ne publie pas à lui seul vos modifications.'},
- {group:'Vérification et sécurité',title:'Vérifier les liens anciens et les fichiers manquants',
-  info:'Les URL des fichiers envoyés dans des e-mails doivent continuer à fonctionner.',
-  steps:['Ouvrez la page publique et testez les boutons et les liens des documents.','Pour une image manquante, vérifiez qu’elle pointe vers une image publique existante.','Ne renommez pas les chemins des anciens fichiers PDF, MP3 ou images sans disposer d’une redirection contrôlée.','Dans le doute, ne supprimez pas le fichier : signalez son adresse pour une vérification.'],
-  note:'Une image seulement stockée localement dans un navigateur peut ne pas apparaître sur un autre appareil.'},
- {group:'Vérification et sécurité',title:'En cas de problème ou de bouton introuvable',
-  info:'Quelques vérifications simples suffisent souvent à retrouver une commande.',
-  steps:['Touchez d’abord le bloc : beaucoup de commandes n’apparaissent que lorsqu’il est sélectionné.','Fermez le clavier du téléphone pour voir le bas du bloc et le petit + vert.','Si vous cherchez un nouveau bloc, regardez le + bleu situé entre les zones.','Actualisez l’administration si vous voyez encore l’ancienne interface.','Vérifiez le message sous l’éditeur : une sauvegarde locale et une sauvegarde serveur ne sont pas équivalentes.'],
-  note:'Évitez de supprimer ou réinitialiser quoi que ce soit pour résoudre un problème d’affichage.'}
+ {group:'Fichiers et audio',title:'Importer des fichiers dans la médiathèque',
+  info:'Sur le site officiel, l’import de la médiathèque est conservé côté serveur.',
+  steps:['Connectez-vous à l’administration puis ouvrez « Médiathèque ».','Choisissez la catégorie : Images, Audios, Vidéos ou Documents.','Pour les MP3, ouvrez Audios puis « + Importer un MP3 » ; pour les autres fichiers, utilisez « + Importer ».','Choisissez un fichier compatible (notamment JPG, PNG, WebP, PDF, MP3, WAV, TXT ou DOCX). Les vidéos sont généralement référencées par lien externe.','Attendez la fin de l’envoi et la confirmation « fichier(s) conservé(s) sur le serveur ».','Recherchez le fichier dans la médiathèque, ouvrez-le, puis insérez-le dans la page souhaitée.'],
+  note:'Sur une prévisualisation ou un environnement local différent du site officiel, certains imports peuvent rester dans ce navigateur seulement. Le poids maximal de 200 Mo concerne les MP3, pas tous les types de fichiers.'},
+ {group:'Fichiers et audio',title:'Importer un MP3 jusqu’à 200 Mo et l’écouter',
+  info:'Le MP3 est conservé sans compression ni conversion sur le serveur.',
+  steps:['Ouvrez Médiathèque → Audios → « + Importer un MP3 ».','Sélectionnez un fichier MP3 de 200 000 000 octets au maximum.','Jusqu’à 25 Mo, l’envoi classique est utilisé ; au-delà, le MP3 est transféré par morceaux de 10 Mo.','Lisez la progression réelle du transfert et attendez la confirmation finale : 100 % envoyés ne suffit pas si la vérification du serveur n’est pas terminée.','Si la connexion est interrompue, revenez dans la même administration et sélectionnez à nouveau exactement le même fichier depuis le même navigateur pour reprendre le transfert.','Dans votre page, ajoutez « Lecteur audio », puis « Choisir un MP3 » ou « Insérer dans le lecteur » depuis Audios.','Enregistrez puis publiez la page et vérifiez la lecture côté visiteur.'],
+  note:'Le WAV est un autre format accepté par l’import classique : cette commande ne convertit pas automatiquement un WAV en MP3. Le test automatisé atteint 200 Mo ; le transfert réel complet à cette taille reste à confirmer.'},
+ {group:'Fichiers et audio',title:'Rendre un PDF public ou privé',
+  info:'La case « Privé » existe sous chaque PDF appartenant à la médiathèque du site.',
+  steps:['Dans Médiathèque → Documents, repérez le PDF.','Par défaut, sa case « Privé » est décochée : le lien direct d’un PDF du site est partageable, même si la page qui l’utilise est un brouillon.','Cochez « Privé » pour refuser l’ouverture de ce fichier aux visiteurs anonymes, y compris à partir d’un ancien e-mail.','Décochez pour rétablir l’accès selon les autorisations historiques ; le lien du fichier reste identique.','Pour les PDF de membres et les liens de sites tiers, utilisez leurs mécanismes de sécurité propres.'],
+  note:'Un document sensible doit être mis en privé AVANT de communiquer son lien. Seul un PDF du site connu du serveur peut être réglé ici.'},
+
+ {group:'Fichiers et audio',title:'Supprimer un fichier uniquement lorsqu’il est inutilisé',
+  info:'La suppression côté serveur est autorisée seulement après contrôle des références.',
+  steps:['Dans Médiathèque, recherchez le fichier et ses pages d’utilisation.','« Supprimer si inutilisé » n’apparaît que lorsque le serveur a pu confirmer qu’aucun usage connu ne bloque la suppression.','Si la suppression est refusée, ne forcez pas : le fichier peut être utilisé sur une page, dans un brouillon, une traduction, une publication ancienne ou un espace privé.','Retirez d’abord les références souhaitées, enregistrez et recommencez seulement lorsque la médiathèque autorise la suppression.'],
+  note:'Retirer une image d’une page ne supprime pas son fichier. Les liens PDF historiques déjà diffusés doivent être conservés.'},
+ {group:'Vérification et sécurité',title:'Contrôler une page avant de la rendre visible',
+  info:'« Aperçu », « Enregistrer », « Visibilité » et « Voir le site » remplissent des rôles différents.',
+  steps:['« Aperçu » masque les commandes pour examiner la mise en page sans publier.','« Enregistrer » sauvegarde le contenu sur le serveur ; vérifiez le message de confirmation.','Le réglage « Visibilité » propose Brouillon, Visible ou Masqué. Ne sélectionnez Visible que lorsque le contenu est prêt.','Quand une page est déjà publiée, un enregistrement peut actualiser sa version publique : contrôlez le message affiché.','« Voir le site » ouvre ce que les visiteurs peuvent consulter ; rechargez la page et testez les liens.'],
+  note:'L’accès Public/Privé est distinct de la visibilité Brouillon/Visible/Masqué. La confidentialité des PDF est également un réglage distinct.'},
+ {group:'Vérification et sécurité',title:'Vérifier les liens PDF, les MP3 et les documents anciens',
+  info:'Une adresse de fichier déjà communiquée par e-mail doit être contrôlée avant toute modification.',
+  steps:['Ouvrez « Voir le site » et testez les boutons, PDF et lecteurs audio.','Pour un PDF à partager librement, vérifiez la case « Privé » dans Médiathèque : elle doit être décochée et le fichier ne doit pas être soumis à un autre accès historique restrictif.','Pour un PDF confidentiel, cochez « Privé » puis vérifiez que son adresse exacte ne s’ouvre plus sans connexion.','Si un MP3 ne se lit pas, vérifiez qu’il figure bien dans Audios après confirmation de l’import.','N’effacez ni ne renommez les fichiers anciens avant d’avoir vérifié leurs utilisations.'],
+  note:'Une case « Privé » décochée ne contourne jamais une autorisation ancienne plus restrictive. Les liens d’un site tiers ne sont pas contrôlés par cette case.'},
+ {group:'Vérification et sécurité',title:'Résoudre un import interrompu, un bouton absent ou une page non visible',
+  info:'Recherchez d’abord la cause du problème, sans supprimer de données.',
+  steps:['Si un bouton n’apparaît pas, touchez le bloc ou fermez le clavier du téléphone.','Si une page n’apparaît pas aux visiteurs, vérifiez la sauvegarde serveur, sa visibilité et, si nécessaire, ses droits d’accès.','Si un MP3 volumineux est interrompu, ne changez pas son nom : choisissez à nouveau le même fichier dans le même navigateur pour reprendre.','Si la médiathèque indique « fichier inutilisé » mais refuse de le supprimer, une référence protégée existe peut-être ailleurs.','Si l’interface paraît ancienne, rechargez l’administration et vérifiez les messages de sauvegarde.'],
+  note:'Ne videz pas le stockage du navigateur ni les données du site pendant une reprise MP3 : cela pourrait effacer les informations de reprise.'},
 ];
 function userGuide(){
  const root=n('section','editor-guide'),header=n('header','guide-intro');
@@ -3352,7 +3425,52 @@ function settings(){
    modeStatus.textContent='❌ '+(error.message||error);
   }finally{modeCheck.disabled=false;}
  };
-
+ // Desktop-only label in the existing visitor menu bar. It does not create
+ // another header and never changes the title entered in page content.
+ const navPanel=n('section','settings-actions m027-navigation-settings');
+ navPanel.append(n('h2','','Titre dans la barre du menu'));
+ const label=n('label','m027-nav-field','Titre affiché sur ordinateur');
+ const title=n('input');title.type='text';title.maxLength=110;
+ title.setAttribute('aria-label','Titre dans la barre du menu');title.placeholder='Ronde des Archanges Universelle';
+ label.append(title);
+ const alignLabel=n('label','m027-nav-field','Position du titre');
+ const select=n('select');select.setAttribute('aria-label','Position du titre');
+ for(const [value,text]of [['left','À gauche'],['center','Au centre'],['right','À droite']]){
+  const option=n('option','',text);option.value=value;select.append(option);
+ }
+ alignLabel.append(select);
+ const saveTitle=b('Enregistrer le titre',async()=>{
+  saveTitle.disabled=true;navStatus.textContent='Enregistrement…';
+  try{
+   const current=await fetch('/api/site-identity',{credentials:'same-origin',cache:'no-store'});
+   const preferences=await current.json();
+   if(!current.ok||!preferences.ok)throw Error(preferences.error||'Paramètres indisponibles');
+   const response=await fetch('/api/site-identity',{
+    method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},
+    body:JSON.stringify({expectedRevision:preferences.revision,
+     navigation:{title:title.value.trim(),position:select.value}})
+   });
+   const result=await response.json().catch(()=>({}));
+   if(!response.ok||!result.ok)throw Error(result.error||'Enregistrement refusé');
+   serverRevision=result.revision;navStatus.textContent='✓ Titre enregistré sur toutes les pages du site.';
+  }catch(error){navStatus.textContent='❌ '+(error.message||String(error))}
+  finally{saveTitle.disabled=false}
+ },'sm primary');
+ // Avoid an async GET overwriting text entered before the form is loaded.
+ // Inputs are enabled only after the persisted values have been hydrated.
+ title.disabled=true;select.disabled=true;saveTitle.disabled=true;
+ const navStatus=n('p');navStatus.setAttribute('role','status');
+ const style=n('style');style.nonce=document.querySelector('script[nonce]')?.nonce||'';
+ style.textContent='.m027-navigation-settings{display:grid;gap:12px;max-width:790px;padding:14px;border:1px solid #cad7d8;border-radius:12px}.m027-nav-field{display:grid;gap:7px;font-weight:600}.m027-nav-field input,.m027-nav-field select{width:100%;max-width:100%;min-height:44px;padding:8px;border:1px solid #b7c2c8;border-radius:9px}.m027-navigation-settings button{justify-self:start}';
+ navPanel.append(style,label,alignLabel,saveTitle,navStatus);
+ w.append(navPanel);
+ void fetch('/api/site-identity',{credentials:'same-origin',cache:'no-store'}).then(async response=>{
+  const value=await response.json();if(!response.ok||!value.ok)throw Error(value.error||'Paramètres indisponibles');
+  if(!navPanel.isConnected)return;
+  title.value=value.navigation?.title||'';
+  select.value=['left','center','right'].includes(value.navigation?.position)?value.navigation.position:'center';
+  title.disabled=false;select.disabled=false;saveTitle.disabled=false;
+ }).catch(error=>{if(navPanel.isConnected)navStatus.textContent='❌ '+(error.message||String(error))});
 }
 function m018LanguagesCategories(){
   const panel=n('section','m018-language-panel');

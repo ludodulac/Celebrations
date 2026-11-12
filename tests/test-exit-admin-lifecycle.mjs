@@ -41,7 +41,9 @@ function fixture(){
   async delete(key){objects.delete(key)},
   async get(key){const r=objects.get(key);if(!r)return null;return {body:r.bytes,size:r.bytes.length,httpEtag:'"synthetic"',writeHttpMetadata(headers){headers.set("content-type",r.type)}}}
  };
- const env={DB:database,MEDIA_ACL:database,MEDIA_BUCKET};
+ // Production has the editor R2 binding; preserve it in this isolated test fixture.
+ const env={DB:database,MEDIA_ACL:database,MEDIA_BUCKET,
+  EDITOR_BUCKET:{async get(){return null}}};
  const call=async(path,body={},auth=true)=>{
   const r=await worker.fetch(new Request("https://isolated.invalid"+path,{
    method:"POST",headers:{"content-type":"application/json",...(auth?{authorization:"Bearer "+token}:{})},
