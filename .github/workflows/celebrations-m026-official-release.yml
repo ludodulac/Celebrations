@@ -56,12 +56,16 @@ jobs:
           NODE
           node scripts/build-m012b-member-spaces-inline.mjs --check
           node scripts/build-m019-editor-client.mjs --check
-          node --test tests/test_m026_real_mp3_detection.mjs tests/test_m025_mp3_multipart.mjs tests/test_m024_cleanup_and_media_safety.mjs tests/test_m022_editor_commands.mjs tests/test_m021b_admin_mode.mjs tests/test_m021a_demo_identity.mjs \
+          node --test tests/test-editor-publication-media.mjs tests/test_m026_real_mp3_detection.mjs tests/test_m025_mp3_multipart.mjs tests/test_m024_cleanup_and_media_safety.mjs tests/test_m022_editor_commands.mjs tests/test_m021b_admin_mode.mjs tests/test_m021a_demo_identity.mjs \
             tests/test_m021a_demo_flow.mjs tests/test_m020d_member_brevo.mjs \
             tests/test_m020e_integrated_migrations.mjs
 
       - name: Verify current official Worker, domain routes, secrets, D1 history, migration plan
         id: gate
+        env:
+          # Last verified successful M026 production version (12 Nov 2026).
+          # An unexpected later deployment must never be rolled back by this hotfix.
+          M026_HOTFIX_EXPECTED_OFFICIAL_VERSION: 'db7fe5b5-8298-48b3-8838-090dac098119'
         run: node scripts/m026_official_gate.mjs before
 
       - name: Rebuild unchanged legacy static assets, verify Worker bundle offline
@@ -278,3 +282,23 @@ jobs:
       - name: Verify previous official Worker restored without deleting migrations or data
         if: ${{ failure() && steps.rollback-decision.outputs.restore == 'yes' }}
         run: node scripts/m026_official_gate.mjs after-rollback
+
+  report-hotfix-to-pr:
+    name: Report exact M026 hotfix deployment result (no Cloudflare access)
+    needs: [owner-approved-official]
+    if: ${{ always() && github.run_attempt == 1 && contains(github.event.head_commit.message, '[M026_OWNER_APPROVED_OFFICIAL]') }}
+    runs-on: ubuntu-24.04
+    permissions:
+      issues: write
+    steps:
+      - name: Notify the existing M026 pull request, including workflow URL
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_RESULT: ${{ needs.owner-approved-official.result }}
+          RELEASE_RUN: ${{ github.run_id }}
+          SOURCE_SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          body="🔧 Correctif ciblé sauvegarde multilingue — livraison officielle M026. Résultat du job protégé : **${RELEASE_RESULT}**. Exécution GitHub : https://github.com/${REPO}/actions/runs/${RELEASE_RUN}. Commit : ${SOURCE_SHA}. Si le résultat n'est pas success, ne pas annoncer la correction en ligne : la barrière de version Cloudflare, les sauvegardes ou les tests ont pu refuser le déploiement."
+          gh api --method POST "/repos/${REPO}/issues/162/comments" -f body="${body}" || echo "HOTFIX_REPORT_UNAVAILABLE"
