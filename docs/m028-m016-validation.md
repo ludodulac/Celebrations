@@ -19,3 +19,9 @@ Mission : déplacer l'accès aux outils multilingues dans **Paramètres** sans m
 ## Traçabilité
 
 PR #164. Test automatisé dédié : `scripts/test-m028-m016-languages.mjs`. Workflow à autorisation exacte : `celebrations-m028-m016-preview.yml`.
+
+## Première vérification M016 (11/12/2026)
+
+Le premier test a déployé l'interface sur la préproduction isolée et sauvegardé D1/R2, mais s'est interrompu sur une assertion trop stricte du script : M016 ne contient pas toujours de pages ordinaires éditables (cas connu des missions précédentes). Le Worker M016 a été **restauré automatiquement** à sa version précédente, le site officiel a été vérifié inchangé.
+
+Le second parcours vérifie bien le vrai menu, les Paramètres et les deux modes en navigateur mobile et ordinateur, indépendamment de la présence de pages éditables. L'affichage du sélecteur de langue dans les pages reste couvert par les tests unitaires lorsque M016 est vide. Aucun contenu n'est créé artificiellement dans R2/D1 pour satisfaire le test.
