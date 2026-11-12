@@ -11,7 +11,9 @@ const ctx=await browser.newContext({viewport:{width:1280,height:850}});
 const anon=await browser.newContext({viewport:{width:390,height:850}});
 const page=await ctx.newPage();
 let original=null,pdf=null;
-const errors=[];
+const errors=[],navTraffic=[];
+page.on('request',request=>{if(request.url().includes('/api/site-identity'))navTraffic.push({type:'request',method:request.method()});});
+page.on('response',response=>{if(response.url().includes('/api/site-identity'))navTraffic.push({type:'response',status:response.status()});});
 page.on('pageerror',e=>errors.push(e.message));
 async function call(path,method='GET',data=null){
  const response=await ctx.request.fetch(HOST+path,{
@@ -53,7 +55,8 @@ try{
     saved.navigation?.position!=='right'){
   const feedback=await page.locator('.m027-navigation-settings [role="status"]').allTextContents();
   throw Error('Navigation save not persisted: '+JSON.stringify({
-   navigation:saved.navigation,feedback
+   navigation:saved.navigation,feedback,traffic:navTraffic,url:page.url(),
+   buttons:await page.getByRole('button',{name:'Enregistrer le titre'}).count()
   }));
  }
  await page.goto(HOST+'/__editor/voir-le-site?celebration=90000002',{waitUntil:'domcontentloaded'});
