@@ -1,0 +1,280 @@
+name: Célébrations M025 — MP3 200 Mo, production sauvegardée et réversible
+on:
+  push:
+    branches: [feat/m025-mp3-200mb-resumable-r2-20261112]
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: celebrations-existing-official-production-release
+  cancel-in-progress: false
+jobs:
+  owner-approved-official:
+    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M025_OWNER_APPROVED_OFFICIAL]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    environment: celebrations-staging
+    env:
+      M025_PROD_APPROVED: 'YES'
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      M017_ADMIN_PASSWORD: ${{ secrets.CELEBRATIONS_M017_ADMIN_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+
+      - name: Verify exact official config, owner PIN, source backups and demo isolation
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/feat/m025-mp3-200mb-resumable-r2-20261112'
+          test "$M025_PROD_APPROVED" = 'YES'
+          test "$CLOUDFLARE_ACCOUNT_ID" = '60a7b17758a93fe6681ce998e72ddff0'
+          ! grep -Eq '^[[:space:]]*(route|routes|zone_id|custom_domain)[[:space:]]*=' migration/cloudflare/wrangler.m018.official.toml
+          ! grep -Eq 'M021_DEMO|M016_PREPROD' migration/cloudflare/wrangler.m018.official.toml
+          node scripts/m018_official_validate.mjs
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readFileSync} from 'node:fs';
+          import {timingSafeEqual} from 'node:crypto';
+          import {deriveEditorPin} from './migration/cloudflare/editor-site-access.mjs';
+          const candidate=process.env.M017_ADMIN_PASSWORD||'';
+          assert.ok(candidate.length>=16,'Owner PIN workflow secret is missing');
+          const source=readFileSync('migration/cloudflare/editor-site-access.mjs','utf8');
+          const hex=source.match(/^const PIN_VERIFIER='([0-9a-f]{64})';/m)?.[1];
+          assert.ok(hex,'Existing official PIN verifier missing');
+          const computed=await deriveEditorPin(candidate);
+          const same=timingSafeEqual(Buffer.from(hex,'hex'),Buffer.from(computed,'hex'));
+          // Preproduction and official PINs are intentionally different.
+          // Never submit the staging PIN or change the official credentials.
+          console.log(same?'M025_OFFICIAL_PIN_AVAILABLE_FOR_TEST':
+            'M025_PREPROD_PIN_DIFFERS_FROM_OFFICIAL_NO_LOGIN_ATTEMPT');
+          console.log('M025_EXISTING_OFFICIAL_PIN_VERIFIER_UNCHANGED');
+          NODE
+          node scripts/build-m012b-member-spaces-inline.mjs --check
+          node scripts/build-m019-editor-client.mjs --check
+          node --test tests/test_m025_mp3_multipart.mjs tests/test_m024_cleanup_and_media_safety.mjs tests/test_m022_editor_commands.mjs tests/test_m021b_admin_mode.mjs tests/test_m021a_demo_identity.mjs \
+            tests/test_m021a_demo_flow.mjs tests/test_m020d_member_brevo.mjs \
+            tests/test_m020e_integrated_migrations.mjs
+
+      - name: Verify current official Worker, domain routes, secrets, D1 history, migration plan
+        id: gate
+        run: node scripts/m025_official_gate.mjs before
+
+      - name: Rebuild unchanged legacy static assets, verify Worker bundle offline
+        run: |
+          python scripts/build_production_assets.py
+          test -s production-public/admin.html
+          test -s production-public/index.html
+          npm install --no-save --no-package-lock wrangler@4 playwright@1.58.2
+          (cd migration/cloudflare && npx wrangler deploy --dry-run --config wrangler.m018.official.toml)
+          npx playwright install chromium
+
+      # NOTE: All steps above are read-only or local. No production mutation
+      # occurs before *both* encrypted production backups are archived.
+      - name: Export and encrypt FULL official D1, with integrity checks
+        working-directory: migration/cloudflare
+        run: |
+          set -euo pipefail
+          umask 077
+          npx wrangler d1 export celebrations-exit-production --remote \
+            --config wrangler.m018.official.toml --output /tmp/m025-official-D1.sql
+          test -s /tmp/m025-official-D1.sql
+          grep -q 'celebrations_celebrations' /tmp/m025-official-D1.sql
+          grep -q 'celebrations_participants' /tmp/m025-official-D1.sql
+          sha256sum /tmp/m025-official-D1.sql | cut -d' ' -f1 > /tmp/m025-d1-sha256
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt \
+            -in /tmp/m025-official-D1.sql -out /tmp/m025-official-D1.sql.enc \
+            -pass env:M017_ADMIN_PASSWORD
+          openssl enc -aes-256-cbc -d -pbkdf2 -iter 200000 \
+            -in /tmp/m025-official-D1.sql.enc -pass env:M017_ADMIN_PASSWORD \
+            | sha256sum | cut -d' ' -f1 | diff - /tmp/m025-d1-sha256
+          rm -f /tmp/m025-official-D1.sql
+          echo M025_PRODUCTION_DATABASE_BACKUP_ENCRYPTED_AND_VERIFIED
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: m025-official-D1-full-encrypted-before-change
+          path: /tmp/m025-official-D1.sql.enc
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Export and encrypt official R2 editor snapshot before any write
+        working-directory: migration/cloudflare
+        run: |
+          set -euo pipefail
+          umask 077
+          npx wrangler r2 object get \
+            celebrations-exit-staging/editor-trials/server-drafts-v1.json \
+            --remote --file /tmp/m025-official-editor-before.json
+          test -s /tmp/m025-official-editor-before.json
+          python - <<'PY'
+          import json
+          state=json.load(open('/tmp/m025-official-editor-before.json'))
+          assert isinstance(state.get('version'),int)
+          assert isinstance(state.get('drafts'),dict)
+          assert isinstance(state.get('shared'),dict)
+          print('M025_OFFICIAL_EDITOR_SNAPSHOT_VALIDATED_NO_CONTENT_PRINT')
+          PY
+          sha256sum /tmp/m025-official-editor-before.json | cut -d' ' -f1 > /tmp/m025-editor-sha256
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt \
+            -in /tmp/m025-official-editor-before.json -out /tmp/m025-official-editor-before.json.enc \
+            -pass env:M017_ADMIN_PASSWORD
+          openssl enc -aes-256-cbc -d -pbkdf2 -iter 200000 \
+            -in /tmp/m025-official-editor-before.json.enc -pass env:M017_ADMIN_PASSWORD \
+            | sha256sum | cut -d' ' -f1 | diff - /tmp/m025-editor-sha256
+          echo M025_PRODUCTION_EDITOR_BACKUP_ENCRYPTED_AND_VERIFIED
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: m025-official-editor-snapshot-encrypted-before-change
+          path: /tmp/m025-official-editor-before.json.enc
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Confirm media backup receipt, preserve original R2 bucket and verify live legacy media
+        run: |
+          node scripts/m018_official_validate.mjs
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const url='https://ronde-des-archanges-universelle.eu/media/media/1791723108110/file-1791723109615-1000040461.jpg';
+          const r=await fetch(url,{method:'GET',signal:AbortSignal.timeout(30000)});
+          assert.equal(r.status,200,'Original official historic media remains available');
+          assert.ok((await r.arrayBuffer()).byteLength>10000,'Historical image unexpectedly empty');
+          console.log('M025_OFFICIAL_MEDIA_HISTORIC_OBJECT_READ_OK');
+          NODE
+
+      - name: Enforce zero production DB migrations for this UI-only release
+        run: |
+          set -euo pipefail
+          node scripts/m025_official_gate.mjs after-migration
+          echo M025_OFFICIAL_ZERO_D1_MIGRATIONS
+
+      - name: Verify existing production Worker still unchanged (no D1 changes)
+        run: node scripts/m025_official_gate.mjs after-migration
+
+      - name: Upload candidate version to EXISTING official Worker without activation
+        id: upload
+        working-directory: migration/cloudflare
+        env:
+          WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/m025-version-output.ndjson
+        run: |
+          set -euo pipefail
+          # Preserve existing secret_text bindings, including official PIN and
+          # the independent D1 challenge signer, with keep_vars=true.
+          npx wrangler versions upload --config wrangler.m018.official.toml \
+            --message "M025: MP3 200 Mo R2 multipart sans compression (owner approved)"
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readFileSync,appendFileSync} from 'node:fs';
+          const events=readFileSync(process.env.WRANGLER_OUTPUT_FILE_PATH,'utf8')
+            .split('\n').filter(Boolean).map(x=>JSON.parse(x));
+          const item=events.filter(x=>x.type==='version-upload'&&x.worker_name==='celebrations-exit-production').at(-1);
+          assert.match(item?.version_id||'',/^[a-f0-9-]{36}$/);
+          appendFileSync(process.env.GITHUB_OUTPUT,'new_version='+item.version_id+'\n');
+          console.log('M025_OFFICIAL_VERSION_UPLOADED_INACTIVE '+item.version_id);
+          NODE
+
+      - name: Refuse activation on concurrent official Worker drift
+        run: node scripts/m025_official_gate.mjs before-promotion
+
+      - name: Promote validated version to 100 percent on SAME official Worker
+        id: promote
+        working-directory: migration/cloudflare
+        env:
+          NEW_VERSION: ${{ steps.upload.outputs.new_version }}
+        run: |
+          set -euo pipefail
+          test -n "$NEW_VERSION"
+          npx wrangler versions deploy "$NEW_VERSION@100%" --yes \
+            --config wrangler.m018.official.toml \
+            --message "M025: MP3 200 Mo multipart R2, preserve all site data"
+          echo M025_REAL_OFFICIAL_WORKER_DEPLOYED
+
+      - name: Verify exact official code version and member flags against Cloudflare
+        env:
+          M025_NEW_VERSION: ${{ steps.upload.outputs.new_version }}
+        run: node scripts/m025_official_gate.mjs after-promotion
+
+      - name: Live official public Chromium smartphone, unchanged PIN gate and privacy (no guessed PIN)
+        run: node scripts/m025_official_public_smoke.mjs
+
+      - name: Verify no content, private ACL, member or media state was changed
+        working-directory: migration/cloudflare
+        run: |
+          set -euo pipefail
+          npx wrangler r2 object get \
+            celebrations-exit-staging/editor-trials/server-drafts-v1.json \
+            --remote --file /tmp/m025-official-editor-after.json
+          python - <<'PY'
+          import json
+          def read(f):return json.load(open(f))
+          a=read('/tmp/m025-official-editor-before.json')
+          b=read('/tmp/m025-official-editor-after.json')
+          assert b.get('adminMode',{}) == a.get('adminMode',{}), 'Existing owner-selected admin mode changed'
+          for s in (a,b):
+           for k in ('version','updatedAt','adminMode'):s.pop(k,None)
+          assert a==b, 'Official pages, publications or authorizations changed'
+          print('M025_OFFICIAL_PRIVATE_ACL_AND_ALL_CONTENT_UNCHANGED_PASS')
+          PY
+          rm -f /tmp/m025-official-editor-before.json /tmp/m025-official-editor-after.json
+
+      - name: Final historical row and exact-domain deployment verification
+        env:
+          M025_NEW_VERSION: ${{ steps.upload.outputs.new_version }}
+        run: node scripts/m025_official_gate.mjs after-promotion
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: m025-official-smartphone-captures
+          path: docs/m025-official-smartphone
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Rollback only if official current version is our failed new version
+        id: rollback-decision
+        if: ${{ failure() && steps.promote.outcome != 'skipped' }}
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {appendFileSync} from 'node:fs';
+          const account=process.env.CLOUDFLARE_ACCOUNT_ID;
+          const r=await fetch('https://api.cloudflare.com/client/v4/accounts/'+account+
+            '/workers/scripts/celebrations-exit-production/deployments',{
+            headers:{authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN},
+            signal:AbortSignal.timeout(25000)});
+          assert.equal(r.status,200);
+          const j=await r.json();assert.equal(j.success,true);
+          const active=j.result?.deployments?.[0]?.versions||[];
+          assert.equal(active.length,1);
+          const baseline=process.env.PREVIOUS_VERSION;
+          const latest=active[0].version_id;
+          if(latest!==baseline)assert.equal(latest,process.env.NEW_VERSION,
+            'Third-party deployment: never overwrite');
+          appendFileSync(process.env.GITHUB_OUTPUT,'restore='+(latest===baseline?'no':'yes')+'\n');
+          console.log('M025_ROLLBACK_CHECK '+(latest===baseline?'not-needed':'required'));
+          NODE
+        env:
+          NEW_VERSION: ${{ steps.upload.outputs.new_version }}
+          PREVIOUS_VERSION: ${{ steps.gate.outputs.previous_version }}
+
+      - name: Restore previous official Worker if failed smoke test
+        if: ${{ failure() && steps.rollback-decision.outputs.restore == 'yes' }}
+        working-directory: migration/cloudflare
+        env:
+          PREVIOUS_VERSION: ${{ steps.gate.outputs.previous_version }}
+        run: |
+          set -euo pipefail
+          test -n "$PREVIOUS_VERSION"
+          npx wrangler versions deploy "$PREVIOUS_VERSION@100%" --yes \
+            --config wrangler.m018.official.toml \
+            --message "M025 rollback: restore previous official Worker, preserve D1 and R2"
+          echo M025_OFFICIAL_WORKER_RESTORED
+
+      - name: Verify previous official Worker restored without deleting migrations or data
+        if: ${{ failure() && steps.rollback-decision.outputs.restore == 'yes' }}
+        run: node scripts/m025_official_gate.mjs after-rollback

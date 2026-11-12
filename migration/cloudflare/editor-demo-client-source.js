@@ -603,7 +603,133 @@ function mediaUploadFeedback(percent,message){
  if(bar){bar.hidden=false;bar.value=percent}
  if(label){label.hidden=false;label.textContent=message}
 }
+// M025: MP3s above the old 25 Mo form limit travel in 10 Mo R2 parts.
+// Store only upload IDs and confirmed part ETags in this browser, not audio
+// bytes, PINs or reusable credentials. Selecting the same file resumes them.
+const MAX_MP3_UPLOAD=200_000_000;
+const MP3_SINGLE_REQUEST=25_000_000;
+async function uploadLargeMp3(file,onProgress){
+ if(file.size>MAX_MP3_UPLOAD)throw Error('MP3 trop volumineux (200 Mo maximum).');
+ const normalizedName=String(file.name||'');
+ if(!/\\.mp3$/i.test(normalizedName))throw Error('Choisissez un fichier MP3.');
+ const identity=[normalizedName,file.size,file.lastModified].join('|');
+ const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(identity));
+ const fingerprint=[...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,'0')).join('');
+ const localKey='celebrations-mp3-resume-v1:'+fingerprint;
+ let saved=null;
+ try{saved=JSON.parse(localStorage.getItem(localKey)||'null')}catch{}
+ const endpoint=action=>'/api/editor-media?action='+action;
+ async function command(action,payload){
+  const response=await fetch(endpoint(action),{
+   method:'POST',credentials:'same-origin',
+   headers:{'content-type':'application/json'},
+   body:JSON.stringify(payload)
+  });
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok||!data.ok){
+   const error=Error(data.error||'Erreur du transfert MP3 ('+response.status+').');
+   error.status=response.status;throw error;
+  }
+  return data;
+ }
+ function keep(){
+  try{localStorage.setItem(localKey,JSON.stringify(saved))}catch{}
+ }
+ function finish(result){
+  localStorage.removeItem(localKey);
+  return result.item;
+ }
+ if(saved?.id&&saved?.uploadId){
+  try{
+   const info=await command('mpu-status',{id:saved.id,uploadId:saved.uploadId});
+   if(info.completed)return {ok:true,item:finish(info),revision:info.revision};
+   if(info.size!==file.size||info.name!==normalizedName){
+    saved=null;try{localStorage.removeItem(localKey)}catch{}
+   }
+  }catch(error){
+   if([404,410].includes(error.status)){
+    saved=null;try{localStorage.removeItem(localKey)}catch{}
+   }else throw error;
+  }
+ }
+ if(!saved){
+  saved=await command('mpu-start',{name:normalizedName,size:file.size,mime:file.type||'audio/mpeg'});
+  saved.uploaded={};keep();
+ }
+ const count=Math.ceil(file.size/saved.chunkSize);
+ if(saved.chunkSize!==10_000_000||saved.parts!==count||count>20)
+  throw Error('Paramètres du transfert MP3 inattendus.');
+ const verified=()=>Object.keys(saved.uploaded||{}).filter(key=>
+  Number(key)>=1&&Number(key)<=count&&/^[a-f0-9]{32}$/i.test(saved.uploaded[key])).length;
+ const progress=(number,loaded=0)=>{
+  const already=Object.keys(saved.uploaded||{}).reduce((sum,key)=>{
+   const index=Number(key);
+   if(!Number.isInteger(index)||index<1||index>count||
+      !/^[a-f0-9]{32}$/i.test(saved.uploaded[key]))return sum;
+   return sum+Math.min(saved.chunkSize,file.size-(index-1)*saved.chunkSize);
+  },0);
+  const percent=Math.min(99,Math.floor((already+loaded)*100/file.size));
+  if(onProgress)onProgress(percent);
+  mediaUploadFeedback(percent,'MP3 : '+percent+' % envoyés ('+verified()+'/'+count+' morceaux confirmés).');
+ };
+ for(let number=1;number<=count;number++){
+  if(saved.uploaded?.[number]){progress(number);continue;}
+  const begin=(number-1)*saved.chunkSize;
+  const chunk=file.slice(begin,Math.min(begin+saved.chunkSize,file.size));
+  let error=null;
+  for(let attempt=0;attempt<3;attempt++){
+   try{
+    const part=await new Promise((resolve,reject)=>{
+     const xhr=new XMLHttpRequest();
+     xhr.open('POST',endpoint('mpu-part'),true);
+     xhr.withCredentials=true;xhr.responseType='json';
+     xhr.setRequestHeader('content-type','application/octet-stream');
+     xhr.setRequestHeader('x-mp3-upload-id',saved.id);
+     xhr.setRequestHeader('x-mp3-r2-upload-id',saved.uploadId);
+     xhr.setRequestHeader('x-mp3-part-number',String(number));
+     xhr.upload.onprogress=event=>{
+      if(event.lengthComputable)progress(number,Math.min(chunk.size,event.loaded));
+     };
+     xhr.onload=()=>{
+      const data=xhr.response||{};
+      if(xhr.status>=200&&xhr.status<300&&data.ok&&data.etag)
+       resolve(data);
+      else reject(Error(data.error||'Transfert du morceau '+number+' refusé.'));
+     };
+     xhr.onerror=()=>reject(Error('Connexion perdue pendant le transfert.'));
+     xhr.onabort=()=>reject(Error('Transfert interrompu.'));
+     xhr.send(chunk);
+    });
+    if(!/^[a-f0-9]{32}$/i.test(part.etag))throw Error('Réponse R2 invalide.');
+    saved.uploaded[number]=part.etag;keep();progress(number);
+    error=null;break;
+   }catch(e){error=e;if(attempt<2)await new Promise(resolve=>setTimeout(resolve,600*(attempt+1)))}
+  }
+  if(error)throw Error(error.message+' Choisissez à nouveau ce même MP3 pour reprendre.');
+ }
+ const parts=Array.from({length:count},(_,index)=>({
+  partNumber:index+1,etag:saved.uploaded[index+1]
+ }));
+ mediaUploadFeedback(99,'Tous les morceaux sont envoyés. Vérification du fichier de '+file.size+' octets…');
+ let result;
+ try{result=await command('mpu-complete',{id:saved.id,uploadId:saved.uploadId,parts})}
+ catch(error){
+  // R2 may have completed even when the response was lost. Never discard the
+  // part manifest: reopening the same file can recheck and finalize safely.
+  throw Error(error.message+' Choisissez à nouveau ce MP3 pour terminer.');
+ }
+ return {ok:true,item:finish(result),revision:result.revision};
+}
 async function uploadToMediaServer(file,onProgress=null){
+ const mp3=/\\.mp3$/i.test(String(file.name||''));
+ if(mp3&&file.size>MAX_MP3_UPLOAD)
+  throw Error('MP3 trop volumineux : 200 Mo maximum.');
+ if(mp3&&file.size>MP3_SINGLE_REQUEST){
+  const result=await uploadLargeMp3(file,onProgress);
+  globalMedia=globalMedia.filter(x=>x.id!==result.item.id).concat({...result.item,canDelete:false});
+  serverRevision=result.revision;
+  return result.item;
+ }
  const form=new FormData();form.append('file',file);
  let result;
  if(onProgress){
@@ -2910,7 +3036,7 @@ function media(){
  },'sm');
  importButton.disabled=!IS_STAGE&&!storageReady;importButton.dataset.action='upload-file';w.append(importButton);
  if(mediaCategory==='audios'){
-  const label=n('p','media-upload-feedback',mediaUploadState?.message||'Le transfert MP3 affiche sa progression en temps réel (25 Mo maximum).');
+  const label=n('p','media-upload-feedback',mediaUploadState?.message||'Importez des MP3 jusqu’à 200 Mo sans compression. Au-delà de 25 Mo, l’envoi s’effectue en morceaux et peut reprendre après une interruption.');
   label.id='media-upload-feedback';label.setAttribute('role','status');label.setAttribute('aria-live','polite');w.append(label);
   const bar=n('progress','media-upload-progress');
   bar.id='media-upload-progress';bar.max=100;

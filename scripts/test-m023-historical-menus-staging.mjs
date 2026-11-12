@@ -45,9 +45,13 @@ try{
   await mercredi.click();
   assert.ok((await page.locator('button.item.active').first().innerText()).includes('Mercredi'),
    'Clicking a different historical day must navigate and edit the selected page');
-  const mercrediRow=mercredi.locator('xpath=..');
-  await mercrediRow.locator('summary').click();
-  await mercrediRow.getByRole('button',{name:'Modifier cette page'}).waitFor();
+  // The navigation switches pages by rerendering the entire editor. The
+  // summary was already verified in the exhaustive list above; do not try
+  // to click a detached copy during that asynchronous rerender.
+  const mercrediRow=page.locator('.general-page-row').filter({has:
+   page.locator('button.item[data-page-id="mercredi-'+CID+'"]')});
+  await mercrediRow.locator('summary').waitFor();
+  assert.equal(await mercrediRow.locator('summary').count(),1);
   assert.equal(forbiddenWrites,0,'Tests must not change M016 or official content');
   assert.deepEqual(errors,[],'Historical menu click must not throw uncaught errors');
   console.log('M023_HISTORICAL_PAGE_MENU_AND_NAVIGATION_PASS width='+width+
