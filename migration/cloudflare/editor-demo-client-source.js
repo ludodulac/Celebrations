@@ -1770,8 +1770,10 @@ function block(x,p,items=p.blocks,section=null){
   const src=key&&/^editor-trials\/audio\/[0-9a-f-]{36}\.mp3$/.test(key)
     ?'/api/editor-trial-audio?action=stream&key='+encodeURIComponent(key)
     :/^\/media\/(?!.*\.\.)[^?#]+\.mp3$/i.test(String(x.src||''))?x.src:'';
-  if(src){const audio=n('audio','audio-player');audio.controls=true;audio.preload='none';audio.src=src;wrap.append(audio)}
-  box.append(wrap);
+  if(src){
+   const audio=n('audio','audio-player');audio.controls=true;audio.preload='none';audio.src=src;
+   wrap.append(audio);box.append(wrap);
+  }
   if(!preview){
    const title=n('label','audio-title-field','Titre de l’audio');
    const input=n('input');input.type='text';input.maxLength=180;
