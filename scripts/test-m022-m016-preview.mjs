@@ -84,7 +84,21 @@ try{
  await status.selectOption(next);
  if(next==='hidden')await page.getByRole('dialog').getByRole('button',{name:/Confirmer|Valider|OK/i}).click();
  await page.waitForFunction(expected=>document.querySelector('.celebration-publication-controls .publication-status-controls select')?.value===expected,next);
- await page.waitForTimeout(700);
+ // The browser updates its option immediately, but must not accept a second
+ // mutation until the first server write is confirmed and the UI re-enabled.
+ await page.waitForFunction(()=>{
+  const select=document.querySelector('.celebration-publication-controls .publication-status-controls select');
+  return select&&!select.disabled;
+ },null,{timeout:16000}).catch(async error=>{
+  const diag=await page.evaluate(()=>({
+   state:document.querySelector('.celebration-publication-controls .publication-status-controls select')?.outerHTML,
+   status:document.querySelector('#status')?.textContent,
+   dialogs:[...document.querySelectorAll('dialog')].map(x=>x.textContent.slice(0,160)),
+   title:document.title
+  }));
+  console.error('M022_M016_VISIBILITY_PENDING_DIAGNOSTIC',JSON.stringify(diag));
+  throw error;
+ });
  assert.equal(await page.locator('.celebration-publication-controls .publication-status-controls select').inputValue(),next);
  await page.locator('.celebration-publication-controls .publication-status-controls select').selectOption(previous);
  if(previous==='hidden')await page.getByRole('dialog').getByRole('button',{name:/Confirmer|Valider|OK/i}).click();
