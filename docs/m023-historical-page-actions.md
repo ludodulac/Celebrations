@@ -12,3 +12,7 @@ Le propriétaire a montré une capture où les pages Préparation, Mercredi, Jeu
 - Aucun nouveau composant d'administration ni migration. Aucun droit privé, membre, média, titre historique, page enregistrée ni secret officiel modifié.
 
 Contrôles : tests de domaine M022/M023, génération déterministe des modules, préproduction M016 avec PIN isolé puis déploiement officiel après sauvegardes chiffrées D1/R2, vérification des accès privés et possibilité de restaurer le Worker précédent. La préproduction M016 n'a pas toutes les pages historiques du site réel ; ne pas présenter son test comme un parcours réel sur Préparation.
+
+## Preuve complémentaire
+
+Un test Chromium lecture seule crée quatre pages représentatives **uniquement dans la réponse réseau du navigateur de test** (M016), en mode mobile et ordinateur, puis vérifie les intitulés cliquables, les boutons ⋯, la présence de Modifier / Visibilité et Supprimer seulement pour les pages ajoutées. Il refuse toute écriture serveur.
