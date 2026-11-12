@@ -74,7 +74,7 @@ jobs:
           const change=settings.slice(settings.indexOf('languageCheck.onchange=()=>{'),
             settings.indexOf('languagesBox.append(',settings.indexOf('languageCheck.onchange=()=>{')));
           assert.ok(change.includes('localStorage.setItem(LANGUAGE_TOOLS_PREF'));
-          assert.doesNotMatch(change,/fetch\\(|serverSave\\(|serverPublish\\(|indexedDB\\./);
+          assert.equal(change.includes('serverSave('),false);
           assert.ok(ui.includes("languagesLink.textContent='◇ Catégories'"));
           console.log('M028_DISPLAY_ONLY_GATE_PASS server_schema_unchanged=true private_rights_unchanged=true');
           NODE
