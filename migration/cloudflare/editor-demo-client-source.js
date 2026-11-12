@@ -611,7 +611,7 @@ const MP3_SINGLE_REQUEST=25_000_000;
 async function uploadLargeMp3(file,onProgress){
  if(file.size>MAX_MP3_UPLOAD)throw Error('MP3 trop volumineux (200 Mo maximum).');
  const normalizedName=String(file.name||'');
- if(!/\\.mp3$/i.test(normalizedName))throw Error('Choisissez un fichier MP3.');
+ if(!/\.mp3$/i.test(normalizedName))throw Error('Choisissez un fichier MP3.');
  const identity=[normalizedName,file.size,file.lastModified].join('|');
  const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(identity));
  const fingerprint=[...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,'0')).join('');
@@ -721,7 +721,7 @@ async function uploadLargeMp3(file,onProgress){
  return {ok:true,item:finish(result),revision:result.revision};
 }
 async function uploadToMediaServer(file,onProgress=null){
- const mp3=/\\.mp3$/i.test(String(file.name||''));
+ const mp3=/\.mp3$/i.test(String(file.name||''));
  if(mp3&&file.size>MAX_MP3_UPLOAD)
   throw Error('MP3 trop volumineux : 200 Mo maximum.');
  if(mp3&&file.size>MP3_SINGLE_REQUEST){
