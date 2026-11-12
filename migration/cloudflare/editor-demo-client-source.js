@@ -3367,6 +3367,8 @@ function settings(){
  // Native disclosure reuses the existing multilingual editor under Settings.
  // Changing this local display setting never calls serverSave().
  const languagesBox=n('details','settings-actions m028-language-settings');
+ // Keep the panel visible after adding/renaming a language, which rerenders Settings.
+ languagesBox.open=adminLanguagesVisible;
  const summary=n('summary','','🌍 Gestion des langues (facultatif)');
  const languageHelp=n('p','','Les langues déjà publiées restent accessibles. Cette préférence affiche seulement les outils sur cet appareil.');
  const languageLabel=n('label','m021b-mode-choice');
