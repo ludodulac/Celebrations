@@ -4,6 +4,7 @@ import {handleMedia} from "../migration/cloudflare/media-gateway.mjs";
 function setup({publicApproved=false,committeeRow=null,range=false}={}){
  const calls=[];
  const env={
+  EDITOR_BUCKET:{async get(){return null}},
   MEDIA_ACL:{prepare(sql){return {bind(...args){return {async first(){calls.push({sql,args});return sql.includes("committee_media")?committeeRow:(publicApproved?{approved:1,revoked_at:null}:null)}}}}}},
   MEDIA_BUCKET:{async get(key,opts){calls.push({key,opts});return {body:"ABC",size:3,httpEtag:'"hash"',range:range?{offset:0,length:2}:undefined,writeHttpMetadata(headers){headers.set("content-type","audio/mpeg")}}}}
  };
