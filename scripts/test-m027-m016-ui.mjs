@@ -40,7 +40,22 @@ try{
  await page.getByRole('textbox',{name:'Titre dans la barre du menu'}).fill('Ronde des Archanges Universelle');
  await page.getByRole('combobox',{name:'Position du titre'}).selectOption('right');
  await page.getByRole('button',{name:'Enregistrer le titre'}).click();
- await page.getByText('✓ Titre enregistré sur toutes les pages du site.').waitFor();
+ // The editor can rerender during async server-load. Prove the real persisted
+ // result rather than relying only on a transient status paragraph.
+ let saved=null;
+ for(let attempt=0;attempt<10;attempt++){
+  saved=await call('/api/site-identity');
+  if(saved.navigation?.title==='Ronde des Archanges Universelle'&&
+     saved.navigation?.position==='right')break;
+  await page.waitForTimeout(500);
+ }
+ if(saved.navigation?.title!=='Ronde des Archanges Universelle'||
+    saved.navigation?.position!=='right'){
+  const feedback=await page.locator('.m027-navigation-settings [role="status"]').allTextContents();
+  throw Error('Navigation save not persisted: '+JSON.stringify({
+   navigation:saved.navigation,feedback
+  }));
+ }
  await page.goto(HOST+'/__editor/voir-le-site?celebration=90000002',{waitUntil:'domcontentloaded'});
  const title=page.locator('.site-menu-bar .site-nav-title');
  assert.equal(await title.innerText(),'Ronde des Archanges Universelle');
