@@ -26,3 +26,7 @@ Le propriétaire a explicitement demandé à cette conversation de **faire elle-
 Déployer la nouvelle version du **Worker existant** `celebrations-exit-production` sur `ronde-des-archanges-universelle.eu` et son www, sans routes/DNS neufs. Aucune migration D1 ni modification de données nécessaire. Conserver strictement l'authentification/PIN historique et les bindings R2/D1. Préparer et vérifier les sauvegardes D1 officielle et snapshot R2 chiffrées, comparer les données/ACL avant/après, tester la consultation publique, les refus d'accès anonymes et l'écran PIN officiel. Ne pas saisir le secret M017 de préproduction sur la production. Ne pas changer le réglage mode complet/simplifié choisi par le propriétaire.
 
 En cas de régression, restaurer seulement la précédente version active de ce même Worker (aucune suppression D1/R2).
+
+## Relance contrôle d'hydratation visiteur
+
+Le premier déploiement officiel M022 a été immédiatement annulé par le rollback de sécurité : le contrôle Chromium avait interrogé le bouton membre avant la fin de son initialisation JavaScript (HTML initial masqué). La production précédente a été restaurée avec ses mêmes données. Le contrôle attend désormais que l'interface publique soit entièrement initialisée avant de comparer le bouton au mode choisi par le propriétaire.
