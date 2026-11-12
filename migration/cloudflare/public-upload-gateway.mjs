@@ -8,6 +8,7 @@ import {canAccessPage} from './app/domain/member-access.mjs';
 import {privateNotFound} from './app/security/member-private-access.mjs';
 import {isPrivateMediaRecord,isPrivateMediaReference,publicMediaBindingsSafe}
   from './app/security/public-media-boundary.mjs';
+import {pdfIsPrivate} from './app/domain/editor-site-preferences.mjs';
 
 const pubPage=page=>page&&(page.visibility==null||page.visibility==='published')&&
  canAccessPage(page);
@@ -55,9 +56,14 @@ function referencedByPrivateOwner(state,src){
  return false;
 }
 function publicRelease(state,src){
- if(!state.published)return false; // drafts NEVER imply publication
  const entry=(state.mediaCatalogue||[]).find(row=>row?.src===src);
  if(entry&&isPrivateMediaRecord(entry))return false;
+ // Every site-owned PDF in the existing admin library is public by default,
+ // even when the page using it is only a draft. The explicit checkbox wins.
+ // Private-member bucket assets never share this /media/new/ namespace.
+ if(entry?.type==='pdf'&&entry.source==='uploaded'&&!pdfIsPrivate(state,src))
+  return true;
+ if(pdfIsPrivate(state,src)||!state.published)return false;
  if(referencedByPrivateOwner(state,src))return false;
  if(state.siteIdentity?.imageSrc===src&&entry?.type==='image')return true;
  if(publishedPageReferences(state,src))return true;
