@@ -13,8 +13,18 @@ try{
  const context=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
  const page=await context.newPage();
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
- let r=await page.goto(ORIGIN+'/',{waitUntil:'domcontentloaded',timeout:35000});
+ // Cloudflare global propagation can serve the previous Worker briefly after
+ // 100% promotion. Never mistake an old edge response for a release regression.
+ let r,modeMarker=null;
+ for(let attempt=0;attempt<30;attempt++){
+  const probe='/?m021c_version_probe='+Date.now()+'-'+attempt;
+  r=await page.goto(ORIGIN+probe,{waitUntil:'domcontentloaded',timeout:35000});
+  if(r?.status()===200)modeMarker=await page.locator('body').getAttribute('data-member-login-visible');
+  if(r?.status()===200&&modeMarker==='0')break;
+  await page.waitForTimeout(1800);
+ }
  assert.equal(r?.status(),200,'Actual official site must open');
+ assert.equal(modeMarker,'0','New Worker not visible at official edge after propagation window');
  await page.waitForTimeout(450);
  assert.equal(await page.locator('#back-admin').count(),1,'Historical admin footer link retained');
  assert.equal(await page.locator('#member-connection').isVisible(),false,
