@@ -3400,7 +3400,8 @@ async function duplicateChoice(entry){
    p.id.endsWith('-'+String(STAGE_SEED.celebrationId)))
    .map(p=>({name:p.name,group:p.group,blocks:clone(p.blocks||[]),
     translations:clone(editorLocalization.pages[p.id]||{})}));
-  await memberPanel.duplicateCelebrationVersion(pages,celebrationLabel(entry));
+  const created=await memberPanel.duplicateCelebrationVersion(pages,celebrationLabel(entry));
+  if(created)status.textContent='✓ Version créée en brouillon : '+celebrationLabel(entry)+' — '+created.category+' — '+created.language+' ('+created.pages+' pages).';
  }catch(e){siteNotice('Duplication impossible : '+(e.message||e))}
 }
 function accessControls(kind,p){
