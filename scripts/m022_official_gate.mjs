@@ -6,7 +6,7 @@ const ACCOUNT='60a7b17758a93fe6681ce998e72ddff0';
 const WORKER='celebrations-exit-production';
 const DB='28736d2a-479b-472b-bf82-703ad0affe10';
 const HOSTS=['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu'];
-const branch='refs/heads/feat/m022-official-release-20261112';
+const branch='refs/heads/feat/m022-clean-editor-commands-20261112';
 const mode=process.argv[2]||'before';
 assert.ok(['before','after-migration','before-promotion','after-promotion','after-rollback'].includes(mode));
 assert.equal(process.env.GITHUB_REF,branch);
