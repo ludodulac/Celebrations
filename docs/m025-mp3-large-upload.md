@@ -24,3 +24,7 @@ Aucun outil de compression ni de réencodage audio. Pas de fichiers WAV de 200 M
 ## Vérification en situation réelle
 
 Une mission M016 isolée lance un import multipart réel de **55 000 001 octets**, vérifie les 6 parties, simule une interruption et une reprise, lit 16 octets de l'original depuis la route R2 existante et supprime le fichier d'essai. Aucun média de test ne doit rester dans le R2 de préproduction. Le domaine officiel reste strictement inchangé pendant ce parcours.
+
+## Première épreuve R2 réelle (réussite, validation générale à relancer)
+
+Exécution M016 `43212783453` : transfert réel **55 000 001 octets** par 6 morceaux, reprise après pause, exactitude des octets sur la route publique Range HTTP 206, suppression complète du média d'essai — **TOUS PASS**. Le seul échec du job concernait le test de navigation M023 après ce succès : le navigateur desktop cliquait un noeud DOM détaché lors du rerender d'une page historique. Ce test conserve maintenant sa vérification de navigation réelle et de l'existence du menu, sans cliquer deux fois un élément remplacé lors du rendu. Relancer l'ensemble.
