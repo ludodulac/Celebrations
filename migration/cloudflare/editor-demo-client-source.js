@@ -2568,7 +2568,17 @@ function pageWorkspace(group,mount=w){
    nameInput.onchange=()=>{
     const result=editorPageCommands.renameEditablePage(db,canonicalPage(),nameInput.value,STAGE_SEED?.celebrationId);
     if(!result.ok){siteNotice(result.error);nameInput.value=canonicalPage().name;return;}
-    if(result.changed){clearLocaleView();mark();render();}
+    if(result.changed){
+     mark();
+     // Keep the focused Save button mounted: rerendering on input blur would
+     // swallow the very click intended to persist the new page name.
+     const nav=layout.querySelector('[data-page-id="'+CSS.escape(canonicalPage().id)+'"]');
+     if(nav){
+      const date=p.group==='celebration'?stageDate(canonicalPage()):null;
+      nav.textContent=p.group==='celebration'?
+       '✧ '+canonicalPage().name+(date?' · '+prettyDate(date):''):canonicalPage().name;
+     }
+    }
    };
    rename.append(nameInput);row.append(rename);
   }
