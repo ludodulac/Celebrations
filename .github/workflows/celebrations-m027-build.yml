@@ -37,7 +37,7 @@ jobs:
           node --check migration/cloudflare/app/styles/admin/stage-layout.mjs
       - name: Editor command regression tests without production writes
         run: |
-          node --test tests/test_m027_pdf_privacy_navigation.mjs tests/test_m026_real_mp3_detection.mjs tests/test_m025_mp3_multipart.mjs tests/test_m024_cleanup_and_media_safety.mjs tests/test_m022_editor_commands.mjs tests/test_m021b_admin_mode.mjs \
+          node --test tests/test_m027_pdf_privacy_navigation.mjs tests/test-exit-media-gateway.mjs tests/test_m009c_public_media_api_security.mjs tests/test-editor-publication-media.mjs tests/test_m026_real_mp3_detection.mjs tests/test_m025_mp3_multipart.mjs tests/test_m024_cleanup_and_media_safety.mjs tests/test_m022_editor_commands.mjs tests/test_m021b_admin_mode.mjs \
            tests/test_m020e_integrated_migrations.mjs tests/test-editor-publication-media.mjs \
            tests/test-editor-server-drafts.mjs tests/test_m012c_private_editor_publication.mjs \
            tests/test_m018_final_functional_rules.mjs
