@@ -27,6 +27,7 @@ function state({page=imagePage(),catalogue=[],published=true}={}){
 function gateway(row={approved:1,revoked_at:null},committeeRow=null){
  const calls=[];
  const env={
+  EDITOR_BUCKET:{async get(){return null}},
   MEDIA_ACL:{prepare(sql){return {bind(...args){return {async first(){
    calls.push(['sql',sql,args]);
    return sql.includes('committee_media')?committeeRow:row;
