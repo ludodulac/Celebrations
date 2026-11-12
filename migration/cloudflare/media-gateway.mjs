@@ -59,7 +59,8 @@ export async function handleMedia(request,env){
  // Site-owned historic PDFs can be marked private from the SAME media
  // library, including PDF URLs previously mailed to visitors. The original
  // D1 authorization/revocation and all committee restrictions still apply.
- if(/\.pdf$/i.test(key)&&env.EDITOR_BUCKET){
+ if(/\.pdf$/i.test(key)){
+  if(!env.EDITOR_BUCKET)return json('Vérification de confidentialité indisponible',503);
   let state;
   try{({state}=await readEditorState(env.EDITOR_BUCKET))}
   catch{return json("PDF momentanément indisponible",503)}
