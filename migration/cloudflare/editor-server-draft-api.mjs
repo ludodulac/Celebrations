@@ -31,13 +31,22 @@ const goodShared=x=>object(x)&&Array.isArray(x.pages)&&x.pages.length<=60&&x.pag
 
 // The registry and ordinary/footer/celebration variants belong only to the authenticated
 // private editor snapshot. Never put translations in public shared pages.
-function goodLocalization(input,shared,record){
+function goodLocalization(input,shared,record,storedState,selectedCelebration){
  if(!object(input)||!object(input.registry)||!object(input.pages))return false;
  const ids=Object.keys(input.pages);
  if(ids.length>60)return false;
  let registry;try{registry=createLanguageRegistry(input.registry)}catch{return false}
  if(registry.languages.length>30)return false;
- const canonical=new Map([...shared.pages,...record.pages].map(p=>[p.id,p]));
+ // The authenticated editor has ONE multilingual catalogue across ALL celebrations.
+ // A save of Michaël must keep translations belonging to Gabriel/Raphaël/Ouriel.
+ // Only pages already recorded on the server are considered (private managed
+ // pages remain excluded by legacyEditorView). Never accept arbitrary IDs.
+ const legacy=legacyEditorView(storedState);
+ const otherCelebrationPages=Object.entries(legacy.drafts||{})
+  .filter(([id])=>id!==selectedCelebration)
+  .flatMap(([,entry])=>entry?.pages||[]);
+ const canonical=new Map([...otherCelebrationPages,...shared.pages,...record.pages]
+  .map(page=>[page.id,page]));
  for(const id of ids){
   const page=canonical.get(id),versions=input.pages[id];
   if(!page||!['page','celebration'].includes(page.group)||!object(versions))return false;
@@ -140,8 +149,6 @@ export async function handleServerDraft(request,env){
    !Number.isSafeInteger(body.expectedRevision)||body.expectedRevision<0)return error('Données de sauvegarde invalides',400);
   let record=sanitizeRecord(body.record,body.celebration);
   if(!record)return error('Pages invalides',400);
-  if(body.localization!==undefined&&!goodLocalization(body.localization,body.shared,record))
-   return error('Traductions ou registre multilingue invalides',400);
   // The selected page must belong to the authenticated celebration/shared pages.
   // An invalid or stale page must never be silently recorded as published.
   const publishPageId=body.publishPageId;
@@ -151,6 +158,9 @@ export async function handleServerDraft(request,env){
    return error('Page à mettre à jour introuvable',400);
   const current=await stored(draftBucket);
   if(!expectedRevisionMatches(body.expectedRevision,current.state.version))return error('Une version plus récente existe sur le serveur. Rechargez sans effacer votre brouillon local.',409);
+  if(body.localization!==undefined&&
+     !goodLocalization(body.localization,body.shared,record,current.state,body.celebration))
+   return error('Traductions ou registre multilingue invalides',400);
   // Legacy saves cannot replace private pages, spaces, or their ACLs.
   try{
    if(Object.hasOwn(body.record,'spaces')||
