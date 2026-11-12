@@ -58,3 +58,5 @@ Le bouton rouge « Échec — réessayer » observé sur plusieurs pages du site
 Correctif ciblé : la validation prend aussi en compte les pages ordinaires des autres célébrations **déjà présentes dans le snapshot authentifié R2**, tout en excluant les pages privées gérées séparément et en refusant les identifiants inventés. Aucun fichier ni traduction existante n'est effacé. Les contrôles de révision, d'autorisation et de publication sont conservés. Tests de régression ajoutés : sauvegarde Michaël avec traduction Gabriel, et refus d'une traduction attachée à une fausse page.
 
 L'anomalie du code explique une cause probable, mais la reproduction à partir des données privées exactes de l'utilisateur n'est pas possible sans une session authentifiée ; vérifier le statut de la sauvegarde réelle après déploiement. Ne jamais vider le stockage du navigateur tant que des modifications locales sont à récupérer.
+
+Contrôle M016 demandé : déclencher la vérification de préproduction isolée du comportement du menu, de la confidentialité PDF, du guide et de l'enregistrement multilingue. Garder le site officiel inchangé jusqu'au feu vert de ce test.
