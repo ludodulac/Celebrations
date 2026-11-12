@@ -29,3 +29,10 @@ Le second parcours vérifie bien le vrai menu, les Paramètres et les deux modes
 ## Deuxième vérification sur M016
 
 Le parcours **mobile** a été validé sur M016 (mode simplifié, case réversible, sauvegardes inchangées), ainsi que **Membres/Catégories** en mode complet. Le mode initial de l'administrateur a été restauré. La dernière assertion sur ordinateur utilisait par erreur un sélecteur d'accessibilité dans un panneau `<details>` encore replié, donc le test ne trouvait pas la case masquée. Ce n'est pas une panne de l'interface : le script ouvre désormais le panneau avant de tester cette case. Le contrôle final reste limité à la préproduction M016, sans modifier la production.
+
+
+## Accord de mise en ligne officielle (12 novembre 2026)
+
+Le propriétaire autorise la publication de M028 sur le site officiel après réussite des tests M016. L'accord **ne porte que sur la préférence d'affichage des langues** : ni suppression de contenus, ni changements d'accès, ni migration D1/R2.
+
+L'opération est placée derrière le contrôle de version exacte du Worker actuellement vérifié (`eb6fb347-860f-4558-938b-11db2b2e7ea9`), les sauvegardes chiffrées D1/R2, l'absence d'écritures de données liées à la nouvelle préférence, les tests automatisés et le retour arrière en cas d'échec. Si une autre version officielle a été installée entre-temps, **interrompre** l'opération plutôt que d'écraser une modification.
