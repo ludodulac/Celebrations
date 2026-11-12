@@ -41,6 +41,8 @@ test("all mailed ?lettre permalinks return the same PDF without changing URL",as
  const key="committee/synthetic.pdf",slug="private-synthetic-invite-1234";
  const data=new Uint8Array([37,80,68,70,45,49,46,55,10,37,37,69,79,70]);
  const env={
+  // The M027 historic PDF gateway requires the editor privacy snapshot binding.
+  EDITOR_BUCKET:{async get(){return null}},
   MEDIA_ACL:{
    prepare(sql){
     assert.match(sql,/FROM committee_media/);
