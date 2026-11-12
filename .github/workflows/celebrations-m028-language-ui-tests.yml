@@ -1,0 +1,37 @@
+name: "Célébrations M028 — vérification strictement locale de l'affichage des langues"
+on:
+  push:
+    branches: [feat/m028-language-options-in-settings-20261112]
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-m028-language-ui-tests
+  cancel-in-progress: false
+jobs:
+  verify-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - name: Generated editor strictly matches canonical source — no app rewrite
+        run: |
+          set -euo pipefail
+          node scripts/build-m012b-member-spaces-inline.mjs --check
+          node scripts/build-m019-editor-client.mjs --check
+          node --check migration/cloudflare/editor-demo-client.mjs
+          node --check migration/cloudflare/editor-demo-preparation-page.mjs
+          echo M028_GENERATED_SOURCE_IN_SYNC
+      - name: Regression test across the real editor and existing auth/localization model
+        run: |
+          set -euo pipefail
+          node --test tests/test-editor-demo.mjs tests/test_m021b_admin_mode.mjs \
+            tests/test_m003_localization.mjs tests/test-editor-publication-media.mjs \
+            tests/test-editor-server-drafts.mjs tests/test_m022_editor_commands.mjs \
+            tests/test_m026_real_mp3_detection.mjs tests/test_m025_mp3_multipart.mjs
+          echo M028_OFFLINE_REGRESSIONS_PASS
+      - name: Verify no production or external Cloudflare call is executed
+        run: |
+          echo "M028_LOCAL_ONLY no Cloudflare tokens, no network, no Worker deployment, no D1/R2 write."
