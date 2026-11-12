@@ -1000,10 +1000,13 @@ async function serverLoad(){
 }
 // Saving creates a private draft. Publication is an explicit second action
 // and updates ONLY the chosen public page or celebration.
-async function serverPublish(command){
+async function serverPublish(command,{flushContent=true}={}){
  if(serverSaving){serverMessage('Un enregistrement est en cours. Réessayez après confirmation.');return false;}
- if(dirty||db._serverPending){
-  save();await serverSave();
+ // A visibility choice is not an implicit save of unsaved edits.
+ const unsavedContent=dirty||!!db._serverPending;
+ if(flushContent&&unsavedContent){
+  if(dirty)save();
+  await serverSave();
   if(db._serverPending||serverRevision===null)return false;
  }
  if(serverRevision===null){serverMessage('Rechargez la version du serveur avant de publier.');return false}
@@ -1029,7 +1032,8 @@ async function serverPublish(command){
    return false;
   }
   serverRevision=result.revision;
-  db._serverRevision=serverRevision;db._serverPending=false;
+  db._serverRevision=serverRevision;
+  if(!unsavedContent||flushContent)db._serverPending=false;
   if(command.kind==='page'){
    const item=db.pages.find(p=>p.id===command.pageId);if(item)item.visibility=command.visibility;
   }else if(command.kind==='celebration'){
@@ -1050,8 +1054,9 @@ async function serverPublish(command){
    '✓ Médiathèque générale actualisée.');
   // Publication is a remote operation, not an undoable local edit. Reset
   // history here so Ctrl+Z can never roll back a published/hidden status.
-  if(typeof resetUndoHistory==='function')resetUndoHistory();
+  if(typeof resetUndoHistory==='function'&&(!unsavedContent||flushContent))resetUndoHistory();
   render();
+  if(!flushContent&&unsavedContent)serverMessage('✓ Visibilité modifiée. Le contenu en cours reste à enregistrer.');
   return true;
  }catch(e){serverMessage('❌ Connexion indisponible : aucun changement public effectué.');return false}
 }
@@ -2415,14 +2420,27 @@ function publicationActions(kind,q){
  if(!adminMembersEnabled&&historicallyPrivate(kind,q))
   return n('p','m021-private-warning','Ce contenu est déjà privé. Réactivez la gestion des membres dans Paramètres pour modifier sa publication ou ses autorisations.');
  const outer=n('div','publication-status-controls');
- const state=kind==='page'?stateOfPage(q):celebrationState(q);
- const stateBadge=n('span','publication-badge state-'+state);stateBadge.setAttribute('role','img');stateBadge.setAttribute('aria-label',VISIBILITY_LABELS[state]);outer.append(stateBadge);
- const field=n('label','editor-language-choice','Visibilité'),select=n('select');select.setAttribute('aria-label','Visibilité '+(kind==='page'?'de la page':'de la célébration'));
- for(const [value,label]of [['draft','Brouillon'],['published','Visible'],['hidden','Masqué']]){const option=n('option','',label);option.value=value;select.append(option)}select.value=state;
- const apply=b(state==='published'?'Mettre à jour le site':'Appliquer',async()=>{
-  if(select.value==='hidden'&&!await siteConfirm('Masquer ce contenu pour les visiteurs ?'))return;
-  if(await serverPublish(editorPageModel.publicationIntent(kind,q,select.value))){q.visibility=select.value;render()}
- },'sm');field.append(select);outer.append(field,apply);
+ const current=kind==='page'?stateOfPage(q):celebrationState(q);
+ const badge=n('span','publication-badge state-'+current);
+ badge.setAttribute('role','img');badge.setAttribute('aria-label',VISIBILITY_LABELS[current]);outer.append(badge);
+ const field=n('label','editor-language-choice','Visibilité'),select=n('select');
+ select.setAttribute('aria-label','Visibilité '+(kind==='page'?'de la page':'de la célébration'));
+ for(const [value,label]of [['draft','Brouillon'],['published','Visible'],['hidden','Masqué']]){
+  const option=n('option','',label);option.value=value;select.append(option);
+ }
+ select.value=current;
+ select.onchange=async()=>{
+  const chosen=select.value;
+  if(chosen===current)return;
+  if(chosen==='hidden'&&!await siteConfirm('Masquer ce contenu pour les visiteurs ?')){
+   select.value=current;return;
+  }
+  select.disabled=true;badge.textContent='En cours…';
+  const success=await serverPublish(editorPageModel.publicationIntent(kind,q,chosen),{flushContent:false});
+  if(success){q.visibility=chosen;render();}
+  else{select.value=current;badge.textContent='';select.disabled=false;}
+ };
+ field.append(select);outer.append(field);
  return outer;
 }
 function attachPagePublicationControls(list,group){
@@ -2432,19 +2450,16 @@ function attachPagePublicationControls(list,group){
   if(!choose)continue;
   let row=choose.closest('.general-page-row');
   if(!row){row=n('div','general-page-row');choose.replaceWith(row);row.append(choose)}
-  let opts=row.querySelector('.page-options');
-  if(!opts){
+  // Historical pages offer no contextual action: never show an empty ⋯ menu.
+  const removable=group==='celebration'&&/^extra-[0-9a-f-]{30,45}-/.test(p.id)&&
+   p.id.endsWith('-'+String(window.__PREPARATION_SEED__?.celebrationId));
+  let opts=null;
+  if(removable){
    opts=n('details','page-options');
    const summary=n('summary','','⋯');summary.setAttribute('aria-label','Options de la page '+p.name);
-   opts.append(summary);row.append(opts);
-  }
-  let menu=opts.querySelector('.page-options-menu');
-  if(!menu){menu=n('div','page-options-menu');opts.append(menu)}
-
-  if(group==='celebration'&&/^extra-[0-9a-f-]{30,45}-/.test(p.id)&&
-    p.id.endsWith('-'+String(window.__PREPARATION_SEED__?.celebrationId))){
-   const remove=b('Supprimer la page',()=>removeCustomPage(p),'sm');
+   const menu=n('div','page-options-menu'),remove=b('Supprimer la page',()=>removeCustomPage(p),'sm');
    remove.classList.add('danger');menu.append(remove);
+   opts.append(summary,menu);row.append(opts);
   }
   const state=stateOfPage(p),badge=n('span','inline-page-state state-'+state);
   badge.setAttribute('role','img');badge.setAttribute('aria-label',VISIBILITY_LABELS[state]);
