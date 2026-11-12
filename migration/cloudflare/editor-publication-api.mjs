@@ -492,10 +492,14 @@ export async function handleEditorMedia(request,env){
    return err('Modifications récentes : actualisez la médiathèque.',409);
   // Only site-owned PDFs already in the authenticated catalogue may be
   // toggled. Historic paths must originate from the published D1 inventory.
+  const legacyRefs=await readLegacyMediaReferences(env.DB);
+  const legacyPath=input.src.startsWith('/media/')?decodeURIComponent(input.src.slice(7)):'';
   const eligible=discoverMedia(current.state).some(x=>
    x.src===input.src&&x.type==='pdf'&&x.source==='uploaded')||
-   (await publicHistoricalMedia(env.DB,current.state)).some(x=>
-    x.src===input.src&&x.type==='pdf');
+   (legacyRefs instanceof Set&&(legacyRefs.has(legacyPath)||legacyRefs.has(input.src)))||
+   current.state.pdfPrivacy?.[input.src]===true;
+  // An already-private historical PDF remains eligible for UNCHECKING the
+  // box. The published-page inventory necessarily hides private PDFs.
   if(!eligible)return err('PDF introuvable dans la médiathèque publique.',404);
   const state=copy(current.state);
   state.pdfPrivacy=withPdfPrivacy(state.pdfPrivacy,input.src,input.private);
