@@ -3432,6 +3432,9 @@ function settings(){
   }catch(error){navStatus.textContent='❌ '+(error.message||String(error))}
   finally{saveTitle.disabled=false}
  },'sm primary');
+ // Avoid an async GET overwriting text entered before the form is loaded.
+ // Inputs are enabled only after the persisted values have been hydrated.
+ title.disabled=true;select.disabled=true;saveTitle.disabled=true;
  const navStatus=n('p');navStatus.setAttribute('role','status');
  const style=n('style');style.nonce=document.querySelector('script[nonce]')?.nonce||'';
  style.textContent='.m027-navigation-settings{display:grid;gap:12px;max-width:790px;padding:14px;border:1px solid #cad7d8;border-radius:12px}.m027-nav-field{display:grid;gap:7px;font-weight:600}.m027-nav-field input,.m027-nav-field select{width:100%;max-width:100%;min-height:44px;padding:8px;border:1px solid #b7c2c8;border-radius:9px}.m027-navigation-settings button{justify-self:start}';
@@ -3442,6 +3445,7 @@ function settings(){
   if(!navPanel.isConnected)return;
   title.value=value.navigation?.title||'';
   select.value=['left','center','right'].includes(value.navigation?.position)?value.navigation.position:'center';
+  title.disabled=false;select.disabled=false;saveTitle.disabled=false;
  }).catch(error=>{if(navPanel.isConnected)navStatus.textContent='❌ '+(error.message||String(error))});
 }
 function m018LanguagesCategories(){
