@@ -2,6 +2,9 @@ import {participantIdentity} from "./audience-api.mjs";
 import {authorize} from "./auth-api.mjs";
 import {privateNotFound} from "./app/security/member-private-access.mjs";
 import {isPrivateMediaReference,publicMediaBindingsSafe} from "./app/security/public-media-boundary.mjs";
+import {readEditorState} from "./editor-publication-api.mjs";
+import {hasEditorAccess} from "./editor-site-access.mjs";
+import {pdfIsPrivate} from "./app/domain/editor-site-preferences.mjs";
 // Preview-only private R2 media gateway. No route deployed.
 // Bind MEDIA_BUCKET (R2) and MEDIA_ACL (D1). No public R2 bucket.
 const json=(message,status)=>new Response(JSON.stringify({error:message}),{status,headers:{"content-type":"application/json","cache-control":"no-store"}});
@@ -53,6 +56,17 @@ export async function handleMedia(request,env){
   }
  }
  if(!authorized||isPrivateMediaReference(key))return privateNotFound();
+ // Site-owned historic PDFs can be marked private from the SAME media
+ // library, including PDF URLs previously mailed to visitors. The original
+ // D1 authorization/revocation and all committee restrictions still apply.
+ if(/\\.pdf$/i.test(key)&&env.EDITOR_BUCKET){
+  let state;
+  try{({state}=await readEditorState(env.EDITOR_BUCKET))}
+  catch{return json("PDF momentanément indisponible",503)}
+  const src='/media/'+key.split('/').map(encodeURIComponent).join('/');
+  if(pdfIsPrivate(state,src)&&!await hasEditorAccess(request,env))
+   return privateNotFound();
+ }
  const range=request.headers.get("range");
  if(range&&!/^bytes=\d*-\d*$/.test(range))return json("Invalid range",416);
  let object;
