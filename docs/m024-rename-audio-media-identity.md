@@ -30,3 +30,11 @@ Le renommage d'une page ne reconstruit pas le formulaire pendant le changement d
 ## Compilation finale M024
 
 Génération des modules source de l'éditeur achevée et vérifiée sur la branche. Relancer l'intégration isolée complète sur le commit compilé (sans appliquer de changement officiel à ce stade).
+
+## Préproduction M016 vérifiée avec succès (12 novembre 2026)
+
+Workflow `43201068861` — **success**. Le site M016 est le seul Worker modifié pendant les essais. Le navigateur Chromium a confirmé sur **390 px mobile** et **1280 px ordinateur** : « Identité du site » absent de Paramètres, contrôle du mode des membres préservé, consultation des quatre rubriques de médias, boutons de suppression réservés aux médias réputés non utilisés et absence de requêtes d'écriture pendant le parcours. Les huit pages historiques restent cliquables et leurs menus fonctionnent. Le Worker officiel est resté inchangé. Les contrôles de sauvegarde de préproduction, de reconstruction source et de 58+ tests ont réussi.
+
+## Mise en service officielle expressément demandée
+
+Le propriétaire souhaite utiliser immédiatement ces changements sur le domaine réel, comme pour M022/M023, et a autorisé leur réalisation (« Allez vas-y »). Le déploiement sur le Worker Cloudflare EXISTANT exige une sauvegarde officielle D1 chiffrée, une sauvegarde R2 éditeur chiffrée et vérifiée, la conservation du PIN, des secrets et bindings, aucune migration, l'attestation d'absence de changement des contenus et ACL, l'accès public et le rollback de la version Worker précédente en cas d'échec. Ne pas utiliser le code PIN M016 sur le site officiel. Ne transférer aucun compte fictif.
