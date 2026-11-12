@@ -166,6 +166,9 @@ try{
  const desktopBox=desktop.locator('details.m028-language-settings');
  assert.equal(await desktopBox.count(),1);
  assert.equal(await desktopBox.getAttribute('open'),null);
+ // ARIA queries deliberately exclude controls inside a collapsed <details>.
+ // Open the disclosure before inspecting its visible checkbox.
+ await desktopBox.locator('summary').click();
  assert.equal(await desktopBox.getByRole('checkbox',{name:'Afficher les outils de traduction'}).isChecked(),false);
  await desktop.screenshot({path:FOLDER+'/06-desktop-parametres-langues.png',fullPage:true});
  await desktopContext.close();
