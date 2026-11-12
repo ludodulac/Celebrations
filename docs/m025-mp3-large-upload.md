@@ -20,3 +20,7 @@ Le propriétaire a choisi explicitement : « On ne va pas faire de compression, 
 
 ## Hors périmètre
 Aucun outil de compression ni de réencodage audio. Pas de fichiers WAV de 200 Mo, pas de vidéo R2 plus grande, pas de migration, pas de nouvelle interface.
+
+## Vérification en situation réelle
+
+Une mission M016 isolée lance un import multipart réel de **55 000 001 octets**, vérifie les 6 parties, simule une interruption et une reprise, lit 16 octets de l'original depuis la route R2 existante et supprime le fichier d'essai. Aucun média de test ne doit rester dans le R2 de préproduction. Le domaine officiel reste strictement inchangé pendant ce parcours.
