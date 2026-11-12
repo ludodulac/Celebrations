@@ -1,7 +1,7 @@
 name: Célébrations M022 — mise en service officielle avec sauvegarde et retour arrière
 on:
   push:
-    branches: [feat/m022-official-release-20261112]
+    branches: [feat/m022-clean-editor-commands-20261112]
 permissions:
   contents: read
   actions: read
@@ -30,7 +30,7 @@ jobs:
       - name: Verify exact official config, owner PIN, source backups and demo isolation
         run: |
           set -euo pipefail
-          test "$GITHUB_REF" = 'refs/heads/feat/m022-official-release-20261112'
+          test "$GITHUB_REF" = 'refs/heads/feat/m022-clean-editor-commands-20261112'
           test "$M022_PROD_APPROVED" = 'YES'
           test "$CLOUDFLARE_ACCOUNT_ID" = '60a7b17758a93fe6681ce998e72ddff0'
           ! grep -Eq '^[[:space:]]*(route|routes|zone_id|custom_domain)[[:space:]]*=' migration/cloudflare/wrangler.m018.official.toml
