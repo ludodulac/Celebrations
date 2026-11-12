@@ -156,7 +156,7 @@ test('page/celebration status uses accessible green and orange circular indicato
  assert.ok(DEMO_CSS.includes('.inline-page-state.state-published'));
  assert.ok(DEMO_CSS.includes('.inline-page-state.state-draft'));
  assert.match(DEMO_CSS,/grid-template-columns:230px minmax\(0,1fr\)/);
- assert.ok(DEMO_CLIENT.includes("serverPublish(editorPageModel.publicationIntent(kind,q,select.value))"),'Publishing actions are still explicit');
+ assert.ok(DEMO_CLIENT.includes("serverPublish(editorPageModel.publicationIntent(kind,q,chosen),{flushContent:false})"),'Visibility changes must remain explicit and not silently save text');
 });
 
 test('global library has clickable files but no insert/open action buttons',()=>{
