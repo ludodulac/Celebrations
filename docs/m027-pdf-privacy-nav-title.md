@@ -42,3 +42,7 @@ Le deuxième essai M016 confirme que le titre du menu n'a pas été persisté pa
 ## Correction d'une course de chargement côté formulaire
 
 Le diagnostic M016 a montré un POST HTTP 200 enregistrant les valeurs vides de l'ancien état. Le champ avait été rempli avant que son GET initial, asynchrone, ne revienne ; cette réponse tardive écrasait la saisie. Le formulaire est maintenant non interactif jusqu'à l'hydratation complète des valeurs, puis activé normalement. Cette correction de cycle de vie remplace tout délai artificiel de test.
+
+## Reconstruction M027 — nouvelle version
+
+Le modèle de formulaire corrigé est maintenant reconstruit et testé par workflow M027 #43224185257 (succès). Le job M016 du même push a été lancé avant la reconstruction et a trouvé le bundle non à jour. Relancer la préproduction sur le commit généré.
