@@ -26,3 +26,7 @@
 ## Vérification UX supplémentaire
 
 Le renommage d'une page ne reconstruit pas le formulaire pendant le changement du champ : ainsi un clic immédiat sur « Enregistrer » n'est pas perdu. Le titre de navigation se met à jour sur place. Le bloc audio vide ne génère plus de conteneur visuel superflu.
+
+## Compilation finale M024
+
+Génération des modules source de l'éditeur achevée et vérifiée sur la branche. Relancer l'intégration isolée complète sur le commit compilé (sans appliquer de changement officiel à ce stade).
