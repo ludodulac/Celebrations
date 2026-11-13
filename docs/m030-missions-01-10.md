@@ -7,7 +7,7 @@
 | **01** | Inventorier D1 et R2, doublons, associations et Michaël 2026 à préserver | ✅ Terminée |
 | **02** | Définir et tester le modèle unique : quatre archanges, 14 cycles, 56 emplacements virtuels, versions nommées uniques, pas de nouvelle version sans catégorie existante | ✅ Terminée (code de branche + tests) |
 | **03** | Sauvegarder D1 et le snapshot R2 de l'éditeur, chiffrer, déchiffrer et vérifier une restauration locale | ✅ Terminée |
-| **04** | Préparer le plan exact du nettoyage et le répéter sur des copies isolées sans perdre Michaël 101 ni les pages générales | À faire |
+| **04** | Préparer le plan exact du nettoyage et le répéter sur des copies isolées sans perdre Michaël 101 ni les pages générales | ✅ Terminée — simulation locale et retour arrière validés |
 | **05** | Imposer l'identité unique archange/cycle en D1 et préparer les 56 emplacements masqués, avec visibilité cohérente | À faire |
 | **06** | Corriger une seule fois la duplication interne : nouveau nom, langue, catégorie/public, refus des doublons et brouillon protégé | À faire |
 | **07** | Supprimer les dates obligatoires du mercredi et les anciens chemins de création libre, client et serveur | À faire |
@@ -43,6 +43,17 @@ Un **module de règles partagé** `migration/cloudflare/app/domain/celebration-c
 - Contrôle de 35 tables, 7 célébrations, Michaël 101 conservé, 8 pages de brouillon et 8 publiées ; aucune donnée personnelle affichée.
 - Artefact privé GitHub `m030-official-D1-and-editor-R2-encrypted-restore-verified` (durée de conservation 30 jours, enregistré le 13 novembre 2026).
 - **Limite clairement documentée :** les fichiers audio/images/vidéo du bucket média R2 n'ont pas été copiés. Ils restent inchangés et devront être protégés contre toute suppression lors du nettoyage officiel. Voir `docs/m030-m03-backup-restore.md`.
+
+
+## Mission 04 — plan de nettoyage et répétition locale réussis
+
+[Workflow local #43423239570](https://github.com/ludodulac/Celebrations/actions/runs/43423239570) : **SUCCESS**. Réutilisation des sauvegardes M03 chiffrées, contrôle SHA-256, puis simulation sur une copie SQLite en mémoire et un snapshot R2 séparé.
+
+- D1 **6 identités** (102–107) et **21 étapes** retirées uniquement en mémoire ; autres **33 tables** inchangées, 7 étapes Michaël 101 préservées, clés étrangères valides, transaction **annulée**.
+- R2 : 6 brouillons secondaires simulés retirés ; 3 métadonnées, 5 réglages de visibilité/accès, 1 ensemble de traductions obsolètes, **269 références d'utilisation média** devenant inutiles identifiées et détachées dans la copie.
+- **Michaël 101 : 8 pages brouillon et 8 publiées intactes.** **4 pages générales** et 1 page générale publiée intactes ; **128 éléments médias conservés**, 0 fichier média supprimé. Aucun compte membre, droit d'accès ou fichier de production modifié.
+- Rapport sans données sensibles : artefact GitHub `m030-m04-sanitized-local-cleanup-report` (30 jours).
+- **Aucune suppression réelle effectuée.** Le futur nettoyage officiel devra repartir d'une sauvegarde récente et revalider qu'aucune donnée nouvelle n'est apparue entre-temps.
 
 ## Principe impératif
 
