@@ -1,3 +1,4 @@
+import {validHomeEntryButton,normalizeHomeEntryButton} from './editor-home-entry-button.mjs';
 // M009-A — explicit, fail-closed anonymous projection for published editor data.
 // This is a DATA boundary, not an authorization engine. Reuse canonical M002 rules.
 import {canAccessPage,canAccessPolicy,ACCESS_MODES} from './member-access.mjs';
@@ -91,6 +92,8 @@ export function projectPublicPage(page,blockedIds=[]){
  const projected={
   id:page.id,
   name:typeof page.name==='string'?page.name:'',
+  ...(page.group==='page'&&validHomeEntryButton(page.homeEntryButton)?
+   {homeEntryButton:normalizeHomeEntryButton(page.homeEntryButton)}:{}),
   ...(typeof page.menuLabel==='string'&&page.menuLabel.trim().length>0&&page.menuLabel.length<=95&&
    !/[\\\\\u0000-\u001f\u007f]/.test(page.menuLabel)?{menuLabel:page.menuLabel.trim()}:{}),
   group:page.group==='page'?'page':'celebration',
