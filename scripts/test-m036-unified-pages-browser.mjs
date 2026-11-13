@@ -213,7 +213,7 @@ try{
    'Escape closes page settings');
   await gear.click();
   assert.equal(await page.locator('.m031-settings-details[open]').count(),1);
-  await page.locator('.m031-workbar-title').click();
+  await page.locator('.m031-state-dot').dispatchEvent('pointerdown');
   assert.equal(await page.locator('.m031-settings-details[open]').count(),0,
    'Click outside closes settings without losing controls');
   // The existing image controls appear when the author selects that image.
