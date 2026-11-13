@@ -71,5 +71,10 @@ test('single desktop-only label in the existing bar, ordinary editor unaffected'
   assert.ok(settings.includes(term),term);
  assert.ok(settings.includes('m021b-admin-mode'));
  assert.ok(settings.includes('m028-language-settings'));
+ assert.ok(ui.includes('let navLabelDraft=null'),'Unsaved menu title is preserved across Settings rerenders');
+ assert.ok(settings.includes('title.oninput=keepNavDraft'));
+ assert.ok(settings.includes('select.onchange=keepNavDraft'));
+ assert.ok(settings.includes('const requested={title:title.value.trim(),position:select.value}'));
+ assert.ok(settings.includes('title.value=navLabelDraft?.title??value.navigation?.title'));
  assert.ok(!ui.includes('function pdfPrivacyControl('));
 });
