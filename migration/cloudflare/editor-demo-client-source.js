@@ -2836,6 +2836,19 @@ if(adminMembersEnabled){
   publication.append(b('Versions par catégorie',()=>showContentVersions(),'sm'));
  }
    publication.append(b('Dupliquer',()=>duplicateChoice(selectedEntry),'sm'));
+   const versions=celebrationMetadata[String(STAGE_SEED.celebrationId)]?.versions||[];
+   const versionList=n('details','m030-version-list');
+   versionList.append(n('summary','','Versions de cette célébration (1'+(versions.length?' + '+versions.length:'')+')'));
+   const baseline=n('p','m030-version-entry',celebrationLabel(selectedEntry)+' — Public — Français');
+   versionList.append(baseline);
+   for(const version of versions){
+    const publicLabel=version.audience?.scope==='PUBLIC'?'Public':
+      version.audience?.scope==='ALL_PRIVATE_TYPES'?'Privé — Tous les inscrits':
+      'Privé — catégorie '+(availableCategories.find(c=>c.id===version.audience?.categoryId)?.name||version.audience?.categoryId||'');
+    const lang=editorLocalization.registry.languages.find(l=>l.id===version.languageId)?.name||version.languageId;
+    versionList.append(n('p','m030-version-entry',version.name+' — '+publicLabel+' — '+lang+' — Brouillon'));
+   }
+   publication.append(versionList);
   w.append(publication);
  }
  const workspace=n('div','celebration-editor');
@@ -3513,22 +3526,59 @@ async function showContentVersions(){
   memberPanel.showSpaces();w.append(memberPanelRoot);
  }catch(e){siteNotice('Versions indisponibles : '+e.message)}
 }
+// One dialog and one server command for public/private language versions.
 async function duplicateChoice(entry){
- if(!entry)return;
- if(!adminMembersEnabled){siteNotice('La duplication indépendante est supprimée. Configurez d’abord les catégories pour créer des versions distinctes dans cette célébration.');return;}
+ if(!entry||privateEdit||preview)return;
  if(dirty||db._serverPending){
-  siteNotice('Enregistrez vos modifications de contenu avant de créer une version.');
+  siteNotice('Enregistrez les changements avant de créer une nouvelle version.');
   return;
  }
  try{
   ensureMemberPanel();
-  const pages=db.pages.filter(p=>p.group==='celebration'&&
-   p.id.endsWith('-'+String(STAGE_SEED.celebrationId)))
-   .map(p=>({name:p.name,group:p.group,blocks:clone(p.blocks||[]),
-    translations:clone(editorLocalization.pages[p.id]||{})}));
-  const created=await memberPanel.duplicateCelebrationVersion(pages,celebrationLabel(entry));
-  if(created)status.textContent='✓ Version créée en brouillon : '+celebrationLabel(entry)+' — '+created.category+' — '+created.language+' ('+created.pages+' pages).';
- }catch(e){siteNotice('Duplication impossible : '+(e.message||e))}
+  const categories=(await memberPanel.categories()).filter(t=>!t.disabled);
+  const audienceOptions=[
+   ['PUBLIC','Public — accessible à tous'],
+   ...(categories.length?[['ALL_PRIVATE_TYPES','Privé — tous les inscrits']]:[]),
+   ...categories.map(c=>['CATEGORY:'+c.id,'Privé — '+c.name])
+  ];
+  const languages=editorLocalization.registry.languages;
+  const answer=await siteDialog({
+   title:'Nouvelle version de '+celebrationLabel(entry),
+   message:'Donnez un nom différent, puis choisissez les destinataires et la langue. Une combinaison déjà existante sera refusée. Cette copie restera en brouillon.',
+   fields:[
+    {name:'name',label:'Nom distinct de la version',required:true,
+     value:celebrationLabel(entry)+' — nouvelle version',maxLength:120},
+    {name:'audience',label:'Destinataires',required:true,
+     value:'PUBLIC',options:audienceOptions},
+    {name:'languageId',label:'Langue',required:true,value:'fr',
+     options:languages.map(l=>[l.id,l.name])}
+   ],confirm:'Créer la version en brouillon'
+  });
+  if(!answer)return;
+  const selected=String(answer.audience||'PUBLIC');
+  const scope=selected.startsWith('CATEGORY:')?'SELECTED_TYPES':selected;
+  const categoryId=selected.startsWith('CATEGORY:')?selected.slice(9):'';
+  const existing=[{name:celebrationLabel(entry),key:'PUBLIC|fr'},
+   ...(celebrationMetadata[String(STAGE_SEED.celebrationId)]?.versions||[])];
+  // Instant feedback, but the R2 CAS + canonical server validation is authoritative.
+  const version=cycleRegistry.validateNewCelebrationVersion({
+   name:answer.name,audience:{scope,categoryId},languageId:answer.languageId
+  },{
+   celebrationTitle:celebrationLabel(entry),existing,categories,languages
+  });
+  const result=await memberPanel.commandContent('duplicate-version',{
+   name:version.name,scope:version.audience.scope,
+   categoryId:version.audience.categoryId,languageId:version.languageId
+  });
+  if(!result?.createdVersion)throw Error('Création non confirmée par le serveur.');
+  serverRevision=result.revision;
+  db._serverRevision=result.revision;
+  celebrationMetadata[String(STAGE_SEED.celebrationId)]||={title:celebrationLabel(entry)};
+  celebrationMetadata[String(STAGE_SEED.celebrationId)].versions=result.versions;
+  await serverLoad();
+  render();
+  status.textContent='✓ Nouvelle version « '+version.name+' » créée en brouillon, sans nouveaux droits.';
+ }catch(error){siteNotice('Nouvelle version impossible : '+(error.message||error))}
 }
 function accessControls(kind,p){
  const box=n('div','m020-access'),label=n('label','editor-language-choice','Accès'),select=n('select');
