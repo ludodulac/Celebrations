@@ -43,7 +43,10 @@ try{
   await page.locator('.m031-workbar').waitFor();
   assert.equal(await page.locator('.m031-workbar #save-btn').count(),1);
   assert.equal(await page.locator('.m031-workbar #preview-btn').count(),1);
-  assert.equal(await page.locator('#view-site-btn').count(),1);
+  assert.equal(await page.locator('#view-site-btn').count(),0,
+   'The redundant Voir le site button has been retired');
+  assert.equal(await page.locator('.m036-public-star').count(),1,
+   'The original star is the public site shortcut');
   assert.equal(await page.locator('.m031-admin-home-link').count(),1);
   assert.equal(await page.locator('#workspace .m030-planned-cycles').count(),1);
   assert.equal(await page.locator('.m031-rail-pages').count(),1);

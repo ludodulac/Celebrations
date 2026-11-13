@@ -112,20 +112,12 @@ restoreShared();
 // M034: ALL authored headings, including the first one and old id=1,
 // are ordinary removable blocks. Page routing/name never depends on them.
 // Never silently delete a block just because its text matches page.name.
-// Keep earlier edits while updating obsolete default labels / site welcome picture.
-const homeMedia=window.__PREPARATION_SEED__?.pages?.find(p=>p.id==='neutral-accueil-general')?.blocks.find(b=>b.kind==='image')?.src||'';
+// Correct one historical page label only. Never reinsert an image or a
+// heading after the author removes it from the fully editable homepage.
 for(const p of db.pages||[]){
- if(p.id==='apres-celebration-'+window.__PREPARATION_SEED__?.celebrationId&&p.name==='Après préparation')p.name='Après célébration';
- if(p.id==='neutral-accueil-general'&&homeMedia&&
-  p.blocks?.some(b=>b.kind==='heading'&&['Accueil général','Ronde des Archanges Universelle','Bienvenue sur le site de la Ronde des Archanges Universelle'].includes(b.text))&&
-  // The original welcome image may now be inside a populated section.
-  // Never append a duplicate on reload when the old root image is nested.
-  !p.blocks.some(b=>b.kind==='image'||(b.kind==='section'&&
-    (b.columns||[]).some(col=>Array.isArray(col)&&col.some(x=>x.kind==='image'))))){
-  p.blocks.push({id:99991,kind:'image',text:'Ronde des Archanges Universelle',src:homeMedia,align:'center'});
- }
+ if(p.id==='apres-celebration-'+window.__PREPARATION_SEED__?.celebrationId&&
+    p.name==='Après préparation')p.name='Après célébration';
 }
-
 
 // Day names are page labels, never computed dates.
 const DAY_SLUGS=['mercredi','jeudi','vendredi','samedi','dimanche'];
@@ -1978,6 +1970,21 @@ if(x.kind==='image'){
     };
     input.oninput=resize;input.onchange=resize;
     sizing.append(label,input,value);
+    // Full-width is an explicit, reusable image setting on EVERY page.
+    // The normal 20–100% slider is still available independently.
+    const fullLabel=n('label','m036-full-bleed-field');
+    const full=n('input');full.type='checkbox';full.checked=x.fullBleed===true;
+    full.setAttribute('aria-label','Image sur toute la largeur de la page');
+    full.onchange=()=>{
+     x.fullBleed=full.checked;
+     if(x.fullBleed){x.widthPct=100;input.value='100';value.textContent='100 %';pic.style.width='100%'}
+     mark();
+     status.textContent=full.checked?
+      '✓ L’image prendra toute la largeur de la page, sans marge, après publication.':
+      '✓ Largeur ordinaire rétablie pour cette image après publication.';
+    };
+    fullLabel.append(full,n('span','','Prendre toute la largeur de la page (sans marge)'));
+    sizing.append(fullLabel);
     // Publishing remains a separate explicit action; the Validate button
     // continues to save privately without altering the visitor site.
     if(IS_STAGE){
@@ -2455,7 +2462,7 @@ function moveGeneralPage(p,dir){
  if(!editorPageCommands.moveGeneralPage(db,p,dir))return;
  mark();save();render();
 }
-function makeHome(p){db.siteHomeId=p.id;mark();save();render()}
+// The homepage is always Accueil général: it is no longer user-reassignable.
 
 // Saving a draft never makes new pages public. These actions publish or hide
 // a single chosen page, or the entire celebration, on the server.
@@ -3155,7 +3162,15 @@ const GUIDE_TOPICS=[
   note:'Ne mettez pas le code d’accès dans les textes publics du site.'},
  {group:'Premiers pas',title:'Comprendre les onglets et les boutons du haut',
   info:'Chaque onglet ouvre directement son espace de travail.',
-  steps:['Pages : accueil général et autres pages indépendantes des célébrations.','Pages de bas de page : pages dont les titres s’affichent en bas du site, après publication.','Célébrations : programme et pages de chaque célébration.','Médiathèque de l’administration : les fichiers restent privés tant qu’ils ne sont pas publiés sur une page ou partagés volontairement par un lien public direct.','Paramètres : dépliez « Gestion des langues (facultatif) » pour afficher les outils de traduction. Par défaut, les pages s’éditent simplement en français.','Catégories : accessibles séparément dans le menu uniquement si la gestion des membres est activée.','Mode d’emploi : ce guide, consultable à tout moment.','Aperçu : masquer les outils pour contrôler la page en cours. « Revenir à l’édition » permet de poursuivre.','Voir le site : ouvrir la page côté visiteur dans un nouvel onglet. « Enregistrer » conserve les modifications.']},
+  steps:['Pages : accueil général et autres pages indépendantes des célébrations.','Pages de bas de page : pages dont les titres s’affichent en bas du site, après publication.','Célébrations : programme et pages de chaque célébration.','Médiathèque de l’administration : les fichiers restent privés tant qu’ils ne sont pas publiés sur une page ou partagés volontairement par un lien public direct.','Paramètres : dépliez « Gestion des langues (facultatif) » pour afficher les outils de traduction. Par défaut, les pages s’éditent simplement en français.','Catégories : accessibles séparément dans le menu uniquement si la gestion des membres est activée.','Mode d’emploi : ce guide, consultable à tout moment.','Aperçu : masquer les outils pour contrôler la page en cours. « Revenir à l’édition » permet de poursuivre.','Étoile ✦ : ouvrir le site public dans un nouvel onglet. « Aperçu du brouillon » vérifie la page avant publication. « Enregistrer » conserve les modifications.']},
+ {group:'Pages',title:'Même largeur pour toutes les pages, et images entièrement visibles',
+  info:'Toutes les pages, même l’accueil, utilisent désormais une surface centrale de même largeur et d’une hauteur minimale confortable.',
+  steps:['Ouvrez la page à modifier : la surface blanche conserve sa taille minimale même avec une seule phrase.','Ajoutez une image avec le + bleu ou choisissez une image dans la médiathèque.','Sélectionnez son bloc : vous pouvez régler sa taille de 20 à 100 %, puis cocher « Prendre toute la largeur de la page (sans marge) ».','Pour les images directement dans la page, cette option remplit la largeur de la surface blanche. Dans une colonne, l’image reste dans sa colonne.','Publiez la modification lorsque vous souhaitez la rendre visible. Les images conservent leur proportion : leur bas ne sera pas coupé.'],
+  note:'Le nom affiché dans le menu se modifie depuis ⋯ > Modifier le nom, indépendamment de vos titres, textes et images. La page Accueil général reste toujours l’accueil du site.'},
+ {group:'Pages',title:'Construire librement la page d’accueil',
+  info:'L’accueil fonctionne avec les mêmes blocs de texte, image et section que les autres pages.',
+  steps:['Le texte « Bienvenue » que vous avez ajouté reste visible au-dessus de l’image, tant que vous le laissez dans la page.','Vous pouvez modifier, déplacer ou supprimer ce texte sans modifier le nom de l’accueil.','Si vous supprimez l’image, elle ne sera pas réinsérée automatiquement.','Le bouton superposé « Bienvenue » possède ses propres paramètres de couleur et de contour dans la roue dentée ⚙.','Sur la première page, le bandeau du titre du site et le lien Administration sont conservés ; le menu apparaît après l’accueil.'],
+  note:'La roue dentée ⚙ se ferme en cliquant ailleurs ou en appuyant sur Échap.'},
  {group:'Premiers pas',title:'Enregistrer et retrouver les mêmes pages sur deux appareils',
   info:'La page en cours peut changer visuellement avant d’être publiée dans la version commune.',
   steps:['Modifiez votre page ou votre bloc.','Appuyez sur « Enregistrer » en haut de l’administration.','Attendez un message confirmant « Enregistré sur le serveur ».','Rouvrez ou actualisez le site sur votre autre téléphone ou ordinateur.'],
@@ -3779,7 +3794,7 @@ function privatePageWorkspace(){
 }
 // M031/4: same responsive workspace pattern as Espace Jeunesse, preserving
 // the real original editor controls, publication callbacks, D1 rules and Undo.
-let m031SettingsOpen=false,m031BreakpointsBound=false;
+let m031SettingsOpen=false,m031BreakpointsBound=false,m036SettingsDismissBound=false;
 const m031Desktop=()=>window.matchMedia('(min-width:1051px)').matches;
 function m031ReflowRail(){
  const shell=document.querySelector('.stage-editor'),panel=shell?.querySelector('.m031-rail-pages');
@@ -3867,6 +3882,21 @@ function m031UpgradeAdmin(){
   workbar.append(head);main.prepend(workbar);
  }
  const settings=workbar.querySelector('.m031-settings-details');
+ // M036: click outside or press Escape closes Settings, matching Espace
+ // Jeunesse. Bound once to the document to survive normal editor redraws.
+ if(!m036SettingsDismissBound){
+  m036SettingsDismissBound=true;
+  const closeSettings=()=>{const current=document.querySelector('.m031-settings-details');
+   if(current?.open){current.open=false;m031SettingsOpen=false}
+  };
+  document.addEventListener('pointerdown',event=>{
+   const current=document.querySelector('.m031-settings-details');
+   if(current?.open&&!current.contains(event.target))closeSettings();
+  },true);
+  document.addEventListener('keydown',event=>{
+   if(event.key==='Escape')closeSettings();
+  });
+ }
  const settingsBody=workbar.querySelector('.m031-settings-fields');
  const dot=workbar.querySelector('.m031-state-dot');
  const toolbar=main.querySelector('.topbar')||shell.querySelector('.topbar');
