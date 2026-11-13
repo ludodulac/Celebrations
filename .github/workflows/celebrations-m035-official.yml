@@ -23,6 +23,7 @@ jobs:
         with: {node-version: '24'}
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
+      # Triggered after M035 PC/Android and API tests succeeded.
       - name: Exact official read-only gate — no data edits
         run: |
           set -euo pipefail
