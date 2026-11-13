@@ -3536,6 +3536,12 @@ async function duplicateChoice(entry){
  try{
   ensureMemberPanel();
   const categories=(await memberPanel.categories()).filter(t=>!t.disabled);
+  // No unpublished version may be made until a real category exists,
+  // including extra PUBLIC languages (M030 owner rule).
+  if(!categories.length){
+   siteNotice('Pour créer une autre version, commencez par définir une catégorie dans « Catégories ». Michaël Public / Français reste inchangée.');
+   return;
+  }
   const audienceOptions=[
    ['PUBLIC','Public — accessible à tous'],
    ...(categories.length?[['ALL_PRIVATE_TYPES','Privé — tous les inscrits']]:[]),
