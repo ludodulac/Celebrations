@@ -24,6 +24,8 @@ jobs:
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
       # Triggered after M035 PC/Android and API tests succeeded.
+      # M036 approved by site owner. New code only: no changes to saved
+      # celebrations, language versions, D1, R2 objects or membership ACL.
       - name: Exact official read-only gate — no data edits
         run: |
           set -euo pipefail
