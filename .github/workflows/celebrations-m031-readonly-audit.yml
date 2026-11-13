@@ -1,0 +1,97 @@
+name: "M031 — audit lecture seule visibilité, D1 et années"
+on:
+  push:
+    branches: [feat/m031-audit-visibilite-d1-cycles-20261113]
+permissions: {contents: read}
+jobs:
+  audit:
+    if: ${{ contains(github.event.head_commit.message, '[M031_READONLY_AUDIT]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - name: Audit direct sur les ressources officielles, aucune écriture ni code PIN
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readFileSync} from 'node:fs';
+          const acct=process.env.CLOUDFLARE_ACCOUNT_ID,token=process.env.CLOUDFLARE_API_TOKEN;
+          assert.equal(acct,'60a7b17758a93fe6681ce998e72ddff0');
+          assert.ok(token?.length>20);
+          const base='https://api.cloudflare.com/client/v4/accounts/'+acct;
+          const auth={authorization:'Bearer '+token};
+          const cf=async p=>{
+            const r=await fetch(base+p,{headers:auth,signal:AbortSignal.timeout(35000)});
+            assert.equal(r.status,200,'Cloudflare read-only '+p);
+            const j=await r.json();assert.equal(j.success,true);return j.result;
+          };
+          const query=async sql=>{
+            const r=await fetch(base+'/d1/database/28736d2a-479b-472b-bf82-703ad0affe10/query',{
+              method:'POST',headers:{...auth,'content-type':'application/json'},
+              body:JSON.stringify({sql}),signal:AbortSignal.timeout(35000)});
+            assert.equal(r.status,200);const j=await r.json();assert.equal(j.success,true);
+            return j.result?.[0]?.results||[];
+          };
+          const [deployment,domains,ids,index]=await Promise.all([
+            cf('/workers/scripts/celebrations-exit-production/deployments'),
+            cf('/workers/domains'),
+            query('SELECT id,archangel,year,status FROM celebrations_celebrations ORDER BY id'),
+            query("SELECT name FROM sqlite_master WHERE type='index' AND name='idx_celebrations_archangel_year_unique'")
+          ]);
+          assert.equal(domains.find(x=>x.hostname==='ronde-des-archanges-universelle.eu')?.service,'celebrations-exit-production');
+          const active=deployment.deployments?.[0]?.versions||[];
+          assert.equal(active.length,1);assert.equal(active[0].percentage,100);
+          const r=await fetch(base+'/r2/buckets/celebrations-exit-staging/objects/editor-trials/server-drafts-v1.json',{
+            headers:auth,signal:AbortSignal.timeout(35000)});
+          assert.equal(r.status,200);
+          const state=await r.json();
+          const pr=state.published?.celebrationVisibility||{};
+          const dr=state.shared?.celebrationVisibility||{};
+          const src=readFileSync('migration/cloudflare/editor-demo-client-source.js','utf8');
+          const lib=readFileSync('migration/cloudflare/app/domain/celebration-cycle-registry.mjs','utf8');
+          const publication=readFileSync('migration/cloudflare/editor-publication-api.mjs','utf8');
+          const privatePageCount=(state.drafts?.['101']?.pages||[]).filter(p=>p.privateManaged).length;
+          const publicUrl='https://ronde-des-archanges-universelle.eu';
+          const home=await fetch(publicUrl+'/?m031_readonly=1',{signal:AbortSignal.timeout(35000)});
+          const anon=await fetch(publicUrl+'/api/editor-open-draft?celebration=101',{signal:AbortSignal.timeout(35000)});
+          const member=await fetch(publicUrl+'/api/admin/member-directory?action=snapshot',{signal:AbortSignal.timeout(35000)});
+          // Only operational metadata. Never print personal details, page text, or R2 JSON.
+          console.log('M031_READONLY_AUDIT '+JSON.stringify({
+            officialVersion:active[0].version_id,
+            d1Celebrations:ids.map(x=>({id:String(x.id),archangel:x.archangel,year:x.year,status:x.status})),
+            uniqueIndexPresent:index.length===1,
+            r2Revision:state.version,
+            draftVisibility101:dr['101']??'(absent)',
+            publishedVisibility101:pr['101']??'(absent)',
+            draftSharedVisibilityKeys:Object.keys(dr).length,
+            publishedVisibilityKeys:Object.keys(pr).length,
+            draft101Exists:!!state.drafts?.['101'],
+            published101Exists:!!state.published?.drafts?.['101'],
+            privateManagedPageCount101:privatePageCount,
+            categoryCount:Object.keys(state.celebrationMetadata?.['101']?.versions||{}).length,
+            mediaCatalogueCount:state.mediaCatalogue?.length,
+            currentHomeStatus:home.status,
+            unauthenticatedEditorDraftStatus:anon.status,
+            unauthenticatedMemberDirectoryStatus:member.status,
+            clientHasPlannedCycles:src.includes('Célébrations prévues (2026–2039)'),
+            clientHasYearPlacement:src.includes('w.append(box)'),
+            clientReadsVisibilityFromLocalStorage:src.includes('localStorage.getItem(SHARED_KEY)')&&src.includes('function sharedVisibility()'),
+            publicUsesPublishedVisibility:publication.includes('published.celebrationVisibility'),
+            serverCannotWritePrivateViaLegacy:readFileSync('migration/cloudflare/editor-server-draft-api.mjs','utf8').includes('Commande privée : session D1 et service dédiés requis'),
+            registryHas56Slots:lib.includes('CELEBRATION_CYCLE_END=2039')
+          }));
+          assert.equal(home.status,200);
+          assert.equal(anon.status,401);
+          assert.equal(member.status,401);
+          assert.ok(ids.some(x=>String(x.id)==='101'));
+          assert.equal(index.length,1);
+          console.log('M031_AUDIT_READ_ONLY_PASS_NO_PRODUCTION_WRITE');
+          NODE
