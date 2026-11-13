@@ -2644,28 +2644,10 @@ function pageWorkspace(group,mount=w){
  }
  const p=page(),layout=n('div','layout'),side=n('aside','panel');
  if(group==='footer')side.append(n('h2','','Pages de bas de page'));
- if(p.group==='celebration'&&IS_STAGE&&!privateEdit){
-  const dates=currentDates(),timing=n('div','celebration-date-time'),field=n('label','date-field','Date du mercredi :');
-  const input=n('input','celebration-wednesday');input.type='date';input.value=dates.wednesday;
-  input.setAttribute('aria-label','Mercredi de la célébration');
-  input.onchange=()=>updateDate('wednesday',input.value);
-  field.append(input);timing.append(field);
-  if(DAY_SLUGS.includes(pageSlug(p))){
-   const clock=timeChooser(dayTime(p),'Heure du '+pageSlug(p),hour=>updateDayTime(p,hour));
-   clock.dataset.day=pageSlug(p);clock.classList.add('celebration-day-hour');
-   timing.append(clock);
-  }
-  side.append(timing);
-  if(dates.wednesday){
-   const week=n('div','week-dates');
-   week.textContent=prettyDate(dates.wednesday)+' – '+prettyDate(dayIso(dates.wednesday,4));
-   side.append(week);
-  }
- }
  const list=n('div',group==='celebration'?'list':'list general-pages-list');
  if(group==='celebration'){
   for(const q of editorPageModel.groupPages(db.pages,'celebration')){
-   const date=stageDate(q),label='✧ '+q.name+(date?' · '+prettyDate(date):'');
+   const label='✧ '+q.name;
    const choose=b(label,()=>enter('celebrations',q.id));
    choose.className='item'+(q.id===p.id?' active':'');choose.dataset.pageId=q.id;list.append(choose);
   }
@@ -2770,8 +2752,6 @@ function pageWorkspace(group,mount=w){
   fields.append(b('＋ Date',addPreparationDate,'sm'));
   right.append(fields);
  }
- const date=dateSummary(p),time=dayTime(p),when=[date,time].filter(Boolean).join(' · ');
- if(when){const info=n('div','page-date',when);info.dataset.role='celebration-date';right.append(info)}
  const outer=n('div','canvas-wrap'),canvas=n('div','canvas');
 
  if(!preview)canvas.append(sectionMenu(p,0));
