@@ -28,3 +28,7 @@ Correction de mesure Chromium : lecture du résumé replié par textContent, auc
 ## Prérequis M10 : écriture conditionnelle à tester sur un objet jetable de M016
 
 Aucune donnée officielle ne doit être modifiée tant que la prise en charge effective des écritures conditionnelles R2 n'est pas confirmée : si un administrateur a enregistré entre la sauvegarde et la migration, la restauration ne doit jamais écraser ses modifications.
+
+## Essai de migration atomique, sans production
+
+Le REST Cloudflare R2 ignore If-Match sur PUT (test M016 : retour 200 au lieu de 412). Un Worker **temporaire** lié exclusivement au R2 isolé de M016 teste donc `R2Bucket.put` avec `onlyIf.etagMatches`, puis il est supprimé ainsi que sa clé de test, quel que soit le résultat.
