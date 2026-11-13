@@ -24,3 +24,7 @@ de préproduction uniquement.
 Le workflow a été corrigé pour respecter le format YAML GitHub Actions. Toute modification reste confinée au Worker M016 ; les données officielles ne sont jamais touchées.
 
 Correction de mesure Chromium : lecture du résumé replié par textContent, aucun changement fonctionnel ni aucune écriture de données.
+
+## Prérequis M10 : écriture conditionnelle à tester sur un objet jetable de M016
+
+Aucune donnée officielle ne doit être modifiée tant que la prise en charge effective des écritures conditionnelles R2 n'est pas confirmée : si un administrateur a enregistré entre la sauvegarde et la migration, la restauration ne doit jamais écraser ses modifications.
