@@ -22,3 +22,5 @@ de préproduction uniquement.
 ## Test M016 — validation automatique du parcours et du Worker de préproduction
 
 Le workflow a été corrigé pour respecter le format YAML GitHub Actions. Toute modification reste confinée au Worker M016 ; les données officielles ne sont jamais touchées.
+
+Correction de mesure Chromium : lecture du résumé replié par textContent, aucun changement fonctionnel ni aucune écriture de données.
