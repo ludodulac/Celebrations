@@ -9,16 +9,18 @@ const HOSTS=['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-unive
 // Both workflows use the same read-only checks; only one explicitly approved ref may run.
 const isM028=process.env.M028_PROD_APPROVED==='YES';
 const isM029=process.env.M029_PROD_APPROVED==='YES';
-assert.ok(!(isM028&&isM029),'Cannot approve two releases at once');
-const branch=isM029?'refs/heads/feat/m029-navigation-title-only-20261113':
+const isM030=process.env.M030_PROD_APPROVED==='YES';
+assert.ok([isM028,isM029,isM030].filter(Boolean).length<=1,'Cannot approve two releases at once');
+const branch=isM030?'refs/heads/feat/m030-canonical-celebration-cycles-20261113':
+ isM029?'refs/heads/feat/m029-navigation-title-only-20261113':
  isM028?'refs/heads/feat/m028-language-options-in-settings-20261112':
  'refs/heads/fix/m026-mp3-detection-90mb-20261112';
 const mode=process.argv[2]||'before';
 assert.ok(['before','after-migration','before-promotion','after-promotion','after-rollback'].includes(mode));
 assert.equal(process.env.GITHUB_REF,branch);
-if(isM029){
- assert.notEqual(process.env.M026_PROD_APPROVED,'YES','M026 cannot authorize M029');
- assert.notEqual(process.env.M028_PROD_APPROVED,'YES','M028 cannot authorize M029');
+if(isM030||isM029){
+ assert.notEqual(process.env.M026_PROD_APPROVED,'YES','M026 cannot authorize newer releases');
+ assert.notEqual(process.env.M028_PROD_APPROVED,'YES','Never mix release approvals');
 }else if(isM028)assert.notEqual(process.env.M026_PROD_APPROVED,'YES','Never mix release approvals');
 else assert.equal(process.env.M026_PROD_APPROVED,'YES');
 assert.equal(process.env.CLOUDFLARE_ACCOUNT_ID,ACCOUNT);
