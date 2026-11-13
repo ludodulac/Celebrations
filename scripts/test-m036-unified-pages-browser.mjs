@@ -216,11 +216,12 @@ try{
   await page.locator('.m031-workbar-title').click();
   assert.equal(await page.locator('.m031-settings-details[open]').count(),0,
    'Click outside closes settings without losing controls');
-  await page.locator('.general-page-row button.item').filter({hasText:'Nos images'}).click();
-  const fullCheck=page.getByLabel('Image sur toute la largeur de la page');
+  const fullCheck=page.getByLabel('Image sur toute la largeur de la page').first();
   await fullCheck.waitFor({state:'visible'});
+  assert.equal(await fullCheck.isChecked(),false,'The default image width can be overridden');
+  await fullCheck.check();
   assert.equal(await fullCheck.isChecked(),true,'Image page width is editable');
-  // No content changes on real Cloudflare: only the mock UI checkbox is used.
+  // No real cloud writes: this exercises only the mocked draft control.
 
   assert.deepEqual(errors,[],name+': '+errors.join('; '));
   assert.equal(writes,0);
