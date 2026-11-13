@@ -48,7 +48,11 @@ jobs:
       - name: Deploy ONLY temporary M016-bound Worker; no routes or official binding
         run: |
           set -euo pipefail
-          npx --yes wrangler@4 deploy --config /tmp/m030-cas-wrangler.toml >/tmp/m030-cas-deploy-log.txt 2>&1
+          if ! npx --yes wrangler@4 deploy --config /tmp/m030-cas-wrangler.toml >/tmp/m030-cas-deploy-log.txt 2>&1; then
+            echo "M030 temporary M016 deployment failed (sanitized diagnostics):"
+            grep -Ei 'error|failed|cannot|denied|code' /tmp/m030-cas-deploy-log.txt | sed -E 's/[a-fA-F0-9]{18,}/[REDACTED]/g' | tail -12 || true
+            exit 1
+          fi
           echo M030_TEMPORARY_WORKER_M016_DEPLOYED_WITHOUT_SECRET_IN_LOGS
       - name: Prove R2 compare-and-swap rejects stale digest and then commits valid revision
         run: |
