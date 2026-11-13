@@ -210,8 +210,8 @@ jobs:
              await img.decode().catch(()=>{});return img.naturalWidth>0&&img.naturalHeight>0;
             });
             assert.equal(loaded,true,'The existing image must load correctly');
-            const welcome=page.locator('.m034-home-flow .trial-heading').first();
-            assert.ok(await welcome.count()>0,'A real editable title block should be visible on homepage');
+            const welcome=page.locator('.m034-home-flow .trial-heading, .m034-home-flow .trial-paragraph').filter({hasText:'Bienvenue'}).first();
+            assert.ok(await welcome.count()>0,'The published Bienvenue text block must remain visible on homepage');
             assert.ok(await welcome.isVisible(),'Welcome title must not be hidden behind the picture');
             const welcomeRect=await welcome.boundingBox();
             assert.ok(welcomeRect&&welcomeRect.y<rect.y,'Welcome should appear in authored position above the image');
