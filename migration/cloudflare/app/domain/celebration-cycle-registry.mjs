@@ -60,6 +60,28 @@ function visibleSlotCatalogue(existingRows=[],visibility={}){
   return {...slot,id,provisioned:!!id,visibility:isVisible?'published':'hidden'};
  })};
 }
+// Only the explicitly published canonical identity enters the anonymous menu.
+// Variants (languages/categories) live inside it; NEVER generate another card.
+// Private celebrations can expose a TITLE only; the route still requires auth.
+function publicCelebrationEntries(rows=[],visibility={},policies={}){
+ if(!Array.isArray(rows))throw new TypeError('Identités D1 requises');
+ const selected=new Map();
+ for(const row of rows){
+  const slot=cycleFromExisting(row),id=String(row?.id||'');
+  if(!slot||!/^[1-9]\\d*$/.test(id)||visibility[id]!=='published')continue;
+  const mode=policies[id]?.mode||'PUBLIC';
+  if(!['PUBLIC','ALL_PRIVATE_TYPES','SELECTED_TYPES'].includes(mode))continue;
+  const entry={id,archangel:slot.archangel,year:slot.year,
+   title:slot.title,cycleYear:slot.cycleYear,slotKey:slot.slotKey,
+   titleOnly:mode!=='PUBLIC'};
+  const previous=selected.get(slot.slotKey);
+  // Public beats private label; same access type prefers the original lower ID.
+  if(!previous||previous.titleOnly&&!entry.titleOnly||
+    previous.titleOnly===entry.titleOnly&&Number(entry.id)<Number(previous.id))
+   selected.set(slot.slotKey,entry);
+ }
+ return preparedCelebrationSlots().map(slot=>selected.get(slot.slotKey)).filter(Boolean);
+}
 function canonicalAudience({scope,categoryId}={},categories=[]){
  const active=new Set(categories.filter(c=>!c.disabled&&typeof c.id==='string').map(c=>c.id));
  if(scope==='PUBLIC'&&(!categoryId))return Object.freeze({scope:'PUBLIC',categoryId:''});
@@ -101,6 +123,6 @@ function validateNewCelebrationVersion(input,{celebrationTitle,existing=[],categ
  return Object.freeze({name:title,languageId:input.languageId,audience,key,visibility:'draft'});
 }
 
-return Object.freeze({CELEBRATION_CYCLE_START,CELEBRATION_CYCLE_END,CANONICAL_ARCHANGELS,canonicalArchangel,validCycleYear,celebrationCycle,preparedCelebrationSlots,cycleFromExisting,categorizeExistingCelebrations,visibleSlotCatalogue,canonicalAudience,celebrationVersionKey,validateNewCelebrationVersion});
+return Object.freeze({CELEBRATION_CYCLE_START,CELEBRATION_CYCLE_END,CANONICAL_ARCHANGELS,canonicalArchangel,validCycleYear,celebrationCycle,preparedCelebrationSlots,cycleFromExisting,categorizeExistingCelebrations,visibleSlotCatalogue,publicCelebrationEntries,canonicalAudience,celebrationVersionKey,validateNewCelebrationVersion});
 }
-export const {CELEBRATION_CYCLE_START,CELEBRATION_CYCLE_END,CANONICAL_ARCHANGELS,canonicalArchangel,validCycleYear,celebrationCycle,preparedCelebrationSlots,cycleFromExisting,categorizeExistingCelebrations,visibleSlotCatalogue,canonicalAudience,celebrationVersionKey,validateNewCelebrationVersion}=createCelebrationCycleRegistry();
+export const {CELEBRATION_CYCLE_START,CELEBRATION_CYCLE_END,CANONICAL_ARCHANGELS,canonicalArchangel,validCycleYear,celebrationCycle,preparedCelebrationSlots,cycleFromExisting,categorizeExistingCelebrations,visibleSlotCatalogue,publicCelebrationEntries,canonicalAudience,celebrationVersionKey,validateNewCelebrationVersion}=createCelebrationCycleRegistry();
