@@ -216,6 +216,8 @@ try{
   await page.locator('.m031-workbar-title').click();
   assert.equal(await page.locator('.m031-settings-details[open]').count(),0,
    'Click outside closes settings without losing controls');
+  // The existing image controls appear when the author selects that image.
+  await page.locator('.canvas .block[data-kind="image"] .picture').first().click();
   const fullCheck=page.getByLabel('Image sur toute la largeur de la page').first();
   await fullCheck.waitFor({state:'visible'});
   assert.equal(await fullCheck.isChecked(),false,'The default image width can be overridden');
