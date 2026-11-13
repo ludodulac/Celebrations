@@ -1,0 +1,32 @@
+name: "M033 — accueil plein écran et menus de pages"
+on:
+  push:
+    branches: [feat/m033-fullscreen-home-unified-page-menu-20261113]
+permissions: {contents: read}
+jobs:
+  m033:
+    if: ${{ contains(github.event.head_commit.message, '[M033_TEST]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - name: Test non-destructive visitor/admin code
+        run: |
+          set -euo pipefail
+          node scripts/build-m012b-member-spaces-inline.mjs --check
+          node scripts/build-m019-editor-client.mjs --check
+          node --check migration/cloudflare/editor-trial-site-client.mjs
+          node --check migration/cloudflare/editor-trial-site-page.mjs
+          node --check migration/cloudflare/editor-demo-client.mjs
+          node --test tests/test-editor-trial-site.mjs tests/test_m031_m4_compact_layout.mjs tests/test_m032_standalone_public_media.mjs tests/test_m031_d1_visibility_route.mjs tests/test_m024_cleanup_and_media_safety.mjs tests/test_m012c_private_editor_publication.mjs tests/test_m009c_public_media_api_security.mjs
+      - name: Chromium phone and computer
+        run: |
+          set -euo pipefail
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+          node scripts/test-m033-home-and-menu-browser.mjs
+          node scripts/test-m032-media-browser.mjs
+          echo M033_TEST_SUCCESS
