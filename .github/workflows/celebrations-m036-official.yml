@@ -234,6 +234,9 @@ jobs:
             assert.ok(await page.locator('#back-admin').isVisible());
             await page.locator('.m035-welcome-button').click();
             await page.locator('.site-menu-group').waitFor({state:'visible'});
+            // The shell renders before the async public snapshot. Wait for
+            // hydrated navigation, not just the static menu button HTML.
+            await page.locator('#general-navigation .general-tab').first().waitFor({state:'attached',timeout:25000});
             const second=await paper.boundingBox();
             assert.ok(Math.abs(second.width-bounds.width)<2,
              'Next page must have same central width as homepage');
