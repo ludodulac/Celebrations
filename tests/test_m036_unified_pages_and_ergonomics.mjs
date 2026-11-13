@@ -59,7 +59,7 @@ test('M036: star is a native public link, duplicate button removed, draft previe
  assert.ok(!adminPage.includes('id="view-site-btn"'));
  assert.match(adminPage,/id="preview-btn"/);
  assert.match(src,/m036SettingsDismissBound/);
- assert.match(src,/current\.open&&!current\.contains\(event\.target\)/);
+ assert.match(src,/current\?\.open&&!current\.contains\(event\.target\)/);
  assert.match(src,/event\.key==='Escape'/);
 });
 test('M036: login eye works under a nonce CSP without touching server PIN verifier',async()=>{
