@@ -3794,7 +3794,7 @@ function privatePageWorkspace(){
 }
 // M031/4: same responsive workspace pattern as Espace Jeunesse, preserving
 // the real original editor controls, publication callbacks, D1 rules and Undo.
-let m031SettingsOpen=false,m031BreakpointsBound=false;
+let m031SettingsOpen=false,m031BreakpointsBound=false,m036SettingsDismissBound=false;
 const m031Desktop=()=>window.matchMedia('(min-width:1051px)').matches;
 function m031ReflowRail(){
  const shell=document.querySelector('.stage-editor'),panel=shell?.querySelector('.m031-rail-pages');
@@ -3882,6 +3882,21 @@ function m031UpgradeAdmin(){
   workbar.append(head);main.prepend(workbar);
  }
  const settings=workbar.querySelector('.m031-settings-details');
+ // M036: click outside or press Escape closes Settings, matching Espace
+ // Jeunesse. Bound once to the document to survive normal editor redraws.
+ if(!m036SettingsDismissBound){
+  m036SettingsDismissBound=true;
+  const closeSettings=()=>{const current=document.querySelector('.m031-settings-details');
+   if(current?.open){current.open=false;m031SettingsOpen=false}
+  };
+  document.addEventListener('pointerdown',event=>{
+   const current=document.querySelector('.m031-settings-details');
+   if(current?.open&&!current.contains(event.target))closeSettings();
+  },true);
+  document.addEventListener('keydown',event=>{
+   if(event.key==='Escape')closeSettings();
+  });
+ }
  const settingsBody=workbar.querySelector('.m031-settings-fields');
  const dot=workbar.querySelector('.m031-state-dot');
  const toolbar=main.querySelector('.topbar')||shell.querySelector('.topbar');
