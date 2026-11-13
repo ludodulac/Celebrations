@@ -245,26 +245,33 @@ test('M019 ordinary shared page transitions revoke public snapshots and require 
  }finally{f.close()}
 });
 
-test('M019 a true celebration copy has its own D1 identity, date and draft, with no copied grants; retries do not multiply copies',async()=>{
+test('M030 one planned yearly slot has one unique D1 identity and NO obligatory Wednesday date',async()=>{
  const f=await fixture();try{
   await f.create();
-  const args={action:'create-celebration',archangel:'Gabriel',date:'2026-10-07',title:'Gabriel octobre — copie',copy:true};
-  const result=await f.send(args);assert.equal(result.status,200,JSON.stringify(result));
-  const id=result.targetCelebration;assert.match(id,/^\d+$/);assert.notEqual(id,'41');
-  assert.equal(f.db.prepare('SELECT status FROM celebrations_celebrations WHERE id=?').get(Number(id)).status,'draft');
-  assert.equal(f.state.drafts[id].celebrationDates.wednesday,'2026-10-07');
-  assert.equal(f.state.published.celebrationVisibility[id],'draft');
+  const slot={action:'create-celebration',archangel:'Michaël',cycleYear:2026};
+  assert.equal((await f.send(slot)).status,409,
+   'Never create arbitrary identities before protected UNIQUE migration');
+  f.db.exec('CREATE UNIQUE INDEX idx_celebrations_archangel_year_unique ON celebrations_celebrations(archangel,year)');
+  assert.equal((await f.send({action:'create-celebration',archangel:'Gabriel',date:'2026-10-07',title:'Copie',copy:true})).status,400,
+   'Old free-copy command must no longer exist');
+  const created=await f.send(slot);assert.equal(created.status,200,JSON.stringify(created));
+  const id=created.targetCelebration;assert.match(id,/^\d+$/);
+  assert.equal(f.db.prepare('SELECT year FROM celebrations_celebrations WHERE id=?').get(Number(id)).year,'2026');
+  assert.deepEqual(f.state.drafts[id].celebrationDates,{});
+  assert.equal(f.state.published.celebrationVisibility[id],'hidden');
   assert.equal(f.db.prepare('SELECT count(*) n FROM celebrations_directory_person_celebrations WHERE celebration_id=?').get(Number(id)).n,0);
-  assert.ok(f.state.drafts[id].spaces.every(s=>!s.accessPolicy.typeIds));
-  const retry=await f.send(args);assert.equal(retry.status,200,JSON.stringify(retry));assert.equal(retry.targetCelebration,id);
+  const retry=await f.send(slot);assert.equal(retry.status,200,JSON.stringify(retry));
+  assert.equal(retry.targetCelebration,id,'Retry must reuse canonical ID');
   assert.equal(f.db.prepare('SELECT count(*) n FROM celebrations_celebrations').get().n,3);
-  const recovery={...args,date:'2026-10-14'};f.failCAS=true;
-  assert.equal((await f.send(recovery)).status,409);f.failCAS=false;
-  assert.equal((await f.send(recovery)).status,200);
-  assert.equal(f.db.prepare('SELECT count(*) n FROM celebrations_celebrations').get().n,4,'failed snapshot retry reuses its canonical draft');
+  f.failCAS=true;
+  const another={action:'create-celebration',archangel:'Gabriel',cycleYear:2026};
+  assert.equal((await f.send(another)).status,409);
+  f.failCAS=false;
+  const recovered=await f.send(another);assert.equal(recovered.status,200,JSON.stringify(recovered));
+  assert.equal(f.state.drafts[recovered.targetCelebration].celebrationDates.wednesday,undefined);
+  assert.equal(f.db.prepare('SELECT count(*) n FROM celebrations_celebrations').get().n,4);
  }finally{f.close()}
 });
-
 
 test('M020-B moving a category/language variant is atomic, revokes releases, rejects collision and stale edits',async()=>{
  const f=await fixture();try{
@@ -288,19 +295,52 @@ test('M020-B moving a category/language variant is atomic, revokes releases, rej
  }finally{f.close()}
 });
 
-test('M020-B full duplication accepts past and future calendar dates including non Wednesdays, without enrollment',async()=>{
+test('M030 invalid calendar years and second identical version are refused server-side',async()=>{
  const f=await fixture();try{
-  await f.create();
-  for(const date of ['1999-01-01','2099-12-31']){
-   const r=await f.send({action:'create-celebration',archangel:'Gabriel',date,title:'Copie '+date,copy:true});
-   assert.equal(r.status,200,JSON.stringify(r));assert.equal(f.state.drafts[r.targetCelebration].celebrationDates.wednesday,date);
-   assert.equal(f.state.published.celebrationVisibility[r.targetCelebration],'draft');
-   assert.equal(f.db.prepare('SELECT count(*) n FROM celebrations_directory_person_celebrations WHERE celebration_id=?').get(Number(r.targetCelebration)).n,0);
+  for(const year of [2025,2040,'2026-01-01',null]){
+   const r=await f.send({action:'create-celebration',archangel:'Gabriel',cycleYear:year});
+   assert.ok([400,409].includes(r.status),JSON.stringify(r));
   }
-  assert.equal((await f.send({action:'create-celebration',archangel:'Gabriel',date:'2027-02-30',title:'Impossible',copy:true})).status,400);
+  const publicFrench=await f.send({action:'duplicate-version',
+   name:'Gabriel 2026 — another French',scope:'PUBLIC',categoryId:'',languageId:'fr'});
+  assert.equal(publicFrench.status,409,'Cannot duplicate original public French');
+  const invalid=await f.send({action:'duplicate-version',name:'No category',
+   scope:'SELECTED_TYPES',categoryId:'not-real',languageId:'fr'});
+  assert.equal(invalid.status,409,'Cannot invent an absent category');
  }finally{f.close()}
 });
-
+test('M030 one celebration has public EN plus private FR/EN versions, never new D1 IDs or publication grants',async()=>{
+ const f=await fixture();try{
+  const beforeIds=f.db.prepare('SELECT count(*) n FROM celebrations_celebrations').get().n;
+  const en={action:'duplicate-version',name:'Gabriel — English public',
+   scope:'PUBLIC',categoryId:'',languageId:'en'};
+  const a=await f.send(en);assert.equal(a.status,200,JSON.stringify(a));
+  assert.equal(a.createdVersion.key,'PUBLIC|en');
+  assert.equal(a.createdVersion.visibility,'draft');
+  assert.ok(f.state.localization.pages['mercredi-41']?.en);
+  assert.equal((await f.send({...en,name:'Different English'})).status,409,
+   'Same audience/language is reserved even when name differs');
+  const fr={action:'duplicate-version',name:'Gabriel — chant français',
+   scope:'SELECTED_TYPES',categoryId:TYPE,languageId:'fr'};
+  const b=await f.send(fr);assert.equal(b.status,200,JSON.stringify(b));
+  assert.equal(b.createdVersion.key,'category:'+TYPE+'|fr');
+  assert.equal(f.state.drafts['41'].spaces.length,1);
+  const privateSpace=f.state.drafts['41'].spaces[0];
+  assert.equal(privateSpace.accessPolicy.mode,'SELECTED_TYPES');
+  assert.deepEqual(privateSpace.accessPolicy.typeIds,[TYPE]);
+  assert.equal(privateSpace.pages[0].publicationStatus,'draft');
+  assert.equal((await f.send({...fr,name:'Second chant français'})).status,409);
+  const enPrivate=await f.send({...fr,name:'Gabriel — chant English',languageId:'en'});
+  assert.equal(enPrivate.status,200,JSON.stringify(enPrivate));
+  assert.equal(f.state.drafts['41'].spaces.length,1,'Reuse canonical category space');
+  assert.ok(f.state.drafts['41'].spaces[0].pages[0].translations.en);
+  assert.equal(f.db.prepare('SELECT count(*) n FROM celebrations_celebrations').get().n,beforeIds);
+  assert.equal(f.db.prepare('SELECT count(*) n FROM celebrations_directory_person_celebrations WHERE celebration_id=41').get().n,1);
+  assert.equal(f.state.published?.privatePageReleases?.[privateSpace.pages[0].id],undefined);
+  assert.equal(f.state.published?.privateTranslationReleases?.[privateSpace.pages[0].id],undefined);
+  assert.equal((await f.send({...en,name:'Unauthorized'},PART)).status,401);
+ }finally{f.close()}
+});
 
 test('M020-B hidden and draft remain distinct from private access after reload',async()=>{
  const f=await fixture();try{
