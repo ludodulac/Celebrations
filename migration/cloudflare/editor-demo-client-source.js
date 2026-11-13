@@ -2905,6 +2905,7 @@ function media(){
  const external=b('＋ Référencer un média externe',()=>void createExternalMedia(),'sm');
  w.append(external);
  w.append(n('p','hint','Import serveur : JPG, PNG, WebP, PDF, MP3, WAV, TXT et DOCX. Pour les vidéos, référencez un lien externe.'));
+ w.append(n('p','hint','Un fichier importé reste conservé si une célébration est masquée. Utilisez « 🌍 Rendre le lien public » puis « 🔗 Copier l’URL » pour partager ce fichier indépendamment. Les fichiers réservés aux membres ne peuvent pas être rendus publics par ce bouton.'));
  const importButton=b(mediaCategory==='audios'?'＋ Importer un MP3':'＋ Importer',()=>{
   const picker=el('asset-file-picker');
   picker.accept=mediaCategory==='audios'?'.mp3,audio/mpeg':
@@ -3033,7 +3034,7 @@ const GUIDE_TOPICS=[
   note:'Ne mettez pas le code d’accès dans les textes publics du site.'},
  {group:'Premiers pas',title:'Comprendre les onglets et les boutons du haut',
   info:'Chaque onglet ouvre directement son espace de travail.',
-  steps:['Pages : accueil général et autres pages indépendantes des célébrations.','Pages de bas de page : pages dont les titres s’affichent en bas du site, après publication.','Célébrations : programme et pages de chaque célébration.','Médiathèque de l’administration : fichiers conservés à usage privé jusqu’à insertion et publication.','Paramètres : dépliez « Gestion des langues (facultatif) » pour afficher les outils de traduction. Par défaut, les pages s’éditent simplement en français.','Catégories : accessibles séparément dans le menu uniquement si la gestion des membres est activée.','Mode d’emploi : ce guide, consultable à tout moment.','Aperçu : masquer les outils pour contrôler la page en cours. « Revenir à l’édition » permet de poursuivre.','Voir le site : ouvrir la page côté visiteur dans un nouvel onglet. « Enregistrer » conserve les modifications.']},
+  steps:['Pages : accueil général et autres pages indépendantes des célébrations.','Pages de bas de page : pages dont les titres s’affichent en bas du site, après publication.','Célébrations : programme et pages de chaque célébration.','Médiathèque de l’administration : les fichiers restent privés tant qu’ils ne sont pas publiés sur une page ou partagés volontairement par un lien public direct.','Paramètres : dépliez « Gestion des langues (facultatif) » pour afficher les outils de traduction. Par défaut, les pages s’éditent simplement en français.','Catégories : accessibles séparément dans le menu uniquement si la gestion des membres est activée.','Mode d’emploi : ce guide, consultable à tout moment.','Aperçu : masquer les outils pour contrôler la page en cours. « Revenir à l’édition » permet de poursuivre.','Voir le site : ouvrir la page côté visiteur dans un nouvel onglet. « Enregistrer » conserve les modifications.']},
  {group:'Premiers pas',title:'Enregistrer et retrouver les mêmes pages sur deux appareils',
   info:'La page en cours peut changer visuellement avant d’être publiée dans la version commune.',
   steps:['Modifiez votre page ou votre bloc.','Appuyez sur « Enregistrer » en haut de l’administration.','Attendez un message confirmant « Enregistré sur le serveur ».','Rouvrez ou actualisez le site sur votre autre téléphone ou ordinateur.'],
@@ -3072,6 +3073,10 @@ const GUIDE_TOPICS=[
  {group:'Pages et célébrations',title:'Médiathèques visibles par les visiteurs',
   info:'La médiathèque générale a été retirée du site public. Chaque célébration garde sa médiathèque.',
   steps:['Les fichiers restent accessibles dans la médiathèque de l’administration.','La médiathèque des visiteurs se limite aux fichiers insérés dans les pages publiées de cette célébration.','Les images des pages générales et des pages de bas de page ne sont pas ajoutées à la médiathèque d’une célébration.','Un élément ou un bloc masqué aux visiteurs ne doit pas être affiché dans leur médiathèque.']},
+ {group:'Médiathèque',title:'Garder une image ou un PDF accessible même si la célébration est masquée',
+  info:'La conservation du fichier, la visibilité de la célébration et le partage direct sont trois réglages indépendants.',
+  steps:['Ouvrez « Médiathèque (administration) » : les fichiers importés restent conservés après masquage de la célébration.','Dans la fiche du fichier, utilisez « 👁 Voir » pour afficher une image ou un PDF dans le navigateur.','Si vous voulez que quelqu’un puisse ouvrir directement son adresse sans connexion, choisissez « 🌍 Rendre le lien public » et confirmez explicitement.','Utilisez ensuite « 🔗 Copier l’URL » : cette adresse reste la même même lorsque la célébration est masquée.','« 🔒 Désactiver le lien public » coupe ce partage sans supprimer le fichier du stockage.'],
+  note:'Les fichiers liés à des espaces ou catégories privés restent protégés. Le partage public ne se fait jamais automatiquement et n’ajoute pas le fichier à la médiathèque publique des célébrations.'},
  {group:'Construire les blocs',title:'Différence entre le + bleu et le + vert',
   info:'C’est la distinction essentielle pour construire une page.',
   steps:['Le + BLEU apparaît au bas du bloc survolé sur ordinateur et ajoute une nouvelle zone ; sur téléphone, utilisez le + affiché après sélection.','Après le + bleu, choisissez « Bloc seul » ou « Deux colonnes ».','Le + VERT apparaît au survol d’un élément et ajoute un élément DANS la zone : titre, texte, image, bouton, vidéo, audio ou titre d’événement.','Répétez le + vert autant de fois que nécessaire pour composer votre zone.'],
