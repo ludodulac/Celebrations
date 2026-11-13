@@ -84,6 +84,11 @@ function validateNewCelebrationVersion(input,{celebrationTitle,existing=[],categ
  if(!title||title.length>120||normalize(title)===normalize(celebrationTitle))
   throw new RangeError('Donnez un nom différent à cette version');
  if(!Array.isArray(existing))throw new TypeError('Versions existantes requises');
+ // M030 owner rule: while NO actual active category is defined, NO duplicate
+ // celebration version may be created (including a second public language).
+ // Michaël 2026's existing public French version remains available.
+ if(!Array.isArray(categories)||!categories.some(c=>c&&!c.disabled&&typeof c.id==='string'&&c.id.trim()))
+  throw new RangeError('Créez d’abord une catégorie avant de dupliquer cette célébration');
  if(existing.some(v=>normalize(v.name)===normalize(title)))
   throw new RangeError('Ce nom de version existe déjà');
  const audience=canonicalAudience(input.audience,categories);
