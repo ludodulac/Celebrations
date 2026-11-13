@@ -47,7 +47,8 @@ function applyAdminMenu(){
  }
 }
 const {validIso,prettyDate,validTime,validHref,validColor}=createEditorLocalRules();
-const ARCHANGELS=['Michaël','Gabriel','Raphaël','Ouriel'];
+const cycleRegistry=createCelebrationCycleRegistry();
+const ARCHANGELS=cycleRegistry.CANONICAL_ARCHANGELS;
 const editorPageModel=createPageModel();
 const editorPageCommands=createEditorPageCommands({model:editorPageModel});
 const editorSyncPolicy=createEditorSyncPolicy();
@@ -134,8 +135,16 @@ function plannedEntries(){
   return drafts;
  }catch{return []}
 }
+// D1 identities only; every future slot is virtual until explicitly opened.
+function celebrationCatalog(){
+ return cycleRegistry.visibleSlotCatalogue(
+  window.__PREPARATION_SEED__?.celebrations||[],sharedVisibility());
+}
 function celebrationEntries(){
- return [...(window.__PREPARATION_SEED__?.celebrations||[]).map(p=>({id:String(p.id),archangel:String(p.archangel||''),year:String(p.year||''),kind:'historical',visibility:p.status==='draft'?'draft':'published',title:celebrationMetadata[String(p.id)]?.title||String(p.archangel||'')+' '+String(p.year||'')})),...plannedEntries()];
+ return celebrationCatalog().slots.filter(x=>x.provisioned).map(x=>({
+  id:x.id,archangel:x.archangel,year:x.year,cycleYear:x.cycleYear,
+  kind:'canonical',visibility:x.visibility,title:x.title
+ }));
 }
 function openCelebration(ref){
  if(!celebrationEntries().some(c=>c.id===String(ref)))return;
@@ -2812,21 +2821,21 @@ function pageWorkspace(group,mount=w){
  }
 function pages(){pageWorkspace('page')}
 function footerPages(){pageWorkspace('footer')}
-// Creating a DIFFERENT celebration remains an explicit action, unlike language/category variants.
- async function m018DuplicateCelebration(entry){
-  if(!IS_STAGE||privateEdit||!entry)return;
-  if(dirty){save();if(dirty)return}
-  const choice=await siteDialog({title:'Dupliquer la célébration',fields:[{name:'date',label:'Date du mercredi :',type:'date',value:currentDateForDraft(entry)||entry.date||privateCatalogue?.record?.celebrationDates?.wednesday||currentDates().wednesday||'',required:true},{name:'title',label:'Titre',value:celebrationLabel(entry)+' (copie)',required:true}],confirm:'Créer le brouillon'});
-  const date=choice?.date;
-  if(!date)return;
-  if(!validIso(date)){siteNotice('Choisissez une date valide.');return}
-  try{
-   ensureMemberPanel();if(dirty||db._serverPending){save();await serverSave();if(db._serverPending)return}
-   const result=await memberPanel.commandContent('create-celebration',{archangel:entry.archangel,date,title:choice.title,copy:true});
-   location.assign(editorPageModel.editorUrl(result.targetCelebration));
-  }catch(error){siteNotice('Copie impossible : '+(error.message||error))}
-
- }
+// Only the reserved yearly slot may become a new D1 identity.
+// The backend validates the 14-cycle key and a real D1 UNIQUE index.
+async function prepareCanonicalCelebration(slot){
+ if(!IS_STAGE||privateEdit||!slot||!cycleRegistry.validCycleYear(slot.cycleYear))return;
+ if(dirty){save();if(dirty)return}
+ try{
+  ensureMemberPanel();
+  if(db._serverPending){await serverSave();if(db._serverPending)return}
+  const result=await memberPanel.commandContent('create-celebration',{
+   archangel:slot.archangel,cycleYear:slot.cycleYear
+  });
+  if(result?.targetCelebration)location.assign(editorPageModel.editorUrl(result.targetCelebration));
+  else siteNotice('Aucune nouvelle célébration créée.');
+ }catch(error){siteNotice('Préparation impossible : '+(error.message||error))}
+}
 function celebrations(){
  if(!IS_STAGE){pageWorkspace('celebration');return}
  const selector=n('label','celebration-choice-field'),select=n('select','celebration-select');
@@ -2849,62 +2858,31 @@ if(adminMembersEnabled){
    publication.append(b('Dupliquer',()=>duplicateChoice(selectedEntry),'sm'));
   w.append(publication);
  }
- const current=plannedEntries().find(p=>p.id===String(window.__PREPARATION_SEED__.celebrationId));
- if(current){
-  const line=n('label','celebration-title-edit','Titre de la célébration'),input=n('input');
-  input.type='text';input.maxLength=100;input.value=celebrationLabel(current);
-  input.setAttribute('aria-label','Titre de la célébration');
-  input.onchange=()=>{
-   if(!savePlannedTitle(current.id,input.value)){input.value=celebrationLabel(current);return}
-   input.classList.add('saved');select.selectedOptions[0].textContent=input.value.trim();
-   if(IS_STAGE){
-    db._serverPending=true;
-    localStorage.setItem(KEY,JSON.stringify(db));
-    status.textContent='Titre modifié : cliquez sur Enregistrer pour le serveur';
-   }else status.textContent='✓ Titre enregistré dans ce navigateur';
-  };
-  line.append(input);w.append(line);
-  const chosen=String(currentDateForDraft(current)||'');
-  const year=String(celebrationLabel(current)).match(/20\d{2}/)?.[0]||'';
-  if(year&&chosen&&year!==chosen.slice(0,4)){
-   const warning=n('small','celebration-date-warning','Date à vérifier : '+chosen.slice(0,4)+' (titre '+year+')');
-   w.append(warning);
-  }
- }
  const workspace=n('div','celebration-editor');
  w.append(workspace);
  pageWorkspace('celebration',workspace);
- const last=plannedEntries().at(-1)?.archangel||window.__PREPARATION_SEED__?.archangel||'Michaël';
- const index=ARCHANGELS.findIndex(x=>archSlug(x)===archSlug(last));
- const next=ARCHANGELS[((index<0?3:index)+1)%4];
- const details=n('details','new-celebration'),summary=n('summary','','＋ Nouvelle célébration');
- details.append(summary);
- const form=n('form','trial-planning'),label=n('label','','Date du mercredi :'),date=n('input');
- date.type='date';date.required=true;date.setAttribute('aria-label','Date du mercredi');
- label.append(date);form.append(label);
- const lastEntry=plannedEntries().at(-1)||celebrationEntries().find(p=>p.id===String(window.__PREPARATION_SEED__.celebrationId));
- const titleRow=n('label','celebration-title-field','Titre'),name=n('input');
- name.type='text';name.maxLength=100;name.setAttribute('aria-label','Titre proposé');
- const initial=proposedTitle(next,'',lastEntry);
- name.value=initial;titleRow.append(name);form.append(titleRow);
- date.onchange=()=>{
-  if(name.value===initial||name.dataset.auto==='true'){
-   name.value=proposedTitle(next,date.value,lastEntry);name.dataset.auto='true';
+ // Four archangels × 14 years: virtual, initially hidden slots.
+ const catalogue=celebrationCatalog();
+ const box=n('details','m030-planned-cycles'),summary=n('summary','','Célébrations prévues (2026–2039)');
+ box.append(summary,n('p','hint','Les célébrations futures sont masquées. Préparez uniquement celle dont vous avez besoin.'));
+ for(let year=cycleRegistry.CELEBRATION_CYCLE_START;year<=cycleRegistry.CELEBRATION_CYCLE_END;year++){
+  const group=n('details','m030-cycle-group');
+  group.append(n('summary','','Cycle '+year));
+  for(const slot of catalogue.slots.filter(x=>x.cycleYear===year)){
+   const line=n('div','m030-cycle-row');
+   line.append(n('span','',slot.title),
+    n('small','',slot.visibility==='published'?'Visible':'Masquée'));
+   const action=slot.provisioned?
+    b('Ouvrir',()=>openCelebration(slot.id),'sm'):
+    b('Préparer',()=>void prepareCanonicalCelebration(slot),'sm');
+   action.setAttribute('aria-label',(slot.provisioned?'Ouvrir ':'Préparer ')+slot.title);
+   line.append(action);group.append(line);
   }
- };
- name.oninput=()=>name.dataset.auto='false';
- const create=n('button','btn primary','Créer '+next);create.type='submit';form.append(create);
- form.onsubmit=async e=>{
-  e.preventDefault();if(!validIso(date.value)){siteNotice('Choisissez une date valide.');return}
-  const title=String(name.value||'').trim();if(!title){name.focus();return}
-  try{
-   ensureMemberPanel();if(dirty||db._serverPending){save();await serverSave();if(db._serverPending)return}
-   const result=await memberPanel.commandContent('create-celebration',{archangel:next,date:date.value,title,copy:false});
-   location.assign(editorPageModel.editorUrl(result.targetCelebration));
-  }catch(error){siteNotice('Création impossible : '+(error.message||error))}
-
- };
- details.append(form);w.append(details);
+  box.append(group);
+ }
+ if(catalogue.duplicates.length||catalogue.unsupported.length)
+  box.prepend(n('p','m030-catalogue-warning','D’anciennes célébrations en double sont encore présentes. Le nettoyage doit être terminé avant de préparer un nouveau cycle.'));
+ w.append(box);
 }
 // Media usage is obtained from the shared server's draft AND published pages.
 // Local scans cover edits not yet sent to the server.
@@ -3557,7 +3535,7 @@ async function showContentVersions(){
 }
 async function duplicateChoice(entry){
  if(!entry)return;
- if(!adminMembersEnabled)return m018DuplicateCelebration(entry);
+ if(!adminMembersEnabled){siteNotice('La duplication indépendante est supprimée. Configurez d’abord les catégories pour créer des versions distinctes dans cette célébration.');return;}
  if(dirty||db._serverPending){
   siteNotice('Enregistrez vos modifications de contenu avant de créer une version.');
   return;
