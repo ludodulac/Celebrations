@@ -679,7 +679,7 @@ async function setStandalonePublicLink(media,publicLink){
  void refreshGlobalMedia();
 }
 async function deleteGlobalMedia(media){
- if(!(await siteConfirm('Supprimer « '+media.name+' » de la médiathèque ? Si ce fichier est encore utilisé, la suppression sera refusée.')))return;
+ if(!(await siteConfirm('Êtes-vous sûr de vouloir supprimer « '+media.name+' » ?')))return;
  const response=await fetch('/api/editor-media?action=delete',{method:'POST',
   headers:{'content-type':'application/json'},body:JSON.stringify({id:media.id})});
  const result=await response.json().catch(()=>({}));
@@ -2912,6 +2912,8 @@ function mediaLinksFor(record,related=[]){
   seen.add(key);
   entries.push({name:use.group==='page'?use.pageName:
     String(use.name||'Célébration')+' · '+use.pageName,
+   usageStatus:['published','hidden','draft'].includes(use.usageStatus)?
+    use.usageStatus:'published',
    href:'/__editor/voir-le-site?celebration='+encodeURIComponent(cid)+'&page='+encodeURIComponent(slug)});
  }
  for(const use of record.uses||[])push(use);
@@ -2922,7 +2924,8 @@ function mediaLinksFor(record,related=[]){
    if(block?.src===record.src||block?.href===record.src||block?.cover===record.src)
     push({pageId:page.id,pageName:page.name,celebrationId:cid,group:page.group,
      slug:page.group==='page'?page.id:(page.id.endsWith('-'+cid)?page.id.slice(0,-cid.length-1):page.id),
-     name:String(window.__PREPARATION_SEED__?.archangel||'Célébration')+' '+String(window.__PREPARATION_SEED__?.year||'')});
+     name:String(window.__PREPARATION_SEED__?.archangel||'Célébration')+' '+String(window.__PREPARATION_SEED__?.year||''),
+     usageStatus:page.visibility==='hidden'?'hidden':page.visibility==='draft'?'draft':'published'});
   }
  }
  for(const page of db.pages||[])visit(page.blocks,page,currentId);
@@ -2948,20 +2951,26 @@ function libraryTitle(card,name,src){
 }
 function libraryPicture(card,name,src,unused){
  if(!src)return;
- const link=n('a','media-picture-link'+(unused?' is-unused':''));link.href=src;
- link.target='_blank';link.rel='noopener noreferrer';link.title='Voir '+name;
+ // Every thumbnail stays a regular clickable link, including files no longer
+ // referenced by a visible page. Do not cover the preview with a ribbon.
+ const link=n('a','media-picture-link');link.href=src;
+ link.target='_blank';link.rel='noopener noreferrer';link.title='Ouvrir '+name;
  const img=n('img','library-thumb');img.src=src;img.alt=name;img.loading='lazy';link.append(img);
- if(unused)link.append(n('span','media-unused-ribbon','Inutilisé'));
  card.append(link);
 }
 function libraryUnusedText(card,unused,hasImage){
- if(unused&&!hasImage)card.append(n('span','media-unused-text','Inutilisé'));
+ // No "Inutilisé" badge: accurate page references appear below the image.
 }
 function libraryLocationLinks(card,links){
  const box=n('div','file-usage-links');
+ if(!links.length)box.append(n('span','file-location-nowhere','N’apparaît nulle part'));
  for(const item of links){
-  const link=n('a','file-location-link',item.name+' ↗');
-  link.href=item.href;link.target='_blank';link.rel='noopener noreferrer';box.append(link);
+  const state=['hidden','draft','published'].includes(item.usageStatus)?
+    item.usageStatus:'published';
+  const suffix=state==='hidden'?' (masquée)':state==='draft'?' (brouillon)':'';
+  const link=n('a','file-location-link file-location-'+state,item.name+suffix+' ↗');
+  link.href=item.href;link.target='_blank';link.rel='noopener noreferrer';
+  box.append(link);
  }
  card.append(box);
 }
@@ -3033,7 +3042,7 @@ function media(){
  const external=b('＋ Référencer un média externe',()=>void createExternalMedia(),'sm');
  w.append(external);
  w.append(n('p','hint','Import serveur : JPG, PNG, WebP, PDF, MP3, WAV, TXT et DOCX. Pour les vidéos, référencez un lien externe.'));
- w.append(n('p','hint','Un fichier importé reste conservé si une célébration est masquée. Utilisez « 🌍 Rendre le lien public » puis « 🔗 Copier l’URL » pour partager ce fichier indépendamment. Les fichiers réservés aux membres ne peuvent pas être rendus publics par ce bouton.'));
+ w.append(n('p','hint','Les fichiers importés restent dans la médiathèque même lorsqu’une page est masquée, retirée ou supprimée. Cliquez sur une image pour l’ouvrir ; les pages où elle figure sont indiquées sous elle.'));
  const importButton=b(mediaCategory==='audios'?'＋ Importer un MP3':'＋ Importer',()=>{
   const picker=el('asset-file-picker');
   picker.accept=mediaCategory==='audios'?'.mp3,audio/mpeg':
@@ -3071,28 +3080,11 @@ function media(){
   const controls=n('div','file-actions');
   if(chosenBlock&&mediaCategory==='audios'&&record.type==='audio')
    controls.append(b('Insérer dans le lecteur',()=>attachChosenAudio(record),'sm primary'));
-  // Existing R2 paths stay exactly the same. Only admin-uploaded objects
-  // can be released independently of a celebration.
-  const standaloneUpload=record.source==='uploaded'&&
-   /^\/media\/new\/[a-f0-9-]+\.(?:jpg|png|webp|pdf|mp3|wav|txt|docx)$/i.test(record.src||'');
-  if(standaloneUpload){
-   const open=n('a','btn sm media-open-direct','👁 Voir');
-   open.href=record.src;open.target='_blank';open.rel='noopener noreferrer';
-   open.title='Afficher le fichier dans le navigateur lorsque le format le permet';
-   controls.append(open);
-   if(record.publicLink===true){
-    controls.append(b('🔗 Copier l’URL',()=>void copyPermanentMediaUrl(record),'sm'));
-    card.append(n('small','media-direct-public-status',
-     '🌍 Lien public autonome : reste accessible si la célébration est masquée.'));
-   }else{
-    card.append(n('small','media-direct-private-status',
-     '🔒 Fichier conservé. Partage public direct non activé.'));
-   }
-   controls.append(b(record.publicLink===true?'🔒 Désactiver le lien public':'🌍 Rendre le lien public',
-    ()=>void setStandalonePublicLink(record,record.publicLink!==true),'sm'));
-  }
-  if(unused)controls.append(b('Supprimer si inutilisé',()=>void deleteGlobalMedia(record),'sm'));
-  card.append(controls);cards.append(card);
+  // The picture/title itself is the permanent openable link. Keep only
+  // the delete action in the image card; the backend refuses unsafe deletes.
+  if(record.canDelete===true)controls.append(b('Supprimer',()=>void deleteGlobalMedia(record),'sm'));
+  if(controls.childElementCount)card.append(controls);
+  cards.append(card);
  }
  for(const record of historical.filter(x=>matches(x.category))){
   const remoteCopy=remote.find(x=>x.src===record.src&&mediaCategoryOf(x)===mediaCategory);
