@@ -94,7 +94,10 @@ try{
  assert.equal(await label.isVisible(),true);
  assert.equal(await page.locator('.site-menu-bar').count(),1);
  await page.screenshot({path:folder+'/02-titre-visible-menu-ordinateur.png',fullPage:true});
- // The same title must be present but hidden by CSS on a narrow viewport.
+ // M016 is gated to approved testers. The independent mobile viewport
+ // reuses the isolated test login; this is not a public-login or ACL bypass.
+ // The official site still has its existing anonymous visitor rules.
+ await mobileCtx.addCookies(await ctx.cookies(HOST));
  const mobile=await mobileCtx.newPage();
  r=await mobile.goto(HOST+preview,{waitUntil:'domcontentloaded'});
  assert.equal(r.status(),200);
