@@ -83,11 +83,46 @@ export const M033_SPLASH_HOME_CSS=`
 }
 body.is-splash-home{width:100%;margin:0!important;background:#fff!important}
 body.is-splash-home #site-identity,
-body.is-splash-home .site-menu-bar,
+body.is-splash-home .site-menu-bar .site-menu-group,
+body.is-splash-home .site-menu-bar #member-connection,
+body.is-splash-home .site-menu-bar #public-language-control,
 body.is-splash-home #celebration-shortcuts,
 body.is-splash-home #stage-navigation,
-body.is-splash-home .hero,
-body.is-splash-home .footer{display:none!important}
+body.is-splash-home .hero{display:none!important}
+/* Keep native clickable site name looking like a site title, never a
+   default blue browser link; the white band is visible on the home page. */
+.site-menu-bar .site-nav-title,
+.site-menu-bar .site-nav-title:visited,
+.site-menu-bar .site-nav-title:hover{
+ color:#263747!important;text-decoration:none!important;text-shadow:none!important
+}
+.site-menu-bar .site-nav-title:focus-visible{
+ outline:2px solid #56786b;outline-offset:4px;border-radius:2px
+}
+body.is-splash-home .site-menu-bar.has-nav-title{
+ display:flex!important;justify-content:center!important;align-items:center;
+ box-sizing:border-box;width:100%;min-height:66px;
+ padding:12px 20px!important;margin:0!important;
+ background:#fff!important;border-bottom:1px solid #e6ece9!important;
+ box-shadow:0 1px 5px #1e3b3110;position:relative;z-index:6
+}
+body.is-splash-home .site-menu-bar .site-nav-title{
+ display:block!important;grid-column:auto!important;
+ flex:0 1 auto!important;min-width:0;max-width:100%!important;
+ margin:0!important;text-align:center!important;
+ font:700 clamp(18px,2.2vw,25px)/1.32 system-ui,sans-serif!important;
+ letter-spacing:.008em!important;white-space:normal!important;
+ overflow:visible!important
+}
+body.is-splash-home .footer{
+ display:flex!important;justify-content:center;align-items:center;
+ flex-wrap:wrap;gap:9px;margin:0 auto 18px;padding:15px 12px 21px;
+ background:#fff!important;text-align:center
+}
+body.is-splash-home #back-admin{
+ color:#52645d!important;text-decoration:underline!important;
+ text-underline-offset:3px;min-height:32px;display:inline-flex;align-items:center
+}
 body.is-splash-home .site-paper,
 body.is-splash-home.is-neutral-preview .site-paper{
  flex:0 0 auto!important;display:block!important;
@@ -105,7 +140,7 @@ body.is-splash-home #stage-main{
 }
 /* Cover touches both central page edges, no border/inset. */
 body.is-splash-home .m033-splash-enter{
- display:block;position:relative;width:100%;height:min(72dvh,720px);
+ display:block;position:relative;width:100%;height:min(58svh,610px);
  min-height:320px;margin:0;padding:0;overflow:hidden;
  background:#f2f3f4;text-decoration:none;cursor:pointer
 }
@@ -125,13 +160,45 @@ body.is-splash-home .m034-home-flow{
 }
 body.is-splash-home .m034-home-flow .site-block:last-child{margin-bottom:0}
 body.is-splash-home .m034-home-flow .trial-heading{margin-top:5px;margin-bottom:14px}
+
+/* Real border, fill and contrast; styling comes from validated HEX values
+   and bounded border width/shape. Image and CTA go to the same next page. */
+body.is-splash-home .m035-welcome-button{
+ box-sizing:border-box;position:absolute;left:50%;bottom:clamp(23px,4.8vw,52px);
+ transform:translateX(-50%);z-index:2;display:inline-flex;
+ justify-content:center;align-items:center;max-width:calc(100% - 28px);
+ min-width:178px;min-height:55px;padding:12px 28px;
+ border-style:solid;box-shadow:0 5px 20px #09191055;
+ font:700 clamp(16px,1.7vw,21px)/1.3 system-ui,sans-serif;
+ letter-spacing:.025em;white-space:normal;text-align:center;
+ text-decoration:none;overflow-wrap:anywhere;
+ transition:filter .18s ease,box-shadow .18s ease,translate .18s ease
+}
+body.is-splash-home .m033-splash-enter:hover .m035-welcome-button{
+ filter:brightness(1.08);box-shadow:0 8px 26px #09191066;translate:0 -2px
+}
+body.is-splash-home .m033-splash-enter:focus-visible .m035-welcome-button{
+ outline:2px solid #fff;outline-offset:3px
+}
+@media(prefers-reduced-motion:reduce){
+ body.is-splash-home .m035-welcome-button{transition:none!important;translate:none!important}
+}
+
 @media(max-width:600px){
  body.is-splash-home .site-paper,
  body.is-splash-home.is-neutral-preview .site-paper{
   width:calc(100vw - 16px)!important;margin:8px auto 28px!important
  }
- body.is-splash-home .m033-splash-enter{height:min(68dvh,640px);min-height:260px}
+ body.is-splash-home .m033-splash-enter{height:min(47svh,400px);min-height:230px}
  body.is-splash-home .m034-home-flow{padding:12px 10px}
+ body.is-splash-home .site-menu-bar.has-nav-title{min-height:57px;padding:10px 12px!important}
+ body.is-splash-home .site-menu-bar .site-nav-title{
+  font-size:clamp(16px,4.2vw,20px)!important;line-height:1.3!important
+ }
+ body.is-splash-home .m035-welcome-button{
+  min-height:49px;min-width:156px;padding:11px 22px;
+  bottom:22px;font-size:17px
+ }
 }
 `;
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

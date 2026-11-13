@@ -207,4 +207,57 @@ export const M031_COMPACT_LAYOUT_CSS = `
 .stage-editor.m031-compact .m033-single-page-menu-actions .publication-actions{
  min-width:0
 }
+
+/* M035: the existing settings gear contains a collapsible welcome-button
+   style picker, usable on narrow Android screens without covering the editor. */
+.stage-editor.m031-compact .m035-entry-settings{
+ width:100%;min-width:min(100%,260px);max-width:100%;
+ border:1px solid #d8e3df;border-radius:9px;background:#fff
+}
+.stage-editor.m031-compact .m035-entry-settings>summary{
+ display:list-item;cursor:pointer;padding:9px 12px;
+ font-weight:700;color:#263d35
+}
+.stage-editor.m031-compact .m035-entry-fields{
+ display:grid;gap:11px;min-width:0;padding:10px 12px 14px;
+ border-top:1px solid #e4eae7
+}
+.stage-editor.m031-compact .m035-entry-fields .hint{margin:0;line-height:1.4}
+.stage-editor.m031-compact .m035-entry-check{display:flex;gap:10px;align-items:center}
+.stage-editor.m031-compact .m035-entry-check input{
+ width:21px;min-width:21px;height:21px
+}
+.stage-editor.m031-compact .m035-entry-field{
+ display:flex;flex-direction:column;gap:5px;min-width:0;
+ font-size:13px;font-weight:600
+}
+.stage-editor.m031-compact .m035-entry-field input[type=text]{
+ width:100%;box-sizing:border-box;min-height:42px
+}
+.stage-editor.m031-compact .m035-entry-colors{
+ display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+ gap:10px;max-width:100%
+}
+.stage-editor.m031-compact .m035-entry-colors select{
+ min-height:42px;width:100%;max-width:100%
+}
+.stage-editor.m031-compact .m035-entry-field input[type=color]{
+ width:100%;max-width:110px;min-height:42px;cursor:pointer
+}
+.stage-editor.m031-compact .m035-entry-preview-wrap{
+ display:flex;justify-content:center;align-items:center;
+ padding:15px;min-height:72px;background:#eef2ef;border-radius:8px
+}
+.stage-editor.m031-compact .m035-entry-preview{
+ display:inline-flex;align-items:center;justify-content:center;
+ box-sizing:border-box;max-width:100%;min-width:145px;min-height:48px;
+ padding:10px 20px;border-style:solid;
+ font:bold 17px/1.25 system-ui,sans-serif;text-align:center;
+ overflow-wrap:anywhere;box-shadow:0 3px 12px #1e392f26
+}
+.stage-editor.m031-compact .m035-entry-apply{min-height:44px;white-space:normal}
+@media(max-width:600px){
+ .stage-editor.m031-compact .m035-entry-fields{padding:9px 10px}
+ .stage-editor.m031-compact .m035-entry-colors{grid-template-columns:1fr 1fr}
+}
 `;

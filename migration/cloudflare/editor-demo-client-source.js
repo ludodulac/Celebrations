@@ -2585,6 +2585,102 @@ function attachPagePublicationControls(list,group){
   row.insertBefore(badge,opts);
  }
 }
+// M035: one optional welcome CTA, editable in the EXISTING page settings
+// gear. Config is a display preference, never a membership/publication rule.
+function m035EntrySettings(homePage){
+ const values={enabled:true,label:'Bienvenue',background:'#28483D',
+  color:'#FFFFFF',borderColor:'#F3E5C9',borderWidth:2,radius:16,
+  ...(homePage.homeEntryButton||{})};
+ const controls=n('details','m035-entry-settings');
+ const summary=n('summary','','Bouton sur l’image d’accueil');
+ summary.title='Modifier le texte, le fond, le contour et la forme du bouton';
+ controls.append(summary);
+ const body=n('div','m035-entry-fields');
+ body.append(n('p','hint','Le bouton « Bienvenue » s’affiche devant l’image et ouvre la page suivante, comme un clic sur l’image. Le bloc de texte original reste enregistré dans l’éditeur.'));
+ const preview=n('span','m035-entry-preview',values.label);
+ const paint=()=>{
+  preview.textContent=values.label||'Bienvenue';
+  preview.style.color=values.color;preview.style.backgroundColor=values.background;
+  preview.style.borderColor=values.borderColor;
+  preview.style.borderWidth=values.borderWidth+'px';
+  preview.style.borderRadius=values.radius+'px';
+  preview.hidden=!values.enabled;
+ };
+ const modify=()=>{homePage.homeEntryButton={...values};mark();paint()};
+ const toggle=n('label','m035-entry-check');
+ const checkbox=n('input');checkbox.type='checkbox';checkbox.checked=values.enabled;
+ checkbox.setAttribute('aria-label','Afficher le bouton Bienvenue sur l’image d’accueil');
+ checkbox.onchange=()=>{values.enabled=checkbox.checked;modify()};
+ toggle.append(checkbox,n('span','','Afficher le bouton sur l’image'));body.append(toggle);
+ const label=n('label','m035-entry-field','Texte du bouton'),text=n('input');
+ text.type='text';text.maxLength=64;text.value=values.label; text.placeholder='Bienvenue';
+ text.setAttribute('aria-label','Texte du bouton d’accueil');
+ text.oninput=()=>{values.label=text.value;modify()};
+ label.append(text);body.append(label);
+ const colors=n('div','m035-entry-colors');
+ for(const [key,title]of [['background','Couleur du bouton'],
+  ['color','Couleur du texte'],['borderColor','Couleur du contour']]){
+  const field=n('label','m035-entry-field',title),picker=n('input');
+  picker.type='color';picker.value=values[key];
+  picker.setAttribute('aria-label',title);
+  picker.oninput=()=>{values[key]=picker.value.toUpperCase();modify()};
+  field.append(picker);colors.append(field);
+ }
+ body.append(colors);
+ const shapes=n('div','m035-entry-colors');
+ const border=n('label','m035-entry-field','Épaisseur du contour'),width=n('select');
+ width.setAttribute('aria-label','Épaisseur du contour du bouton');
+ for(let i=0;i<=5;i++){const opt=n('option','',i+' px');opt.value=String(i);width.append(opt)}
+ width.value=String(values.borderWidth);
+ width.onchange=()=>{values.borderWidth=Number(width.value);modify()};
+ border.append(width);shapes.append(border);
+ const rounding=n('label','m035-entry-field','Forme des angles'),radius=n('select');
+ radius.setAttribute('aria-label','Arrondi du bouton');
+ for(const [size,text]of [[0,'Carré'],[8,'Léger'],[16,'Arrondi'],[28,'Très arrondi']]){
+  const opt=n('option','',text);opt.value=String(size);radius.append(opt)
+ }
+ radius.value=String(values.radius);
+ radius.onchange=()=>{values.radius=Number(radius.value);modify()};
+ rounding.append(radius);shapes.append(rounding);body.append(shapes);
+ const sample=n('div','m035-entry-preview-wrap');sample.append(preview);body.append(sample);paint();
+ const apply=b('Appliquer le bouton sur le site',async()=>{
+  const label=String(values.label||'').trim();
+  if(!label||label.length>64||/[<>\\u0000-\\u001f]/.test(label)){
+   siteNotice('Écrivez un texte de 1 à 64 caractères pour le bouton.');return;
+  }
+  if(serverSaving){siteNotice('Un enregistrement est en cours.');return}
+  const btn=apply;btn.disabled=true;
+  try{
+   if(dirty)save();
+   await serverSave();
+   if(db._serverPending||serverRevision===null){
+    siteNotice('Le brouillon du bouton n’a pas encore été confirmé par le serveur.');return;
+   }
+   const response=await fetch('/api/editor-publication',{
+    method:'POST',cache:'no-store',headers:{'content-type':'application/json'},
+    body:JSON.stringify({kind:'home-entry-button',celebration:SERVER_ID,
+     pageId:homePage.id,expectedRevision:serverRevision,
+     button:{...values,label}})
+   });
+   const result=await response.json().catch(()=>({}));
+   if(!response.ok){
+    if(response.status===409)serverRevision=null;
+    siteNotice(result.error||'Impossible de publier ce bouton. Aucun autre contenu n’a été publié.');
+    return;
+   }
+   if(!Number.isSafeInteger(result.revision)||result.pageId!==homePage.id||
+      result.button?.label!==label)
+    throw Error('Le serveur n’a pas confirmé les réglages du bouton.');
+   serverRevision=result.revision;db._serverRevision=serverRevision;
+   homePage.homeEntryButton={...values,label};db._serverPending=false;
+   save();render();status.textContent='✓ Bouton d’accueil mis à jour sur le site public.';
+  }catch(error){
+   siteNotice('Le bouton reste en brouillon : '+(error.message||error));
+  }finally{if(btn.isConnected)btn.disabled=false}
+ },'sm primary m035-entry-apply');
+ body.append(apply);
+ controls.append(body);return controls;
+}
 function pageWorkspace(group,mount=w){
  if(!privateEdit&&IS_STAGE){ensureMemberPanel();if(adminMembersEnabled)privatePageButtons(group,mount);}
  const listed=editorPageModel.groupPages(db.pages,group);
@@ -2645,6 +2741,8 @@ function pageWorkspace(group,mount=w){
   const row=n('div','editor-language-row m020-settings');
   row.append(n('strong','','Réglages de la page'));
   row.append(publicationActions('page',canonicalPage()));
+  if(p.id==='neutral-accueil-general'&&editingLanguageId==='fr')
+   row.append(m035EntrySettings(canonicalPage()));
   if(adminMembersEnabled)row.append(accessControls('page',canonicalPage()));
   if(adminLanguagesVisible){
    const label=n('label','editor-language-choice','Langue'),picker=n('select');picker.setAttribute('aria-label','Langue');

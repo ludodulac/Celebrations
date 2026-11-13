@@ -1,3 +1,4 @@
+import {validHomeEntryButton,normalizeHomeEntryButton} from './app/domain/editor-home-entry-button.mjs';
 // Separate published website from the admin draft. Do not modify original
 // MEDIA_BUCKET or historic URLs. Both snapshots live in the existing editor R2.
 import {legacyEditorView,legacyRecord,managedPage,managedPageId,managedCelebration} from './app/security/private-editor-boundary.mjs';
@@ -386,7 +387,7 @@ export async function handleEditorPublication(request,env){
  const denied=await protectedWrite(request,env);if(denied)return denied;
  let body;try{body=await request.json()}catch{return err('JSON invalide',400)}
  if(!body||!celebrationIdOk(body.celebration)||!Number.isSafeInteger(body.expectedRevision))return err('Commande invalide',400);
- if(!['page','page-menu-label','celebration','media','translation','language-registry'].includes(body.kind))return err('Type invalide',400);
+ if(!['page','page-menu-label','home-entry-button','celebration','media','translation','language-registry'].includes(body.kind))return err('Type invalide',400);
  if(body.kind==='translation'&&(!pageIdOk(body.pageId)||typeof body.languageId!=='string'||
     !/^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/.test(body.languageId)||
     !['published','draft'].includes(body.visibility)))return err('Traduction invalide',400);
@@ -395,6 +396,8 @@ export async function handleEditorPublication(request,env){
     typeof body.menuLabel!=='string'||!body.menuLabel.trim()||body.menuLabel.trim().length>95||
     /[\\\u0000-\u001f\u007f]/.test(body.menuLabel)))
   return err('Nom du menu invalide',400);
+ if(body.kind==='home-entry-button'&&(!pageIdOk(body.pageId)||!validHomeEntryButton(body.button)))
+  return err('Bouton d’accueil invalide',400);
  if(body.kind==='celebration'&&!validVisibility(body.visibility))return err('Statut invalide',400);
  if(body.kind==='media'&&(typeof body.mediaId!=='string'||body.mediaId.length>720||typeof body.general!=='boolean'))return err('Média invalide',400);
  const current=await readEditorState(env.EDITOR_BUCKET);
@@ -403,7 +406,19 @@ export async function handleEditorPublication(request,env){
     body.kind==='celebration'&&managedCelebration(current.state,body.celebration))
   return err('Commande privée : session D1 et service dédiés requis',403);
  const state=copy(current.state),pub=state.published||initialPublication(state);
- if(body.kind==='page-menu-label'){
+ if(body.kind==='home-entry-button'){
+  // Update ONLY a known public home page style. Never publish any draft body,
+  // change its rights or expose hidden content. Access requires official PIN.
+  const homeId=state.shared?.homeId||'neutral-accueil-general';
+  if(body.pageId!==homeId)return err('Cette commande concerne uniquement la page d’accueil',403);
+  const original=state.shared?.pages?.find(p=>p.id===homeId&&p.group==='page');
+  if(!original||original.privateManaged===true||original.accessPolicy&&
+     original.accessPolicy.mode!=='PUBLIC')return err('Page d’accueil privée ou introuvable',403);
+  const published=pub.shared?.pages?.find(p=>p.id===homeId&&p.group==='page');
+  const normalized=normalizeHomeEntryButton(body.button);
+  original.homeEntryButton=normalized;
+  if(published)published.homeEntryButton=copy(normalized);
+ }else if(body.kind==='page-menu-label'){
   const isShared=body.pageId.startsWith('neutral-');
   const draftPages=isShared?state.shared.pages:state.drafts[body.celebration]?.pages;
   const original=draftPages?.find(p=>p.id===body.pageId);
@@ -496,6 +511,7 @@ export async function handleEditorPublication(request,env){
  if(!await writeEditorState(env.EDITOR_BUCKET,current,state))return err('Une sauvegarde simultanée a eu lieu',409);
  return json({ok:true,revision:state.version,visibility:body.visibility||null,
   ...(body.kind==='page-menu-label'?{pageId:body.pageId,menuLabel:body.menuLabel.trim()}:{}),
+  ...(body.kind==='home-entry-button'?{pageId:body.pageId,button:normalizeHomeEntryButton(body.button)}:{}),
   general:body.general??null,updatedAt:state.updatedAt});
 }
 
