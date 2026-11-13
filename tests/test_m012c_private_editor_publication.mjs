@@ -214,7 +214,7 @@ test('M030 M06: public English variant stays inside one celebration, draft-only,
   assert.equal(f.state.celebrationMetadata['41'].versions.length,1);
   assert.ok(f.state.localization.pages['mercredi-41']?.en);
   assert.equal(f.db.prepare('SELECT count(*) AS n FROM celebrations_celebrations').get().n,beforeD1);
-  assert.deepEqual(f.state.published.drafts['41']?.pages||[],baseline.published?.drafts?.['41']?.pages||[],
+  assert.deepEqual(f.state.published?.drafts?.['41']?.pages||[],baseline.published?.drafts?.['41']?.pages||[],
    'Copy cannot publish extra English pages or silently widen access');
   const latest=structuredClone(f.state),writes=f.writes;
   const duplicate=await f.send({action:'duplicate-version',name:'Different English label',
@@ -240,7 +240,7 @@ test('M030 M06: real category + Spanish creates private draft only, never an enr
   assert.equal(created.accessPolicy.mode,'SELECTED_TYPES');
   assert.deepEqual(created.accessPolicy.typeIds,[TYPE]);
   assert.ok(created.pages.every(page=>page.publicationStatus==='draft'));
-  assert.equal(f.state.published.privateSpaceReleases[created.id],undefined);
+  assert.equal(f.state.published?.privateSpaceReleases?.[created.id],undefined);
   assert.equal(f.db.prepare(
    'SELECT count(*) AS n FROM celebrations_directory_private_space_enrollments').get().n,before);
   assert.equal(f.db.prepare('SELECT count(*) AS n FROM celebrations_celebrations').get().n,2);
