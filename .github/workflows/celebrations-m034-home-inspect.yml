@@ -1,0 +1,35 @@
+name: "M034 — diagnostic lecture publique accueil Bienvenue"
+on:
+  push:
+    branches: [feat/m034-home-centered-menu-label-titles-20261113]
+permissions: {contents: read}
+jobs:
+  inspect:
+    if: ${{ contains(github.event.head_commit.message, '[M034_INSPECT]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - name: Inspect ONLY the already published public home; no credentials or writes
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const root='https://ronde-des-archanges-universelle.eu';
+          const r=await fetch(root+'/api/editor-publication?celebration=101');
+          assert.equal(r.status,200);
+          const data=await r.json();
+          const shared=data.shared;
+          const home=shared.pages.find(p=>p.id===shared.homeId);
+          console.log('M034_PUBLIC_HOME='+JSON.stringify({
+           homeId:shared.homeId,name:home?.name,
+           blocks:(home?.blocks||[]).map(b=>({
+            kind:b.kind,id:b.id,text:typeof b.text==='string'?b.text.slice(0,90):'',
+            columns:(b.columns||[]).map(c=>(c||[]).map(x=>({kind:x.kind,id:x.id,
+             text:typeof x.text==='string'?x.text.slice(0,65):''})))
+           })),
+           publishedNames:shared.pages.map(p=>p.name)
+          }));
+          NODE
