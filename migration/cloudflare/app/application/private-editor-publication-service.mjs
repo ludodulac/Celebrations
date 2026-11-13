@@ -4,7 +4,7 @@ import {readEditorState,writeEditorState,initialPublication} from '../../editor-
 import {expectedRevisionMatches,EDITOR_SNAPSHOT_LIMIT} from '../ports/editor-snapshot-contract.mjs';
 import {ACCESS_MODES,SPACE_VISIBILITIES,isMemberTypeId} from '../domain/member-access.mjs';
 import {createCelebrationSpace,getCelebrationSpaces,duplicateCelebration} from '../domain/celebration-spaces.mjs';
-import {celebrationCycle} from '../domain/celebration-cycle-registry.mjs';
+import {celebrationCycle,validateNewCelebrationVersion,celebrationVersionKey} from '../domain/celebration-cycle-registry.mjs';
 import {createPreparedLanguageRegistry as createLanguageRegistry,setPageTranslation,setCelebrationSpaceTranslation} from '../domain/editor-localization.mjs';
 import {managedPage} from '../security/private-editor-boundary.mjs';
 import {acknowledgePrivateRelease,privateReleaseReady,validCelebrationId} from '../persistence/private-release-fence.mjs';
@@ -430,6 +430,94 @@ async function createCanonicalCelebration(env,current,source,b,actor){
  }
  return reply({...readResult(state,id),targetCelebration:id,existing:!!records.results.length});
 }
+// The canonical celebration ID never changes on duplication. Only a draft
+// (audience, language) version is added, atomically in the existing R2 snapshot.
+async function duplicateCanonicalVersion(env,current,cid,b,known,registry){
+ const state=copy(current.state),record=state.drafts?.[cid];
+ const roots=record?.pages?.filter(p=>p.group==='celebration'&&!managedPage(p))||[];
+ if(!roots.length)missing();
+ const base=await q(env.DB,
+  'SELECT archangel,year FROM celebrations_celebrations WHERE id=?',Number(cid)).first();
+ if(!base)missing();
+ state.celebrationMetadata??={};
+ const meta=state.celebrationMetadata[cid]||{};
+ const celebrationTitle=meta.title||base.archangel+' '+base.year;
+ const registered=Array.isArray(meta.versions)?meta.versions:[];
+ const existing=[{name:celebrationTitle,key:'PUBLIC|fr'},...registered];
+ // Pre-existing translations and private pages reserve their combinations,
+ // even if they were created before named versions existed.
+ for(const page of roots)
+  for(const lang of Object.keys(state.localization?.pages?.[page.id]||{}))
+   existing.push({name:'Traduction existante '+lang,key:'PUBLIC|'+lang});
+ for(const space of record.spaces||[]){
+  if(space.visibility!==SPACE_VISIBILITIES.PRIVATE)continue;
+  const mode=space.accessPolicy?.mode;
+  if(![ACCESS_MODES.SELECTED_TYPES,ACCESS_MODES.ALL_PRIVATE_TYPES].includes(mode))continue;
+  const categoryId=mode===ACCESS_MODES.SELECTED_TYPES&&space.accessPolicy?.typeIds?.length===1?
+   space.accessPolicy.typeIds[0]:'';
+  if(mode===ACCESS_MODES.SELECTED_TYPES&&!categoryId)continue;
+  const audience={scope:mode,categoryId};
+  const langs=new Set();
+  for(const page of space.pages||[]){
+   if(page.blocks?.length)langs.add('fr');
+   for(const lang of Object.keys(page.translations||{}))langs.add(lang);
+  }
+  for(const lang of langs)existing.push({
+   name:'Version ancienne '+space.id+' '+lang,
+   key:celebrationVersionKey(audience,lang)});
+ }
+ let version;
+ try{version=validateNewCelebrationVersion({
+  name:b.name,languageId:b.languageId,
+  audience:{scope:b.scope,categoryId:b.categoryId||''}
+ },{celebrationTitle,existing,categories:[...known].map(id=>({id})),
+  languages:registry.languages});}
+ catch(e){fail(409,String(e.message||'Version déjà existante'))}
+ if(version.audience.scope==='PUBLIC'){
+  if(version.languageId==='fr')conflict();
+  state.localization??={registry:copy(registry),pages:{}};
+  state.localization.pages??={};
+  for(const page of roots){
+   const localized=setPageTranslation({
+    ...page,translations:state.localization.pages[page.id]||{}
+   },registry,version.languageId,{name:page.name,blocks:copy(page.blocks||[])});
+   state.localization.pages[page.id]=localized.translations;
+  }
+ }else{
+  record.spaces??=[];
+  const policyTarget=version.audience.scope==='ALL_PRIVATE_TYPES'?
+   {mode:ACCESS_MODES.ALL_PRIVATE_TYPES}:
+   {mode:ACCESS_MODES.SELECTED_TYPES,typeIds:[version.audience.categoryId]};
+  let target=record.spaces.find(space=>space.visibility===SPACE_VISIBILITIES.PRIVATE&&
+   JSON.stringify(space.accessPolicy)===JSON.stringify(policyTarget));
+  if(!target){
+   target=spaceDraft({name:version.name,visibility:SPACE_VISIBILITIES.PRIVATE,
+    accessScope:'CELEBRATION',accessPolicy:policyTarget},
+    null,'space:'+crypto.randomUUID(),cid,[],known,registry);
+   record.spaces.push(target);
+  }
+  for(const source of roots){
+   let page=target.pages.find(p=>p.name===source.name);
+   if(!page){
+    page=pageDraft({name:source.name,blocks:[],
+     accessPolicy:{mode:ACCESS_MODES.PUBLIC}},null,
+     'page:'+crypto.randomUUID(),cid,target.id,known,registry);
+    target.pages.push(page);
+   }
+   if(version.languageId==='fr')page.blocks=copy(source.blocks||[]);
+   else page.translations=setPageTranslation(page,registry,version.languageId,
+    {name:source.name,blocks:copy(source.blocks||[])}).translations;
+   page.visibility='draft';page.publicationStatus='draft';
+  }
+ }
+ state.celebrationMetadata[cid]={...meta,versions:[...registered,version]};
+ // Not a publish action. All live release ledgers and member entitlements
+ // remain untouched. CAS resolves simultaneous attempts at the same key.
+ assertUnique(state);
+ if(!await writeEditorState(env.EDITOR_BUCKET,current,state))conflict();
+ return reply({...readResult(state,cid),
+  versions:state.celebrationMetadata[cid].versions,createdVersion:version});
+}
 // Route owner A must gate the isolated host and feature flag. This service
 // independently checks the real D1 admin session and same-origin mutations.
 export async function handlePrivateEditorCommand(request,env){
@@ -452,10 +540,10 @@ export async function handlePrivateEditorCommand(request,env){
   if((request.headers.get('content-type')??'').split(';')[0]!=='application/json')return reply({ok:false,error:'Format invalide'},415);
   const raw=await request.text();if(raw.length>EDITOR_SNAPSHOT_LIMIT)fail(413,'Commande trop volumineuse');
   let b;try{b=JSON.parse(raw)}catch{invalid()}
-  if(!obj(b)||!['save','publish','unpublish','delete','celebration-visibility','celebration-access','duplicate','reconcile','page-access','create-celebration','change-version'].includes(b.action))invalid();
+  if(!obj(b)||!['save','publish','unpublish','delete','celebration-visibility','celebration-access','duplicate','reconcile','page-access','create-celebration','duplicate-version','change-version'].includes(b.action))invalid();
   safeJSON(b);
   const fields={save:['spaces','pages'],publish:['kind','id','spaceId'],unpublish:['kind','id','spaceId','visibility'],
-   delete:['kind','id','spaceId'],'celebration-visibility':['visibility'],'celebration-access':['accessPolicy'],duplicate:['targetCelebration'],reconcile:[],'page-access':['id','accessPolicy'],'create-celebration':['archangel','cycleYear'],'change-version':['spaceId','pageId','languageId','targetLanguageId','typeIds']};
+   delete:['kind','id','spaceId'],'celebration-visibility':['visibility'],'celebration-access':['accessPolicy'],duplicate:['targetCelebration'],reconcile:[],'page-access':['id','accessPolicy'],'create-celebration':['archangel','cycleYear'],'duplicate-version':['name','scope','categoryId','languageId'],'change-version':['spaceId','pageId','languageId','targetLanguageId','typeIds']};
   keysOnly(b,['action','celebration','expectedRevision',...fields[b.action]]);
   if(!expectedRevisionMatches(b.expectedRevision,current.state.version))conflict();
   const cid=b.celebration,known=await catalogue(env.DB,cid);
@@ -469,6 +557,7 @@ export async function handlePrivateEditorCommand(request,env){
   const state=copy(current.state);state.published??=initialPublication(state);manifests(state.published);
   const registry=createLanguageRegistry(state.localization?.registry??state.published.languageRegistry);
   if(b.action==='create-celebration')return await createCanonicalCelebration(env,current,cid,b,actor);
+  if(b.action==='duplicate-version')return await duplicateCanonicalVersion(env,current,cid,b,known,registry);
   const idMap=Object.create(null);let changed=false,duplicate;
   if(b.action==='reconcile'){
    // Only the current trusted canonical snapshot can be acknowledged.
