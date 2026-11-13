@@ -12,7 +12,7 @@ const IMAGE='/media/m033-home-existing-photo.jpg';
 const publicShared={
  homeId:HOME,pages:[
   {id:HOME,name:'Accueil',group:'page',visibility:'published',blocks:[
-   {id:'welcome',kind:'heading',text:'Bienvenue',align:'center'},
+   {id:'welcome',kind:'text',text:'Bienvenue',align:'center'},
    {id:'cover',kind:'image',src:IMAGE,text:'Illustration actuelle',widthPct:70},
    {id:'other',kind:'text',text:'Texte existant conservé'}]},
   {id:NEXT,name:'Notre démarche',group:'page',visibility:'published',
@@ -105,8 +105,8 @@ try{
   assert.ok(box.height<h,'Image is no longer forced full-screen');
   assert.equal(await page.locator('#site-paper').evaluate(el=>getComputedStyle(el).borderTopWidth),'0px');
   assert.equal(await cover.evaluate(el=>getComputedStyle(el).objectFit),'cover');
-  const title=page.locator('.m034-home-flow .trial-heading').first();
-  assert.ok((await title.innerText()).includes('Bienvenue'),'Welcome is a real heading');
+  const title=page.locator('.m034-home-flow .trial-heading, .m034-home-flow .trial-paragraph').filter({hasText:'Bienvenue'}).first();
+  assert.ok((await title.innerText()).includes('Bienvenue'),'Welcome is visible as its original editable text block');
   const titleBox=await title.boundingBox();
   assert.ok(titleBox&&titleBox.y<box.y,'Existing Welcome appears ABOVE the photograph');
   assert.ok(await title.isVisible());
