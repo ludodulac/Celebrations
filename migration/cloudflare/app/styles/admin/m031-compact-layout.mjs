@@ -281,4 +281,29 @@ export const M031_COMPACT_LAYOUT_CSS = `
 .stage-editor .m036-full-bleed-field input[type=checkbox]{
  flex:0 0 21px;width:21px;min-width:21px;height:21px;cursor:pointer
 }
+
+/* M037 — Readable locations below clean, always clickable media previews. */
+.stage-editor.m031-compact .file-usage-links{
+ display:flex;flex-direction:column;gap:5px;margin:10px 0 3px
+}
+.stage-editor.m031-compact .file-usage-links .file-location-link{
+ display:block;padding:4px 0;font:600 13px/1.4 system-ui,sans-serif;
+ text-decoration:none;overflow-wrap:anywhere
+}
+.stage-editor.m031-compact .file-usage-links .file-location-link:hover,
+.stage-editor.m031-compact .file-usage-links .file-location-link:focus-visible{
+ text-decoration:underline;text-underline-offset:3px
+}
+.stage-editor.m031-compact .file-location-published{color:#187248}
+.stage-editor.m031-compact .file-location-hidden{color:#707982}
+.stage-editor.m031-compact .file-location-draft{color:#a35a05}
+.stage-editor.m031-compact .file-location-nowhere{
+ display:block;color:#56616a;font:600 13px/1.4 system-ui,sans-serif
+}
+.stage-editor.m031-compact .global-media-card .media-picture-link{
+ display:block;position:relative
+}
+.stage-editor.m031-compact .global-media-card .media-picture-link:focus-visible{
+ outline:3px solid #187248;outline-offset:3px
+}
 `;
