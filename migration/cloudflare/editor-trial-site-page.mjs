@@ -46,6 +46,23 @@ export const PUBLIC_LANGUAGE_STYLE=`
 img.public-language-flag{object-fit:contain}
 @media(max-width:600px){.site-menu-bar{gap:6px;flex-wrap:wrap}.public-language-selector{font-size:.86rem}.public-language-selector>summary{padding:8px}.public-language-options{max-width:90vw}}
 `;
+// M031/4 — Full-length celebration day labels on a SINGLE desktop row;
+// smaller screens retain the existing responsive grid.
+export const M031_VISITOR_NAV_STYLE=`
+@media(min-width:1051px){
+ nav.steps#stage-navigation{
+  display:grid;grid-template-columns:none;grid-auto-flow:column;
+  grid-auto-columns:minmax(max-content,1fr);
+  gap:6px;max-width:none;width:100%;overflow-x:auto;overflow-y:hidden;
+  scrollbar-width:thin;padding:14px clamp(10px,1.6vw,28px)
+ }
+ nav.steps#stage-navigation[hidden]{display:none!important}
+ nav.steps#stage-navigation .stage-tab{
+  white-space:nowrap!important;overflow-wrap:normal!important;word-break:normal!important;
+  padding:10px 8px;min-width:max-content;font-size:clamp(11px,.95vw,13px);line-height:1.25
+ }
+}
+`;
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const safeJson=x=>JSON.stringify(x).replace(/</g,'\\u003c').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029');
 export async function handleTrialSite(request,env){
@@ -78,7 +95,7 @@ export async function handleTrialSite(request,env){
  const isOfficial=['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu'].includes(url.hostname);
  const siteClient=TRIAL_SITE_CLIENT;
  const html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'+(isOfficial?'<title>Célébrations des Archanges</title>':'<meta name="robots" content="noindex,nofollow"><title>Site d’essai — Célébrations</title>')+
- '<style nonce="'+nonce+'">'+TRIAL_SITE_STYLE+PUBLIC_LANGUAGE_STYLE+'</style></head><body data-member-site="'+(memberSite?'1':'0')+'" data-member-login-visible="'+(memberSite&&publishedState?.adminMode?.memberAccessUiEnabled===true?'1':'0')+'">'+identityHtml+
+ '<style nonce="'+nonce+'">'+TRIAL_SITE_STYLE+PUBLIC_LANGUAGE_STYLE+M031_VISITOR_NAV_STYLE+'</style></head><body data-member-site="'+(memberSite?'1':'0')+'" data-member-login-visible="'+(memberSite&&publishedState?.adminMode?.memberAccessUiEnabled===true?'1':'0')+'">'+identityHtml+
 
 
  '<div class="site-menu-bar'+(navigation.title?' has-nav-title':'')+'"><div class="site-menu-group"><button type="button" class="menu-toggle" id="menu-toggle" aria-expanded="false" aria-haspopup="true" aria-controls="general-navigation">☰ Menu</button>'+
