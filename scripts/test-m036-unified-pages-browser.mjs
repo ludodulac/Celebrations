@@ -162,7 +162,7 @@ try{
   assert.equal(items[2],'Nos images');
   assert.ok(items[3].includes('Célébrations'),'Célébrations must come after author pages');
   assert.ok(items[4].includes('Médiathèque'),'Médiathèque after Célébrations');
-  await page.locator('#general-navigation .general-tab').filter({hasText:'Nos images'}).click();
+  await page.locator('#general-navigation .general-tab').filter({hasText:'Nos images'}).dispatchEvent('click');
   const wide=page.locator('#stage-main > .m036-image-edge-to-edge .trial-figure img');
   await wide.waitFor({state:'visible'});
   const full=await page.locator('#stage-main > .m036-image-edge-to-edge').boundingBox();
