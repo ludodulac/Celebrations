@@ -59,7 +59,8 @@ test('all future slots are hidden; only explicitly published Michaël is visible
  assert.equal(data.slots.filter(x=>!x.provisioned).length,55);
  assert.equal(data.slots.at(-1).visibility,'hidden');
  assert.equal(visibleSlotCatalogue(rows,{'101':'hidden'}).slots[0].visibility,'hidden');
- assert.equal(visibleSlotCatalogue([{...rows[0],status:'draft'}],{'101':'published'}).slots[0].visibility,'hidden');
+ assert.equal(visibleSlotCatalogue([{...rows[0],status:'draft'}],{'101':'published'}).slots[0].visibility,'published',
+  'Publishing in R2 is authoritative regardless of legacy D1 status');
 });
 test('public French is the only default and cannot duplicate itself under another name',()=>{
  assert.throws(()=>validateNewCelebrationVersion(input('Copie de Michaël','PUBLIC','fr'),opts),
