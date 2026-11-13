@@ -83,6 +83,18 @@ test('public English and Spanish are separate from public French and always draf
  assert.throws(()=>validateNewCelebrationVersion(input('Another public English','PUBLIC','en'),{
   ...opts,existing:[publicFR,en]}),/version existe déjà/);
 });
+test('without any real category, no additional version may be created, even public English',()=>{
+ const noCategory={...opts,categories:[]};
+ for(const [name,scope,language,category] of [
+  ['Michaël English','PUBLIC','en',''],
+  ['Michaël Spanish','PUBLIC','es',''],
+  ['Tous les membres','ALL_PRIVATE_TYPES','fr',''],
+  ['Porteurs','SELECTED_TYPES','fr','porteurs']
+ ])assert.throws(()=>validateNewCelebrationVersion(input(name,scope,language,category),noCategory),
+  /Créez d’abord une catégorie/);
+ assert.throws(()=>validateNewCelebrationVersion(input('Michaël English','PUBLIC','en'),{
+  ...opts,categories:[{id:'obsolete',name:'Ancienne',disabled:true}]}),/Créez d’abord une catégorie/);
+});
 test('private version requires real active categories; never invent one',()=>{
  assert.throws(()=>validateNewCelebrationVersion(input('Private French','SELECTED_TYPES','fr','porteurs'),{
   ...opts,categories:[]}),/Créez d’abord une catégorie/);
