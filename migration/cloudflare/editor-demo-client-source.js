@@ -2945,7 +2945,7 @@ function media(){
   // Existing R2 paths stay exactly the same. Only admin-uploaded objects
   // can be released independently of a celebration.
   const standaloneUpload=record.source==='uploaded'&&
-   /^\\/media\\/new\\/[a-f0-9-]+\\.(?:jpg|png|webp|pdf|mp3|wav|txt|docx)$/i.test(record.src||'');
+   /^\/media\/new\/[a-f0-9-]+\.(?:jpg|png|webp|pdf|mp3|wav|txt|docx)$/i.test(record.src||'');
   if(standaloneUpload){
    const open=n('a','btn sm media-open-direct','👁 Voir');
    open.href=record.src;open.target='_blank';open.rel='noopener noreferrer';
