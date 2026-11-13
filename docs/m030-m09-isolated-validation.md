@@ -18,3 +18,7 @@ le contrôle complet se fera ensuite sur la copie locale et au passage officiel.
 Avant et après, vérifier par API Cloudflare que **le Worker officiel n'a pas changé**.
 En cas d'échec de tests après déploiement, remettre l'ancienne version du Worker
 de préproduction uniquement.
+
+## Test M016 — validation automatique du parcours et du Worker de préproduction
+
+Le workflow a été corrigé pour respecter le format YAML GitHub Actions. Toute modification reste confinée au Worker M016 ; les données officielles ne sont jamais touchées.
