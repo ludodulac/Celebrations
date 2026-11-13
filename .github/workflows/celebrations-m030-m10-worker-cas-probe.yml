@@ -48,7 +48,8 @@ jobs:
       - name: Deploy ONLY temporary M016-bound Worker; no routes or official binding
         run: |
           set -euo pipefail
-          npx --yes wrangler@4 deploy --config /tmp/m030-cas-wrangler.toml
+          npx --yes wrangler@4 deploy --config /tmp/m030-cas-wrangler.toml >/tmp/m030-cas-deploy-log.txt 2>&1
+          echo M030_TEMPORARY_WORKER_M016_DEPLOYED_WITHOUT_SECRET_IN_LOGS
       - name: Prove R2 compare-and-swap rejects stale digest and then commits valid revision
         run: |
           node --input-type=module <<'NODE'
@@ -62,6 +63,15 @@ jobs:
            method:'POST',headers:{'x-m030-release-token':process.env.SECRET,'content-type':'application/json'},
            body:JSON.stringify({expectedSha256,nextPayload,nextSha256:h(nextPayload)}),
            signal:AbortSignal.timeout(30000)});
+          // Worker subdomain propagation is asynchronous. Probe a deliberately
+          // unauthorized POST until it reaches the deployed worker (401).
+          let ready=false;
+          for(let i=0;i<35;i++){
+           const probe=await fetch(url,{method:'POST',signal:AbortSignal.timeout(15000)});
+           if(probe.status===401){ready=true;break}
+           await new Promise(r=>setTimeout(r,600));
+          }
+          assert.equal(ready,true,'Temporary M016 Worker not accessible');
           const rejected=await call('0'.repeat(64),next);
           assert.equal(rejected.status,409,'Wrong original SHA must be rejected');
           const success=await call(h(orig),next);
