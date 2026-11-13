@@ -3323,6 +3323,8 @@ function userGuide(){
  display();
 }
 
+// Preserve an unsaved menu label if an unrelated editor hydration rerenders Settings.
+let navLabelDraft=null;
 function settings(){
  // A single persisted switch; changing it never writes access policies.
  const mode=n('section','settings-actions m021b-admin-mode');
@@ -3393,6 +3395,57 @@ function settings(){
  };
  languagesBox.append(summary,languageHelp,languageLabel,languageStatus,languageTools);
  w.append(languagesBox);
+ // Desktop-only label in the existing visitor menu bar. It does not create
+ // another header and never changes the title entered in page content.
+ const navPanel=n('section','settings-actions m027-navigation-settings');
+ navPanel.append(n('h2','','Titre dans la barre du menu'));
+ const label=n('label','m027-nav-field','Titre affiché sur ordinateur');
+ const title=n('input');title.type='text';title.maxLength=110;
+ title.setAttribute('aria-label','Titre dans la barre du menu');title.placeholder='Ronde des Archanges Universelle';
+ label.append(title);
+ const alignLabel=n('label','m027-nav-field','Position du titre');
+ const select=n('select');select.setAttribute('aria-label','Position du titre');
+ for(const [value,text]of [['left','À gauche'],['center','Au centre'],['right','À droite']]){
+  const option=n('option','',text);option.value=value;select.append(option);
+ }
+ alignLabel.append(select);
+ const keepNavDraft=()=>{navLabelDraft={title:title.value,position:select.value}};
+ title.oninput=keepNavDraft;
+ select.onchange=keepNavDraft;
+ const saveTitle=b('Enregistrer le titre',async()=>{
+  const requested={title:title.value.trim(),position:select.value};
+  saveTitle.disabled=true;navStatus.textContent='Enregistrement…';
+  try{
+   const current=await fetch('/api/site-identity',{credentials:'same-origin',cache:'no-store'});
+   const preferences=await current.json();
+   if(!current.ok||!preferences.ok)throw Error(preferences.error||'Paramètres indisponibles');
+   const response=await fetch('/api/site-identity',{
+    method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},
+    body:JSON.stringify({expectedRevision:preferences.revision,
+     navigation:requested})
+   });
+   const result=await response.json().catch(()=>({}));
+   if(!response.ok||!result.ok)throw Error(result.error||'Enregistrement refusé');
+   serverRevision=result.revision;
+   navLabelDraft=null;navStatus.textContent='✓ Titre enregistré sur toutes les pages du site.';
+  }catch(error){navStatus.textContent='❌ '+(error.message||String(error))}
+  finally{saveTitle.disabled=false}
+ },'sm primary');
+ // Avoid an async GET overwriting text entered before the form is loaded.
+ // Inputs are enabled only after the persisted values have been hydrated.
+ title.disabled=true;select.disabled=true;saveTitle.disabled=true;
+ const navStatus=n('p');navStatus.setAttribute('role','status');
+ const style=n('style');style.nonce=document.querySelector('script[nonce]')?.nonce||'';
+ style.textContent='.m027-navigation-settings{display:grid;gap:12px;max-width:790px;padding:14px;border:1px solid #cad7d8;border-radius:12px}.m027-nav-field{display:grid;gap:7px;font-weight:600}.m027-nav-field input,.m027-nav-field select{width:100%;max-width:100%;min-height:44px;padding:8px;border:1px solid #b7c2c8;border-radius:9px}.m027-navigation-settings button{justify-self:start}';
+ navPanel.append(style,label,alignLabel,saveTitle,navStatus);
+ w.append(navPanel);
+ void fetch('/api/site-identity',{credentials:'same-origin',cache:'no-store'}).then(async response=>{
+  const value=await response.json();if(!response.ok||!value.ok)throw Error(value.error||'Paramètres indisponibles');
+  if(!navPanel.isConnected)return;
+  title.value=navLabelDraft?.title??value.navigation?.title??'';
+  select.value=navLabelDraft?.position??(['left','center','right'].includes(value.navigation?.position)?value.navigation.position:'center');
+  title.disabled=false;select.disabled=false;saveTitle.disabled=false;
+ }).catch(error=>{if(navPanel.isConnected)navStatus.textContent='❌ '+(error.message||String(error))});
 }
 function m018LanguagesCategories(parent=w){
   const panel=n('section','m018-language-panel');

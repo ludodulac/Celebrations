@@ -3,6 +3,7 @@ import {hasEditorAccess} from './editor-site-access.mjs';
 import {isWritableEditorHost,sameOriginEditorWrite} from './app/security/editor-route-policy.mjs';
 import {readEditorState,writeEditorState,discoverMedia} from './editor-publication-api.mjs';
 import {isPrivateMediaRecord,isPrivateMediaReference} from './app/security/public-media-boundary.mjs';
+import {navigationPreference,validNavigationPreference} from './app/domain/editor-navigation-label.mjs';
 const langs=['fr','en','es','de','pt','it','ar','zh'];
 const trim=(s,max)=>typeof s==='string'?s.trim().slice(0,max):'';
 const empty=()=>({title:'',imageSrc:'',imageAlt:'',positionX:50,positionY:50,titles:{}});
@@ -35,12 +36,24 @@ export async function handleSiteIdentity(request,env){
   const current=await readEditorState(env.EDITOR_BUCKET);
   if(request.method==='GET')return reply({ok:true,revision:current.state.version,
    identity:normalizedSiteIdentity(current.state.siteIdentity),
+   navigation:navigationPreference(current.state.navigation),
    memberAccessUiEnabled:current.state.adminMode?.memberAccessUiEnabled===true});
   const text=await request.text();
   if(text.length>2600)return reply({ok:false,error:'Requête trop longue'},413);
   const body=JSON.parse(text),raw=body?.identity;
   if(!Number.isSafeInteger(body?.expectedRevision))return reply({ok:false,error:'Requête invalide'},400);
   if(current.state.version!==body.expectedRevision)return reply({ok:false,error:'Modifications récentes : rechargez les paramètres.'},409);
+  // Desktop menu text only, independent from the site's main identity.
+  if(Object.prototype.hasOwnProperty.call(body,'navigation')){
+   if(raw!==undefined||body.memberAccessUiEnabled!==undefined||
+      !validNavigationPreference(body.navigation))
+    return reply({ok:false,error:'Titre ou position invalide'},400);
+   const state=structuredClone(current.state);
+   state.navigation=navigationPreference(body.navigation);
+   if(!await writeEditorState(env.EDITOR_BUCKET,current,state))
+    return reply({ok:false,error:'Un autre enregistrement a eu lieu'},409);
+   return reply({ok:true,revision:state.version,navigation:state.navigation});
+  }
   // M021-B: UI preference only. Never touch published content, private ACLs,
   // enrollments or sessions. Off is the default for sites not yet configured.
   if(Object.prototype.hasOwnProperty.call(body,'memberAccessUiEnabled')){
