@@ -150,7 +150,7 @@ export function discoverMedia(state){
   if(!managedPage(p))scanBlocks(p.blocks,index,p,'','published',true);
  for(const [id,draft] of Object.entries(state.published?.drafts||{})){
   const visibility=state.published?.celebrationVisibility?.[id]||
-   state.published?.plans?.find(plan=>String(plan.id)===id)?.visibility||'draft';
+   state.published?.plans?.find(plan=>String(plan.id)===id)?.visibility||'published';
   for(const p of draft?.pages||[])
    if(!managedPage(p))scanBlocks(p.blocks,index,p,id,visibility,true);
  }
