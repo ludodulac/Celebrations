@@ -49,7 +49,7 @@ export function allowedPublicLink(value,blockedIds=[]){
 }
 
 const BLOCK_FIELDS=['id','kind','text','rich','bold','italic','color','size','align',
- 'widthPct','layout','presentation','thickness','displayAsButton','atTime'];
+ 'widthPct','fullBleed','layout','presentation','thickness','displayAsButton','atTime'];
 const SECTION_STYLE_FIELDS=['border','width','color','shadow'];
 function projectBlock(block,blockedIds,depth=0){
  if(!object(block)||depth>12||block.hideOnSite===true||!publicFlags(block))return null;
