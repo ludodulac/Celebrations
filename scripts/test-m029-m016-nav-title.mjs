@@ -10,8 +10,20 @@ const ctx=await browser.newContext({viewport:{width:1280,height:850}});
 const mobileCtx=await browser.newContext({viewport:{width:390,height:850},isMobile:true,hasTouch:true});
 const page=await ctx.newPage();
 let initial=null;
-const errors=[];
+const errors=[],navRequests=[],navResponses=[];
 page.on('pageerror',e=>errors.push(e.message));
+page.on('request',request=>{
+ if(request.url().endsWith('/api/site-identity')&&request.method()==='POST'){
+  const body=request.postDataJSON();
+  navRequests.push({navigation:body.navigation,memberAccessUiEnabled:body.memberAccessUiEnabled});
+ }
+});
+page.on('response',async response=>{
+ if(response.url().endsWith('/api/site-identity')&&response.request().method()==='POST'){
+  try{const body=await response.json();navResponses.push({status:response.status(),navigation:body.navigation,revision:body.revision})}
+  catch{}
+ }
+});
 const folder='docs/m029-screens';mkdirSync(folder,{recursive:true});
 async function call(url,method='GET',data){
  const r=await ctx.request.fetch(HOST+url,{method,
@@ -41,6 +53,7 @@ try{
  await input.waitFor();
  await input.fill('Ronde des Archanges');
  await page.getByRole('combobox',{name:'Position du titre'}).selectOption('right');
+ assert.equal(await input.inputValue(),'Ronde des Archanges','Form must contain the requested title before saving');
  await page.screenshot({path:folder+'/01-parametres-titre-ordinateur.png',fullPage:true});
  await page.getByRole('button',{name:'Enregistrer le titre'}).click();
  // The editor may rerender the Settings tab after its server hydration.
@@ -56,7 +69,9 @@ try{
  }
  if(actual.navigation?.title!=='Ronde des Archanges'||actual.navigation?.position!=='right'){
   const feedback=await page.locator('.m027-navigation-settings [role="status"]').allTextContents();
-  throw Error('M029 nav title not saved: '+JSON.stringify({navigation:actual.navigation,feedback,
+  throw Error('M029 nav title not saved: '+JSON.stringify({navigation:actual.navigation,revision:actual.revision,
+   feedback,navRequests,navResponses,
+   formValue:await page.getByRole('textbox',{name:'Titre dans la barre du menu'}).inputValue(),
    url:page.url(),buttons:await page.getByRole('button',{name:'Enregistrer le titre'}).count(),
    errors}));
  }
