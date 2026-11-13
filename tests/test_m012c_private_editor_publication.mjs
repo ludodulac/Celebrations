@@ -171,21 +171,22 @@ test('M012C: conversion of existing public page revokes public snapshot and poli
   assert.equal((await f.member('mercredi-41')).status,404);
  }finally{f.close()}
 });
-test('M012C: duplicate only detached M005 draft; no new ledger, registry or individual enrollment',async()=>{
+test('M030: legacy cross-celebration duplication is refused; private releases and enrollments stay untouched',async()=>{
  const f=await fixture();try{
   const ids=await f.create();
   assert.equal((await f.publish('space',ids.sid)).status,200);
   assert.equal((await f.publish('page',ids.pid,ids.sid)).status,200);f.enroll(ids.sid);
+  const before=structuredClone(f.state),writes=f.writes;
+  // Independent new celebration copies were possible before M030. They are
+  // now forbidden, regardless of the target celebration's existence.
   const result=await f.send({action:'duplicate',targetCelebration:'42'});
-  assert.equal(result.status,200,JSON.stringify(result));
-  const clone=result.record.spaces[0],newId=clone.pages[0].id;
-  assert.notEqual(clone.id,ids.sid);assert.notEqual(newId,ids.pid);
-  assert.equal(clone.pages[0].publicationStatus,'draft');
-  assert.equal(f.state.published.privatePageReleases[newId],undefined);
-  assert.equal(f.state.published.privateSpaceReleases[clone.id],undefined);
+  assert.equal(result.status,400,JSON.stringify(result));
+  assert.equal(f.writes,writes,'Rejected command must not modify R2');
+  assert.deepEqual(f.state,before,'Existing private drafts/releases cannot change');
   assert.equal(f.db.prepare('SELECT count(*) n FROM celebrations_directory_private_space_enrollments').get().n,1);
   assert.equal(f.db.prepare('SELECT count(*) n FROM celebrations_directory_private_spaces').get().n,1);
-  assert.equal((await f.member(newId)).status,404);
+  assert.equal((await f.member(ids.pid)).status,200,'Existing member retains authorized content');
+  assert.equal((await f.member('invented-copy')).status,404,'No phantom duplicate becomes readable');
  }finally{f.close()}
 });
 test('M012C: public spaces persist as M005 records, but never leak through the old public projection',async()=>{
