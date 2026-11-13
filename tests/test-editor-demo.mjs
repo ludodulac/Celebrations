@@ -402,7 +402,7 @@ test('M028: simplified navigation hides languages, complete navigation keeps Cat
 });
 test('M028: French page editing is unchanged and language picker is explicitly opt-in',()=>{
  const start=DEMO_CLIENT.indexOf("const row=n('div','editor-language-row m020-settings')");
- const end=DEMO_CLIENT.indexOf("if(p.group==='celebration'&&IS_STAGE",start);
+ const end=DEMO_CLIENT.indexOf("const outer=n('div','canvas-wrap')",start);
  assert.ok(start>0&&end>start);
  const row=DEMO_CLIENT.slice(start,end);
  assert.match(row,/if\(adminLanguagesVisible\)\{\s*const label=n\('label','editor-language-choice','Langue'\)/);
