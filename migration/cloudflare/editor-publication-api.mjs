@@ -16,7 +16,7 @@ import {
 import {indexCanonicalPublishedContent} from './app/persistence/private-canonical-content.mjs';
 import {privateReleaseReady} from './app/persistence/private-release-fence.mjs';
 import {canAccessPage,SPACE_VISIBILITIES,ACCESS_MODES} from './app/domain/member-access.mjs';
-import {readLegacyMediaReferences,canSafelyDeleteMedia} from './app/domain/editor-media-usage-safety.mjs';
+import {readLegacyMediaReferences,canSafelyDeleteMedia,inSavedContent} from './app/domain/editor-media-usage-safety.mjs';
 import {handleEditorMultipartUpload} from './app/application/editor-multipart-upload.mjs';
 import {canShareStandaloneMedia} from './app/domain/editor-standalone-public-link.mjs';
 
@@ -88,18 +88,23 @@ function classify(block,src){
  return null;
 }
 const sourceOf=b=>b.kind==='video'||b.kind==='button'?b.href:b.src;
-function mediaUsage(page,celebrationId){
+function mediaUsage(page,celebrationId,sectionVisibility='draft',published=false){
  const shared=page.group==='page';
  const suffix='-'+celebrationId;
+ // A page in a saved draft is not necessarily visible to visitors.
+ // Hidden wins within the same page; only an actual published snapshot
+ // can prove visitor visibility.
+ const status=page.visibility==='hidden'||sectionVisibility==='hidden'?'hidden':
+  published&&page.visibility!=='draft'&&sectionVisibility!=='draft'?'published':'draft';
  return {pageId:page.id,pageName:String(page.name||'Page').slice(0,180),
-  celebrationId:shared?'':celebrationId,
+  celebrationId:shared?'':celebrationId,usageStatus:status,
   slug:shared?page.id:(String(page.id).endsWith(suffix)?page.id.slice(0,-suffix.length):page.id),
   group:shared?'page':'celebration'};
 }
-function scanBlocks(blocks,into,page,celebrationId){
+function scanBlocks(blocks,into,page,celebrationId,sectionVisibility='draft',published=false){
  for(const block of blocks||[]){
   if(block.kind==='section'){
-   for(const column of block.columns||[])scanBlocks(column,into,page,celebrationId);
+   for(const column of block.columns||[])scanBlocks(column,into,page,celebrationId,sectionVisibility,published);
    continue;
   }
   const url=validWeb(sourceOf(block)),type=classify(block,url);
@@ -114,9 +119,12 @@ function scanBlocks(blocks,into,page,celebrationId){
    into.set(key,record);
   }
   if(page&&page.id){
-   const use=mediaUsage(page,celebrationId);
-   if(!record.uses.some(x=>x.pageId===use.pageId&&x.celebrationId===use.celebrationId))
-    record.uses.push(use);
+   const use=mediaUsage(page,celebrationId,sectionVisibility,published);
+   const existing=record.uses.find(x=>x.pageId===use.pageId&&x.celebrationId===use.celebrationId);
+   if(!existing)record.uses.push(use);
+   else if(({published:3,hidden:2,draft:1})[use.usageStatus]>
+           ({published:3,hidden:2,draft:1})[existing.usageStatus||'draft'])
+    Object.assign(existing,use);
   }
  }
 }
@@ -128,14 +136,24 @@ export function discoverMedia(state){
    index.set(r.type+'|'+src,{...r,id:r.type+'|'+src,uses:[]});
   }
  }
- for(const p of state.shared?.pages||[])if(!managedPage(p))scanBlocks(p.blocks,index,p,'');
- for(const [id,draft] of Object.entries(state.drafts||{}))
-  for(const p of draft?.pages||[])if(!managedPage(p))scanBlocks(p.blocks,index,p,id);
- // An older published revision can still display a file removed from its draft.
- // Count this use too, so files visible to visitors are never marked 'unused'.
- for(const p of state.published?.shared?.pages||[])if(!managedPage(p))scanBlocks(p.blocks,index,p,'');
- for(const [id,draft] of Object.entries(state.published?.drafts||{}))
-  for(const p of draft?.pages||[])if(!managedPage(p))scanBlocks(p.blocks,index,p,id);
+ for(const p of state.shared?.pages||[])
+  if(!managedPage(p))scanBlocks(p.blocks,index,p,'','published',false);
+ for(const [id,draft] of Object.entries(state.drafts||{})){
+  const visibility=state.shared?.celebrationVisibility?.[id]||
+   state.plans?.find(plan=>String(plan.id)===id)?.visibility||'draft';
+  for(const p of draft?.pages||[])
+   if(!managedPage(p))scanBlocks(p.blocks,index,p,id,visibility,false);
+ }
+ // Include previously released content: drafts alone never prove what a
+ // visitor sees, and removing a draft reference doesn't remove a release.
+ for(const p of state.published?.shared?.pages||[])
+  if(!managedPage(p))scanBlocks(p.blocks,index,p,'','published',true);
+ for(const [id,draft] of Object.entries(state.published?.drafts||{})){
+  const visibility=state.published?.celebrationVisibility?.[id]||
+   state.published?.plans?.find(plan=>String(plan.id)===id)?.visibility||'published';
+  for(const p of draft?.pages||[])
+   if(!managedPage(p))scanBlocks(p.blocks,index,p,id,visibility,true);
+ }
  return [...index.values()].slice(0,1800);
 }
 export function initialPublication(state){
@@ -528,7 +546,10 @@ export async function handleEditorMedia(request,env){
   // item is absent from all saved drafts, publications, translations, private
   // versions, branding and historical D1 references. Unknown = protected.
   const items=discoverMedia(legacyEditorView(state)).map(item=>({
-   ...item,canDelete:canSafelyDeleteMedia(item,state,legacyRefs)
+   ...item,canDelete:canSafelyDeleteMedia(item,state,legacyRefs),
+   // Private/language/identity references may not have a navigable page link.
+   // Never claim that such an object appears nowhere.
+   usageUnknown:(!item.uses||item.uses.length===0)&&inSavedContent(state,item.src)
   }));
   return json({ok:true,items});
  }

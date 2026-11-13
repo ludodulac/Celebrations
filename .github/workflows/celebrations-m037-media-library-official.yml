@@ -1,0 +1,91 @@
+name: "M037 — déploiement contrôlé médiathèque et mode d'emploi"
+on:
+  push:
+    branches: [feat/m037-media-library-usage-cleanup-20261113]
+permissions: {contents: read}
+concurrency:
+  group: celebrations-existing-official-production-release
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: ${{ contains(github.event.head_commit.message, '[M037_OFFICIAL]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      WRANGLER_OUTPUT_FILE_PATH: /tmp/m037-version-output.ndjson
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Verify existing official version before release
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const acct=process.env.CLOUDFLARE_ACCOUNT_ID,token=process.env.CLOUDFLARE_API_TOKEN;
+          assert.ok(token&&acct);
+          const url='https://api.cloudflare.com/client/v4/accounts/'+acct+
+            '/workers/scripts/celebrations-exit-production/deployments';
+          const r=await fetch(url,{headers:{authorization:'Bearer '+token}});
+          assert.equal(r.status,200);
+          const j=await r.json();
+          assert.equal(j.success,true);
+          const versions=j.result?.deployments?.[0]?.versions||[];
+          assert.deepEqual(versions.map(x=>[x.version_id,x.percentage]),
+            [['38b8e5c5-714a-4d94-8119-e3b72f6ad617',100]],
+            'Site modified since M036, refusing unsafe overwrite');
+          console.log('M037_PRE_RELEASE_GUARD_PASS');
+          NODE
+      - name: Build and test without changing site data
+        run: |
+          set -euo pipefail
+          node scripts/build-m012b-member-spaces-inline.mjs --check
+          node scripts/build-m019-editor-client.mjs --check
+          node --test tests/test_m037_media_library_locations.mjs tests/test_m036_unified_pages_and_ergonomics.mjs tests/test_m024_cleanup_and_media_safety.mjs tests/test_m032_standalone_public_media.mjs tests/test_m012c_private_editor_publication.mjs
+          python scripts/build_production_assets.py
+          test -s production-public/admin.html
+          npm install --no-save --no-package-lock wrangler@4 playwright@1.58.2
+          npx playwright install chromium
+          node scripts/test-m032-media-browser.mjs
+          node scripts/test-m036-unified-pages-browser.mjs
+          (cd migration/cloudflare && npx wrangler deploy --dry-run --config wrangler.m018.official.toml)
+      - name: Upload code version only
+        working-directory: migration/cloudflare
+        run: |
+          set -euo pipefail
+          npx wrangler versions upload --config wrangler.m018.official.toml --message "M037 guide et médiathèque simplifiés"
+      - name: Promote uploaded code
+        working-directory: migration/cloudflare
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs';
+          const items=readFileSync(process.env.WRANGLER_OUTPUT_FILE_PATH,'utf8').split('\n').filter(Boolean).map(JSON.parse);
+          const version=items.filter(x=>x.type==='version-upload'&&x.worker_name==='celebrations-exit-production').at(-1)?.version_id;
+          if(!/^[a-f0-9-]{36}$/i.test(version||''))throw Error('Aucune version certifiée');
+          const {spawnSync}=await import('node:child_process');
+          const proc=spawnSync('npx',['wrangler','versions','deploy',version+'@100%','--yes','--config','wrangler.m018.official.toml','--message','M037 : code uniquement, données inchangées'],{stdio:'inherit'});
+          if(proc.status!==0)throw Error('Déploiement refusé');
+          NODE
+      - name: Check public and protected routes
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const site='https://ronde-des-archanges-universelle.eu';
+          const [home,admin,privateRoute,unknown]=await Promise.all([
+            fetch(site+'/'),fetch(site+'/admin'),fetch(site+'/api/editor-open-draft?celebration=101'),
+            fetch(site+'/media/new/00000000-0000-4000-8000-000000000000.jpg')
+          ]);
+          assert.equal(home.status,200);
+          assert.equal(admin.status,200);
+          assert.equal(privateRoute.status,401);
+          assert.equal(unknown.status,404);
+          console.log('M037_DEPLOYED_OFFICIAL');
+          NODE

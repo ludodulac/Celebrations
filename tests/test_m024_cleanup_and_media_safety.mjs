@@ -95,7 +95,7 @@ test('D1 protected reference list loads once with fail-closed errors',async()=>{
 });
 test('media frontend only offers DELETE when the backend attests safe unused status',()=>{
  assert.match(code,/const unused=record\.canDelete===true&&refs\.length===0/);
- assert.match(code,/if\(unused\)controls\.append\(b\('Supprimer si inutilisé'/);
+ assert.match(code,/if\(record\.canDelete===true\)controls\.append\(b\('Supprimer'/);
  assert.match(code,/const unused=false;/);
  assert.match(code,/block\?\.coverAssetId===fileId/);
  assert.match(api,/const legacyRefs=await readLegacyMediaReferences\(env\.DB\)/);

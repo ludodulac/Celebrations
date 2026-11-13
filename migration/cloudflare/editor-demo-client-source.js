@@ -679,7 +679,7 @@ async function setStandalonePublicLink(media,publicLink){
  void refreshGlobalMedia();
 }
 async function deleteGlobalMedia(media){
- if(!(await siteConfirm('Supprimer « '+media.name+' » de la médiathèque ? Si ce fichier est encore utilisé, la suppression sera refusée.')))return;
+ if(!(await siteConfirm('Êtes-vous sûr de vouloir supprimer « '+media.name+' » ?')))return;
  const response=await fetch('/api/editor-media?action=delete',{method:'POST',
   headers:{'content-type':'application/json'},body:JSON.stringify({id:media.id})});
  const result=await response.json().catch(()=>({}));
@@ -2912,6 +2912,8 @@ function mediaLinksFor(record,related=[]){
   seen.add(key);
   entries.push({name:use.group==='page'?use.pageName:
     String(use.name||'Célébration')+' · '+use.pageName,
+   usageStatus:['published','hidden','draft'].includes(use.usageStatus)?
+    use.usageStatus:'published',
    href:'/__editor/voir-le-site?celebration='+encodeURIComponent(cid)+'&page='+encodeURIComponent(slug)});
  }
  for(const use of record.uses||[])push(use);
@@ -2922,7 +2924,8 @@ function mediaLinksFor(record,related=[]){
    if(block?.src===record.src||block?.href===record.src||block?.cover===record.src)
     push({pageId:page.id,pageName:page.name,celebrationId:cid,group:page.group,
      slug:page.group==='page'?page.id:(page.id.endsWith('-'+cid)?page.id.slice(0,-cid.length-1):page.id),
-     name:String(window.__PREPARATION_SEED__?.archangel||'Célébration')+' '+String(window.__PREPARATION_SEED__?.year||'')});
+     name:String(window.__PREPARATION_SEED__?.archangel||'Célébration')+' '+String(window.__PREPARATION_SEED__?.year||''),
+     usageStatus:page.visibility==='hidden'?'hidden':page.visibility==='draft'?'draft':'published'});
   }
  }
  for(const page of db.pages||[])visit(page.blocks,page,currentId);
@@ -2948,20 +2951,27 @@ function libraryTitle(card,name,src){
 }
 function libraryPicture(card,name,src,unused){
  if(!src)return;
- const link=n('a','media-picture-link'+(unused?' is-unused':''));link.href=src;
- link.target='_blank';link.rel='noopener noreferrer';link.title='Voir '+name;
+ // Every thumbnail stays a regular clickable link, including files no longer
+ // referenced by a visible page. Do not cover the preview with a ribbon.
+ const link=n('a','media-picture-link');link.href=src;
+ link.target='_blank';link.rel='noopener noreferrer';link.title='Ouvrir '+name;
  const img=n('img','library-thumb');img.src=src;img.alt=name;img.loading='lazy';link.append(img);
- if(unused)link.append(n('span','media-unused-ribbon','Inutilisé'));
  card.append(link);
 }
 function libraryUnusedText(card,unused,hasImage){
- if(unused&&!hasImage)card.append(n('span','media-unused-text','Inutilisé'));
+ // No "Inutilisé" badge: accurate page references appear below the image.
 }
-function libraryLocationLinks(card,links){
+function libraryLocationLinks(card,links,usageUnknown=false){
  const box=n('div','file-usage-links');
+ if(!links.length)box.append(n('span','file-location-nowhere',
+  usageUnknown?'Référence à vérifier':'N’apparaît nulle part'));
  for(const item of links){
-  const link=n('a','file-location-link',item.name+' ↗');
-  link.href=item.href;link.target='_blank';link.rel='noopener noreferrer';box.append(link);
+  const state=['hidden','draft','published'].includes(item.usageStatus)?
+    item.usageStatus:'published';
+  const suffix=state==='hidden'?' (masquée)':state==='draft'?' (brouillon)':'';
+  const link=n('a','file-location-link file-location-'+state,item.name+suffix+' ↗');
+  link.href=item.href;link.target='_blank';link.rel='noopener noreferrer';
+  box.append(link);
  }
  card.append(box);
 }
@@ -3033,7 +3043,7 @@ function media(){
  const external=b('＋ Référencer un média externe',()=>void createExternalMedia(),'sm');
  w.append(external);
  w.append(n('p','hint','Import serveur : JPG, PNG, WebP, PDF, MP3, WAV, TXT et DOCX. Pour les vidéos, référencez un lien externe.'));
- w.append(n('p','hint','Un fichier importé reste conservé si une célébration est masquée. Utilisez « 🌍 Rendre le lien public » puis « 🔗 Copier l’URL » pour partager ce fichier indépendamment. Les fichiers réservés aux membres ne peuvent pas être rendus publics par ce bouton.'));
+ w.append(n('p','hint','Les fichiers importés restent dans la médiathèque même lorsqu’une page est masquée, retirée ou supprimée. Cliquez sur une image pour l’ouvrir ; les pages où elle figure sont indiquées sous elle.'));
  const importButton=b(mediaCategory==='audios'?'＋ Importer un MP3':'＋ Importer',()=>{
   const picker=el('asset-file-picker');
   picker.accept=mediaCategory==='audios'?'.mp3,audio/mpeg':
@@ -3067,32 +3077,15 @@ function media(){
   if(hasImage)libraryPicture(card,record.name,record.src,unused);
   libraryPreview(card,record.name,record.src,record.category||mediaCategoryOf(record));
   libraryUnusedText(card,unused,hasImage);
-  libraryLocationLinks(card,refs);
+  libraryLocationLinks(card,refs,record.usageUnknown===true);
   const controls=n('div','file-actions');
   if(chosenBlock&&mediaCategory==='audios'&&record.type==='audio')
    controls.append(b('Insérer dans le lecteur',()=>attachChosenAudio(record),'sm primary'));
-  // Existing R2 paths stay exactly the same. Only admin-uploaded objects
-  // can be released independently of a celebration.
-  const standaloneUpload=record.source==='uploaded'&&
-   /^\/media\/new\/[a-f0-9-]+\.(?:jpg|png|webp|pdf|mp3|wav|txt|docx)$/i.test(record.src||'');
-  if(standaloneUpload){
-   const open=n('a','btn sm media-open-direct','👁 Voir');
-   open.href=record.src;open.target='_blank';open.rel='noopener noreferrer';
-   open.title='Afficher le fichier dans le navigateur lorsque le format le permet';
-   controls.append(open);
-   if(record.publicLink===true){
-    controls.append(b('🔗 Copier l’URL',()=>void copyPermanentMediaUrl(record),'sm'));
-    card.append(n('small','media-direct-public-status',
-     '🌍 Lien public autonome : reste accessible si la célébration est masquée.'));
-   }else{
-    card.append(n('small','media-direct-private-status',
-     '🔒 Fichier conservé. Partage public direct non activé.'));
-   }
-   controls.append(b(record.publicLink===true?'🔒 Désactiver le lien public':'🌍 Rendre le lien public',
-    ()=>void setStandalonePublicLink(record,record.publicLink!==true),'sm'));
-  }
-  if(unused)controls.append(b('Supprimer si inutilisé',()=>void deleteGlobalMedia(record),'sm'));
-  card.append(controls);cards.append(card);
+  // The picture/title itself is the permanent openable link. Keep only
+  // the delete action in the image card; the backend refuses unsafe deletes.
+  if(record.canDelete===true)controls.append(b('Supprimer',()=>void deleteGlobalMedia(record),'sm'));
+  if(controls.childElementCount)card.append(controls);
+  cards.append(card);
  }
  for(const record of historical.filter(x=>matches(x.category))){
   const remoteCopy=remote.find(x=>x.src===record.src&&mediaCategoryOf(x)===mediaCategory);
@@ -3156,148 +3149,188 @@ function media(){
 /* Entire administration guide: static instructions, no remote services or writes.
    Each topic documents controls that exist in the live editor. */
 const GUIDE_TOPICS=[
- {group:'Premiers pas',title:'Se connecter à l’administration',
-  info:'Le site est public ; la modification des pages demande une connexion.',
-  steps:['Depuis le site, choisissez « Administration » (ou ouvrez /admin.html).','Saisissez le code d’accès qui vous a été remis, puis « Ouvrir l’administration ».','Une fois connecté, choisissez Pages, Pages de bas de page, Célébrations ou Médiathèque.','La connexion est conservée pendant une durée limitée sur votre navigateur : si le formulaire réapparaît, reconnectez-vous.'],
-  note:'Ne mettez pas le code d’accès dans les textes publics du site.'},
- {group:'Premiers pas',title:'Comprendre les onglets et les boutons du haut',
-  info:'Chaque onglet ouvre directement son espace de travail.',
-  steps:['Pages : accueil général et autres pages indépendantes des célébrations.','Pages de bas de page : pages dont les titres s’affichent en bas du site, après publication.','Célébrations : programme et pages de chaque célébration.','Médiathèque de l’administration : les fichiers restent privés tant qu’ils ne sont pas publiés sur une page ou partagés volontairement par un lien public direct.','Paramètres : dépliez « Gestion des langues (facultatif) » pour afficher les outils de traduction. Par défaut, les pages s’éditent simplement en français.','Catégories : accessibles séparément dans le menu uniquement si la gestion des membres est activée.','Mode d’emploi : ce guide, consultable à tout moment.','Aperçu : masquer les outils pour contrôler la page en cours. « Revenir à l’édition » permet de poursuivre.','Étoile ✦ : ouvrir le site public dans un nouvel onglet. « Aperçu du brouillon » vérifie la page avant publication. « Enregistrer » conserve les modifications.']},
- {group:'Pages',title:'Même largeur pour toutes les pages, et images entièrement visibles',
-  info:'Toutes les pages, même l’accueil, utilisent désormais une surface centrale de même largeur et d’une hauteur minimale confortable.',
-  steps:['Ouvrez la page à modifier : la surface blanche conserve sa taille minimale même avec une seule phrase.','Ajoutez une image avec le + bleu ou choisissez une image dans la médiathèque.','Sélectionnez son bloc : vous pouvez régler sa taille de 20 à 100 %, puis cocher « Prendre toute la largeur de la page (sans marge) ».','Pour les images directement dans la page, cette option remplit la largeur de la surface blanche. Dans une colonne, l’image reste dans sa colonne.','Publiez la modification lorsque vous souhaitez la rendre visible. Les images conservent leur proportion : leur bas ne sera pas coupé.'],
-  note:'Le nom affiché dans le menu se modifie depuis ⋯ > Modifier le nom, indépendamment de vos titres, textes et images. La page Accueil général reste toujours l’accueil du site.'},
- {group:'Pages',title:'Construire librement la page d’accueil',
-  info:'L’accueil fonctionne avec les mêmes blocs de texte, image et section que les autres pages.',
-  steps:['Le texte « Bienvenue » que vous avez ajouté reste visible au-dessus de l’image, tant que vous le laissez dans la page.','Vous pouvez modifier, déplacer ou supprimer ce texte sans modifier le nom de l’accueil.','Si vous supprimez l’image, elle ne sera pas réinsérée automatiquement.','Le bouton superposé « Bienvenue » possède ses propres paramètres de couleur et de contour dans la roue dentée ⚙.','Sur la première page, le bandeau du titre du site et le lien Administration sont conservés ; le menu apparaît après l’accueil.'],
-  note:'La roue dentée ⚙ se ferme en cliquant ailleurs ou en appuyant sur Échap.'},
- {group:'Premiers pas',title:'Enregistrer et retrouver les mêmes pages sur deux appareils',
-  info:'La page en cours peut changer visuellement avant d’être publiée dans la version commune.',
-  steps:['Modifiez votre page ou votre bloc.','Appuyez sur « Enregistrer » en haut de l’administration.','Attendez un message confirmant « Enregistré sur le serveur ».','Rouvrez ou actualisez le site sur votre autre téléphone ou ordinateur.'],
-  note:'« Enregistré dans ce navigateur » ne signifie pas « enregistré sur le serveur ». Les fichiers importés localement constituent un cas particulier : consultez aussi la rubrique Fichiers.'},
- {group:'Premiers pas',title:'Utiliser l’éditeur sur téléphone',
-  info:'Les commandes sont identiques mais les zones et colonnes se placent les unes sous les autres.',
-  steps:['Choisissez l’onglet puis la page à modifier.','Touchez un titre, un texte ou une image pour sélectionner son élément.','Si le clavier masque les boutons, fermez-le avec la commande Retour du téléphone.','Faites défiler la page pour voir les + et les menus de la zone.','En deux colonnes, elles s’empilent verticalement sur un écran étroit, mais restent côte à côte sur ordinateur.'],
-  note:'Le + bleu et le + vert ne font pas la même chose : voir les rubriques consacrées aux zones.'},
- {group:'Pages et célébrations',title:'Modifier l’accueil général ou une page indépendante',
-  info:'L’onglet Pages réunit les pages qui ne dépendent pas d’une célébration.',
-  steps:['Ouvrez « Pages ».','Choisissez « Accueil général » ou une autre page dans la liste.','Touchez les textes, images et blocs pour les modifier.','Utilisez « + Page » pour créer une nouvelle page et lui donner un nom.','Enregistrez.'],
-  note:'Les pages générales ne sont pas une copie des pages de chaque célébration.'},
- {group:'Pages et célébrations',title:'Changer l’ordre ou la page d’accueil',
-  info:'Les options ⋯ des pages générales permettent de les organiser.',
-  steps:['Dans Pages, repérez la page souhaitée.','Touchez « ⋯ » à côté de son nom.','Choisissez « Modifier le nom » pour changer le texte du menu, indépendamment du premier titre du contenu.','Utilisez « Monter » ou « Descendre » pour réorganiser les pages.','Le premier titre de la page est un bloc ordinaire : vous pouvez le modifier ou le supprimer séparément.'],
-  note:'Le nom du menu n’affecte ni l’adresse de la page, ni sa visibilité, ni les autorisations des membres.'},
- {group:'Pages et célébrations',title:'Créer ou supprimer une page générale',
-  info:'Seules les pages que vous créez peuvent être supprimées par ce menu.',
-  steps:['Dans Pages, touchez « + Page » et indiquez son nom.','Pour supprimer une page créée, ouvrez « ⋯ » près de son nom puis « Supprimer la page ».','Lisez la confirmation avant de valider.','Enregistrez, puis contrôlez le résultat sur le site.'],
-  note:'Les anciennes pages historiques sont protégées contre cette suppression.'},
- {group:'Pages et célébrations',title:'Choisir une célébration et ses étapes',
-  info:'Chaque célébration possède ses propres pages, notamment Préparation et les jours de la semaine.',
-  steps:['Ouvrez « Célébrations ».','Choisissez la célébration dans la liste déroulante.','Touchez la page à modifier : accueil de la célébration, préparation, mercredi, jeudi, vendredi, samedi, dimanche ou après célébration.','Modifiez le contenu puis enregistrez.'],
-  note:'Écrivez vous-même les dates dans les pages si elles sont nécessaires.'},
- {group:'Pages et célébrations',title:'Préparer une célébration prévue',
-  info:'Une seule célébration par archange et cycle annuel, préparée masquée.',
-  steps:['Ouvrez Célébrations et la rubrique « Célébrations prévues ».','Dépliez l’année voulue.','Choisissez « Préparer », puis rédigez les dates librement dans vos pages.','Enregistrez, puis publiez explicitement.'],
-  note:'Aucune date de mercredi n’est imposée et aucune célébration libre ne peut être ajoutée.'},
- {group:'Pages et célébrations',title:'Créer ou supprimer une page supplémentaire dans une célébration',
-  info:'On peut ajouter une page au programme d’une célébration donnée.',
-  steps:['Choisissez la célébration, puis « + Page » dans la liste de ses pages.','Donnez un nom à cette page supplémentaire.','Ajoutez les éléments souhaités et enregistrez.','Pour supprimer uniquement une page supplémentaire, utilisez « ⋯ » près de son nom puis « Supprimer la page ».'],
-  note:'Les étapes historiques du programme ne se suppriment pas via ce menu.'},
- {group:'Pages et célébrations',title:'Créer des pages de bas de page',
-  info:'Le titre d’une page publiée devient automatiquement un lien à côté d’Administration, tout en bas du site.',
-  steps:['Ouvrez « Pages de bas de page ».','Cliquez sur « + Page de bas de page » et saisissez son titre.','Rédigez la page avec les mêmes outils que les pages générales.','Enregistrez le brouillon puis publiez la page pour faire apparaître son lien.','Les pages de bas de page ne figurent pas dans le menu principal.']},
- {group:'Pages et célébrations',title:'Médiathèques visibles par les visiteurs',
-  info:'La médiathèque générale a été retirée du site public. Chaque célébration garde sa médiathèque.',
-  steps:['Les fichiers restent accessibles dans la médiathèque de l’administration.','La médiathèque des visiteurs se limite aux fichiers insérés dans les pages publiées de cette célébration.','Les images des pages générales et des pages de bas de page ne sont pas ajoutées à la médiathèque d’une célébration.','Un élément ou un bloc masqué aux visiteurs ne doit pas être affiché dans leur médiathèque.']},
- {group:'Médiathèque',title:'Garder une image ou un PDF accessible même si la célébration est masquée',
-  info:'La conservation du fichier, la visibilité de la célébration et le partage direct sont trois réglages indépendants.',
-  steps:['Ouvrez « Médiathèque (administration) » : les fichiers importés restent conservés après masquage de la célébration.','Dans la fiche du fichier, utilisez « 👁 Voir » pour afficher une image ou un PDF dans le navigateur.','Si vous voulez que quelqu’un puisse ouvrir directement son adresse sans connexion, choisissez « 🌍 Rendre le lien public » et confirmez explicitement.','Utilisez ensuite « 🔗 Copier l’URL » : cette adresse reste la même même lorsque la célébration est masquée.','« 🔒 Désactiver le lien public » coupe ce partage sans supprimer le fichier du stockage.'],
-  note:'Les fichiers liés à des espaces ou catégories privés restent protégés. Le partage public ne se fait jamais automatiquement et n’ajoute pas le fichier à la médiathèque publique des célébrations.'},
- {group:'Construire les blocs',title:'Différence entre le + bleu et le + vert',
-  info:'C’est la distinction essentielle pour construire une page.',
-  steps:['Le + BLEU apparaît au bas du bloc survolé sur ordinateur et ajoute une nouvelle zone ; sur téléphone, utilisez le + affiché après sélection.','Après le + bleu, choisissez « Bloc seul » ou « Deux colonnes ».','Le + VERT apparaît au survol d’un élément et ajoute un élément DANS la zone : titre, texte, image, bouton, vidéo, audio ou titre d’événement.','Répétez le + vert autant de fois que nécessaire pour composer votre zone.'],
-  note:'Pour mettre une image et du texte dans un même cadre, utilisez le + vert, pas un nouveau + bleu.'},
- {group:'Construire les blocs',title:'Ajouter quelque chose dans un bloc déjà rempli',
-  info:'Un ancien bloc avec seulement un titre, une image ou un texte peut devenir un bloc composé.',
-  steps:['Touchez l’élément déjà présent pour le sélectionner.','Le petit + vert « Ajouter dans ce bloc » apparaît à l’intérieur du bloc.','Choisissez « Titre », « Image », « Texte », « Titre événement », « Bouton » ou « Vidéo ».','Le nouvel élément rejoint l’ancien dans le MÊME bloc, sans supprimer ni remplacer l’original.','Pour ajouter un troisième élément, utilisez le + vert de cette zone.'],
-  note:'Après le premier ajout, le bloc simple devient une zone contenant plusieurs éléments. Aucun nouveau + bleu n’est nécessaire.'},
- {group:'Construire les blocs',title:'Créer une zone en deux colonnes',
-  info:'Deux colonnes permettent de mettre, par exemple, une image à gauche et du texte à droite.',
-  steps:['Touchez le + bleu à l’endroit voulu.','Choisissez « Deux colonnes ».','Utilisez le + vert de la colonne gauche ou droite pour ajouter ses éléments.','Touchez un élément et utilisez ← ou → pour le déplacer d’une colonne à l’autre.','Sur téléphone, les deux colonnes sont montrées l’une sous l’autre.'],
-  note:'Chaque colonne garde son contenu et son ordre.'},
- {group:'Construire les blocs',title:'Passer de deux colonnes à une, et inversement',
-  info:'Le petit bouton ▣ change la disposition de la zone.',
-  steps:['Sur une zone, touchez ▣ « Passer à un bloc seul » ou « Passer à deux colonnes ».','En mode une colonne, tous les éléments des deux anciennes colonnes restent visibles, les uns à la suite des autres.','Si vous repassez à deux colonnes, les éléments retrouvent leur colonne d’origine.','Enregistrez après avoir choisi la disposition.'],
-  note:'Changer la disposition ne supprime ni le texte ni les images.'},
- {group:'Construire les blocs',title:'Déplacer, dupliquer ou supprimer un élément',
-  info:'Les commandes apparaissent quand on sélectionne l’élément.',
-  steps:['Touchez l’élément à modifier.','↑ Monter et ↓ Descendre changent son ordre dans la même zone.','⧉ Dupliquer crée une copie immédiatement après l’élément.','✕ Supprimer retire cet élément après confirmation.','Dans une zone à deux colonnes, ← et → déplacent l’élément dans l’autre colonne.'],
-  note:'Le bouton ✕ d’une zone entière est différent : il supprime toute cette zone et son contenu, après confirmation.'},
- {group:'Construire les blocs',title:'Ajouter un cadre, une bordure ou une ombre',
-  info:'Le bouton ⚙ d’une zone règle le cadre du bloc complet.',
-  steps:['Ouvrez les paramètres ⚙ de la zone.','Cadre : choisissez « Sans cadre », « Cadre arrondi » ou « Cadre carré ».','Choisissez la couleur et l’épaisseur du trait (1 à 5 px).','Activez ou désactivez « Ombre ».','Enregistrez et vérifiez dans l’aperçu.'],
-  note:'Ces paramètres concernent toute la zone, pas seulement un paragraphe.'},
- {group:'Textes, images et liens',title:'Écrire et mettre en forme un titre ou un texte',
-  info:'On peut écrire directement dans la page, sans formulaire séparé.',
-  steps:['Touchez le titre ou le paragraphe, puis écrivez avec le clavier.','Sélectionnez des mots pour leur appliquer G (gras), I (italique) ou une couleur.','Sans sélection, ces commandes peuvent s’appliquer au bloc de texte entier.','La liste « px » change la taille du texte ; la liste d’alignement choisit Gauche, Centré ou Droite.','Touchez ailleurs, puis enregistrez.'],
-  note:'Un titre principal et un titre secondaire peuvent avoir une taille différente ; vous pouvez toujours régler la taille manuellement.'},
- {group:'Textes, images et liens',title:'Ajouter, choisir ou remplacer une image',
-  info:'Une image peut être choisie parmi les images du site ou envoyée depuis votre appareil.',
-  steps:['Ajoutez « Image » avec le + vert de la zone concernée.','Touchez « Télécharger une image » pour choisir un fichier sur votre appareil, ou « Images du site » pour réutiliser une image déjà présente.','Une croix × et le bouton Annuler ferment la liste des images du site.','Pour remplacer une image existante, sélectionnez-la puis choisissez l’une de ces deux actions.','Enregistrez et vérifiez la page publique.'],
-  note:'Les téléchargements directs d’images dans cet éditeur acceptent JPG, PNG ou WebP, jusqu’à 8 Mo. Les fichiers provenant du stockage local de l’appareil ne deviennent pas automatiquement des URL publiques.'},
- {group:'Textes, images et liens',title:'Réduire ou agrandir une image',
-  info:'Le curseur règle la largeur d’affichage, sans déformer le fichier original.',
-  steps:['Touchez une image déjà présente pour la sélectionner.','Repérez « Taille de l’image » et déplacez le curseur de 20 % à 100 %.','L’image change immédiatement de largeur ; sa hauteur s’adapte.','Utilisez « ↔ Aligner » si vous voulez aussi changer son alignement.','Cliquez sur « ✓ Valider » pour conserver ce réglage.'],
-  note:'Le curseur ne réduit pas les dimensions ni le poids du fichier d’origine.'},
- {group:'Textes, images et liens',title:'Ajouter un bouton ou un lien vers un document',
-  info:'Un bouton peut ouvrir un site HTTPS ou un chemin interne du site.',
-  steps:['Ajoutez « Bouton » avec le + vert.','Touchez son libellé pour remplacer « Mon bouton » par le texte voulu.','Saisissez une adresse commençant par https:// ou un chemin du site commençant par /.','Pour associer un fichier, utilisez « 📎 Choisir un fichier ».','Utilisez « Miniature » pour choisir une image de présentation, et « ↔ Aligner » pour sa position.','Enregistrez puis testez le lien dans « Voir le site ».'],
-  note:'Ne changez pas les URL de fichiers historiques qui ont déjà été envoyées par e-mail.'},
- {group:'Textes, images et liens',title:'Ajouter une vidéo ou une miniature',
-  info:'La page peut montrer un aperçu de vidéo relié à son adresse.',
-  steps:['Ajoutez « Vidéo » avec le + vert.','Renseignez le lien YouTube, Vimeo ou HTTPS de la vidéo.','Donnez un titre à la vidéo si le champ est proposé.','Choisissez ou remplacez la miniature si cette commande apparaît.','Enregistrez et testez le lien depuis la vue du site.'],
-  note:'La vidéo reste hébergée à son adresse d’origine ; le lien ne télécharge pas nécessairement une vidéo sur le serveur Célébrations.'},
- {group:'Textes, images et liens',title:'Ajouter un titre d’événement et son heure',
-  info:'Un événement dispose d’un titre et peut afficher une heure avant son texte.',
-  steps:['Dans la zone souhaitée, appuyez sur le + vert puis « Titre événement ».','Touchez le texte « Titre de l’événement » pour le remplacer.','Choisissez son heure dans la liste (par pas de 15 minutes) ou saisissez HH:MM.','Enregistrez.'],
-  note:'L’heure de l’événement est distincte de l’horaire général affiché pour le jour de la célébration.'},
- {group:'Fichiers et audio',title:'Comprendre l’onglet Fichiers et les catégories',
-  info:'Le catalogue regroupe les ressources publiques existantes et certains fichiers importés sur l’appareil.',
-  steps:['Ouvrez « Fichiers ».','Choisissez la catégorie : Images, PDF, Audios ou Autres.','Utilisez « Ouvrir » pour consulter une ressource.','Les liens d’utilisation indiquent dans quelles célébrations et pages certains fichiers publics sont référencés.','Utilisez « Insérer » pour associer un fichier à une page.'],
-  note:'Les fichiers historiques disposent d’adresses publiques déjà utilisées : il faut les conserver.'},
- {group:'Fichiers et audio',title:'Insérer un fichier dans une célébration et à une heure',
-  info:'Le bouton « Insérer » ouvre un petit formulaire.',
-  steps:['Dans Fichiers, choisissez la catégorie et la ressource.','Touchez « Insérer ».','Sélectionnez la célébration et la page/jour souhaités.','Choisissez une heure si la ressource doit être placée dans le programme à un horaire précis.','Validez « Insérer », puis ouvrez la page pour vérifier son emplacement.','Appuyez sur « Enregistrer » pour enregistrer le brouillon commun.'],
-  note:'L’insertion sur d’autres célébrations peut d’abord créer un brouillon local dans votre navigateur : vérifiez toujours la confirmation serveur de la célébration cible.'},
- {group:'Fichiers et audio',title:'Importer de nouveaux fichiers',
-  info:'« + Importer » ajoute des fichiers à la bibliothèque locale du navigateur.',
-  steps:['Dans Médiathèque, choisissez Audios puis « + Importer un MP3 » pour un audio ; les autres catégories utilisent « + Importer ».','Choisissez un ou plusieurs fichiers compatibles : images, PDF, MP3, WAV, texte ou document.','Le MP3 affiche sa progression réelle pendant le transfert (25 Mo maximum sur le site officiel). À la fin, il apparaît dans Audios.','Utilisez ensuite « Insérer » si vous voulez le placer dans une page.'],
-  note:'Important : cet import classique conserve le fichier sur CET APPAREIL (limite de 60 Mo par fichier). Il ne garantit pas qu’il sera disponible sur un autre appareil ni en public. Pour un lien durable, privilégiez un fichier déjà publié dans le catalogue du site.'},
- {group:'Fichiers et audio',title:'Ajouter un MP3, convertir un WAV et l’écouter',
-  info:'Les ressources audio peuvent être lues et insérées dans le programme.',
-  steps:['Dans Médiathèque, choisissez « Audios » pour retrouver les MP3.','Dans la page à modifier, ajoutez « Lecteur audio » à un bloc, puis « Choisir un MP3 ». Depuis Audios, cliquez sur « Insérer dans le lecteur ».','La rubrique « Importer MP3 / WAV » de l’atelier de test n’est pas l’import officiel : sur le site, utilisez « Importer un MP3 » et sa barre de progression.','Le lecteur possède les commandes de lecture et un titre personnalisable. Enregistrez puis publiez la page.'],
-  note:'Certaines commandes de stockage audio nécessitent une connexion spécifique au service audio : si l’interface la demande, ne confondez pas avec le simple code de l’administration.'},
- {group:'Fichiers et audio',title:'Supprimer un fichier sans casser ses liens',
-  info:'Les fichiers utilisés sont protégés contre une suppression accidentelle.',
-  steps:['Dans Fichiers, repérez les ressources et leurs utilisations.','Un fichier local inutilisé peut afficher « Supprimer » et demander confirmation.','Si un fichier est encore utilisé, retirez d’abord ses références des pages concernées.','Pour les fichiers publics historiques, la suppression physique n’est pas proposée avant vérification des références.'],
-  note:'Retirer une image d’une page avec « Supprimer l’image » ne supprime pas son fichier de la bibliothèque. Ne remplacez pas un ancien lien PDF par un nouveau chemin si ce lien a déjà été transmis.'},
- {group:'Vérification et sécurité',title:'Aperçu, vue du site et mise en ligne',
-  info:'Vérifiez le résultat avant de partager une page.',
-  steps:['Dans l’éditeur, utilisez « Aperçu » pour masquer les commandes sans changer de page.','Appuyez sur « Revenir à l’édition » pour poursuivre les modifications.','Utilisez « Voir le site » pour ouvrir la version visible par les visiteurs.','Après un changement, cliquez sur « Enregistrer », attendez le message du serveur puis actualisez la vue publique.'],
-  note:'« Aperçu » ne sauvegarde pas et ne publie pas à lui seul vos modifications.'},
- {group:'Vérification et sécurité',title:'Vérifier les liens anciens et les fichiers manquants',
-  info:'Les URL des fichiers envoyés dans des e-mails doivent continuer à fonctionner.',
-  steps:['Ouvrez la page publique et testez les boutons et les liens des documents.','Pour une image manquante, vérifiez qu’elle pointe vers une image publique existante.','Ne renommez pas les chemins des anciens fichiers PDF, MP3 ou images sans disposer d’une redirection contrôlée.','Dans le doute, ne supprimez pas le fichier : signalez son adresse pour une vérification.'],
-  note:'Une image seulement stockée localement dans un navigateur peut ne pas apparaître sur un autre appareil.'},
- {group:'Vérification et sécurité',title:'En cas de problème ou de bouton introuvable',
-  info:'Quelques vérifications simples suffisent souvent à retrouver une commande.',
-  steps:['Touchez d’abord le bloc : beaucoup de commandes n’apparaissent que lorsqu’il est sélectionné.','Fermez le clavier du téléphone pour voir le bas du bloc et le petit + vert.','Si vous cherchez un nouveau bloc, regardez le + bleu situé entre les zones.','Actualisez l’administration si vous voyez encore l’ancienne interface.','Vérifiez le message sous l’éditeur : une sauvegarde locale et une sauvegarde serveur ne sont pas équivalentes.'],
-  note:'Évitez de supprimer ou réinitialiser quoi que ce soit pour résoudre un problème d’affichage.'}
+ {
+  "group": "Démarrer",
+  "title": "Ouvrir l’administration",
+  "info": "Tout se gère dans le site existant, sans second tableau de bord.",
+  "steps": [
+   "Sur le site, cliquez sur « Administration », en bas de page.",
+   "Entrez votre code d’accès. L’œil permet de l’afficher pendant la saisie.",
+   "Utilisez le menu de gauche pour ouvrir Pages, Célébrations, Médiathèque, Paramètres ou Mode d’emploi."
+  ],
+  "note": "L’étoile en haut ouvre le site public dans un autre onglet. Gardez votre code personnel privé."
+ },
+ {
+  "group": "Démarrer",
+  "title": "Enregistrer, prévisualiser, publier",
+  "info": "Enregistrer un brouillon ne le rend pas public.",
+  "steps": [
+   "Modifiez le contenu, puis cliquez sur « Enregistrer ».",
+   "Vérifiez que le serveur confirme la sauvegarde. Le message « enregistré dans ce navigateur » seul ne suffit pas pour retrouver le travail ailleurs.",
+   "Utilisez « Aperçu du brouillon » pour vérifier le résultat avant de le publier.",
+   "Dans les réglages de la page, choisissez « Visible » et publiez explicitement lorsque c’est prêt.",
+   "Le bouton « Annuler » revient sur la dernière modification de l’éditeur."
+  ],
+  "note": "Une page masquée ou en brouillon n’apparaît pas comme page publique. L’enregistrement et la publication sont deux actions différentes."
+ },
+ {
+  "group": "Pages",
+  "title": "Choisir et organiser ses pages",
+  "info": "L’accueil, les pages ordinaires, les pages du bas et les célébrations se gèrent de la même manière.",
+  "steps": [
+   "Ouvrez Pages, Pages de bas de page ou Célébrations, puis choisissez la page dans la liste.",
+   "Cliquez sur « + Page » pour en créer une. Dans Célébrations, choisissez d’abord la célébration concernée.",
+   "Le menu ⋯ à côté d’une page permet notamment de modifier son nom dans le menu, de la déplacer, de la dupliquer ou de supprimer une page autorisée.",
+   "Le nom du menu est indépendant des titres et textes écrits dans la page.",
+   "Le titre « Ronde des Archanges Universelle » ramène le visiteur à l’accueil."
+  ],
+  "note": "« Accueil général » reste la page d’accueil. Les pages de bas de page sont liées en bas du site."
+ },
+ {
+  "group": "Pages",
+  "title": "Visible, masquée ou brouillon",
+  "info": "Le réglage de visibilité se trouve dans la roue dentée ⚙ de la page.",
+  "steps": [
+   "« Visible » : la page publiée peut être consultée par les personnes autorisées.",
+   "« Masquée » : la page ne s’affiche plus aux visiteurs mais reste dans l’administration.",
+   "« Brouillon » : vous préparez la page sans publier ce contenu.",
+   "Cliquez hors de la roue dentée (ou appuyez sur Échap sur ordinateur) pour fermer les réglages."
+  ],
+  "note": "Les permissions « Public / Privé » sont différentes de la visibilité. Une page visible mais privée reste réservée aux membres autorisés."
+ },
+ {
+  "group": "Pages",
+  "title": "Construire une page avec les + bleu et vert",
+  "info": "Le + bleu ajoute une zone, le + vert ajoute un élément dans une zone.",
+  "steps": [
+   "Utilisez le + bleu pour ajouter une zone simple ou à deux colonnes.",
+   "Utilisez le + vert dans la zone pour ajouter un titre, du texte, une image, un bouton, un audio ou une vidéo.",
+   "Touchez un élément pour l’éditer, le déplacer, le dupliquer ou le supprimer.",
+   "Utilisez les commandes de la zone pour changer les colonnes, les bordures et les espacements.",
+   "Sur téléphone, les deux colonnes se présentent l’une sous l’autre."
+  ],
+  "note": "Supprimer un bloc de page ne supprime pas automatiquement son image du stockage."
+ },
+ {
+  "group": "Pages",
+  "title": "Mettre en forme les textes et les images",
+  "info": "Le contenu se modifie directement dans la page.",
+  "steps": [
+   "Cliquez sur un texte pour l’écrire et utiliser les réglages de gras, italique, taille, couleur ou alignement.",
+   "Pour une image, utilisez « Télécharger une image » ou « Images du site » pour réemployer une image existante.",
+   "Choisissez la taille de l’image avec le réglage de largeur.",
+   "Cochez « Prendre toute la largeur de la page (sans marge) » pour une image directement dans la page.",
+   "Enregistrez puis vérifiez le résultat sur ordinateur et téléphone."
+  ],
+  "note": "Les images conservent leurs proportions. Dans une colonne, l’image ne dépasse pas la largeur de la colonne."
+ },
+ {
+  "group": "Pages",
+  "title": "Personnaliser l’accueil",
+  "info": "La page d’accueil utilise les mêmes éléments que les autres pages.",
+  "steps": [
+   "Modifiez librement les textes, les photos et les zones de « Accueil général ».",
+   "Si un titre ou une image ne vous convient plus, vous pouvez le retirer : il n’est pas automatiquement recréé.",
+   "Dans la roue dentée de l’accueil, ouvrez « Bouton sur l’image d’accueil » pour modifier son texte et son aspect.",
+   "Le bouton placé sur l’image mène à la page suivante du site."
+  ],
+  "note": "La photo d’accueil s’affiche entièrement, sans recadrage, avec une mise en page adaptée au téléphone."
+ },
+ {
+  "group": "Célébrations",
+  "title": "Créer et publier une célébration",
+  "info": "Chaque célébration possède ses propres pages et son programme.",
+  "steps": [
+   "Ouvrez « Célébrations » et choisissez une célébration existante.",
+   "Dans « Célébrations prévues », ouvrez une année et choisissez « Préparer » pour son cycle.",
+   "Modifiez les pages de la célébration, puis enregistrez.",
+   "Publiez la célébration et ses pages uniquement lorsque le contenu est prêt."
+  ],
+  "note": "Une célébration préparée ne devient pas publique automatiquement."
+ },
+ {
+  "group": "Médiathèque",
+  "title": "Retrouver une image ou un document",
+  "info": "Les fichiers téléchargés sont conservés dans la médiathèque même après retrait d’une page.",
+  "steps": [
+   "Ouvrez « Médiathèque » dans l’administration.",
+   "Choisissez Images, Audios, Vidéos ou Documents et utilisez la recherche par nom.",
+   "Cliquez directement sur la miniature ou le nom d’un fichier pour l’ouvrir.",
+   "Sous le fichier, les pages où il se trouve sont listées et cliquables.",
+   "Vert : page visible ; gris avec « (masquée) » : page masquée ; orange avec « (brouillon) » : page non publiée."
+  ],
+  "note": "« N’apparaît nulle part » signifie qu’aucune utilisation n’est retrouvée. « Référence à vérifier » signale une utilisation ancienne ou privée qu’on ne peut pas localiser avec certitude."
+ },
+ {
+  "group": "Médiathèque",
+  "title": "Importer et réutiliser des fichiers",
+  "info": "Un fichier importé peut servir dans plusieurs pages sans avoir à être téléchargé plusieurs fois.",
+  "steps": [
+   "Dans la médiathèque, choisissez une catégorie puis « + Importer ».",
+   "Pour placer une image dans une page, ajoutez un élément Image puis utilisez « Images du site ».",
+   "Pour associer un son, ajoutez un lecteur audio puis choisissez le fichier enregistré.",
+   "Les MP3 peuvent être importés jusqu’à 200 Mo. Pour les fichiers volumineux, une barre indique la progression.",
+   "Enregistrez la page après avoir choisi le fichier."
+  ],
+  "note": "Un fichier conservé dans l’administration n’est pas automatiquement accessible au public : les accès privés sont respectés."
+ },
+ {
+  "group": "Médiathèque",
+  "title": "Faire de la place sans perdre ses images",
+  "info": "La médiathèque distingue les fichiers réellement inutilisés de ceux qui restent nécessaires.",
+  "steps": [
+   "Regardez les pages indiquées sous l’image avant de supprimer quoi que ce soit.",
+   "Les images retirées d’une page, ou d’une page supprimée, restent dans la médiathèque.",
+   "Lorsque la suppression est sans danger et autorisée, le bouton « Supprimer » apparaît.",
+   "Cliquez sur « Supprimer », puis confirmez « Êtes-vous sûr de vouloir supprimer… ? ».",
+   "Si le bouton n’apparaît pas, le fichier est utilisé, partagé ou encore protégé contre une suppression incertaine."
+  ],
+  "note": "La suppression définitive d’un fichier est différente du retrait de ce fichier d’une page."
+ },
+ {
+  "group": "Membres et langues",
+  "title": "Gérer le public et les membres",
+  "info": "Vous pouvez garder des pages publiques et réserver d’autres contenus à des inscrits.",
+  "steps": [
+   "Dans Paramètres, activez « Gestion des membres et des accès privés » pour voir ces commandes.",
+   "Ouvrez « Membres et espaces » pour gérer les personnes et les espaces accessibles.",
+   "Choisissez « Public » pour les visiteurs, ou « Privé » et les catégories autorisées pour une page réservée.",
+   "Une célébration privée peut afficher son titre sans dévoiler ses contenus.",
+   "Masquer l’interface de gestion des membres ne transforme pas les contenus privés en contenus publics."
+  ],
+  "note": "Ne changez pas les droits d’accès lorsque vous souhaitez seulement masquer une page."
+ },
+ {
+  "group": "Membres et langues",
+  "title": "Préparer d’autres langues",
+  "info": "Les langues sont facultatives : l’éditeur reste simple en français par défaut.",
+  "steps": [
+   "Dans Paramètres, ouvrez « Gestion des langues (facultatif) ».",
+   "Activez l’affichage des outils de traduction uniquement si vous en avez besoin.",
+   "Choisissez la langue et préparez le texte correspondant à la page ou célébration.",
+   "Enregistrez puis publiez explicitement la version destinée aux visiteurs."
+  ],
+  "note": "Aucune traduction automatique n’est réalisée ; les textes manquants utilisent le contenu de repli prévu par le site."
+ },
+ {
+  "group": "Aide",
+  "title": "Si une modification n’apparaît pas",
+  "info": "Les situations les plus fréquentes se règlent sans supprimer de données.",
+  "steps": [
+   "Vérifiez que vous êtes sur la bonne page et la bonne langue.",
+   "Confirmez que « Enregistrer » a bien enregistré sur le serveur.",
+   "Vérifiez la visibilité (visible, masquée ou brouillon) et l’accès (public ou privé).",
+   "Actualisez ensuite le site public ; essayez l’aperçu du brouillon si la page n’est pas encore publiée.",
+   "Si un fichier ne s’ouvre pas, vérifiez que vous êtes connecté à l’administration et que vous disposez de l’autorisation."
+  ],
+  "note": "Ne supprimez pas des images ou des pages pour résoudre un simple problème d’affichage."
+ }
 ];
+
 function userGuide(){
  const root=n('section','editor-guide'),header=n('header','guide-intro');
  header.append(n('h1','','Mode d’emploi du site'),n('p','',
-  'Toutes les commandes de l’administration, expliquées pas à pas. Touchez une rubrique pour lire les instructions.'));
+  'L’essentiel pour gérer les pages, les célébrations et la médiathèque. Choisissez une rubrique ou recherchez un mot.'));
  const bar=n('div','guide-controls'),input=n('input','guide-search');
  input.type='search';input.placeholder='Rechercher : image, colonne, PDF, enregistrement…';
  input.setAttribute('aria-label','Rechercher dans le mode d’emploi');

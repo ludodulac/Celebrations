@@ -184,14 +184,14 @@ test('M032: publishing requires the actual R2 object, never just a catalogue ent
  assert.equal(result.status,404);
  assert.equal(bucket.data.mediaCatalogue[0].publicLink,undefined);
 });
-test('M032: browser editor is syntactically valid and exposes actual URL & explicit consent',()=>{
+test('M032/M037: backend retains guarded URL sharing while gallery shows no sharing buttons',()=>{
  assert.doesNotThrow(()=>new Function(DEMO_CLIENT));
  const src=readFileSync(new URL('../migration/cloudflare/editor-demo-client-source.js',import.meta.url),'utf8');
  assert.match(src,/function copyPermanentMediaUrl/);
  assert.match(src,/async function setStandalonePublicLink/);
  assert.match(src,/siteConfirm\(publicLink\?/);
- assert.match(src,/Copier l’URL/);
- assert.match(src,/Rendre le lien public/);
+ assert.ok(src.includes("n('a','media-picture-link')"),'Picture must remain clickable');
+ assert.doesNotMatch(src,/controls\.append\(b\('🔗 Copier l’URL'/);
  assert.match(src,/new URL\(media.src,location.origin\)/);
  assert.match(src,/serverRevision=result.revision/);
 });

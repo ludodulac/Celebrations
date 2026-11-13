@@ -1,4 +1,4 @@
-// M032 — browser-level media sharing smoke, exact rendered editor + local mock.
+// M037 — browser-level clean media cards, exact rendered editor + local mock.
 // Does not use an owner PIN or send a request to the live production services.
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
@@ -32,7 +32,7 @@ try{
    permissions:['clipboard-read','clipboard-write']
   });
   const page=await context.newPage(),errors=[];
-  let revision=14,publicLink=false,writeCount=0;
+  let revision=14,publicLink=false,writeCount=0,deleted=false,deleteCount=0;
   page.on('pageerror',e=>errors.push(String(e.message)));
   await page.route(ORIGIN+'/**',async route=>{
    const req=route.request(),url=new URL(req.url()),path=url.pathname;
@@ -44,9 +44,15 @@ try{
      plans:[],localization:null,publishedCelebrationVisibility:{'101':'published'}});
    }
    if(path==='/api/editor-media'&&req.method()==='GET'){
-    return json({ok:true,items:[{id:ID,type:'image',src:SRC,
+    return json({ok:true,items:deleted?[]:[{id:ID,type:'image',src:SRC,
      name:'Illustration inutilisée',source:'uploaded',general:false,publicLink,
      canDelete:!publicLink,uses:[]}]});
+   }
+   if(path==='/api/editor-media'&&req.method()==='POST'&&url.searchParams.get('action')==='delete'){
+    assert.equal(req.postDataJSON().id,ID);
+    assert.equal(publicLink,false,'A public-linked image must not be deleted');
+    deleted=true;deleteCount++;revision++;
+    return json({ok:true,revision});
    }
    if(path==='/api/editor-media'&&req.method()==='POST'&&url.searchParams.get('action')==='public-link'){
     writeCount++;
@@ -68,32 +74,25 @@ try{
   await page.locator('[data-tab="media"]').click();
   const card=page.locator('.global-media-card').filter({hasText:'Illustration inutilisée'});
   await card.waitFor({state:'visible'});
-  const link=card.locator('.media-open-direct');
-  assert.equal(await link.getAttribute('href'),SRC);
-  assert.equal(await link.getAttribute('target'),'_blank');
-  assert.equal(await card.getByText('Fichier conservé. Partage public direct non activé.').count(),1);
-  await card.getByRole('button',{name:'🌍 Rendre le lien public'}).click();
+  const imageLink=card.locator('.media-picture-link');
+  assert.equal(await imageLink.getAttribute('href'),SRC);
+  assert.equal(await imageLink.getAttribute('target'),'_blank');
+  assert.equal(await card.locator('.media-unused-ribbon').count(),0);
+  assert.equal(await card.getByText('N’apparaît nulle part').count(),1);
+  assert.equal(await card.getByRole('button',{name:'🌍 Rendre le lien public'}).count(),0);
+  assert.equal(await card.getByRole('button',{name:'🔗 Copier l’URL'}).count(),0);
+  assert.equal(await card.getByRole('button',{name:'Supprimer',exact:true}).count(),1);
+  await card.getByRole('button',{name:'Supprimer',exact:true}).click();
   await page.locator('.admin-dialog').waitFor({state:'visible'});
-  assert.ok((await page.locator('.admin-dialog').innerText()).includes('même si la célébration est masquée'));
+  assert.ok((await page.locator('.admin-dialog').innerText()).includes('Êtes-vous sûr de vouloir supprimer'));
+  assert.equal(deleteCount,0,'Delete must wait for user confirmation');
   await page.locator('.admin-dialog button.primary').click();
-  await page.waitForFunction(()=>document.querySelector('.media-direct-public-status')?.textContent.includes('Lien public autonome'));
-  assert.equal(publicLink,true);
-  assert.equal(writeCount,1);
-  const updated=page.locator('.global-media-card').filter({hasText:'Illustration inutilisée'});
-  assert.equal(await updated.getByRole('button',{name:'🔗 Copier l’URL'}).count(),1);
-  assert.equal(await updated.getByRole('button',{name:'Supprimer si inutilisé'}).count(),0,
-   'A public link must not be offered for deletion even if no pages reference it');
-  assert.ok(await updated.getByRole('button',{name:'🔗 Copier l’URL'}).isVisible());
-  await updated.getByRole('button',{name:'🔗 Copier l’URL'}).click();
-  const copied=await page.evaluate(async()=>navigator.clipboard.readText());
-  assert.equal(copied,ORIGIN+SRC);
-  await updated.getByRole('button',{name:'🔒 Désactiver le lien public'}).click();
-  await page.locator('.admin-dialog button.primary').click();
-  await page.waitForFunction(()=>document.querySelector('.media-direct-private-status')?.textContent.includes('Partage public direct non activé'));
-  assert.equal(publicLink,false);
-  assert.equal(writeCount,2);
+  await page.waitForFunction(()=>document.querySelectorAll('.global-media-card').length===0);
+  assert.equal(deleteCount,1);
+  assert.equal(deleted,true);
+  assert.equal(writeCount,0,'Rendering the library must not change sharing permissions');
   assert.deepEqual(errors,[],errors.join('; '));
   await context.close();
  }
- console.log('M032_BROWSER_SMOKE_PASS mobile_and_desktop=true direct_url=true explicit_consent=true public_toggle=true copy_url=true revoke=true');
+ console.log('M037_BROWSER_SMOKE_PASS mobile_and_desktop=true clickable_image=true clean_card=true confirmed_delete=true no_share_change=true');
 }finally{await browser.close()}
