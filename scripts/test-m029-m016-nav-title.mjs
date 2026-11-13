@@ -44,8 +44,17 @@ try{
  await page.screenshot({path:folder+'/01-parametres-titre-ordinateur.png',fullPage:true});
  await page.getByRole('button',{name:'Enregistrer le titre'}).click();
  await page.getByText('✓ Titre enregistré sur toutes les pages du site.').waitFor();
- let actual=await call('/api/site-identity');
- assert.deepEqual(actual.navigation,{title:'Ronde des Archanges',position:'right'});
+ // Browser receives the write response first; check the same value via an
+ // independent GET, allowing safe R2 propagation across Cloudflare isolates.
+ let actual=null;
+ for(let attempt=0;attempt<12;attempt++){
+  actual=await call('/api/site-identity');
+  if(actual.navigation?.title==='Ronde des Archanges'&&
+     actual.navigation?.position==='right')break;
+  await page.waitForTimeout(550);
+ }
+ assert.deepEqual(actual.navigation,{title:'Ronde des Archanges',position:'right'},
+  'Independent revisioned GET must return the saved navigation label');
  r=await page.goto(HOST+'/__editor/voir-le-site?celebration=90000002',{waitUntil:'domcontentloaded'});
  assert.equal(r.status(),200);
  const label=page.locator('.site-menu-bar .site-nav-title');
