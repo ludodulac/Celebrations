@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {DatabaseSync} from 'node:sqlite';
 import {
  CELEBRATION_CYCLE_START,CELEBRATION_CYCLE_END,CANONICAL_ARCHANGELS,
  celebrationCycle,preparedCelebrationSlots,cycleFromExisting,
@@ -122,4 +124,35 @@ test('invalid language ids, unpublished or non-existing languages are refused',(
  assert.throws(()=>validateNewCelebrationVersion(input('Chinese','PUBLIC','zh'),opts),/langue n’est pas disponible/);
  assert.throws(()=>celebrationVersionKey({scope:'PUBLIC'},'javascript:alert(1)'),TypeError);
  assert.throws(()=>validateNewCelebrationVersion(input('English','PUBLIC','en'),{...opts,existing:null}),TypeError);
+});
+
+test('M05 deferred unique D1 index refuses duplicate identity after old copies are cleaned',()=>{
+ const sql=readFileSync(new URL('../migration/cloudflare/manual-after-m030-cleanup/m030_unique_celebration_cycles.sql',import.meta.url),'utf8');
+ assert.match(sql,/idx_celebrations_archangel_year_unique/);
+ assert.ok(!sql.includes('DELETE FROM'),'M05 never deletes production data');
+ const db=new DatabaseSync(':memory:');
+ try{
+  db.exec('CREATE TABLE celebrations_celebrations(id INTEGER PRIMARY KEY,archangel TEXT NOT NULL,year TEXT,status TEXT)');
+  db.prepare('INSERT INTO celebrations_celebrations(id,archangel,year) VALUES(?,?,?)').run(101,'Michaël','2026');
+  db.prepare('INSERT INTO celebrations_celebrations(id,archangel,year) VALUES(?,?,?)').run(102,'Gabriel','2026–2027');
+  db.exec(sql); db.exec(sql); // idempotent
+  assert.throws(()=>db.prepare('INSERT INTO celebrations_celebrations(id,archangel,year) VALUES(?,?,?)').run(
+   105,' Michaël ','2026'),/UNIQUE constraint failed/);
+  assert.throws(()=>db.prepare('INSERT INTO celebrations_celebrations(id,archangel,year) VALUES(?,?,?)').run(
+   106,'michaël','2026'),/UNIQUE constraint failed/);
+  db.prepare('INSERT INTO celebrations_celebrations(id,archangel,year) VALUES(?,?,?)').run(107,'Michaël','2027');
+  assert.equal(db.prepare('SELECT count(*) n FROM celebrations_celebrations').get().n,3);
+ }finally{db.close()}
+});
+test('M05 deferred unique D1 index fails safely if the old Michaël duplicates still exist',()=>{
+ const sql=readFileSync(new URL('../migration/cloudflare/manual-after-m030-cleanup/m030_unique_celebration_cycles.sql',import.meta.url),'utf8');
+ const db=new DatabaseSync(':memory:');
+ try{
+  db.exec('CREATE TABLE celebrations_celebrations(id INTEGER PRIMARY KEY,archangel TEXT NOT NULL,year TEXT,status TEXT)');
+  for(const id of [101,105,106])
+   db.prepare('INSERT INTO celebrations_celebrations(id,archangel,year) VALUES(?,?,?)').run(id,'Michaël','2026');
+  assert.throws(()=>db.exec(sql),/UNIQUE constraint failed/,
+   'Mission 5 cannot apply D1 index before mission 10 official cleanup');
+  assert.equal(db.prepare('SELECT count(*) n FROM celebrations_celebrations').get().n,3);
+ }finally{db.close()}
 });
