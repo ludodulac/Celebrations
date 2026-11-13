@@ -1,24 +1,27 @@
 // M030 — the ONE definition of a celebration and its variants.
 // Never import browser globals or persistence: D1 stores canonical identities;
 // R2 stores pages/versions; this module validates both, unchanged.
-export const CELEBRATION_CYCLE_START=2026;
-export const CELEBRATION_CYCLE_END=2039;
-export const CANONICAL_ARCHANGELS=Object.freeze(['Michaël','Gabriel','Raphaël','Ouriel']);
+// Factory is serialized into the existing editor bootstrap: one contract for
+// browser and Worker, no duplicate date/identity logic to fall out of sync.
+export function createCelebrationCycleRegistry(){
+const CELEBRATION_CYCLE_START=2026;
+const CELEBRATION_CYCLE_END=2039;
+const CANONICAL_ARCHANGELS=Object.freeze(['Michaël','Gabriel','Raphaël','Ouriel']);
 const normalize=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('fr').trim();
-export function canonicalArchangel(value){
+function canonicalArchangel(value){
  return CANONICAL_ARCHANGELS.find(s=>normalize(s)===normalize(value))||null;
 }
-export function validCycleYear(value){
+function validCycleYear(value){
  return Number.isInteger(value)&&value>=CELEBRATION_CYCLE_START&&value<=CELEBRATION_CYCLE_END;
 }
-export function celebrationCycle(archangel,cycleYear){
+function celebrationCycle(archangel,cycleYear){
  const arch=canonicalArchangel(archangel),y=Number(cycleYear);
  if(!arch||!validCycleYear(y))throw new RangeError('Célébration hors calendrier');
  const year=arch==='Gabriel'?y+'–'+(y+1):String(arch==='Raphaël'||arch==='Ouriel'?y+1:y);
  return Object.freeze({slotKey:normalize(arch)+'-'+y,archangel:arch,cycleYear:y,
   year,title:arch+' '+year});
 }
-export function preparedCelebrationSlots(){
+function preparedCelebrationSlots(){
  const slots=[];
  for(let y=CELEBRATION_CYCLE_START;y<=CELEBRATION_CYCLE_END;y++)
   for(const a of CANONICAL_ARCHANGELS)
@@ -27,7 +30,7 @@ export function preparedCelebrationSlots(){
 }
 // D1 used both YYYY and YYYY–YYYY for historical Gabriel; the actual D1
 // values are NOT silently rewritten. Duplicates will first be audited.
-export function cycleFromExisting(row){
+function cycleFromExisting(row){
  const arch=canonicalArchangel(row?.archangel);
  const raw=String(row?.year||''),match=/^20\d{2}/.exec(raw);
  if(!arch||!match)return null;
@@ -36,7 +39,7 @@ export function cycleFromExisting(row){
  const slot=celebrationCycle(arch,y);
  return slot.year===raw?slot:null;
 }
-export function categorizeExistingCelebrations(rows){
+function categorizeExistingCelebrations(rows){
  if(!Array.isArray(rows))throw new TypeError('Catalogue D1 requis');
  const byKey=new Map(),duplicates=[],unsupported=[];
  for(const row of rows){
@@ -48,7 +51,7 @@ export function categorizeExistingCelebrations(rows){
  }
  return {byKey,duplicates,unsupported};
 }
-export function visibleSlotCatalogue(existingRows=[],visibility={}){
+function visibleSlotCatalogue(existingRows=[],visibility={}){
  const {byKey,duplicates,unsupported}=categorizeExistingCelebrations(existingRows);
  return {duplicates,unsupported,slots:preparedCelebrationSlots().map(slot=>{
   const original=byKey.get(slot.slotKey),id=original?String(original.id):null;
@@ -57,7 +60,7 @@ export function visibleSlotCatalogue(existingRows=[],visibility={}){
   return {...slot,id,provisioned:!!id,visibility:isVisible?'published':'hidden'};
  })};
 }
-export function canonicalAudience({scope,categoryId}={},categories=[]){
+function canonicalAudience({scope,categoryId}={},categories=[]){
  const active=new Set(categories.filter(c=>!c.disabled&&typeof c.id==='string').map(c=>c.id));
  if(scope==='PUBLIC'&&(!categoryId))return Object.freeze({scope:'PUBLIC',categoryId:''});
  // No fake categories. Until one is created, there is no private variant.
@@ -67,7 +70,7 @@ export function canonicalAudience({scope,categoryId}={},categories=[]){
   return Object.freeze({scope,categoryId});
  throw new RangeError('Destinataires inconnus ou catégorie désactivée');
 }
-export function celebrationVersionKey(audience,languageId){
+function celebrationVersionKey(audience,languageId){
  const {scope,categoryId=''}=audience||{};
  if(!['PUBLIC','ALL_PRIVATE_TYPES','SELECTED_TYPES'].includes(scope)||
     (scope==='SELECTED_TYPES'?!categoryId:!!categoryId))throw new TypeError('Public cible invalide');
@@ -75,7 +78,7 @@ export function celebrationVersionKey(audience,languageId){
   throw new TypeError('Langue invalide');
  return (scope==='SELECTED_TYPES'?'category:'+categoryId:scope)+'|'+languageId;
 }
-export function validateNewCelebrationVersion(input,{celebrationTitle,existing=[],categories=[],languages=[]}={}){
+function validateNewCelebrationVersion(input,{celebrationTitle,existing=[],categories=[],languages=[]}={}){
  if(!input||typeof input!=='object')throw new TypeError('Version requise');
  const title=String(input.name||'').trim();
  if(!title||title.length>120||normalize(title)===normalize(celebrationTitle))
@@ -92,3 +95,7 @@ export function validateNewCelebrationVersion(input,{celebrationTitle,existing=[
   throw new RangeError('Une version existe déjà pour cette langue et ces destinataires');
  return Object.freeze({name:title,languageId:input.languageId,audience,key,visibility:'draft'});
 }
+
+return Object.freeze({CELEBRATION_CYCLE_START,CELEBRATION_CYCLE_END,CANONICAL_ARCHANGELS,canonicalArchangel,validCycleYear,celebrationCycle,preparedCelebrationSlots,cycleFromExisting,categorizeExistingCelebrations,visibleSlotCatalogue,canonicalAudience,celebrationVersionKey,validateNewCelebrationVersion});
+}
+export const {CELEBRATION_CYCLE_START,CELEBRATION_CYCLE_END,CANONICAL_ARCHANGELS,canonicalArchangel,validCycleYear,celebrationCycle,preparedCelebrationSlots,cycleFromExisting,categorizeExistingCelebrations,visibleSlotCatalogue,canonicalAudience,celebrationVersionKey,validateNewCelebrationVersion}=createCelebrationCycleRegistry();
