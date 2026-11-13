@@ -23,7 +23,7 @@ test('custom and duplicated page names are editable without changing URLs or pub
  first.visibility='draft';first.accessPolicy=previousPolicy;
  assert.deepEqual(commands.renameEditablePage(db,first,'Programme — 2026','123'),{ok:true,changed:true});
  assert.equal(first.name,'Programme — 2026');
- assert.equal(first.blocks[0].text,'Programme — 2026','Generated heading follows new page title');
+ assert.equal(first.blocks[0].text,'Programme','A page name never rewrites authored heading blocks');
  assert.equal(first.id,oldId,'Public URL must not change');
  assert.equal(first.visibility,'draft');
  assert.deepEqual(first.accessPolicy,previousPolicy);
@@ -33,11 +33,13 @@ test('custom and duplicated page names are editable without changing URLs or pub
  assert.equal(commands.renameEditablePage(db,db.pages[2],'Nouvelle préparation','123').ok,false,
   'Fixed historical stages cannot be broken by renaming');
 });
-test('the copied-page rename appears in its normal page settings and uses the shared save action',()=>{
- assert.match(code,/Renommer cette page/);
- assert.match(code,/editorPageCommands\.renameEditablePage\(db,canonicalPage\(\),nameInput\.value/);
+test('the visible page menu label can be renamed from one ⋯ control without changing title blocks',()=>{
+ assert.match(code,/Modifier le nom/);
+ assert.match(code,/editorPageCommands\.renameMenuLabel\(db,p,label\)/);
+ assert.match(code,/kind:'page-menu-label'/);
  assert.match(code,/row\.append\(b\('Enregistrer',saveCurrentContent,'sm m022-save'\)\)/);
- assert.match(code,/editingLanguageId==='fr'&&editorPageModel\.removablePage/);
+ assert.doesNotMatch(code,/Renommer cette page/,'Old duplicate name field removed');
+ assert.doesNotMatch(code,/Définir comme accueil/,'Home selector hidden as requested');
 });
 test('the MP3 block editor exposes a title and ONE picker without placeholder paragraphs',()=>{
  const audio=code.slice(code.indexOf("if(x.kind==='audio'){"),code.indexOf("if(x.kind==='video'){"));

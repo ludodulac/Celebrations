@@ -69,8 +69,10 @@ let editingLanguageId='fr',localeView=null,localeCanonical=null,localeLangId=nul
 function clearLocaleView(){localeView=null;localeCanonical=null;localeLangId=null}
 function saveLocalizationLocal(){localStorage.setItem(LOCALIZATION_KEY,JSON.stringify(editorLocalization))}
 function localizedLabel(p){
- if(!['page','celebration'].includes(p?.group)||editingLanguageId==='fr')return p?.name||'';
- return editorLocalization.pages[p.id]?.[editingLanguageId]?.name||p.name;
+ if(!['page','celebration'].includes(p?.group)||editingLanguageId==='fr')
+  return p?.menuLabel||p?.name||'';
+ return editorLocalization.pages[p.id]?.[editingLanguageId]?.name||
+  p?.menuLabel||p?.name||'';
 }
 // Fixed archange/cycle identities, without an imposed Wednesday.
 function celebrationLabel(entry){
@@ -107,18 +109,9 @@ function saveShared(){
  localStorage.setItem(SHARED_KEY,JSON.stringify(editorPageCommands.sharedSnapshot(db,before)));
 }
 restoreShared();
-// Remove only the generated, unformatted page-name heading (id 1).
-// Authored headings, names, links, styles, images and paragraphs are preserved.
-function isBoilerplateTitle(p,block){
- return p?.group==='celebration'&&block?.id===1&&block.kind==='heading'&&
-  String(block.text||'').trim()===String(p.name||'').trim()&&
-  !block.rich&&!block.bold&&!block.italic&&!block.color&&!block.size&&
-  (!block.align||block.align==='center');
-}
-function removeBoilerplateTitles(pages){
- for(const p of pages||[])if(isBoilerplateTitle(p,p.blocks?.[0]))p.blocks.shift();
-}
-removeBoilerplateTitles(db.pages);
+// M034: ALL authored headings, including the first one and old id=1,
+// are ordinary removable blocks. Page routing/name never depends on them.
+// Never silently delete a block just because its text matches page.name.
 // Keep earlier edits while updating obsolete default labels / site welcome picture.
 const homeMedia=window.__PREPARATION_SEED__?.pages?.find(p=>p.id==='neutral-accueil-general')?.blocks.find(b=>b.kind==='image')?.src||'';
 for(const p of db.pages||[]){
@@ -2509,6 +2502,45 @@ function publicationActions(kind,q){
  field.append(select);outer.append(field);
  return outer;
 }
+// M034: the page's menu text is a separate field. Page name, URL, headings,
+// translations, rights and unpublished content NEVER change in this command.
+async function changePageMenuLabel(p){
+ if(!IS_STAGE||privateEdit||preview||!p)return;
+ const label=await sitePrompt('Nom affiché dans le menu (indépendant du titre de la page) :',
+  p.menuLabel||p.name);
+ if(label===null)return;
+ const valid=editorPageCommands.renameMenuLabel(db,p,label);
+ if(!valid.ok){siteNotice(valid.error);return}
+ if(!valid.changed)return;
+ mark();save();
+ // First persist the private draft, then use a specifically scoped server
+ // action that updates ONLY the published menu label. No hidden block, body
+ // text, media or private category can be accidentally published.
+ await serverSave();
+ if(db._serverPending||serverRevision===null){
+  siteNotice('Le nom est conservé en brouillon, mais pas encore confirmé sur le serveur. Enregistrez avant de réessayer.');
+  render();return;
+ }
+ try{
+  const response=await fetch('/api/editor-publication',{
+   method:'POST',cache:'no-store',headers:{'content-type':'application/json'},
+   body:JSON.stringify({kind:'page-menu-label',celebration:SERVER_ID,
+    pageId:p.id,menuLabel:p.menuLabel,expectedRevision:serverRevision})
+  });
+  const answer=await response.json().catch(()=>({}));
+  if(!response.ok){
+   if(response.status===409)serverRevision=null;
+   siteNotice(answer.error||'Le nom du menu n’a pas été confirmé sur le serveur. Le brouillon reste conservé.');
+   render();return;
+  }
+  if(!Number.isSafeInteger(answer.revision)||answer.menuLabel!==p.menuLabel)
+   throw Error('La confirmation du nom de menu est invalide.');
+  serverRevision=answer.revision;db._serverRevision=serverRevision;
+  save();
+  render();
+  status.textContent='✓ Nom du menu modifié, sans changer le titre, le contenu ni les droits de la page.';
+ }catch(error){siteNotice('Nom du menu conservé en brouillon : '+(error.message||error));render()}
+}
 function attachPagePublicationControls(list,group){
  if(!IS_STAGE||preview)return;
  // M033: one row, one ... menu per page. The old general pages received
@@ -2532,8 +2564,7 @@ function attachPagePublicationControls(list,group){
   // Ensure the page editor and publication controls appear in THIS single
   // panel, before the retained ordering/duplication/deletion actions.
   const actions=n('div','m033-single-page-menu-actions');
-  actions.append(b('Modifier cette page',()=>enter(
-   p.group==='page'?(p.placement==='footer'?'footer':'pages'):'celebrations',p.id),'sm'));
+  actions.append(b('Modifier le nom',()=>void changePageMenuLabel(p),'sm'));
   actions.append(publicationActions('page',p));
   if(group==='celebration'){
    const deletion=editorPageCommands.deletionPlan(db,p,STAGE_SEED?.celebrationId);
@@ -2576,7 +2607,7 @@ function pageWorkspace(group,mount=w){
  const list=n('div',group==='celebration'?'list':'list general-pages-list');
  if(group==='celebration'){
   for(const q of editorPageModel.groupPages(db.pages,'celebration')){
-   const label='✧ '+q.name;
+   const label='✧ '+localizedLabel(q);
    const choose=b(label,()=>enter('celebrations',q.id));
    choose.className='item'+(q.id===p.id?' active':'');choose.dataset.pageId=q.id;list.append(choose);
   }
@@ -2595,9 +2626,6 @@ function pageWorkspace(group,mount=w){
     const up=b('Monter',()=>moveGeneralPage(q,-1),'sm');up.disabled=editorPageModel.groupPages(db.pages,group)[0]===q;
     const down=b('Descendre',()=>moveGeneralPage(q,1),'sm');down.disabled=editorPageModel.groupPages(db.pages,group).at(-1)===q;
     commands.append(up,down);
-    if(group==='page'&&q.id!==(db.siteHomeId||'neutral-accueil-general')){
-     const home=b('Définir comme accueil',()=>makeHome(q),'sm');commands.append(home);
-    }
     if(/^neutral-[0-9a-f-]{30,45}$/.test(q.id)){
      const remove=b('Supprimer la page',()=>removeCustomPage(q),'sm');
      remove.classList.add('danger');commands.append(remove);
@@ -2616,25 +2644,6 @@ function pageWorkspace(group,mount=w){
  if(IS_STAGE&&!privateEdit&&!preview&&['page','celebration'].includes(p.group)){
   const row=n('div','editor-language-row m020-settings');
   row.append(n('strong','','Réglages de la page'));
-  if(editingLanguageId==='fr'&&editorPageModel.removablePage(canonicalPage(),STAGE_SEED?.celebrationId).allowed){
-   const rename=n('label','editor-language-choice m024-page-name','Nom de la page');
-   const nameInput=n('input');nameInput.type='text';nameInput.maxLength=95;
-   nameInput.value=canonicalPage().name;nameInput.setAttribute('aria-label','Renommer cette page');
-   nameInput.onchange=()=>{
-    const result=editorPageCommands.renameEditablePage(db,canonicalPage(),nameInput.value,STAGE_SEED?.celebrationId);
-    if(!result.ok){siteNotice(result.error);nameInput.value=canonicalPage().name;return;}
-    if(result.changed){
-     mark();
-     // Keep the focused Save button mounted: rerendering on input blur would
-     // swallow the very click intended to persist the new page name.
-     const nav=layout.querySelector('[data-page-id="'+CSS.escape(canonicalPage().id)+'"]');
-     if(nav){
-      nav.textContent=p.group==='celebration'?'✧ '+canonicalPage().name:canonicalPage().name;
-     }
-    }
-   };
-   rename.append(nameInput);row.append(rename);
-  }
   row.append(publicationActions('page',canonicalPage()));
   if(adminMembersEnabled)row.append(accessControls('page',canonicalPage()));
   if(adminLanguagesVisible){
@@ -3063,8 +3072,8 @@ const GUIDE_TOPICS=[
   note:'Les pages générales ne sont pas une copie des pages de chaque célébration.'},
  {group:'Pages et célébrations',title:'Changer l’ordre ou la page d’accueil',
   info:'Les options ⋯ des pages générales permettent de les organiser.',
-  steps:['Dans Pages, repérez la page souhaitée.','Touchez « ⋯ » à côté de son nom.','Choisissez « Monter » ou « Descendre » pour la déplacer.','Utilisez « Définir comme accueil » si cette option est proposée.','Appuyez sur « Enregistrer » et vérifiez avec « Voir le site ».'],
-  note:'La page déjà définie comme accueil n’affiche pas l’option pour se définir elle-même.'},
+  steps:['Dans Pages, repérez la page souhaitée.','Touchez « ⋯ » à côté de son nom.','Choisissez « Modifier le nom » pour changer le texte du menu, indépendamment du premier titre du contenu.','Utilisez « Monter » ou « Descendre » pour réorganiser les pages.','Le premier titre de la page est un bloc ordinaire : vous pouvez le modifier ou le supprimer séparément.'],
+  note:'Le nom du menu n’affecte ni l’adresse de la page, ni sa visibilité, ni les autorisations des membres.'},
  {group:'Pages et célébrations',title:'Créer ou supprimer une page générale',
   info:'Seules les pages que vous créez peuvent être supprimées par ce menu.',
   steps:['Dans Pages, touchez « + Page » et indiquez son nom.','Pour supprimer une page créée, ouvrez « ⋯ » près de son nom puis « Supprimer la page ».','Lisez la confirmation avant de valider.','Enregistrez, puis contrôlez le résultat sur le site.'],

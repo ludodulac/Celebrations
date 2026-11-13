@@ -37,9 +37,22 @@ export function createEditorPageCommands({model}){
   const previous=page.name;
   if(previous===value)return {ok:true,changed:false};
   page.name=value;
-  // Only update a generated heading, never an independently edited title.
-  for(const block of page.blocks||[])
-   if(block.kind==='heading'&&block.text===previous)block.text=value;
+   return {ok:true,changed:true};
+ }
+ // The visible navigation label is not a content heading or canonical D1 name.
+ // It can be changed on historical pages without changing their stable identity.
+ function renameMenuLabel(db,page,label){
+  if(!db?.pages?.includes(page))return {ok:false,error:'Page introuvable.'};
+  const value=typeof label==='string'?label.trim():'';
+  if(!value||value.length>95||/[\\\\\u0000-\u001f\u007f]/.test(value))
+   return {ok:false,error:'Nom du menu invalide (1 à 95 caractères).'};
+  const group=page.placement==='footer'?'footer':page.group;
+  if(model.groupPages(db.pages,group).some(other=>other!==page&&
+   String(other.menuLabel||other.name||'').trim().toLocaleLowerCase('fr')===value.toLocaleLowerCase('fr')))
+   return {ok:false,error:'Un autre élément porte déjà ce nom dans ce menu.'};
+  if((page.menuLabel||page.name)===value)return {ok:true,changed:false};
+  // NEVER rewrite page.name or page.blocks. Both have distinct semantics.
+  page.menuLabel=value;
   return {ok:true,changed:true};
  }
  function deletionPlan(db,page,celebrationId){
@@ -61,6 +74,6 @@ export function createEditorPageCommands({model}){
  function rememberDeletedPage(before,pageId){
   return [...new Set([...(Array.isArray(before?.deletedPageIds)?before.deletedPageIds:[]),pageId])].slice(-100);
  }
- return {restoreSharedPages,sharedSnapshot,moveGeneralPage,renameEditablePage,
+ return {restoreSharedPages,sharedSnapshot,moveGeneralPage,renameEditablePage,renameMenuLabel,
   deletionPlan,removeConfirmedPage,rememberDeletedPage};
 }

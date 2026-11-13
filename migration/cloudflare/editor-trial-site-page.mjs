@@ -23,6 +23,8 @@ export const PUBLIC_LANGUAGE_STYLE=`
    Grid allocates spare width to the title; ellipsis prevents overlap. */
 @media(min-width:701px){
  .site-menu-bar.has-nav-title{display:grid;grid-template-columns:max-content minmax(0,1fr) max-content max-content;gap:12px;flex-wrap:nowrap}
+ .site-nav-title{text-decoration:none!important;display:block;cursor:pointer}
+ .site-nav-title:hover,.site-nav-title:focus-visible{text-decoration:underline!important;text-underline-offset:3px}
  .site-nav-title{grid-column:2;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#263747;font:650 clamp(14px,1.4vw,20px)/1.35 system-ui,sans-serif}
  .site-nav-title[data-align="left"]{justify-self:start;text-align:left}
  .site-nav-title[data-align="center"]{justify-self:center;text-align:center}
@@ -66,10 +68,20 @@ export const M031_VISITOR_NAV_STYLE=`
 // M033 — Only a published general homepage image becomes a full-window
 // entrance; the editor's original image URL, bytes and metadata are unchanged.
 export const M033_SPLASH_HOME_CSS=`
-body.is-splash-home{
- min-height:100svh;min-height:100dvh;
- width:100%;margin:0!important;padding:0!important;background:#fff!important
+/* M034: Borderless CENTRAL page, not photo across viewport.
+   Original author headings stay visible, editable and deletable. */
+/* Keep the page/home title beside ☰ Menu on phones as well, with a
+   normal anchor pointing to /; preserve the separate member/language tools. */
+@media(max-width:700px){
+ .site-menu-bar .site-nav-title{
+  display:block!important;flex:1 1 140px;min-width:0;
+  max-width:calc(100vw - 154px);margin:0;
+  font-size:clamp(12px,3.5vw,17px);line-height:1.3;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap
+ }
+ .site-menu-bar.has-nav-title{display:flex;flex-wrap:wrap}
 }
+body.is-splash-home{width:100%;margin:0!important;background:#fff!important}
 body.is-splash-home #site-identity,
 body.is-splash-home .site-menu-bar,
 body.is-splash-home #celebration-shortcuts,
@@ -78,33 +90,48 @@ body.is-splash-home .hero,
 body.is-splash-home .footer{display:none!important}
 body.is-splash-home .site-paper,
 body.is-splash-home.is-neutral-preview .site-paper{
- flex:1 0 auto;display:block;width:100%!important;max-width:none!important;
- margin:0!important;padding:0!important;min-height:100svh;
- border:0!important;border-radius:0!important;box-shadow:none!important;
- background:#fff!important;overflow:visible!important
+ flex:0 0 auto!important;display:block!important;
+ width:min(940px,calc(100vw - 24px))!important;
+ max-width:940px!important;min-height:0!important;
+ margin:clamp(8px,2vw,18px) auto 38px!important;
+ padding:0!important;
+ border:0!important;border-radius:0!important;
+ box-shadow:none!important;background:#fff!important;
+ overflow:visible!important
 }
-body.is-splash-home #stage-main{width:100%;margin:0;padding:0;min-height:100svh}
+body.is-splash-home #stage-main{
+ display:block!important;width:100%;max-width:100%;
+ margin:0;padding:0;min-height:0
+}
+/* Cover touches both central page edges, no border/inset. */
 body.is-splash-home .m033-splash-enter{
- display:block;position:relative;width:100%;height:100svh;height:100dvh;
- min-height:100svh;margin:0;padding:0;overflow:hidden;
- background:#e9ebec;text-decoration:none;cursor:pointer
+ display:block;position:relative;width:100%;height:min(72dvh,720px);
+ min-height:320px;margin:0;padding:0;overflow:hidden;
+ background:#f2f3f4;text-decoration:none;cursor:pointer
 }
 body.is-splash-home .m033-splash-image{
  display:block;width:100%!important;height:100%!important;
  object-fit:cover;object-position:center;
  max-width:none!important;max-height:none!important;
- margin:0!important;padding:0!important;border:0!important;border-radius:0!important
+ margin:0!important;padding:0!important;
+ border:0!important;border-radius:0!important
 }
 body.is-splash-home .m033-splash-enter:focus-visible{
- outline:5px solid #ffe37b;outline-offset:-5px;z-index:1
+ outline:4px solid #ffe37b;outline-offset:-4px;z-index:1
 }
-body.is-splash-home .m033-home-after-hero{
- box-sizing:border-box;max-width:980px;margin:0 auto;
- padding:clamp(24px,5vw,64px) clamp(16px,4vw,36px)
+body.is-splash-home .m034-home-flow{
+ box-sizing:border-box;width:100%;max-width:100%;
+ padding:clamp(14px,2.7vw,26px) clamp(12px,3.6vw,32px)
 }
-body.is-splash-home .m033-home-after-hero:empty{display:none}
-@media(max-width:700px){
- body.is-splash-home .m033-home-after-hero{padding:24px 16px}
+body.is-splash-home .m034-home-flow .site-block:last-child{margin-bottom:0}
+body.is-splash-home .m034-home-flow .trial-heading{margin-top:5px;margin-bottom:14px}
+@media(max-width:600px){
+ body.is-splash-home .site-paper,
+ body.is-splash-home.is-neutral-preview .site-paper{
+  width:calc(100vw - 16px)!important;margin:8px auto 28px!important
+ }
+ body.is-splash-home .m033-splash-enter{height:min(68dvh,640px);min-height:260px}
+ body.is-splash-home .m034-home-flow{padding:12px 10px}
 }
 `;
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -132,7 +159,7 @@ export async function handleTrialSite(request,env){
  const navigation=navigationPreference(publishedState?.navigation);
  const language=(url.searchParams.get('lang')||'fr').toLowerCase().split('-')[0];
  const identityTitle=identity.titles[language]||identity.title;
- const navigationHtml=navigation.title?'<strong class="site-nav-title" data-align="'+navigation.position+'">'+esc(navigation.title)+'</strong>':'';
+ const navigationHtml=navigation.title?'<a class="site-nav-title" data-align="'+navigation.position+'" href="/" aria-label="Retour à la page d’accueil">'+esc(navigation.title)+'</a>':'';
  const identityHtml=identityTitle||identity.imageSrc?'<header id="site-identity" class="m021-site-identity" aria-label="Identité du site">'+
   (identity.imageSrc?'<img class="m021-site-image" src="'+esc(identity.imageSrc)+'" alt="'+esc(identity.imageAlt)+'" style="object-position:'+identity.positionX+'% '+identity.positionY+'%">':'')+
   (identityTitle?'<strong class="m021-site-title">'+esc(identityTitle)+'</strong>':'')+'</header>':'';
