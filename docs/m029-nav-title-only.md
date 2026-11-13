@@ -35,3 +35,11 @@ La sauvegarde du titre fonctionne désormais sur M016 et sa relecture serveur a 
 ## Parcours final smartphone
 
 La barre du menu et le titre sont maintenant validés en navigateur ordinateur sur M016. Le deuxième contexte Chrome pour smartphone était bloqué par la porte de connexion spécifique de M016 (403), sans rapport avec le site officiel. Le test smartphone utilise désormais la même session de test M016 pour vérifier simplement l'absence visuelle du titre en petit écran, sans modifier les droits d'accès.
+
+## Validation M016 terminée — 13 novembre 2026
+
+**[Workflow M016 #43393550562](https://github.com/ludodulac/Celebrations/actions/runs/43393550562) : SUCCESS.** Authentification de test, sauvegarde puis relecture du titre, titre à droite dans le menu existant sur ordinateur, titre masqué sur smartphone, restauration de la préférence initiale et vérification du Worker officiel inchangé. Sauvegardes préproduction effectuées.
+
+## Autorisation de mise en ligne
+
+Le propriétaire a explicitement demandé le déploiement rapide de **cette seule fonctionnalité** sur le site officiel. La publication contrôlée M029 exige la version exacte officielle M028, les sauvegardes D1/R2 chiffrées, zéro migration, les tests de non-régression, la confirmation de la sécurité des membres/pages, la publication sur le Worker existant uniquement et le retour arrière si un contrôle échoue.
