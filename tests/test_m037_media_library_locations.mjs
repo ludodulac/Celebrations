@@ -1,3 +1,4 @@
+// M037 — vérifications avant livraison sur le site officiel (code seulement).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
