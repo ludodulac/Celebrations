@@ -15,3 +15,7 @@ Le premier passage a confirmé l'affichage du formulaire et la réponse de sauve
 ## Deuxième passage M016
 
 Le titre s'enregistre et se relit correctement via l'API. Le navigateur de préproduction a trouvé HTTP 404 sur la page publique parce que le rendu visiteur historique ne reconnaissait pas explicitement l'hôte M016. Ajout du garde-fou existant `isM016AdminPreprodHost` (hôte exact et deux activations isolées requises), sans ouvrir aucun autre hôte ni modifier la production. Le parcours vérifie maintenant le titre dans la barre existante sur ordinateur et son masquage sur téléphone, puis restaure les préférences M016.
+
+## Troisième test préproduction
+
+Le navigateur avait attendu un texte de confirmation qui peut disparaître lors d'un rendu asynchrone des paramètres. Le critère est désormais le résultat réellement conservé sur le serveur, relu indépendamment ; le diagnostic affiche l'état du formulaire si ce résultat ne correspond pas. Aucun changement de fonction ni de données supplémentaires.
