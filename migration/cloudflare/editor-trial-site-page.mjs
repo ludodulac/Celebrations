@@ -200,6 +200,59 @@ body.is-splash-home .m033-splash-enter:focus-visible .m035-welcome-button{
   bottom:22px;font-size:17px
  }
 }
+
+/* M036 — one document-width and minimum paper surface for ALL pages.
+   Text and sections retain the familiar padding; selected images alone can
+   use the full width of the white central paper. No arbitrary fixed height. */
+:root{--m036-paper-gutter:clamp(17px,3.3vw,38px)}
+.site-paper,
+body.is-splash-home .site-paper,
+body.is-splash-home.is-neutral-preview .site-paper{
+ box-sizing:border-box!important;
+ width:min(940px,calc(100vw - 24px))!important;max-width:940px!important;
+ min-height:clamp(510px,66svh,780px)!important;
+ border:0!important;border-radius:0!important;box-shadow:none!important;
+ overflow:visible!important
+}
+.site-paper:not(body.is-splash-home .site-paper){
+ padding:var(--m036-paper-gutter)!important
+}
+body.is-splash-home .site-paper{padding:0!important}
+.site-paper #stage-main>.site-block.m036-image-edge-to-edge{
+ width:calc(100% + var(--m036-paper-gutter)*2)!important;
+ max-width:none!important;
+ margin-left:calc(-1*var(--m036-paper-gutter))!important;
+ margin-right:0!important
+}
+.site-paper #stage-main>.site-block.m036-image-edge-to-edge .trial-figure{
+ display:block;width:100%!important;max-width:none!important;margin:0!important;padding:0!important
+}
+.site-paper #stage-main>.site-block.m036-image-edge-to-edge .trial-figure>img{
+ display:block;width:100%!important;max-width:100%!important;
+ height:auto!important;max-height:none!important;object-fit:contain!important;
+ border-radius:0!important
+}
+/* Welcome photo: no cover crop, no height cap, every image pixel is visible.
+   The author can still add or remove any text/title block before/after it. */
+body.is-splash-home .m033-splash-enter{
+ display:block!important;width:100%!important;height:auto!important;
+ min-height:0!important;max-height:none!important;aspect-ratio:auto!important;
+ overflow:visible!important
+}
+body.is-splash-home .m033-splash-image{
+ display:block!important;width:100%!important;height:auto!important;
+ min-height:0!important;max-height:none!important;object-fit:contain!important;
+ object-position:center!important;aspect-ratio:auto!important
+}
+@media(max-width:600px){
+ .site-paper,
+ body.is-splash-home .site-paper,
+ body.is-splash-home.is-neutral-preview .site-paper{
+  width:calc(100vw - 16px)!important;min-height:clamp(320px,62svh,560px)!important;
+  margin:8px auto 32px!important
+ }
+ :root{--m036-paper-gutter:clamp(12px,3vw,17px)}
+}
 `;
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const safeJson=x=>JSON.stringify(x).replace(/</g,'\\u003c').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029');
