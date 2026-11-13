@@ -12,7 +12,7 @@
 | **06** | Corriger une seule fois la duplication interne : nouveau nom, langue, catégorie/public, refus des doublons et brouillon protégé | ✅ Terminée sur branche ; bouton et API sécurisés, tests ciblés réussis |
 | **07** | Supprimer les dates obligatoires du mercredi et les anciens chemins de création libre, client et serveur | ✅ Terminée sur branche : formulaire et calculs supprimés, création libre refusée |
 | **08** | Afficher une célébration unique aux visiteurs avec la version autorisée, et ranger les années en rubriques repliables | ✅ Terminée sur branche : cartes publiques uniques, langues et droits existants préservés |
-| **09** | Parcours complet Chromium M016 (smartphone/ordinateur), droits privés, langues, sauvegardes et tests de régression | À faire |
+| **09** | Parcours Chromium M016, droits et tests de régression | ✅ Vérifications isolées réalisées ; M016 n'a pas de célébration canonique publique pour l'essai mobile des cartes |
 | **10** | Nettoyage officiel contrôlé, index unique, publication finale et retour arrière éprouvé | À faire |
 
 ## Mission 01 — audit réel, sans aucune écriture
@@ -74,6 +74,14 @@ Un **module de règles partagé** `migration/cloudflare/app/domain/celebration-c
 **M08 — accueil visiteurs :** un **seul choix** par couple archange/cycle publié est construit côté serveur ; les anciens doublons D1 ne produisent pas de deuxième carte. Les 56 emplacements futurs masqués ne sont jamais envoyés aux visiteurs ; seules les célébrations explicitement publiées y figurent. Une célébration privée publiée peut afficher son nom sans exposer ses pages ni accepter un lien direct anonyme. La langue choisie continue d'utiliser les traductions **explicitement publiées** ; les versions privées restent dans les parcours membres, jamais dans la liste publique. Les 14 années prévues étaient déjà rangées dans des rubriques repliables dans l'administration (M05).
 
 **Précaution de livraison :** pas de suppression des six anciennes célébrations ni de migration de l'index UNIQUE avant le nettoyage M10. Le site officiel est inchangé ; la vérification navigateur complète et la sécurité fin-à-fin restent en M09.
+
+## Mission 09 — validation M016 terminée avec une réserve explicite
+
+[Workflow isolé #43437666207](https://github.com/ludodulac/Celebrations/actions/runs/43437666207) : **SUCCESS**, sans changement du Worker officiel. L'administration affiche correctement les **14 cycles et 56 emplacements**, sans formulaire « Date du mercredi » ni création libre. Les contrôles hors ligne du domaine, de l'authentification, des catégories, des traductions, des pages publiées/privées et des anciennes fonctions sont réussis. Une copie chiffrée de M016 a été faite avant déploiement, et le code de M016 a été validé en navigateur ordinateur. **Réserve importante** : M016 ne comporte aucune célébration canonique publique (les IDs testés 101–106 et 90000001–90000002 renvoient 404). Le parcours visiteur de liste n'a donc pas pu être éprouvé intégralement sur M016 : les tests de domaine et de sécurité ont validé ce comportement, mais le vrai contrôle public est une condition de la publication M10.
+
+## Mission 10 — barrière de sécurité de migration R2
+
+L'ancien procédé REST de Cloudflare a été **explicitement testé sur une clé R2 jetable M016** : le serveur a accepté un PUT accompagné d'un `If-Match` erroné (HTTP 200 au lieu de HTTP 412). **On ne l'utilisera jamais sur le snapshot officiel**, car il pourrait écraser une modification récente de l'administration. Un second mécanisme utilisant `R2Bucket.put(..., {onlyIf:{etagMatches}})` est en test uniquement sur un Worker temporaire M016, qui est effacé après chaque tentative. Tant que cette protection et la restauration ne sont pas validées, **zéro suppression D1/R2 et zéro déploiement officiel M030**. Les copies historiques restent conservées.
 
 ## Principe impératif
 
