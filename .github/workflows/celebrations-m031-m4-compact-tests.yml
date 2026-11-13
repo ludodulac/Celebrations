@@ -1,0 +1,26 @@
+name: "M031/4 — ergonomie administration et navigation visiteurs"
+on:
+  push:
+    branches: [feat/m031-audit-visibilite-d1-cycles-20261113]
+permissions: {contents: read}
+jobs:
+  compact:
+    if: ${{ contains(github.event.head_commit.message, '[M031_M4_TEST]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - name: Verify generated UI scripts, original publication, private access and 14-year calendar
+        run: |
+          set -euo pipefail
+          node scripts/build-m012b-member-spaces-inline.mjs --check
+          node scripts/build-m019-editor-client.mjs --check
+          node --check migration/cloudflare/editor-demo-client.mjs
+          node --check migration/cloudflare/editor-demo-preparation-page.mjs
+          node --check migration/cloudflare/editor-trial-site-client.mjs
+          node --check migration/cloudflare/editor-trial-site-page.mjs
+          node --test tests/test_m031_m4_compact_layout.mjs tests/test_m031_d1_visibility_route.mjs tests/test_m031_d1_session_renewal.mjs tests/test_m031_published_visibility.mjs tests/test_m018_official_pin_bridge.mjs tests/test_m030_canonical_celebrations.mjs tests/test-editor-demo-preparation.mjs tests/test_m012c_private_editor_publication.mjs
+          echo M031_M4_REGRESSION_PASS
