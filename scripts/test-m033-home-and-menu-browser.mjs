@@ -113,6 +113,7 @@ try{
   assert.equal(await homeRow.count(),1);
   assert.equal(await homeRow.locator(':scope > .page-options').count(),1);
   assert.equal(await homeRow.locator(':scope > .inline-page-state').count(),1);
+  await homeRow.locator(':scope > .page-options > summary').click();
   const menu=homeRow.locator('.page-options-menu');
   assert.equal(await menu.getByRole('button',{name:'Modifier cette page'}).count(),1);
   assert.equal(await menu.getByRole('button',{name:'Monter'}).count(),1);
