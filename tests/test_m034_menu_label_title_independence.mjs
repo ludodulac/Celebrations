@@ -129,7 +129,7 @@ test('M034: unpublished private page remains private after standalone menu renam
   blocks:[{id:1,kind:'text',text:'Contenu réservé'}]});
  const bucket=new Bucket(data),cookie=await editorCookie();
  const id=data.shared.pages[2].id;
- assert.equal((await rename(bucket,id,'Espace secret',{cookie})).status,200);
+ assert.equal((await rename(bucket,id,'Espace secret',{cookie})).status,403,'Private managed page changes use the separate protected service');
  assert.ok(!publicSnapshot(bucket.data,'101').shared.pages.some(p=>p.id===id));
  assert.equal(bucket.data.published.shared.pages.some(p=>p.id===id),false);
  assert.equal(bucket.data.shared.pages[2].accessPolicy.mode,'ALL_PRIVATE_TYPES');
