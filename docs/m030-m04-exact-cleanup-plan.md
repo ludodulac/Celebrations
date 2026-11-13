@@ -41,3 +41,7 @@ La médiathèque conserve des **références d'utilisation** (`mediaCatalogue[].
 **Conservation certifiée dans la copie :** Michaël 101 (8 pages brouillon, 8 pages publiées), 4 pages générales et 1 page générale publiée, membres et droits, registre des langues, médias et toutes leurs ressources de stockage. **0 écriture sur le site officiel**.
 
 **Le nettoyage officiel n'est pas lancé.** Il faudra une nouvelle vérification des comptes et contenus avant d'appliquer ce plan aux données réelles.
+
+## Ajustement minimal de sécurité
+
+La simulation a signalé des références de médiathèque vers les six célébrations anciennes. Le plan a été corrigé pour détacher **seulement** ces associations devenues obsolètes, dans la copie locale, tout en conservant intégralement les fichiers et les autres usages. L'étape est rejouée sans aucun accès Cloudflare.
