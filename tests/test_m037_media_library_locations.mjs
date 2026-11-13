@@ -61,3 +61,16 @@ test('M037: cartes sobres, image cliquable, suppression confirmée et couleurs e
  assert.match(M031_COMPACT_LAYOUT_CSS,/file-location-draft/);
  assert.doesNotThrow(()=>new Function(DEMO_CLIENT));
 });
+
+test('M037: le mode d’emploi intégré est court et actualisé',()=>{
+ const source=readFileSync(new URL('../migration/cloudflare/editor-demo-client-source.js',import.meta.url),'utf8');
+ assert.match(source,/const GUIDE_TOPICS=\[/);
+ assert.match(source,/N’apparaît nulle part/);
+ assert.match(source,/Prendre toute la largeur de la page/);
+ assert.match(source,/200 Mo/);
+ assert.match(source,/Gestion des membres et des accès privés/);
+ assert.doesNotMatch(source,/Dans la fiche du fichier, utilisez « 👁 Voir »/);
+ const topics=source.slice(source.indexOf('const GUIDE_TOPICS=['),
+  source.indexOf('function userGuide(){'));
+ assert.equal((topics.match(/"group":/g)||[]).length,14);
+});
