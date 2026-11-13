@@ -19,7 +19,7 @@ jobs:
       - name: Validate no-date, no-duplicate canonical celebration definitions
         run: |
           node --check migration/cloudflare/app/domain/celebration-cycle-registry.mjs
-          node --test tests/test_m030_canonical_celebrations.mjs
+          node --test tests/test_m030_canonical_celebrations.mjs tests/test_m012c_private_editor_publication.mjs
       - name: Verify canonical generated editor and existing functionality
         run: |
           node scripts/build-m012b-member-spaces-inline.mjs --check
