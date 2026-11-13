@@ -3323,6 +3323,8 @@ function userGuide(){
  display();
 }
 
+// Preserve an unsaved menu label if an unrelated editor hydration rerenders Settings.
+let navLabelDraft=null;
 function settings(){
  // A single persisted switch; changing it never writes access policies.
  const mode=n('section','settings-actions m021b-admin-mode');
@@ -3407,7 +3409,11 @@ function settings(){
   const option=n('option','',text);option.value=value;select.append(option);
  }
  alignLabel.append(select);
+ const keepNavDraft=()=>{navLabelDraft={title:title.value,position:select.value}};
+ title.oninput=keepNavDraft;
+ select.onchange=keepNavDraft;
  const saveTitle=b('Enregistrer le titre',async()=>{
+  const requested={title:title.value.trim(),position:select.value};
   saveTitle.disabled=true;navStatus.textContent='Enregistrement…';
   try{
    const current=await fetch('/api/site-identity',{credentials:'same-origin',cache:'no-store'});
@@ -3416,11 +3422,12 @@ function settings(){
    const response=await fetch('/api/site-identity',{
     method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},
     body:JSON.stringify({expectedRevision:preferences.revision,
-     navigation:{title:title.value.trim(),position:select.value}})
+     navigation:requested})
    });
    const result=await response.json().catch(()=>({}));
    if(!response.ok||!result.ok)throw Error(result.error||'Enregistrement refusé');
-   serverRevision=result.revision;navStatus.textContent='✓ Titre enregistré sur toutes les pages du site.';
+   serverRevision=result.revision;
+   navLabelDraft=null;navStatus.textContent='✓ Titre enregistré sur toutes les pages du site.';
   }catch(error){navStatus.textContent='❌ '+(error.message||String(error))}
   finally{saveTitle.disabled=false}
  },'sm primary');
@@ -3435,8 +3442,8 @@ function settings(){
  void fetch('/api/site-identity',{credentials:'same-origin',cache:'no-store'}).then(async response=>{
   const value=await response.json();if(!response.ok||!value.ok)throw Error(value.error||'Paramètres indisponibles');
   if(!navPanel.isConnected)return;
-  title.value=value.navigation?.title||'';
-  select.value=['left','center','right'].includes(value.navigation?.position)?value.navigation.position:'center';
+  title.value=navLabelDraft?.title??value.navigation?.title??'';
+  select.value=navLabelDraft?.position??(['left','center','right'].includes(value.navigation?.position)?value.navigation.position:'center');
   title.disabled=false;select.disabled=false;saveTitle.disabled=false;
  }).catch(error=>{if(navPanel.isConnected)navStatus.textContent='❌ '+(error.message||String(error))});
 }
