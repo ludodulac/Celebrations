@@ -63,6 +63,50 @@ export const M031_VISITOR_NAV_STYLE=`
  }
 }
 `;
+// M033 — Only a published general homepage image becomes a full-window
+// entrance; the editor's original image URL, bytes and metadata are unchanged.
+export const M033_SPLASH_HOME_CSS=`
+body.is-splash-home{
+ min-height:100svh;min-height:100dvh;
+ width:100%;margin:0!important;padding:0!important;background:#fff!important
+}
+body.is-splash-home #site-identity,
+body.is-splash-home .site-menu-bar,
+body.is-splash-home #celebration-shortcuts,
+body.is-splash-home #stage-navigation,
+body.is-splash-home .hero,
+body.is-splash-home .footer{display:none!important}
+body.is-splash-home .site-paper,
+body.is-splash-home.is-neutral-preview .site-paper{
+ flex:1 0 auto;display:block;width:100%!important;max-width:none!important;
+ margin:0!important;padding:0!important;min-height:100svh;
+ border:0!important;border-radius:0!important;box-shadow:none!important;
+ background:#fff!important;overflow:visible!important
+}
+body.is-splash-home #stage-main{width:100%;margin:0;padding:0;min-height:100svh}
+body.is-splash-home .m033-splash-enter{
+ display:block;position:relative;width:100%;height:100svh;height:100dvh;
+ min-height:100svh;margin:0;padding:0;overflow:hidden;
+ background:#e9ebec;text-decoration:none;cursor:pointer
+}
+body.is-splash-home .m033-splash-image{
+ display:block;width:100%!important;height:100%!important;
+ object-fit:cover;object-position:center;
+ max-width:none!important;max-height:none!important;
+ margin:0!important;padding:0!important;border:0!important;border-radius:0!important
+}
+body.is-splash-home .m033-splash-enter:focus-visible{
+ outline:5px solid #ffe37b;outline-offset:-5px;z-index:1
+}
+body.is-splash-home .m033-home-after-hero{
+ box-sizing:border-box;max-width:980px;margin:0 auto;
+ padding:clamp(24px,5vw,64px) clamp(16px,4vw,36px)
+}
+body.is-splash-home .m033-home-after-hero:empty{display:none}
+@media(max-width:700px){
+ body.is-splash-home .m033-home-after-hero{padding:24px 16px}
+}
+`;
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const safeJson=x=>JSON.stringify(x).replace(/</g,'\\u003c').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029');
 export async function handleTrialSite(request,env){
@@ -95,7 +139,7 @@ export async function handleTrialSite(request,env){
  const isOfficial=['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu'].includes(url.hostname);
  const siteClient=TRIAL_SITE_CLIENT;
  const html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'+(isOfficial?'<title>Célébrations des Archanges</title>':'<meta name="robots" content="noindex,nofollow"><title>Site d’essai — Célébrations</title>')+
- '<style nonce="'+nonce+'">'+TRIAL_SITE_STYLE+PUBLIC_LANGUAGE_STYLE+M031_VISITOR_NAV_STYLE+'</style></head><body data-member-site="'+(memberSite?'1':'0')+'" data-member-login-visible="'+(memberSite&&publishedState?.adminMode?.memberAccessUiEnabled===true?'1':'0')+'">'+identityHtml+
+ '<style nonce="'+nonce+'">'+TRIAL_SITE_STYLE+PUBLIC_LANGUAGE_STYLE+M031_VISITOR_NAV_STYLE+M033_SPLASH_HOME_CSS+'</style></head><body data-member-site="'+(memberSite?'1':'0')+'" data-member-login-visible="'+(memberSite&&publishedState?.adminMode?.memberAccessUiEnabled===true?'1':'0')+'">'+identityHtml+
 
 
  '<div class="site-menu-bar'+(navigation.title?' has-nav-title':'')+'"><div class="site-menu-group"><button type="button" class="menu-toggle" id="menu-toggle" aria-expanded="false" aria-haspopup="true" aria-controls="general-navigation">☰ Menu</button>'+
