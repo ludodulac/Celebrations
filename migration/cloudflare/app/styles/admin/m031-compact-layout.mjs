@@ -165,4 +165,46 @@ export const M031_COMPACT_LAYOUT_CSS = `
 @media(max-width:600px){
  .stage-editor.m031-compact .global-media-card .file-actions .btn{flex:1 1 140px}
 }
+
+/* M033 — Each page has just ONE compact line and ONE action ellipsis.
+   Keep published/draft/hidden indicator and touch targets. */
+.stage-editor.m031-compact .m031-rail-pages .list{
+ gap:2px!important;padding:5px!important
+}
+.stage-editor.m031-compact .m031-rail-pages .general-page-row{
+ display:grid!important;
+ grid-template-columns:minmax(0,1fr) 12px 36px!important;
+ align-items:center!important;column-gap:4px!important;
+ row-gap:0!important;min-width:0!important;
+ min-height:39px!important;
+ padding:1px 0!important;margin:0!important;
+ border:0!important;border-radius:6px
+}
+.stage-editor.m031-compact .m031-rail-pages .general-page-row>.item{
+ margin:0!important;padding:6px 5px!important;
+ min-height:37px!important;height:auto!important;
+ border-radius:6px;line-height:1.25!important
+}
+.stage-editor.m031-compact .m031-rail-pages .general-page-row>.page-options{
+ grid-column:3!important;grid-row:1!important;
+ margin:0!important;padding:0!important;
+ min-width:36px!important;max-width:36px!important
+}
+.stage-editor.m031-compact .m031-rail-pages .general-page-row>.inline-page-state{
+ grid-column:2!important;grid-row:1!important
+}
+.stage-editor.m031-compact .m031-rail-pages .page-options>summary{
+ box-sizing:border-box;width:36px!important;height:37px!important;
+ min-width:36px!important;min-height:37px!important;
+ margin:0!important;padding:0!important;line-height:1
+}
+.stage-editor.m031-compact .m033-single-page-menu-actions{
+ display:grid;gap:6px;padding:0 0 7px;border-bottom:1px solid #e4e9ec
+}
+.stage-editor.m031-compact .m033-single-page-menu-actions>.btn{
+ width:100%;min-height:40px;text-align:left
+}
+.stage-editor.m031-compact .m033-single-page-menu-actions .publication-actions{
+ min-width:0
+}
 `;
