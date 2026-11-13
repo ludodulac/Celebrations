@@ -8,6 +8,7 @@ import {MEMBER_SPACES_INLINE} from './app/admin/real-editor-member-spaces-inline
 import {TRIAL_AUDIO_CLIENT} from './editor-trial-audio-client.mjs';
 // SERVER_EDITOR_SYNC is composed explicitly by editor-demo-client.mjs.
 import {fiveColourways} from './editor-celebration-themes.mjs';
+import {publicCelebrationEntries} from './app/domain/celebration-cycle-registry.mjs';
 import {eligiblePublicPage,projectPublicPage,eligiblePublicPlan,privatePublicationIds,allowedPublicLink}
  from './app/domain/editor-public-projection-security.mjs';
 const HOST='celebrations-exit-staging.rondes.workers.dev';
@@ -229,22 +230,13 @@ export async function loadSevenStageContent(env,selectedId,{publicOnly=false,pub
   // D1 status is historical identification, not a second visibility switch.
   // This allows a prepared (D1 draft) year to be shown after intentional
   // publication, while no preallocated/hidden slot becomes public on its own.
-  const publicCelebration=c=>{
-   const access=pub?.celebrationAccessPolicies?.[String(c.id)];
-   return (!access||access.mode==='PUBLIC')&&visibility[String(c.id)]==='published';
-  };
-  const publicRows=publicOnly?allCelebrations.filter(publicCelebration):allCelebrations;
-  // A published PRIVATE celebration may advertise its name, but NEVER its pages.
-  // Its explicit visibility must be "published"; hidden/draft names remain secret.
-  const privateMenuRows=publicOnly?allCelebrations.filter(c=>
-    visibility[String(c.id)]==='published'&&
-    ['ALL_PRIVATE_TYPES','SELECTED_TYPES'].includes(
-      pub?.celebrationAccessPolicies?.[String(c.id)]?.mode)): [];
-  const celebrations=publicOnly?[
-    ...publicRows.map(c=>({id:c.id,archangel:c.archangel,year:c.year})),
-    ...privateMenuRows.map(c=>({id:c.id,archangel:c.archangel,year:c.year,titleOnly:true}))
-  ]:allCelebrations;
-  // A label in the public menu is NOT a grant to select that celebration.
+  const visible=publicCelebrationEntries(allCelebrations,visibility,
+   pub?.celebrationAccessPolicies||{});
+  const celebrations=publicOnly?visible:allCelebrations;
+  // Private labels may appear on the public list, but their pages never do.
+  // Unpublished, hidden and duplicate historical identities are not routable.
+  const publicRows=publicOnly?allCelebrations.filter(c=>
+   visible.some(entry=>entry.id===String(c.id)&&!entry.titleOnly)):allCelebrations;
   const allowedIds=new Set(publicRows.map(c=>String(c.id)));
   const selected=selectedId;
   const planned=plannedCelebration(selected);
