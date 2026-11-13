@@ -1,0 +1,25 @@
+name: "M032 — vérification médiathèque PC et téléphone"
+on:
+  push:
+    branches: [feat/m032-media-links-independent-20261113]
+permissions: {contents: read}
+jobs:
+  browser:
+    if: ${{ contains(github.event.head_commit.message, '[M032_BROWSER]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - name: Install isolated Chromium for mock site
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Check media cards and server behavior with NO real PIN or data
+        run: |
+          set -euo pipefail
+          node scripts/test-m032-media-browser.mjs
+          node scripts/build-m019-editor-client.mjs --check
+          echo M032_BROWSER_SUCCESS
