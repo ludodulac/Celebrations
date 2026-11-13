@@ -1,0 +1,86 @@
+name: "Célébrations M030 — essai du CAS atomique avec Worker temporaire M016"
+on:
+  push:
+    branches: [feat/m030-canonical-celebration-cycles-20261113]
+permissions: {contents: read}
+jobs:
+  temporary-worker-cas-probe:
+    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M030_M10_WORKER_CAS_PROBE]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - name: Create isolated temporary CAS worker config, no official bindings
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/feat/m030-canonical-celebration-cycles-20261113'
+          test "$CLOUDFLARE_ACCOUNT_ID" = 60a7b17758a93fe6681ce998e72ddff0
+          npx --yes wrangler@4 --version
+          NAME="m030-r2-cas-probe-${GITHUB_RUN_ID}"
+          KEY="m030-safety-probe/${GITHUB_RUN_ID}.json"
+          SECRET="$(openssl rand -hex 32)"
+          echo "::add-mask::$SECRET"
+          printf 'NAME=%s\nKEY=%s\nSECRET=%s\n' "$NAME" "$KEY" "$SECRET" >> "$GITHUB_ENV"
+          cat >/tmp/m030-cas-wrangler.toml <<EOF
+          name = "$NAME"
+          main = "$GITHUB_WORKSPACE/scripts/m030_r2_cas_worker.mjs"
+          compatibility_date = "2026-10-16"
+          workers_dev = true
+          [[r2_buckets]]
+          binding = "BUCKET"
+          bucket_name = "celebrations-m016-admin-editor"
+          [vars]
+          M030_RELEASE_TOKEN = "$SECRET"
+          M030_TARGET_KEY = "$KEY"
+          EOF
+      - name: Create ONLY one disposable M016 test key
+        run: |
+          set -euo pipefail
+          printf '{"version":1,"drafts":{"101":{"pages":[]}},"published":{"drafts":{"101":{"pages":[]}}}}' >/tmp/m030-cas-original.json
+          npx --yes wrangler@4 r2 object put "celebrations-m016-admin-editor/$KEY" --file /tmp/m030-cas-original.json --remote --force
+      - name: Deploy ONLY temporary M016-bound Worker; no routes or official binding
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@4 deploy --config /tmp/m030-cas-wrangler.toml
+      - name: Prove R2 compare-and-swap rejects stale digest and then commits valid revision
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {createHash} from 'node:crypto';
+          const h=x=>createHash('sha256').update(x).digest('hex');
+          const url='https://'+process.env.NAME+'.rondes.workers.dev/m030-r2-cas';
+          const orig='{"version":1,"drafts":{"101":{"pages":[]}},"published":{"drafts":{"101":{"pages":[]}}}}';
+          const next='{"version":2,"drafts":{"101":{"pages":[]}},"published":{"drafts":{"101":{"pages":[]}}}}';
+          const call=(expectedSha256,nextPayload)=>fetch(url,{
+           method:'POST',headers:{'x-m030-release-token':process.env.SECRET,'content-type':'application/json'},
+           body:JSON.stringify({expectedSha256,nextPayload,nextSha256:h(nextPayload)}),
+           signal:AbortSignal.timeout(30000)});
+          const rejected=await call('0'.repeat(64),next);
+          assert.equal(rejected.status,409,'Wrong original SHA must be rejected');
+          const success=await call(h(orig),next);
+          assert.equal(success.status,200,'Only exact M016 test snapshot may change');
+          const json=await success.json();
+          assert.equal(json.ok,true);assert.equal(json.version,2);
+          const stale=await call(h(orig),next.replace('"version":2','"version":3'));
+          assert.equal(stale.status,409,'Old version must never overwrite new');
+          console.log('M030_TEMPORARY_WORKER_ATOMIC_CAS_PASS bucket=M016 official_writes=0');
+          NODE
+      - name: Always delete ONLY the isolated probe object and temporary Worker
+        if: always()
+        run: |
+          set +e
+          if test -n "${KEY:-}"; then
+            npx --yes wrangler@4 r2 object delete "celebrations-m016-admin-editor/$KEY" --remote --force
+          fi
+          if test -n "${NAME:-}" && [[ "$NAME" =~ ^m030-r2-cas-probe-[0-9]+$ ]]; then
+            curl -fsS -X DELETE               -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN"               "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$NAME" >/dev/null
+          fi
+          rm -f /tmp/m030-cas-original.json /tmp/m030-cas-wrangler.toml
+          echo M030_TEMPORARY_WORKER_ISOLATED_CLEANUP_DONE
