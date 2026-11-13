@@ -52,7 +52,11 @@ jobs:
           const state=await s.json();
           assert.ok(['published','hidden','draft'].includes(state.published?.celebrationVisibility?.['101']),'Michaël must retain an explicit visibility');
           assert.ok(state.published?.privateReleaseRevisions?.['101'],'Michaël must still be privately fenced');
-          assert.ok(state.mediaCatalogue?.length>=128,'Historical media must remain; new uploads allowed');
+          assert.ok(Array.isArray(state.mediaCatalogue),'Media catalogue must be present');
+          // Compare CURRENT production state, not an obsolete historical count.
+          // The owner may have removed an unused image since the last deployment.
+          const {writeFileSync}=await import('node:fs');
+          writeFileSync(process.env.RUNNER_TEMP+'/m034-live-media-count',String(state.mediaCatalogue.length));
           // One historic public image must still be retrievable on its original URL.
           const sample='https://ronde-des-archanges-universelle.eu/media/media/1791723108110/file-1791723109615-1000040461.jpg';
           const oldPhoto=await fetch(sample,{method:'HEAD',signal:AbortSignal.timeout(30000)});
@@ -129,7 +133,9 @@ jobs:
           const s=await fetch(base+'/r2/buckets/celebrations-exit-staging/objects/editor-trials/server-drafts-v1.json',{headers});
           assert.equal(s.status,200);
           const state=await s.json();assert.ok(['published','hidden','draft'].includes(state.published?.celebrationVisibility?.['101']),'Michaël must retain an explicit visibility');
-          assert.ok(state.mediaCatalogue.length>=128,'Keep historical media');
+          const {readFileSync}=await import('node:fs');
+          const previously=Number(readFileSync(process.env.RUNNER_TEMP+'/m034-live-media-count','utf8'));
+          assert.equal(state.mediaCatalogue.length,previously,'The code deployment must not alter R2 media inventory');
           const site='https://ronde-des-archanges-universelle.eu';
           const [home,anon,privateRoute,admin]=await Promise.all([
            fetch(site+'/?m034_recheck=1'),fetch(site+'/api/editor-open-draft?celebration=101'),
