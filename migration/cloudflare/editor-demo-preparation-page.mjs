@@ -3,6 +3,7 @@
 import {mayUseIsolatedMemberApi} from './app/security/editor-route-policy.mjs';
 import {DEMO_CSS} from './editor-demo-style.mjs';
 import {ADMIN_STAGE_LAYOUT} from './app/styles/admin/stage-layout.mjs';
+import {M031_COMPACT_LAYOUT_CSS} from './app/styles/admin/m031-compact-layout.mjs';
 import {DEMO_CLIENT} from './editor-demo-client.mjs';
 import {MEMBER_SPACES_INLINE} from './app/admin/real-editor-member-spaces-inline.mjs';
 import {TRIAL_AUDIO_CLIENT} from './editor-trial-audio-client.mjs';
@@ -305,12 +306,12 @@ export async function handlePreparationDemo(request,env){
   const nonce=Array.from(crypto.getRandomValues(new Uint8Array(16)),v=>v.toString(16).padStart(2,'0')).join('');
   const choices=celebrations.map(c=>'<option value="'+escapeHtml(c.id)+'"'+(String(c.id)===String(celebration.id)?' selected':'')+'>'+escapeHtml(c.archangel+' '+(c.year||''))+'</option>').join('');
   const html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Pages de la célébration — atelier Célébrations</title><style nonce="'+nonce+'">'+DEMO_CSS+'</style></head><body>'+
-  '<div class="shell stage-editor"><aside class="rail"><div class="brand"><div class="mark">✦</div><div><strong>Administration</strong></div></div><nav aria-label="Navigation"><button class="navbtn" data-tab="pages">▤ Pages</button><button class="navbtn" data-tab="footer">▤ Pages de bas de page</button><button class="navbtn active" data-tab="celebrations">✧ Célébrations</button><button class="navbtn" data-tab="media">▧ Médiathèque (administration)</button><button class="navbtn" data-tab="members-spaces">♧ Membres</button><button class="navbtn" data-tab="languages-categories" hidden style="display:none">◇ Catégories</button><button class="navbtn" data-tab="settings">⚙ Paramètres</button><button class="navbtn" data-tab="guide">ⓘ Mode d’emploi</button></nav></aside>'+
+  '<div class="shell stage-editor"><aside class="rail"><div class="brand"><div class="mark">✦</div><div><strong><a class="m031-admin-home-link" href="/admin?celebration='+encodeURIComponent(String(celebration.id))+'" title="Recharger l’administration">Administration</a></strong></div></div><nav aria-label="Navigation"><button class="navbtn" data-tab="pages">▤ Pages</button><button class="navbtn" data-tab="footer">▤ Pages de bas de page</button><button class="navbtn active" data-tab="celebrations">✧ Célébrations</button><button class="navbtn" data-tab="media">▧ Médiathèque (administration)</button><button class="navbtn" data-tab="members-spaces">♧ Membres</button><button class="navbtn" data-tab="languages-categories" hidden style="display:none">◇ Catégories</button><button class="navbtn" data-tab="settings">⚙ Paramètres</button><button class="navbtn" data-tab="guide">ⓘ Mode d’emploi</button></nav></aside>'+
   '<div class="content"><header class="topbar"><div></div><div class="actions"><button id="preview-btn" class="btn sm" title="Voir la page en brouillon, sans publication">Aperçu du brouillon</button><button id="save-btn" class="btn primary">Enregistrer</button><a id="view-site-btn" class="btn view-site-btn" href="/__editor/voir-le-site" target="_blank" rel="noopener noreferrer">Voir le site</a></div></header>'+
   '<main class="main"><div id="workspace"></div><p class="status" id="status" role="status" aria-live="polite"></p></main></div></div>'+
   '<div id="editor-save-toast" class="editor-save-toast" role="status" aria-live="polite" hidden></div>'+ 
   '<input id="image-input" type="file" accept="image/jpeg,image/png,image/webp" hidden>'+
-  '<style nonce="'+nonce+'">'+ADMIN_STAGE_LAYOUT+'</style>'+
+  '<style nonce="'+nonce+'">'+ADMIN_STAGE_LAYOUT+M031_COMPACT_LAYOUT_CSS+'</style>'+
   '<script nonce="'+nonce+'">window.__PREPARATION_SEED__='+jsSafe(seed)+';</script>'+
   '<script nonce="'+nonce+'">'+TRIAL_AUDIO_CLIENT+'\n'+MEMBER_SPACES_INLINE+'\n'+client+'</script></body></html>';
   return new Response(request.method==='HEAD'?null:html,{headers:{...noCache,'content-security-policy':"default-src 'none'; script-src 'nonce-"+nonce+"'; style-src 'nonce-"+nonce+"'; img-src 'self' data: blob: https:; media-src 'self' blob:; frame-src 'self' blob:; worker-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"}});

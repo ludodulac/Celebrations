@@ -922,6 +922,8 @@ function editorFormatToolbar(x,z,box){
 const SERVER_ENDPOINT='/api/editor-open-draft';
 const SERVER_ID=String(window.__PREPARATION_SEED__?.celebrationId||'');
 let serverRevision=null,serverRemoteVersion=0,serverSaving=false,serverDiverged=false;
+// M031: server-published R2 visibility is authoritative, not browser-local draft state.
+let serverPublishedCelebrationVisibility=null;
 let serverBaseRecord=null,serverBaseShared=null,serverBasePlans=null,serverBaseLocalization=null;
 let serverSaveQueued=false,serverLocalEditCounter=0;
 const serverSame=(a,b)=>editorSyncPolicy.same(a,b);
@@ -938,6 +940,8 @@ async function serverLoad(){
   }
   const payload=await response.json();
   serverRevision=payload.revision;if(payload.celebrationMetadata)celebrationMetadata=payload.celebrationMetadata;
+  const publicStates=payload.publishedCelebrationVisibility;
+  serverPublishedCelebrationVisibility=publicStates&&typeof publicStates==='object'&&!Array.isArray(publicStates)?{...publicStates}:null;
   globalMedia=Array.isArray(payload.mediaCatalogue)?payload.mediaCatalogue:globalMedia;
   const remote=payload.record;
   serverBaseRecord=clone(remote);serverBaseShared=clone(payload.shared);
@@ -1008,16 +1012,23 @@ async function serverPublish(command,{flushContent=true}={}){
  }
  if(serverRevision===null){serverMessage('Rechargez la version du serveur avant de publier.');return false}
  try{
-  if(command.kind==='celebration'){
-   ensureMemberPanel();const record=await memberPanel.readContent();
-   if(record.record.spaces?.length||record.record.pages?.some(p=>p.privateManaged)){
-    privateCatalogue=await memberPanel.commandContent('celebration-visibility',{visibility:command.visibility});
-    serverRevision=privateCatalogue.revision;db._serverRevision=serverRevision;
-    let shared={};try{shared=JSON.parse(localStorage.getItem(SHARED_KEY)||'{}')}catch{}
-    shared.celebrationVisibility={...shared.celebrationVisibility,[SERVER_ID]:command.visibility};
-    localStorage.setItem(SHARED_KEY,JSON.stringify(shared));
-    render();serverMessage('Visibilité enregistrée.');return true;
-   }
+  // M031/2: the OFFICIAL celebration has a D1 private-release fence even when
+  // it currently has ZERO private pages/spaces. Inspecting the visible pages
+  // to decide the route incorrectly fell through to legacy publication (403).
+  // Every official celebration visibility write now uses the existing PIN ->
+  // short-lived D1 bearer -> canonical guarded command. No legacy fallback.
+  if(command.kind==='celebration'&&IS_STAGE&&LIVE_MEDIA_UPLOAD_HOST){
+   ensureMemberPanel();
+   const confirmed=await memberPanel.commandContent('celebration-visibility',{visibility:command.visibility});
+   if(confirmed.celebrationVisibility!==command.visibility||
+      !Number.isSafeInteger(confirmed.revision))
+    throw Error('La visibilité de la célébration n’a pas été confirmée par le serveur D1.');
+   privateCatalogue=confirmed;serverRevision=confirmed.revision;db._serverRevision=serverRevision;
+   let shared={};try{shared=JSON.parse(localStorage.getItem(SHARED_KEY)||'{}')}catch{}
+   shared.celebrationVisibility={...shared.celebrationVisibility,[SERVER_ID]:command.visibility};
+   try{localStorage.setItem(SHARED_KEY,JSON.stringify(shared))}catch{}
+   serverPublishedCelebrationVisibility={...(serverPublishedCelebrationVisibility||{}),[SERVER_ID]:command.visibility};
+   render();serverMessage('✓ Visibilité de la célébration confirmée par le serveur.');return true;
   }
   const response=await fetch('/api/editor-publication',{method:'POST',cache:'no-store',
    headers:{'content-type':'application/json'},
@@ -1038,6 +1049,7 @@ async function serverPublish(command,{flushContent=true}={}){
    shared.celebrationVisibility||={};
    shared.celebrationVisibility[SERVER_ID]=command.visibility;
    localStorage.setItem(SHARED_KEY,JSON.stringify(shared));
+   serverPublishedCelebrationVisibility={...(serverPublishedCelebrationVisibility||{}),[SERVER_ID]:command.visibility};
    const plans=plannedEntries(),plan=plans.find(x=>x.id===SERVER_ID);
    if(plan){plan.visibility=command.visibility;localStorage.setItem(PLANS_KEY,JSON.stringify(plans));}
   }else if(command.kind==='media'){
@@ -1055,7 +1067,12 @@ async function serverPublish(command,{flushContent=true}={}){
   render();
   if(!flushContent&&unsavedContent)serverMessage('✓ Visibilité modifiée. Le contenu en cours reste à enregistrer.');
   return true;
- }catch(e){serverMessage('❌ Connexion indisponible : aucun changement public effectué.');return false}
+ }catch(e){
+  const reason=String(e?.message||'');
+  serverMessage(command.kind==='celebration'&&IS_STAGE&&LIVE_MEDIA_UPLOAD_HOST?
+   '❌ Visibilité non modifiée : commande D1 non confirmée. Vérifiez votre session administrateur et réessayez.'+(reason.includes('reconnecter')?' Réactivez les membres dans l’administration.':''):
+   '❌ Connexion indisponible : aucun changement public effectué.');return false
+ }
 }
 const serverFileAsDataURL=file=>new Promise((resolve,reject)=>{
  const reader=new FileReader();reader.onload=()=>resolve(reader.result);
@@ -2409,6 +2426,8 @@ function makeHome(p){db.siteHomeId=p.id;mark();save();render()}
 const VISIBILITY_LABELS=editorPageModel.visibilityLabels;
 function stateOfPage(p){return editorPageModel.pageVisibility(p)}
 function sharedVisibility(){
+ // An authenticated current server status wins over a stale local browser draft.
+ if(IS_STAGE&&serverPublishedCelebrationVisibility!==null)return serverPublishedCelebrationVisibility;
  try{return JSON.parse(localStorage.getItem(SHARED_KEY)||'{}').celebrationVisibility||{}}catch{return {}}
 }
 function celebrationState(entry){
@@ -3569,12 +3588,142 @@ function privatePageWorkspace(){
  w.append(actions,n('h2','',page().name));
  const editor=n('div','celebration-editor');w.append(editor);pageWorkspace(page().group==='page'?(page().placement==='footer'?'footer':'page'):'celebration',editor);
 }
+// M031/4: same responsive workspace pattern as Espace Jeunesse, preserving
+// the real original editor controls, publication callbacks, D1 rules and Undo.
+let m031SettingsOpen=false,m031BreakpointsBound=false;
+const m031Desktop=()=>window.matchMedia('(min-width:1051px)').matches;
+function m031ReflowRail(){
+ const shell=document.querySelector('.stage-editor'),panel=shell?.querySelector('.m031-rail-pages');
+ const layout=document.querySelector('#workspace .layout'),rail=shell?.querySelector('.rail');
+ if(!panel||!layout||!rail)return;
+ if(m031Desktop()){if(panel.parentElement!==rail)rail.append(panel);}
+ else if(panel.parentElement!==layout)layout.prepend(panel);
+}
+function m031AdminMenuHover(){
+ if(!IS_STAGE)return;
+ const finePointer=window.matchMedia('(hover:hover) and (pointer:fine)').matches;
+ for(const options of document.querySelectorAll('.stage-editor .page-options')){
+  const summary=options.querySelector(':scope > summary');
+  const menu=options.querySelector(':scope > .page-options-menu');
+  if(!summary||!menu||options.dataset.m031MenuReady==='1')continue;
+  options.dataset.m031MenuReady='1';
+  if(m031Desktop()&&typeof menu.showPopover==='function'){
+   menu.classList.add('m031-page-flyout');menu.setAttribute('popover','auto');
+   menu.addEventListener('toggle',event=>{
+    if(event.newState==='closed'&&options.open)options.open=false;
+   });
+   options.addEventListener('toggle',()=>{
+    if(!options.open){
+     if(menu.matches(':popover-open'))menu.hidePopover();
+     return;
+    }
+    document.querySelectorAll('.m031-page-flyout:popover-open').forEach(other=>{
+     if(other!==menu)other.hidePopover();
+    });
+    if(!menu.isConnected||menu.matches(':popover-open'))return;
+    menu.showPopover();
+    const anchor=summary.getBoundingClientRect(),box=menu.getBoundingClientRect();
+    const left=Math.max(12,Math.min(anchor.right+10,innerWidth-box.width-12));
+    const top=Math.max(12,Math.min(anchor.top-10,innerHeight-box.height-12));
+    menu.style.setProperty('left',left+'px','important');
+    menu.style.setProperty('top',top+'px','important');
+   });
+  }
+  if(!finePointer)continue;
+  let closing=0;
+  const cancel=()=>clearTimeout(closing);
+  const defer=()=>{
+   cancel();
+   closing=window.setTimeout(()=>{
+    if(!summary.matches(':hover')&&!menu.matches(':hover')&&!options.matches(':focus-within'))
+     options.open=false;
+   },260);
+  };
+  summary.addEventListener('pointerenter',event=>{
+   if(event.pointerType==='touch')return;
+   cancel();options.open=true;
+  });
+  options.addEventListener('pointerenter',cancel);
+  options.addEventListener('pointerleave',defer);
+  menu.addEventListener('pointerenter',cancel);
+  menu.addEventListener('pointerleave',defer);
+ }
+}
+function m031UpgradeAdmin(){
+ if(!IS_STAGE)return;
+ const shell=document.querySelector('.stage-editor'),rail=shell?.querySelector('.rail');
+ const main=shell?.querySelector('.main'),nav=rail?.querySelector('nav');
+ if(!shell||!rail||!main||!nav)return;
+ shell.classList.add('m031-compact');
+ const editTab=['pages','footer','celebrations'].includes(tab);
+ shell.classList.toggle('m031-wide-page',editTab&&!privateEdit);
+ const siteLink=document.getElementById('view-site-btn');
+ if(siteLink&&siteLink.parentElement!==nav){
+  siteLink.classList.add('m031-site-link');
+  nav.append(siteLink);
+ }
+ let workbar=main.querySelector(':scope > .m031-workbar');
+ if(!workbar){
+  workbar=n('div','m031-workbar');
+  const head=n('div','m031-workbar-head'),title=n('span','m031-workbar-title','Réglages et actions');
+  const dot=n('span','m031-state-dot');dot.setAttribute('role','img');
+  const details=n('details','m031-settings-details');
+  const summary=n('summary','','⚙');
+  summary.setAttribute('aria-label','Réglages de la page et de la célébration');
+  summary.title='Réglages';
+  details.append(summary,n('div','m031-settings-fields'));
+  details.addEventListener('toggle',()=>{if(details.isConnected)m031SettingsOpen=details.open});
+  const slot=n('div','m031-toolbar-slot');
+  head.append(title,dot,details,slot);
+  workbar.append(head);main.prepend(workbar);
+ }
+ const settings=workbar.querySelector('.m031-settings-details');
+ const settingsBody=workbar.querySelector('.m031-settings-fields');
+ const dot=workbar.querySelector('.m031-state-dot');
+ const toolbar=main.querySelector('.topbar')||shell.querySelector('.topbar');
+ const slot=workbar.querySelector('.m031-toolbar-slot');
+ if(toolbar&&toolbar.parentElement!==slot)slot.append(toolbar);
+ settingsBody.replaceChildren();
+ if(editTab&&!privateEdit&&!preview){
+  // Move the actual settings and publication controls, never copy them.
+  const publication=w.querySelector('.celebration-publication-controls');
+  if(publication)settingsBody.append(publication);
+  const pageSettings=w.querySelector('.editor-language-row.m020-settings');
+  if(pageSettings)settingsBody.append(pageSettings);
+ }
+ const hasSettings=settingsBody.children.length>0;
+ settings.hidden=!hasSettings;
+ settings.open=hasSettings&&m031SettingsOpen;
+ const state=editTab&&!privateEdit?tab==='celebrations'?
+  celebrationState(celebrationEntries().find(e=>e.id===SERVER_ID)||{id:SERVER_ID,visibility:'hidden'}):
+  stateOfPage(canonicalPage()):null;
+ dot.hidden=!state;
+ if(state){
+  dot.className='m031-state-dot state-'+state;
+  dot.setAttribute('aria-label',VISIBILITY_LABELS[state]||state);
+  dot.title=VISIBILITY_LABELS[state]||state;
+ }
+ let panel=w.querySelector('.layout > aside.panel');
+ if(editTab&&!privateEdit&&panel){
+  panel.classList.add('m031-rail-pages');
+  if(m031Desktop())rail.append(panel);
+ }
+ if(!m031BreakpointsBound){
+  m031BreakpointsBound=true;
+  const mq=window.matchMedia('(min-width:1051px)');
+  mq.addEventListener?.('change',m031ReflowRail);
+ }
+ m031AdminMenuHover();
+}
 function render(){
+ // The previous rail panel survives #workspace.replaceChildren on desktop.
+ document.querySelector('.stage-editor .rail > .m031-rail-pages')?.remove();
  if(!adminMembersEnabled&&['members-spaces','participants','languages-categories'].includes(tab))tab='pages';
  applyAdminMenu();
  const inMembers=['members-spaces','participants','languages-categories'].includes(tab);
  document.querySelector('.stage-editor')?.classList.toggle('is-catalogue',inMembers);
  const result=renderEditorFrame({IS_STAGE,document,STAGE_SEED,page,pageSlug,stateOfPage,editorDragState,editorDragFinish,undoAnchor,resetUndoHistory,ensureUndoButton,applyPalette,w,tab,preview,el,pages,footerPages,celebrations:privateEdit?privatePageWorkspace:celebrations,media,userGuide,settings,memberSpaces});
+ m031UpgradeAdmin();
  for(const key of ['save-btn','preview-btn','undo-btn','status']){
   const control=el(key);if(control)control.hidden=inMembers||!!privateEdit&&key==='save-btn';
  }

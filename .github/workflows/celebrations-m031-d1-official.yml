@@ -1,0 +1,144 @@
+name: "M031/2 — correction commandes D1 sur le site officiel"
+on:
+  push:
+    branches: [feat/m031-audit-visibilite-d1-cycles-20261113]
+permissions: {contents: read}
+concurrency:
+  group: celebrations-existing-official-production-release
+  cancel-in-progress: false
+jobs:
+  visibility-official:
+    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M031_D1_OFFICIAL]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      ORIGINAL_VERSION: 'ac22d667-2ed5-49ba-b443-9a7df9bde775'
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Exact official read-only gate — no data edits
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/feat/m031-audit-visibilite-d1-cycles-20261113'
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const acct=process.env.CLOUDFLARE_ACCOUNT_ID,token=process.env.CLOUDFLARE_API_TOKEN;
+          assert.equal(acct,'60a7b17758a93fe6681ce998e72ddff0');
+          assert.ok(token?.length>20);
+          const base='https://api.cloudflare.com/client/v4/accounts/'+acct;
+          const headers={authorization:'Bearer '+token};
+          const r=await fetch(base+'/workers/scripts/celebrations-exit-production/deployments',{headers});
+          assert.equal(r.status,200);const j=await r.json();assert.equal(j.success,true);
+          const v=j.result?.deployments?.[0]?.versions||[];
+          assert.deepEqual(v.map(x=>x.version_id),[process.env.ORIGINAL_VERSION]);
+          assert.equal(v[0].percentage,100);
+          const d=await fetch(base+'/workers/domains',{headers});const domains=(await d.json()).result;
+          for(const host of ['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu'])
+           assert.equal(domains.find(x=>x.hostname===host)?.service,'celebrations-exit-production');
+          const q=await fetch(base+'/d1/database/28736d2a-479b-472b-bf82-703ad0affe10/query',{
+           method:'POST',headers:{...headers,'content-type':'application/json'},
+           body:JSON.stringify({sql:'SELECT id FROM celebrations_celebrations ORDER BY id'})});
+          assert.equal(q.status,200);const row=(await q.json()).result?.[0]?.results||[];
+          assert.deepEqual(row.map(x=>String(x.id)),['101']);
+          const s=await fetch(base+'/r2/buckets/celebrations-exit-staging/objects/editor-trials/server-drafts-v1.json',{headers});
+          assert.equal(s.status,200);
+          const state=await s.json();
+          assert.equal(state.published?.celebrationVisibility?.['101'],'published');
+          assert.ok(state.published?.privateReleaseRevisions?.['101'],'Michaël must still be privately fenced');
+          assert.equal(state.mediaCatalogue?.length,128);
+          console.log('M031_D1_GUARD_PASS official_worker_unchanged=true data_writes=0');
+          NODE
+      - name: Build and run publication, private security and visibility tests
+        run: |
+          set -euo pipefail
+          node scripts/build-m012b-member-spaces-inline.mjs --check
+          node scripts/build-m019-editor-client.mjs --check
+          node --test tests/test_m031_published_visibility.mjs tests/test_m031_d1_visibility_route.mjs tests/test_m031_d1_session_renewal.mjs tests/test_m018_official_pin_bridge.mjs tests/test_m030_canonical_celebrations.mjs tests/test_m012c_private_editor_publication.mjs tests/test-editor-demo.mjs tests/test-editor-publication-media.mjs
+          python scripts/build_production_assets.py
+          test -s production-public/admin.html
+          npm install --no-save --no-package-lock wrangler@4 playwright@1.58.2
+          (cd migration/cloudflare && npx wrangler deploy --dry-run --config wrangler.m018.official.toml)
+          echo M031_D1_BUILD_CHECK_PASS
+      - name: Upload code candidate without changing official traffic
+        id: upload
+        working-directory: migration/cloudflare
+        env:
+          WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/m031-version-output.ndjson
+        run: |
+          set -euo pipefail
+          npx wrangler versions upload --config wrangler.m018.official.toml --message "M031/2: protected D1 session routes all official celebration visibility changes"
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readFileSync,appendFileSync} from 'node:fs';
+          const items=readFileSync(process.env.WRANGLER_OUTPUT_FILE_PATH,'utf8').split('\n').filter(Boolean).map(JSON.parse);
+          const v=items.filter(x=>x.type==='version-upload'&&x.worker_name==='celebrations-exit-production').at(-1)?.version_id;
+          assert.match(v||'',/^[a-f0-9-]{36}$/i);
+          appendFileSync(process.env.GITHUB_OUTPUT,'new_version='+v+'\n');
+          NODE
+      - name: Verify original version still active then promote ONLY code
+        id: promote
+        working-directory: migration/cloudflare
+        env:
+          NEW_VERSION: ${{ steps.upload.outputs.new_version }}
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const r=await fetch('https://api.cloudflare.com/client/v4/accounts/'+process.env.CLOUDFLARE_ACCOUNT_ID+
+           '/workers/scripts/celebrations-exit-production/deployments',{
+           headers:{authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN}});
+          assert.equal(r.status,200);const j=await r.json();assert.equal(j.success,true);
+          assert.deepEqual(j.result.deployments[0].versions.map(x=>x.version_id),[process.env.ORIGINAL_VERSION]);
+          NODE
+          npx wrangler versions deploy "$NEW_VERSION@100%" --yes --config wrangler.m018.official.toml --message "M031/2 D1 canonical routing fix only; no D1/R2 writes"
+      - name: Confirm domain, access protections, visible Michaël and unchanged database
+        env:
+          NEW_VERSION: ${{ steps.upload.outputs.new_version }}
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const base='https://api.cloudflare.com/client/v4/accounts/'+process.env.CLOUDFLARE_ACCOUNT_ID;
+          const headers={authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN};
+          const dep=await fetch(base+'/workers/scripts/celebrations-exit-production/deployments',{headers});
+          assert.equal(dep.status,200);
+          const j=await dep.json();assert.equal(j.success,true);
+          assert.deepEqual(j.result.deployments[0].versions.map(x=>x.version_id),[process.env.NEW_VERSION]);
+          const s=await fetch(base+'/r2/buckets/celebrations-exit-staging/objects/editor-trials/server-drafts-v1.json',{headers});
+          assert.equal(s.status,200);
+          const state=await s.json();assert.equal(state.published?.celebrationVisibility?.['101'],'published');
+          assert.equal(state.mediaCatalogue.length,128);
+          const site='https://ronde-des-archanges-universelle.eu';
+          const [home,anon,privateRoute,admin]=await Promise.all([
+           fetch(site+'/?m031_recheck=1'),fetch(site+'/api/editor-open-draft?celebration=101'),
+           fetch(site+'/api/admin/member-directory?action=snapshot'),fetch(site+'/admin')
+          ]);
+          assert.equal(home.status,200);assert.equal(anon.status,401);assert.equal(privateRoute.status,401);
+          const privateD1=await fetch(site+'/api/admin/private-editor?celebration=101');
+          assert.equal(privateD1.status,401,'D1 private route remains protected by bearer');
+          assert.equal(admin.status,200);
+          console.log('M031_D1_OFFICIAL_CODE_ONLY_SUCCESS new_version='+process.env.NEW_VERSION+' no_database_or_media_writes=true');
+          NODE
+      - name: Code rollback only if live check fails, never touch R2 or D1
+        if: ${{ failure() && steps.promote.outcome == 'success' }}
+        working-directory: migration/cloudflare
+        env:
+          NEW_VERSION: ${{ steps.upload.outputs.new_version }}
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const r=await fetch('https://api.cloudflare.com/client/v4/accounts/'+process.env.CLOUDFLARE_ACCOUNT_ID+
+           '/workers/scripts/celebrations-exit-production/deployments',{
+           headers:{authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN}});
+          const j=await r.json();assert.equal(j.success,true);
+          assert.deepEqual(j.result.deployments[0].versions.map(x=>x.version_id),[process.env.NEW_VERSION]);
+          NODE
+          npx wrangler versions deploy "$ORIGINAL_VERSION@100%" --yes --config wrangler.m018.official.toml --message "M031/2: guarded code-only rollback"

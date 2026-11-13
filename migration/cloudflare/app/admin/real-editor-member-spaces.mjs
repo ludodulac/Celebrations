@@ -38,6 +38,9 @@ export function createEditorD1Session({origin,fetchImpl=globalThis.fetch,cryptoI
     token=result.token;expires=end;onChange(true);
   }
   async function loginWithEditorPin(){
+    // An expired bearer must not force a second password prompt. A still-live
+    // bearer cannot be exchanged or rotated silently.
+    if(token&&!connected())clear();
     if(token)throw Error('Déconnexion préalable requise');
     const attempt=++generation;
     const result=await auth({action:'editor-pin-session'});
@@ -96,19 +99,40 @@ export function mountRealEditorMemberSpaces(root,{celebrations,currentCelebratio
   form.append(label,login);
   authBox.append(heading,node('p',officialEditor?'Vous utilisez votre code administrateur habituel.':'Utilisez votre code administrateur habituel.'),status,form,logout);
   const body=node('div');shell.append(style,authBox,body);root.replaceChildren(shell);
-  let mounted,busy=false;
+  let mounted,busy=false,initialSession=Promise.resolve(),refreshPending=null,manuallyLoggedOut=false;
   const session=createEditorD1Session({origin,onChange:active=>{
     form.hidden=active;logout.hidden=!active;authBox.hidden=active;
     status.textContent=active?'Gestion des membres activée.':'Gestion des membres déconnectée.';
     mounted?.refreshMembers();
     mounted?.sessionChanged(active);onSessionChange(active);
   }});
-  mounted=mountExistingEditorMemberSpaces(body,{transport:session.transport,privateTransport:session.privateTransport,isConnected:session.connected,celebrations,currentCelebrationId,styleNonce,onEditPage,onCategories});
+  // Reuse the single PIN cookie only if the short-lived D1 bearer has expired.
+  // Never retry a write after unknown outcome: ONLY a definitive 401 (no write)
+  // is eligible for a single fresh token exchange. Manual logout is respected.
+  const reconnectIfNeeded=async()=>{
+    await initialSession;
+    if(!officialEditor||manuallyLoggedOut||session.connected())return;
+    if(!refreshPending)refreshPending=session.loginWithEditorPin().finally(()=>{refreshPending=null});
+    await refreshPending;
+  };
+  const sendWithRenewal=async(transport,command)=>{
+    if(officialEditor&&!manuallyLoggedOut)await reconnectIfNeeded();
+    let result=await transport(command);
+    if(officialEditor&&!manuallyLoggedOut&&result.status===401){
+      await reconnectIfNeeded();
+      result=await transport(command);
+    }
+    return result;
+  };
+  const memberTransport=command=>sendWithRenewal(session.transport,command);
+  const privateTransport=command=>sendWithRenewal(session.privateTransport,command);
+  mounted=mountExistingEditorMemberSpaces(body,{transport:memberTransport,privateTransport,isConnected:session.connected,celebrations,currentCelebrationId,styleNonce,onEditPage,onCategories});
   form.addEventListener('submit',async event=>{
     event.preventDefault();if(busy)return;
     busy=true;login.disabled=true;status.textContent='Connexion en cours…';
     let password=input.value;input.value='';
     try{
+      manuallyLoggedOut=false;
       const pending=officialEditor?session.loginWithEditorPin():session.login(password);
       password='';await pending;
     }
@@ -116,16 +140,16 @@ export function mountRealEditorMemberSpaces(root,{celebrations,currentCelebratio
     finally{busy=false;login.disabled=false;}
   });
   // No second password prompt after the owner has used the usual admin code.
-  const initialSession=officialEditor?session.loginWithEditorPin().catch(error=>{
+  initialSession=officialEditor?session.loginWithEditorPin().catch(error=>{
     status.textContent='Accès aux membres indisponible : '+(error.message||'erreur réseau');
   }):Promise.resolve();
   logout.addEventListener('click',async()=>{
     if(busy)return;busy=true;login.disabled=true;logout.disabled=true;
-    try{await session.logout();status.textContent='Déconnexion confirmée.';}
+    try{manuallyLoggedOut=true;await session.logout();status.textContent='Déconnexion confirmée.';}
     catch{status.textContent='Session effacée localement ; révocation serveur non confirmée.';}
     finally{busy=false;login.disabled=false;logout.disabled=false;}
   });
-  const readContent=async()=>{await initialSession;const r=await session.privateTransport({method:'GET',celebration:String(currentCelebrationId)});if(!r.ok)throw Error(r.error);return r};
-  const commandContent=async(action,fields={})=>{const current=await readContent();const r=await session.privateTransport({method:'POST',action,celebration:String(currentCelebrationId),expectedRevision:current.revision,...fields});if(!r.ok)throw Error(r.error);return r};
-  return {duplicateVersion:(...args)=>mounted.duplicateVersion(...args),duplicateCelebrationVersion:(...args)=>mounted.duplicateCelebrationVersion(...args),openVersion:(...args)=>mounted.openVersion(...args),readContent,commandContent,categories:async()=>{await initialSession;const r=await session.transport({method:'GET',action:'snapshot',limit:1});if(!r.ok)throw Error(r.error);return (r.data??r).types;},get changed(){return mounted.changed;},getDraft:()=>mounted.getDraft(),showMembers:()=>mounted.showMembers(),showCategories:()=>mounted.showCategories(),showSpaces:()=>mounted.showSpaces()};
+  const readContent=async()=>{const r=await privateTransport({method:'GET',celebration:String(currentCelebrationId)});if(!r.ok)throw Error(r.error);return r};
+  const commandContent=async(action,fields={})=>{const current=await readContent();const r=await privateTransport({method:'POST',action,celebration:String(currentCelebrationId),expectedRevision:current.revision,...fields});if(!r.ok)throw Error(r.error);return r};
+  return {duplicateVersion:(...args)=>mounted.duplicateVersion(...args),duplicateCelebrationVersion:(...args)=>mounted.duplicateCelebrationVersion(...args),openVersion:(...args)=>mounted.openVersion(...args),readContent,commandContent,categories:async()=>{const r=await memberTransport({method:'GET',action:'snapshot',limit:1});if(!r.ok)throw Error(r.error);return (r.data??r).types;},get changed(){return mounted.changed;},getDraft:()=>mounted.getDraft(),showMembers:()=>mounted.showMembers(),showCategories:()=>mounted.showCategories(),showSpaces:()=>mounted.showSpaces()};
 }
