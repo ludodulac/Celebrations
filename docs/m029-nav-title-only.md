@@ -31,3 +31,7 @@ Le relevé de la vraie requête a montré le défaut : le champ était effacé p
 ## Confirmation des données, puis test du rendu public
 
 La sauvegarde du titre fonctionne désormais sur M016 et sa relecture serveur a été confirmée. Le test du rendu a échoué car l'identifiant privé de démonstration `90000002` ne correspondait pas à une célébration publique, produisant HTTP 404. La vérification utilise désormais une célébration publique réellement présente dans M016 (sans créer ni modifier de données).
+
+## Parcours final smartphone
+
+La barre du menu et le titre sont maintenant validés en navigateur ordinateur sur M016. Le deuxième contexte Chrome pour smartphone était bloqué par la porte de connexion spécifique de M016 (403), sans rapport avec le site officiel. Le test smartphone utilise désormais la même session de test M016 pour vérifier simplement l'absence visuelle du titre en petit écran, sans modifier les droits d'accès.
