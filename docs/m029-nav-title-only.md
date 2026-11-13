@@ -27,3 +27,7 @@ Le serveur a retourné une ancienne valeur malgré le succès affiché. Le test 
 ## Correction démontrée sur le formulaire
 
 Le relevé de la vraie requête a montré le défaut : le champ était effacé par un nouveau rendu de l'administration entre la saisie et le clic, ce qui transmettait un titre vide avec succès. Le réglage conserve désormais uniquement la saisie non enregistrée en mémoire pendant ces rendus, puis efface cette copie dès confirmation serveur. Cette correction est confinée au formulaire du titre, ne modifie aucun contenu ni le système de sauvegarde général.
+
+## Confirmation des données, puis test du rendu public
+
+La sauvegarde du titre fonctionne désormais sur M016 et sa relecture serveur a été confirmée. Le test du rendu a échoué car l'identifiant privé de démonstration `90000002` ne correspondait pas à une célébration publique, produisant HTTP 404. La vérification utilise désormais une célébration publique réellement présente dans M016 (sans créer ni modifier de données).
