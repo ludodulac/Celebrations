@@ -15,7 +15,7 @@ jobs:
     env:
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
-      WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/m037-version-output.ndjson
+      WRANGLER_OUTPUT_FILE_PATH: /tmp/m037-version-output.ndjson
     steps:
       - uses: actions/checkout@v4
         with: {persist-credentials: false}
