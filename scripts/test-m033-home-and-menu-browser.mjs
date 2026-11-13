@@ -30,7 +30,18 @@ const snapshot={
 const rows={celebrations:[{id:101,archangel:'Michaël',year:'2026',status:'active'}],
  steps:STAGES.map((p,i)=>({id:i+1,step_key:p.slug+'-101',
   label:p.label,sort_order:i,celebration_id:101,body_text:''}))};
-const env={DB:{prepare(sql){return {bind(){return {async all(){
+const cloudflareSnapshot={
+ version:71,shared:publicShared,drafts:{'101':{pages:[]}},plans:[],
+ mediaCatalogue:[],published:{
+  celebrationVisibility:{'101':'published'},
+  shared:publicShared,drafts:{'101':{pages:[]}},plans:[]
+ }
+};
+const env={EDITOR_BUCKET:{async get(key){
+ if(key==='editor-trials/server-drafts-v1.json')
+  return {etag:'1',text:async()=>JSON.stringify(cloudflareSnapshot)};
+ return null;
+}},DB:{prepare(sql){return {bind(){return {async all(){
  if(sql.includes('FROM celebrations_celebrations'))return {results:rows.celebrations};
  if(sql.includes('FROM celebrations_steps'))return {results:rows.steps};
  if(/FROM celebrations_(?:events|event_contents|step_contents|links|contents)/.test(sql))
