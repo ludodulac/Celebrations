@@ -8,7 +8,7 @@ import json
 import sqlite3
 import sys
 from pathlib import Path
-from scripts.m030_m04_local_cleanup_plan import dry_run_d1,dry_run_r2,require,KEEP,REMOVE
+from m030_m04_local_cleanup_plan import dry_run_d1,dry_run_r2,require,KEEP,REMOVE
 
 def make():
     require(len(sys.argv)==4, "Usage: prepare_release.py D1.sql editor.json OUTPUT_DIRECTORY")
