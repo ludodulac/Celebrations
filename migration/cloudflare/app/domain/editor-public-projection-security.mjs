@@ -91,6 +91,8 @@ export function projectPublicPage(page,blockedIds=[]){
  const projected={
   id:page.id,
   name:typeof page.name==='string'?page.name:'',
+  ...(typeof page.menuLabel==='string'&&page.menuLabel.trim().length>0&&page.menuLabel.length<=95&&
+   !/[\\\\\u0000-\u001f\u007f]/.test(page.menuLabel)?{menuLabel:page.menuLabel.trim()}:{}),
   group:page.group==='page'?'page':'celebration',
   visibility:'published',
   blocks:page.blocks.map(block=>projectBlock(block,blockedIds)).filter(Boolean)
