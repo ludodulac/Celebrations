@@ -156,3 +156,28 @@ test('M05 deferred unique D1 index fails safely if the old Michaël duplicates s
   assert.equal(db.prepare('SELECT count(*) n FROM celebrations_celebrations').get().n,3);
  }finally{db.close()}
 });
+
+test('M05–M06 existing editor has one 14-cycle selector and one safeguarded variant dialog',()=>{
+ const editor=readFileSync(new URL('../migration/cloudflare/editor-demo-client-source.js',import.meta.url),'utf8');
+ const generated=readFileSync(new URL('../migration/cloudflare/editor-demo-client.mjs',import.meta.url),'utf8');
+ const start=editor.indexOf('async function duplicateChoice(entry)');
+ const end=editor.indexOf('function accessControls(',start);
+ assert.ok(start>0&&end>start,'Only one dialogue for duplication within a celebration');
+ const dialog=editor.slice(start,end);
+ for(const word of ['Nom distinct de la version','Destinataires','Langue',
+  "if(!categories.length)",'Création non confirmée par le serveur',
+  "memberPanel.commandContent('duplicate-version'"]){
+  assert.ok(dialog.includes(word),'Missing UI requirement: '+word);
+ }
+ assert.ok(dialog.indexOf("if(!categories.length)")<dialog.indexOf("await siteDialog("),
+  'Cannot offer a new version when no category exists');
+ const catalog=editor.slice(editor.indexOf('function celebrations(){'),
+  editor.indexOf('// Media usage is obtained'));
+ assert.ok(catalog.includes('cycleRegistry.CELEBRATION_CYCLE_START'));
+ assert.ok(catalog.includes('cycleRegistry.CELEBRATION_CYCLE_END'));
+ assert.ok(catalog.includes('Célébrations prévues (2026–2039)'));
+ assert.ok(catalog.includes('m030-cycle-group'),'Future cycles are grouped in foldable rows');
+ assert.ok(catalog.includes("publication.append(b('Dupliquer'"));
+ assert.ok(generated.includes('Nom distinct de la version'),
+  'Regenerated editor contains the same single duplicate dialogue');
+});
