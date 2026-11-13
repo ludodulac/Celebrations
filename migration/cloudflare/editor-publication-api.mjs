@@ -17,6 +17,7 @@ import {privateReleaseReady} from './app/persistence/private-release-fence.mjs';
 import {canAccessPage,SPACE_VISIBILITIES,ACCESS_MODES} from './app/domain/member-access.mjs';
 import {readLegacyMediaReferences,canSafelyDeleteMedia} from './app/domain/editor-media-usage-safety.mjs';
 import {handleEditorMultipartUpload} from './app/application/editor-multipart-upload.mjs';
+import {canShareStandaloneMedia} from './app/domain/editor-standalone-public-link.mjs';
 
 const PREFIX='editor-trials/uploads/';
 const SITE=new Set(['www.ronde-des-archanges-universelle.eu','ronde-des-archanges-universelle.eu']);
@@ -496,6 +497,32 @@ export async function handleEditorMedia(request,env){
  if(action?.startsWith('mpu-'))return handleEditorMultipartUpload(action,request,env,{
   readEditorState,writeEditorState,discoverMedia
  });
+ // M032: independent media sharing is an EXPLICIT choice, unrelated to
+ // publishing a page or a celebration. Never move/copy/rename the R2 object.
+ // Only official admin-origin same-cookie writes can change this flag.
+ if(action==='public-link'){
+  let input;try{input=await request.json()}catch{return err('JSON invalide',400)}
+  if(typeof input?.id!=='string'||input.id.length>720||
+     typeof input?.publicLink!=='boolean'||!Number.isSafeInteger(input.expectedRevision))
+   return err('Demande de partage invalide',400);
+  const current=await readEditorState(env.EDITOR_BUCKET);
+  if(!expectedRevisionMatches(input.expectedRevision,current.state.version))
+   return err('La médiathèque a changé. Rechargez-la avant de réessayer.',409);
+  const state=copy(current.state);
+  const entry=(state.mediaCatalogue||[]).find(m=>m?.id===input.id);
+  if(!entry||entry.source!=='uploaded'||!editorUploadPath(entry.src))
+   return err('Seuls les fichiers importés sur ce site peuvent recevoir un lien public autonome.',403);
+  if(input.publicLink&&!canShareStandaloneMedia(state,entry))
+   return err('Ce fichier est lié à un contenu privé ou à un accès réservé : partage public refusé.',403);
+  // If the R2 object was removed out-of-band, do not advertise a broken URL.
+  if(input.publicLink&&!await env.EDITOR_BUCKET.head(PREFIX+entry.src.slice('/media/new/'.length)))
+   return err('Fichier introuvable dans le stockage.',404);
+  entry.publicLink=input.publicLink;
+  if(!await writeEditorState(env.EDITOR_BUCKET,current,state))
+   return err('Une autre modification est intervenue. Rechargez la médiathèque.',409);
+  return json({ok:true,revision:state.version,
+   item:{...entry,canDelete:false},publicLink:entry.publicLink});
+ }
  if(action==='external'){
   let input;try{input=await request.json()}catch{return err('JSON invalide',400)}
   if(!input||!allowedUrl(input.src)||!['image','video','pdf','audio'].includes(input.type))return err('Lien invalide',400);

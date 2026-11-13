@@ -1,0 +1,26 @@
+name: "M032 — liens publics autonomes des médias, tests"
+on:
+  push:
+    branches: [feat/m032-media-links-independent-20261113]
+permissions: {contents: read}
+jobs:
+  tests:
+    if: ${{ contains(github.event.head_commit.message, '[M032_TEST]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - name: Check generated editor and private media/public media security
+        run: |
+          set -euo pipefail
+          node scripts/build-m012b-member-spaces-inline.mjs --check
+          node scripts/build-m019-editor-client.mjs --check
+          node --check migration/cloudflare/editor-demo-client.mjs
+          node --check migration/cloudflare/editor-publication-api.mjs
+          node --check migration/cloudflare/public-upload-gateway.mjs
+          node --check migration/cloudflare/app/domain/editor-standalone-public-link.mjs
+          node --test tests/test_m032_standalone_public_media.mjs tests/test_m009c_public_media_api_security.mjs tests/test_m024_cleanup_and_media_safety.mjs tests/test-editor-publication-media.mjs tests/test_m012c_private_editor_publication.mjs tests/test_m031_published_visibility.mjs tests/test_m031_d1_visibility_route.mjs
+          echo M032_STANDALONE_MEDIA_TESTS_PASS

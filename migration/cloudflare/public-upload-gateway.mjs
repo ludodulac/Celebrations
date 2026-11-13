@@ -8,6 +8,7 @@ import {canAccessPage} from './app/domain/member-access.mjs';
 import {privateNotFound} from './app/security/member-private-access.mjs';
 import {isPrivateMediaRecord,isPrivateMediaReference,publicMediaBindingsSafe}
   from './app/security/public-media-boundary.mjs';
+import {standalonePublicLinkAllowed,referencedByRestrictedOwner} from './app/domain/editor-standalone-public-link.mjs';
 
 const pubPage=page=>page&&(page.visibility==null||page.visibility==='published')&&
  canAccessPage(page);
@@ -36,31 +37,16 @@ function publishedPageReferences(state,src){
  }
  return pages.some(page=>pubPage(page)&&hasReference(page.blocks||[],src));
 }
-function referencedByPrivateOwner(state,src){
- const collections=[state.shared?.pages||[],state.published?.shared?.pages||[]];
- for(const drafts of [state.drafts,state.published?.drafts])
-  for(const record of Object.values(drafts||{})){
-   if(Array.isArray(record?.pages))collections.push(record.pages);
-   // Until space media has a dedicated verified release mechanism, no legacy
-   // gallery flag can turn a nested space reference into anonymous access.
-   for(const space of record?.spaces||[])
-    if(Array.isArray(space?.pages)&&space.pages.some(page=>hasReference(page.blocks||[],src)))return true;
-  }
- for(const pages of collections)
-  for(const page of pages)
-   if(page && (page.private===true||page.visibility==='private'||
-     Object.hasOwn(page,'spaceId')||
-     (page.accessPolicy&&page.accessPolicy.mode!=='PUBLIC')) &&
-     hasReference(page.blocks||[],src))return true;
- return false;
-}
 function publicRelease(state,src){
  if(!state.published)return false; // drafts NEVER imply publication
  const entry=(state.mediaCatalogue||[]).find(row=>row?.src===src);
  if(entry&&isPrivateMediaRecord(entry))return false;
- if(referencedByPrivateOwner(state,src))return false;
+ if(referencedByRestrictedOwner(state,src))return false;
  if(state.siteIdentity?.imageSrc===src&&entry?.type==='image')return true;
  if(publishedPageReferences(state,src))return true;
+ // An explicit standalone public URL survives a hidden celebration and does
+ // NOT publish the file in the celebration's public media catalogue.
+ if(entry?.publicLink===true&&standalonePublicLinkAllowed(state,entry))return true;
  // Existing admin "general gallery" toggles are explicit public releases,
  // not membership grants. A marked/private file can never be promoted.
  return entry?.general===true&&entry.source==='uploaded';
@@ -75,7 +61,11 @@ const secure=(response,publicFile)=>{
  headers.set('x-robots-tag','noindex, nofollow, noarchive');
  headers.delete('etag');headers.delete('last-modified');
  headers.delete('surrogate-control');headers.delete('expires');
- if(!publicFile)headers.set('content-disposition','attachment');
+ // Only browser-safe image/PDF types render inline. Other file formats
+ // remain attachments; the user's original same-origin URL is unchanged.
+ const mime=(headers.get('content-type')||'').toLowerCase().split(';')[0].trim();
+ const inline=['image/jpeg','image/png','image/webp','application/pdf'].includes(mime);
+ headers.set('content-disposition',inline?'inline':'attachment');
  return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
 };
 export async function handlePublicEditorUpload(request,env){
