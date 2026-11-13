@@ -22,5 +22,5 @@ jobs:
           node --check migration/cloudflare/editor-demo-preparation-page.mjs
           node --check migration/cloudflare/editor-trial-site-client.mjs
           node --check migration/cloudflare/editor-trial-site-page.mjs
-          node --test tests/test_m031_m4_compact_layout.mjs tests/test_m031_d1_visibility_route.mjs tests/test_m031_d1_session_renewal.mjs tests/test_m031_published_visibility.mjs tests/test_m018_official_pin_bridge.mjs tests/test_m030_canonical_celebrations.mjs tests/test-editor-demo-preparation.mjs tests/test_m012c_private_editor_publication.mjs
+          node --test tests/test_m031_m4_compact_layout.mjs tests/test_m031_d1_visibility_route.mjs tests/test_m031_d1_session_renewal.mjs tests/test_m031_published_visibility.mjs tests/test_m018_official_pin_bridge.mjs tests/test_m030_canonical_celebrations.mjs tests/test_m012c_private_editor_publication.mjs
           echo M031_M4_REGRESSION_PASS
