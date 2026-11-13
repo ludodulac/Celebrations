@@ -22,7 +22,7 @@ test('M031/4: real editor toolbar and navigation are MOVED, not cloned, and surv
  assert.match(admin,/layout\.prepend\(panel\)/);
  assert.match(admin,/m031ReflowRail/);
  assert.match(html,/m031-admin-home-link/);
- assert.match(html,/href=\\"\/admin\?celebration=/);
+ assert.ok(html.includes('href="/admin?celebration='),'Admin link must reload selected celebration');
  assert.match(html,/ADMIN_STAGE_LAYOUT\+M031_COMPACT_LAYOUT_CSS/);
  assert.ok(!admin.includes('cloneNode(true)'), 'Do not clone native controls or their event handlers');
 });
