@@ -189,6 +189,66 @@ test('M030: legacy cross-celebration duplication is refused; private releases an
   assert.equal((await f.member('invented-copy')).status,404,'No phantom duplicate becomes readable');
  }finally{f.close()}
 });
+test('M030 M06: without active categories, even another public language is blocked without writes',async()=>{
+ const f=await fixture();try{
+  f.db.prepare('UPDATE celebrations_directory_member_types SET disabled=1').run();
+  const before=structuredClone(f.state),writes=f.writes;
+  const result=await f.send({action:'duplicate-version',name:'Gabriel English',
+   scope:'PUBLIC',categoryId:'',languageId:'en'});
+  assert.equal(result.status,409,JSON.stringify(result));
+  assert.match(result.error,/catégorie/i);
+  assert.equal(f.writes,writes);
+  assert.deepEqual(f.state,before);
+  assert.equal(f.db.prepare('SELECT count(*) AS n FROM celebrations_celebrations').get().n,2);
+ }finally{f.close()}
+});
+test('M030 M06: public English variant stays inside one celebration, draft-only, duplicate denied',async()=>{
+ const f=await fixture();try{
+  const baseline=structuredClone(f.state),beforeD1=f.db.prepare(
+   'SELECT count(*) AS n FROM celebrations_celebrations').get().n;
+  const first=await f.send({action:'duplicate-version',name:'Gabriel — English',
+   scope:'PUBLIC',categoryId:'',languageId:'en'});
+  assert.equal(first.status,200,JSON.stringify(first));
+  assert.equal(first.createdVersion.key,'PUBLIC|en');
+  assert.equal(first.createdVersion.visibility,'draft');
+  assert.equal(f.state.celebrationMetadata['41'].versions.length,1);
+  assert.ok(f.state.localization.pages['mercredi-41']?.en);
+  assert.equal(f.db.prepare('SELECT count(*) AS n FROM celebrations_celebrations').get().n,beforeD1);
+  assert.deepEqual(f.state.published.drafts['41']?.pages||[],baseline.published?.drafts?.['41']?.pages||[],
+   'Copy cannot publish extra English pages or silently widen access');
+  const latest=structuredClone(f.state),writes=f.writes;
+  const duplicate=await f.send({action:'duplicate-version',name:'Different English label',
+   scope:'PUBLIC',categoryId:'',languageId:'en'});
+  assert.equal(duplicate.status,409,JSON.stringify(duplicate));
+  assert.equal(f.writes,writes,'Duplicate (audience, language) does not write');
+  assert.deepEqual(f.state,latest);
+ }finally{f.close()}
+});
+test('M030 M06: real category + Spanish creates private draft only, never an enrollment or private release',async()=>{
+ const f=await fixture();try{
+  const before=f.db.prepare(
+   'SELECT count(*) AS n FROM celebrations_directory_private_space_enrollments').get().n;
+  const result=await f.send({action:'duplicate-version',name:'Gabriel — Chant espagnol',
+   scope:'SELECTED_TYPES',categoryId:TYPE,languageId:'es'});
+  assert.equal(result.status,200,JSON.stringify(result));
+  assert.equal(result.createdVersion.key,'category:'+TYPE+'|es');
+  assert.equal(result.createdVersion.visibility,'draft');
+  const draft=f.state.drafts['41'];
+  const created=draft.spaces.find(v=>v.name==='Gabriel — Chant espagnol');
+  assert.ok(created,'Private draft remains inside the existing celebration');
+  assert.equal(created.visibility,'PRIVATE');
+  assert.equal(created.accessPolicy.mode,'SELECTED_TYPES');
+  assert.deepEqual(created.accessPolicy.typeIds,[TYPE]);
+  assert.ok(created.pages.every(page=>page.publicationStatus==='draft'));
+  assert.equal(f.state.published.privateSpaceReleases[created.id],undefined);
+  assert.equal(f.db.prepare(
+   'SELECT count(*) AS n FROM celebrations_directory_private_space_enrollments').get().n,before);
+  assert.equal(f.db.prepare('SELECT count(*) AS n FROM celebrations_celebrations').get().n,2);
+  const blocked=await f.send({action:'duplicate-version',name:'Gabriel — Copie espagnol',
+   scope:'SELECTED_TYPES',categoryId:TYPE,languageId:'es'});
+  assert.equal(blocked.status,409,'Same category + language is unique');
+ }finally{f.close()}
+});
 test('M012C: public spaces persist as M005 records, but never leak through the old public projection',async()=>{
  const f=await fixture();try{
   const r=await f.send({action:'save',spaces:[space(undefined,undefined,{visibility:'PUBLIC',accessPolicy:pubPolicy})]});
