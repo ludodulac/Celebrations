@@ -19,3 +19,7 @@ Le titre s'enregistre et se relit correctement via l'API. Le navigateur de prép
 ## Troisième test préproduction
 
 Le navigateur avait attendu un texte de confirmation qui peut disparaître lors d'un rendu asynchrone des paramètres. Le critère est désormais le résultat réellement conservé sur le serveur, relu indépendamment ; le diagnostic affiche l'état du formulaire si ce résultat ne correspond pas. Aucun changement de fonction ni de données supplémentaires.
+
+## Instrumentation de la sauvegarde M016
+
+Le serveur a retourné une ancienne valeur malgré le succès affiché. Le test suivant enregistre uniquement le titre de démonstration envoyé par le formulaire et l'accusé de réception de l'API pour identifier une réinitialisation du champ ou un conflit de révision. Aucune donnée de membre, mot de passe ou fichier n'est collecté.
