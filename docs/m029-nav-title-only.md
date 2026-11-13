@@ -23,3 +23,7 @@ Le navigateur avait attendu un texte de confirmation qui peut disparaître lors 
 ## Instrumentation de la sauvegarde M016
 
 Le serveur a retourné une ancienne valeur malgré le succès affiché. Le test suivant enregistre uniquement le titre de démonstration envoyé par le formulaire et l'accusé de réception de l'API pour identifier une réinitialisation du champ ou un conflit de révision. Aucune donnée de membre, mot de passe ou fichier n'est collecté.
+
+## Correction démontrée sur le formulaire
+
+Le relevé de la vraie requête a montré le défaut : le champ était effacé par un nouveau rendu de l'administration entre la saisie et le clic, ce qui transmettait un titre vide avec succès. Le réglage conserve désormais uniquement la saisie non enregistrée en mémoire pendant ces rendus, puis efface cette copie dès confirmation serveur. Cette correction est confinée au formulaire du titre, ne modifie aucun contenu ni le système de sauvegarde général.
