@@ -23,6 +23,25 @@ jobs:
         with: {node-version: '24'}
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
+      - name: Verify existing official version before release
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const acct=process.env.CLOUDFLARE_ACCOUNT_ID,token=process.env.CLOUDFLARE_API_TOKEN;
+          assert.ok(token&&acct);
+          const url='https://api.cloudflare.com/client/v4/accounts/'+acct+
+            '/workers/scripts/celebrations-exit-production/deployments';
+          const r=await fetch(url,{headers:{authorization:'Bearer '+token}});
+          assert.equal(r.status,200);
+          const j=await r.json();
+          assert.equal(j.success,true);
+          const versions=j.result?.deployments?.[0]?.versions||[];
+          assert.deepEqual(versions.map(x=>[x.version_id,x.percentage]),
+            [['38b8e5c5-714a-4d94-8119-e3b72f6ad617',100]],
+            'Site modified since M036, refusing unsafe overwrite');
+          console.log('M037_PRE_RELEASE_GUARD_PASS');
+          NODE
       - name: Build and test without changing site data
         run: |
           set -euo pipefail
