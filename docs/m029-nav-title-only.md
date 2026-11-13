@@ -11,3 +11,7 @@
 ## Vérification M016 — reprise ciblée
 
 Le premier passage a confirmé l'affichage du formulaire et la réponse de sauvegarde, mais sa lecture immédiate sur un autre Worker Cloudflare a renvoyé l'ancienne valeur. L'essai a restauré le titre initial et le Worker M016 a été automatiquement rétabli. Le second passage impose maintenant une relecture serveur indépendante (répétée brièvement) avant de considérer la sauvegarde réussie, sans modifier le site officiel.
+
+## Deuxième passage M016
+
+Le titre s'enregistre et se relit correctement via l'API. Le navigateur de préproduction a trouvé HTTP 404 sur la page publique parce que le rendu visiteur historique ne reconnaissait pas explicitement l'hôte M016. Ajout du garde-fou existant `isM016AdminPreprodHost` (hôte exact et deux activations isolées requises), sans ouvrir aucun autre hôte ni modifier la production. Le parcours vérifie maintenant le titre dans la barre existante sur ordinateur et son masquage sur téléphone, puis restaure les préférences M016.
