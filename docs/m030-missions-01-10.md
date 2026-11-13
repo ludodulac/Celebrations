@@ -8,8 +8,8 @@
 | **02** | Définir et tester le modèle unique : quatre archanges, 14 cycles, 56 emplacements virtuels, versions nommées uniques, pas de nouvelle version sans catégorie existante | ✅ Terminée (code de branche + tests) |
 | **03** | Sauvegarder D1 et le snapshot R2 de l'éditeur, chiffrer, déchiffrer et vérifier une restauration locale | ✅ Terminée |
 | **04** | Préparer le plan exact du nettoyage et le répéter sur des copies isolées sans perdre Michaël 101 ni les pages générales | ✅ Terminée — simulation locale et retour arrière validés |
-| **05** | Imposer l'identité unique archange/cycle en D1 et préparer les 56 emplacements masqués, avec visibilité cohérente | À faire |
-| **06** | Corriger une seule fois la duplication interne : nouveau nom, langue, catégorie/public, refus des doublons et brouillon protégé | À faire |
+| **05** | Imposer l'identité unique archange/cycle en D1 et préparer les 56 emplacements masqués, avec visibilité cohérente | ✅ Terminée sur branche ; index D1 différé après nettoyage M10 |
+| **06** | Corriger une seule fois la duplication interne : nouveau nom, langue, catégorie/public, refus des doublons et brouillon protégé | ✅ Terminée sur branche ; bouton et API sécurisés, tests ciblés réussis |
 | **07** | Supprimer les dates obligatoires du mercredi et les anciens chemins de création libre, client et serveur | À faire |
 | **08** | Afficher une célébration unique aux visiteurs avec la version autorisée, et ranger les années en rubriques repliables | À faire |
 | **09** | Parcours complet Chromium M016 (smartphone/ordinateur), droits privés, langues, sauvegardes et tests de régression | À faire |
@@ -54,6 +54,16 @@ Un **module de règles partagé** `migration/cloudflare/app/domain/celebration-c
 - **Michaël 101 : 8 pages brouillon et 8 publiées intactes.** **4 pages générales** et 1 page générale publiée intactes ; **128 éléments médias conservés**, 0 fichier média supprimé. Aucun compte membre, droit d'accès ou fichier de production modifié.
 - Rapport sans données sensibles : artefact GitHub `m030-m04-sanitized-local-cleanup-report` (30 jours).
 - **Aucune suppression réelle effectuée.** Le futur nettoyage officiel devra repartir d'une sauvegarde récente et revalider qu'aucune donnée nouvelle n'est apparue entre-temps.
+
+## Missions 05 et 06 — construction ciblée terminée sur branche isolée
+
+[Tests officiels GitHub Actions M030 #43432345195](https://github.com/ludodulac/Celebrations/actions/runs/43432345195) : **SUCCESS** (tests du domaine, du serveur, de l'interface et des anciennes fonctionnalités nécessaires).
+
+**M05 :** un modèle unique donne 56 emplacements virtuels en **14 cycles 2026–2039**, regroupés par année repliable dans l'administration. Sans identité D1, les futurs emplacements restent masqués. La création côté serveur accepte exclusivement une combinaison (archange, cycle) prévue et vérifie l'existence de l'index unique D1. L'index SQL est préparé dans `migration/cloudflare/manual-after-m030-cleanup/m030_unique_celebration_cycles.sql` mais volontairement **NON APPLIQUÉ** à l'officiel avant le nettoyage M10 des anciennes identités 105/106 ; son application anticipée échoue sans toucher aux doublons, comme démontré en SQLite local. Aucune nouvelle célébration officielle créée.
+
+**M06 :** dans une célébration existante, le bouton « Dupliquer » ouvre **un seul formulaire** avec un nom différent, un choix de destinataires (Public / catégorie / tous les inscrits) et une langue. S'il n'y a pas de catégorie active, le dialogue n'est pas ouvert et l'utilisateur reçoit une indication explicite. Le serveur confirme la catégorie réelle et la langue, rejette les combinaisons destinataires + langue déjà présentes (et les noms identiques), conserve la **même identité D1**, écrit uniquement un **brouillon R2**, n'accorde aucun droit, ne publie aucune version et utilise la protection de révision contre deux doublons simultanés. Tests serveur : pas de catégorie => aucun écrit, nouvelle version publique anglais => brouillon, répétition refusée, version privée espagnole => brouillon sans inscription ni publication ; tests de l'interface/bundle réussis.
+
+**Important :** ces changements ne sont **pas déployés** sur le site officiel ; M10 devra appliquer l'index D1 après le nettoyage isolé et faire la mise en service. Tous les fichiers et célébrations existants sont encore en place.
 
 ## Principe impératif
 
