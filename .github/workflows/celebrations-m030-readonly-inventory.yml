@@ -1,0 +1,43 @@
+name: Célébrations M030 — inventaire uniquement en lecture seule
+on:
+  push:
+    branches: [feat/m030-canonical-celebration-cycles-20261113]
+permissions:
+  contents: read
+jobs:
+  readonly-inventory:
+    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M030_READONLY_INVENTORY]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: celebrations-staging
+    env:
+      M030_READONLY: 'YES'
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - name: Exact isolated read-only script + bounded credentials
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/feat/m030-canonical-celebration-cycles-20261113
+          test "$M030_READONLY" = YES
+          node --check scripts/m030_readonly_inventory.mjs
+          test "$CLOUDFLARE_ACCOUNT_ID" = 60a7b17758a93fe6681ce998e72ddff0
+      - name: Read existing editor state only (never put or deploy)
+        run: |
+          set -euo pipefail
+          npm install --no-save --no-package-lock wrangler@4
+          cd migration/cloudflare
+          npx wrangler r2 object get celebrations-exit-staging/editor-trials/server-drafts-v1.json \
+            --remote --file /tmp/m030-editor-readonly.json
+          test -s /tmp/m030-editor-readonly.json
+      - name: Count and compare existing official celebrations (no personal data)
+        run: node scripts/m030_readonly_inventory.mjs
+      - name: Count foreign references to every celebration before any cleanup
+        run: node scripts/m030_readonly_dependencies.mjs
+      - name: Remove local plaintext copy, do not upload it
+        if: always()
+        run: rm -f /tmp/m030-editor-readonly.json

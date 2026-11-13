@@ -1,0 +1,132 @@
+name: "Célébrations M030 M10 — finalisation sûre après nettoyage D1/R2"
+on:
+  push:
+    branches: [feat/m030-canonical-celebration-cycles-20261113]
+permissions: {contents: read}
+concurrency:
+  group: celebrations-existing-official-production-release
+  cancel-in-progress: false
+jobs:
+  finish-code-only:
+    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M030_M10_FINALIZE_CLEANED]') }}
+    runs-on: ubuntu-24.04
+    environment: celebrations-staging
+    timeout-minutes: 30
+    env:
+      M030_PROD_APPROVED: 'YES'
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      M026_HOTFIX_EXPECTED_OFFICIAL_VERSION: '76f31003-53b1-436f-ab6d-3217b05c91c3'
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Verify official baseline and that six-record cleanup ALREADY committed
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/feat/m030-canonical-celebration-cycles-20261113'
+          node scripts/m026_official_gate.mjs before
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const base='https://api.cloudflare.com/client/v4/accounts/'+process.env.CLOUDFLARE_ACCOUNT_ID;
+          const headers={authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN};
+          const sql=async query=>{
+            const r=await fetch(base+'/d1/database/28736d2a-479b-472b-bf82-703ad0affe10/query',{
+              method:'POST',headers:{...headers,'content-type':'application/json'},body:JSON.stringify({sql:query}),
+              signal:AbortSignal.timeout(35000)});
+            assert.equal(r.status,200);const j=await r.json();assert.equal(j.success,true);
+            return j.result[0].results;
+          };
+          const [ids,idx]=await Promise.all([
+            sql('SELECT id,archangel,year FROM celebrations_celebrations ORDER BY id'),
+            sql("SELECT name FROM sqlite_master WHERE name='idx_celebrations_archangel_year_unique' AND type='index'")
+          ]);
+          assert.deepEqual(ids.map(x=>String(x.id)),['101']);
+          assert.equal(ids[0].archangel,'Michaël');assert.equal(String(ids[0].year),'2026');
+          assert.equal(idx.length,1);
+          const r=await fetch(base+'/r2/buckets/celebrations-exit-staging/objects/editor-trials/server-drafts-v1.json',
+            {headers,signal:AbortSignal.timeout(35000)});
+          assert.equal(r.status,200);
+          const editor=await r.json();
+          assert.deepEqual(Object.keys(editor.drafts),['101']);
+          assert.deepEqual(Object.keys(editor.published.drafts),['101']);
+          assert.equal(editor.version,248);
+          assert.ok((editor.mediaCatalogue||[]).length>=128);
+          console.log('M030_M10_CLEANUP_ALREADY_COMMITTED verified_101_and_128_media_records');
+          NODE
+      - name: Verify code, build official site and upload candidate INACTIVE
+        id: upload
+        working-directory: migration/cloudflare
+        env:
+          WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/m030-cleaned-version-output.ndjson
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
+          node scripts/build-m012b-member-spaces-inline.mjs --check
+          node scripts/build-m019-editor-client.mjs --check
+          node --test tests/test_m030_official_migration_worker.mjs tests/test_m030_canonical_celebrations.mjs tests/test_m012c_private_editor_publication.mjs tests/test_m029_navigation_title_only.mjs
+          python scripts/build_production_assets.py
+          npm install --no-save --no-package-lock wrangler@4 playwright@1.58.2
+          npx playwright install chromium
+          cd migration/cloudflare
+          npx wrangler deploy --dry-run --config wrangler.m018.official.toml
+          npx wrangler versions upload --config wrangler.m018.official.toml --message "M030 M10 completion: cleanup verified, code-only promotion"
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readFileSync,appendFileSync} from 'node:fs';
+          const events=readFileSync(process.env.WRANGLER_OUTPUT_FILE_PATH,'utf8').split('\n').filter(Boolean).map(JSON.parse);
+          const v=events.filter(x=>x.type==='version-upload'&&x.worker_name==='celebrations-exit-production').at(-1)?.version_id;
+          assert.match(v||'',/^[a-f0-9-]{36}$/);
+          appendFileSync(process.env.GITHUB_OUTPUT,'new_version='+v+'\n');
+          NODE
+      - name: Check old official version still active, then promote code only
+        id: promote
+        working-directory: migration/cloudflare
+        env:
+          NEW_VERSION: ${{ steps.upload.outputs.new_version }}
+        run: |
+          set -euo pipefail
+          node ../../scripts/m026_official_gate.mjs before-promotion
+          npx wrangler versions deploy "$NEW_VERSION@100%" --yes --config wrangler.m018.official.toml --message "M030 M10 finished, previous D1/R2 cleanup preserved"
+      - name: Confirm new official code, permissions, and exactly one Michaël 2026
+        env:
+          M026_NEW_VERSION: ${{ steps.upload.outputs.new_version }}
+        run: |
+          set -euo pipefail
+          node scripts/m026_official_gate.mjs after-promotion
+          node scripts/m026_official_public_smoke.mjs
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {chromium} from 'playwright';
+          const browser=await chromium.launch({headless:true});
+          try{
+            const page=await browser.newPage({viewport:{width:390,height:850},isMobile:true,hasTouch:true});
+            const base='https://ronde-des-archanges-universelle.eu';
+            const r=await page.goto(base+'/__editor/voir-le-site?celebration=101&page=celebrations',{waitUntil:'domcontentloaded'});
+            assert.equal(r?.status(),200);
+            await page.waitForTimeout(750);
+            assert.deepEqual(await page.locator('.celebration-choice strong').allTextContents(),['Michaël 2026']);
+            assert.equal((await page.request.get(base+'/__editor/voir-le-site?celebration=102')).status(),404);
+            assert.equal((await page.request.get(base+'/api/editor-open-draft?celebration=101')).status(),401);
+          }finally{await browser.close()}
+          console.log('M030_M10_FINAL_OFFICIAL_SUCCESS code_only_promotion=true data_restored=false media_deleted=0');
+          NODE
+      - name: Restore former code if final checks fail, never touch cleaned D1 or editor R2
+        if: ${{ failure() && steps.promote.outcome == 'success' }}
+        working-directory: migration/cloudflare
+        env:
+          NEW_VERSION: ${{ steps.upload.outputs.new_version }}
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const r=await fetch('https://api.cloudflare.com/client/v4/accounts/'+
+            process.env.CLOUDFLARE_ACCOUNT_ID+'/workers/scripts/celebrations-exit-production/deployments',{
+            headers:{authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN}});
+          assert.equal(r.status,200);const j=await r.json();assert.equal(j.success,true);
+          assert.deepEqual(j.result.deployments[0].versions.map(x=>x.version_id),[process.env.NEW_VERSION]);
+          NODE
+          npx wrangler versions deploy "76f31003-53b1-436f-ab6d-3217b05c91c3@100%" --yes --config wrangler.m018.official.toml --message "M030 code-only rollback, cleaned D1/R2 preserved"

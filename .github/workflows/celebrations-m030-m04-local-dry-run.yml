@@ -1,0 +1,90 @@
+name: "Célébrations M030 — M04 simulation locale du nettoyage"
+on:
+  push:
+    branches: [feat/m030-canonical-celebration-cycles-20261113]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  m04-local-simulation:
+    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M030_M04_LOCAL_ONLY]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: celebrations-staging
+    env:
+      GH_TOKEN: ${{ github.token }}
+      M017_ADMIN_PASSWORD: ${{ secrets.CELEBRATIONS_M017_ADMIN_PASSWORD }}
+      M030_M04_LOCAL_ONLY: 'YES'
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: 'Guard — exact branch, no Cloudflare access, expected M03 run'
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          test "$GITHUB_REF" = 'refs/heads/feat/m030-canonical-celebration-cycles-20261113'
+          test "$M030_M04_LOCAL_ONLY" = YES
+          test "${#M017_ADMIN_PASSWORD}" -ge 16
+          python -m py_compile scripts/m030_m04_local_cleanup_plan.py
+          echo M030_M04_EXACT_LOCAL_ONLY_GUARD_PASS
+      - name: Download ONLY M03 encrypted GitHub artifact, no Cloudflare API
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p /tmp/m030-m04
+          gh run download 43420237980 \
+            --repo "$GITHUB_REPOSITORY" \
+            --name m030-official-D1-and-editor-R2-encrypted-restore-verified \
+            --dir /tmp/m030-m04
+          test -s /tmp/m030-m04/m030-official-D1.sql.enc
+          test -s /tmp/m030-m04/m030-official-editor.json.enc
+          test -s /tmp/m030-m04/m030-backup-manifest.json
+          echo M030_M04_ENCRYPTED_M03_BACKUP_REUSED
+      - name: Decrypt only inside isolated runner and validate hashes before simulation
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          openssl enc -aes-256-cbc -d -pbkdf2 -iter 200000 \
+            -in /tmp/m030-m04/m030-official-D1.sql.enc \
+            -out /tmp/m030-m04/restored-D1.sql -pass env:M017_ADMIN_PASSWORD
+          openssl enc -aes-256-cbc -d -pbkdf2 -iter 200000 \
+            -in /tmp/m030-m04/m030-official-editor.json.enc \
+            -out /tmp/m030-m04/restored-editor.json -pass env:M017_ADMIN_PASSWORD
+          python - <<'PY'
+          import hashlib,json,pathlib
+          folder=pathlib.Path('/tmp/m030-m04')
+          manifest=json.loads((folder/'m030-backup-manifest.json').read_text())
+          assert manifest['official_worker']=='76f31003-53b1-436f-ab6d-3217b05c91c3'
+          assert manifest['restore_tested'] is True and manifest['production_writes']==0
+          for name,path in [
+           ('m030-official-D1.sql','restored-D1.sql'),
+           ('m030-official-editor.json','restored-editor.json')
+          ]:
+           actual=hashlib.sha256((folder/path).read_bytes()).hexdigest()
+           assert actual==manifest['sha256'][name],name+' hash invalid'
+          print('M030_M04_DECRYPTED_M03_HASHES_VERIFIED')
+          PY
+      - name: Simulate deletion of exactly six old IDs in in-memory D1 and copied R2
+        run: |
+          set -euo pipefail
+          python scripts/m030_m04_local_cleanup_plan.py \
+            /tmp/m030-m04/restored-D1.sql \
+            /tmp/m030-m04/restored-editor.json
+          test -s /tmp/m030-m04-report.json
+          echo M030_M04_OFFICIAL_ZERO_WRITES_CONFIRMED
+      - uses: actions/upload-artifact@v4
+        with:
+          name: m030-m04-sanitized-local-cleanup-report
+          path: /tmp/m030-m04-report.json
+          retention-days: 30
+          if-no-files-found: error
+      - name: Remove plaintext and only retain sanitized counts
+        if: always()
+        run: |
+          rm -f /tmp/m030-m04/restored-D1.sql /tmp/m030-m04/restored-editor.json
+          echo M030_M04_PLAINTEXT_DELETED_NO_DEPLOY_NO_REMOTE_DELETE

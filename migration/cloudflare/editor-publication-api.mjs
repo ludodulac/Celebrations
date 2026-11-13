@@ -25,6 +25,10 @@ const STAGING='celebrations-exit-staging.rondes.workers.dev';
 const err=(message,status=400)=>Response.json({ok:false,error:message},{status,headers:{'cache-control':'no-store','x-content-type-options':'nosniff'}});
 const json=value=>Response.json(value,{headers:{'cache-control':'no-store','x-content-type-options':'nosniff'}});
 const copy=x=>JSON.parse(JSON.stringify(x));
+const m030PublicVersion=(state,celebration,languageId)=>
+ (state.celebrationMetadata?.[String(celebration)]?.versions||[]).find(version=>
+  version.key==='PUBLIC|'+languageId&&version.audience?.scope==='PUBLIC');
+
 const validState=x=>x&&typeof x==='object'&&Number.isSafeInteger(x.version)&&x.drafts&&x.shared&&Array.isArray(x.plans);
 const defaultState=()=>({version:0,drafts:{},plans:[],shared:{pages:[],homeId:''},mediaCatalogue:[]});
 export async function readEditorState(bucket){
@@ -409,7 +413,9 @@ export async function handleEditorPublication(request,env){
    // One explicit page publication releases its authored active language versions.
    if(pub.translationReleases)delete pub.translationReleases[body.pageId];
    for(const language of state.localization?.registry?.languages??[]){
-    if(language.active&&language.id!=='fr'&&state.localization?.pages?.[body.pageId]?.[language.id])
+    if(language.active&&language.id!=='fr'&&
+       !m030PublicVersion(state,body.celebration,language.id)&&
+       state.localization?.pages?.[body.pageId]?.[language.id])
      publishLanguageCommand(state,pub,{...body,kind:'translation',languageId:language.id});
    }
 
@@ -444,6 +450,12 @@ export async function handleEditorPublication(request,env){
    }else if(ix>=0)pub.plans.splice(ix,1);
   }
  }else if(body.kind==='translation'||body.kind==='language-registry'){
+  // A named M030 public-language version is a whole-celebration draft. It
+  // cannot be released piecemeal through legacy per-page publication.
+  const named=body.kind==='translation'?
+   m030PublicVersion(state,body.celebration,body.languageId):null;
+  if(named&&body.visibility==='published'&&named.visibility!=='published')
+   return err('Publiez la version entière depuis Célébrations, pas une page isolée',409);
   try{publishLanguageCommand(state,pub,body)}
   catch(e){return err(e?.message||'Publication de langue impossible',409)}
  }else{

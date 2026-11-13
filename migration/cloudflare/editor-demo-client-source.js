@@ -7,7 +7,7 @@ const STAGE_SEED=window.__PREPARATION_SEED__||null;
 const KEY=STAGE_SEED?'celebrations-demo-preparation-'+String(STAGE_SEED.celebrationId):'celebrations-demo-editor-v1';
 const seed={pages:[
 {id:'home',name:'Accueil',group:'page',blocks:[{id:1,kind:'heading',text:'Bienvenue dans nos célébrations',align:'center'},{id:2,kind:'text',text:'Un lieu de rencontre, de partage et de célébration. Touchez ce texte pour le modifier.',align:'center'},{id:3,kind:'image',text:'Votre photographie',src:'',align:'center'},{id:4,kind:'button',text:'Découvrir le programme',href:'/programme/',align:'center'}]},
-{id:'mercredi',name:'Date du mercredi :',group:'celebration',blocks:[{id:5,kind:'heading',text:'La célébration du mercredi',align:'center'},{id:6,kind:'text',text:'Accueil des participants\nTemps de partage\nCélébration\nClôture',align:'left'}]},
+{id:'mercredi',name:'Mercredi',group:'celebration',blocks:[{id:5,kind:'heading',text:'La célébration du mercredi',align:'center'},{id:6,kind:'text',text:'Accueil des participants\nTemps de partage\nCélébration\nClôture',align:'left'}]},
 {id:'demarche',name:'Notre démarche',group:'page',blocks:[{id:7,kind:'heading',text:'Notre démarche',align:'center'},{id:8,kind:'text',text:'Un texte de présentation que vous pouvez modifier directement.',align:'left'}]}]};
 const clone=o=>JSON.parse(JSON.stringify(o));
 const localEditorState=createEditorState({STAGE_SEED,KEY,seed,clone,storage:localStorage,search:location.search});
@@ -47,7 +47,8 @@ function applyAdminMenu(){
  }
 }
 const {validIso,prettyDate,validTime,validHref,validColor}=createEditorLocalRules();
-const ARCHANGELS=['Michaël','Gabriel','Raphaël','Ouriel'];
+const cycleRegistry=createCelebrationCycleRegistry();
+const ARCHANGELS=cycleRegistry.CANONICAL_ARCHANGELS;
 const editorPageModel=createPageModel();
 const editorPageCommands=createEditorPageCommands({model:editorPageModel});
 const editorSyncPolicy=createEditorSyncPolicy();
@@ -71,71 +72,22 @@ function localizedLabel(p){
  if(!['page','celebration'].includes(p?.group)||editingLanguageId==='fr')return p?.name||'';
  return editorLocalization.pages[p.id]?.[editingLanguageId]?.name||p.name;
 }
-const archSlug=name=>String(name).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
-function cycleYear(entry){
- const str=String(entry?.title||entry?.year||entry?.date||'');
- const years=[...str.matchAll(/20\d{2}/g)].map(m=>Number(m[0]));
- return years.length?years.at(-1):2027;
-}
-function suggestedCycleYear(previous,next){
- const end=cycleYear(previous);
- // Gabriel straddles New Year, so the next Raphaël belongs to its END year.
- return next==='Raphaël'?end:end;
-}
-function canonicalTitle(archangel,year){
- const n=Math.max(2020,Math.min(2100,Number(year)||2027));
- return archangel+' '+(archangel==='Gabriel'?n+'-'+(n+1):n);
-}
-function proposedTitle(archangel,date,previous){
- const d=String(date||'');
- let year=/^20\d{2}-\d{2}-\d{2}$/.test(d)?Number(d.slice(0,4)):Number(String(previous?.year||'').slice(0,4))||2027;
- // The archangel cycle does not jump forward one year at Raphaël→Ouriel or Ouriel→Michaël.
- if(previous){
-  const expected=suggestedCycleYear(previous,archangel);
-  if(archangel==='Raphaël'&&previous.archangel==='Gabriel')year=cycleYear(previous);
-  else if(['Ouriel','Michaël','Gabriel'].includes(archangel) &&
-    ((previous.archangel==='Raphaël'&&archangel==='Ouriel')||
-     (previous.archangel==='Ouriel'&&archangel==='Michaël')||
-     (previous.archangel==='Michaël'&&archangel==='Gabriel')))year=Number(String(previous.title||previous.year||'').match(/20\d{2}/)?.[0])||expected;
- }
- return canonicalTitle(archangel,year);
-}
+// Fixed archange/cycle identities, without an imposed Wednesday.
 function celebrationLabel(entry){
- return String(entry?.title||'').trim()||canonicalTitle(entry.archangel,entry.year||String(entry.date||'').slice(0,4));
+ return String(entry?.title||'').trim()||[entry?.archangel,entry?.year].filter(Boolean).join(' ');
 }
-function currentDateForDraft(entry){
- if(!entry)return '';
- if(entry.id===String(window.__PREPARATION_SEED__?.celebrationId))return currentDates().wednesday||entry.date||'';
- try{
-  const saved=JSON.parse(localStorage.getItem('celebrations-demo-preparation-'+entry.id)||'null');
-  return saved?.celebrationDates?.wednesday||entry.date||'';
- }catch{return entry.date||''}
-}
-function savePlannedTitle(id,title){
- const value=String(title||'').trim().slice(0,100);
- if(!value)return false;
- const rows=plannedEntries(),entry=rows.find(x=>x.id===id);
- if(!entry)return false;
- entry.title=value;entry.customTitle=true;
- try{localStorage.setItem(PLANS_KEY,JSON.stringify(rows));return true}catch{return false}
-}
-function plannedEntries(){
- try{
-  const values=JSON.parse(localStorage.getItem(PLANS_KEY)||'[]');
-  if(!Array.isArray(values))return [];
-  const drafts=values.filter(p=>p&&editorPageModel.validPlannedId(p.id)).slice(0,100);
-  // Correct the old automatic Ouriel 2028 after Raphaël 2027, while leaving
-  // explicitly user-edited titles untouched. This never silently changes a date.
-  for(let i=0;i<drafts.length;i++){
-   const p=drafts[i];if(p.customTitle&&p.title)continue;
-   const prev=drafts[i-1]||null;
-   p.title=proposedTitle(p.archangel,p.date,prev);
-  }
-  return drafts;
- }catch{return []}
+// Retain already stored plans until controlled cleanup; never make a new plan.
+function plannedEntries(){return Array.isArray(serverBasePlans)?clone(serverBasePlans):[];}
+// D1 identities only; every future slot is virtual until explicitly opened.
+function celebrationCatalog(){
+ return cycleRegistry.visibleSlotCatalogue(
+  window.__PREPARATION_SEED__?.celebrations||[],sharedVisibility());
 }
 function celebrationEntries(){
- return [...(window.__PREPARATION_SEED__?.celebrations||[]).map(p=>({id:String(p.id),archangel:String(p.archangel||''),year:String(p.year||''),kind:'historical',visibility:p.status==='draft'?'draft':'published',title:celebrationMetadata[String(p.id)]?.title||String(p.archangel||'')+' '+String(p.year||'')})),...plannedEntries()];
+ return celebrationCatalog().slots.filter(x=>x.provisioned).map(x=>({
+  id:x.id,archangel:x.archangel,year:x.year,cycleYear:x.cycleYear,
+  kind:'canonical',visibility:x.visibility,title:x.title
+ }));
 }
 function openCelebration(ref){
  if(!celebrationEntries().some(c=>c.id===String(ref)))return;
@@ -154,12 +106,6 @@ function saveShared(){
  let before={};try{before=JSON.parse(localStorage.getItem(SHARED_KEY)||'{}')}catch{}
  localStorage.setItem(SHARED_KEY,JSON.stringify(editorPageCommands.sharedSnapshot(db,before)));
 }
-function validWednesday(value){
- if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;
- const [y,m,d]=value.split('-').map(Number),date=new Date(Date.UTC(y,m-1,d));
- return date.getUTCFullYear()===y&&date.getUTCMonth()===m-1&&date.getUTCDate()===d;
-}
-
 restoreShared();
 // Remove only the generated, unformatted page-name heading (id 1).
 // Authored headings, names, links, styles, images and paragraphs are preserved.
@@ -188,24 +134,8 @@ for(const p of db.pages||[]){
 }
 
 
-// Dates are scoped to ONE celebration and stored alongside its local draft.
-// No automatic rewriting of authored titles or historical event descriptions.
+// Day names are page labels, never computed dates.
 const DAY_SLUGS=['mercredi','jeudi','vendredi','samedi','dimanche'];
-function dayIso(wednesday,offset){
- if(!validWednesday(wednesday)||offset<0||offset>4)return '';
- const [year,month,day]=wednesday.split('-').map(Number);
- const dt=new Date(Date.UTC(year,month-1,day+offset));
- return dt.toISOString().slice(0,10);
-}
-function currentDates(){
- const stored=db.celebrationDates&&typeof db.celebrationDates==='object'?db.celebrationDates:{};
- const seedDate=window.__PREPARATION_SEED__?.start_date||'';
- return {
-  wednesday:Object.hasOwn(stored,'wednesday')?stored.wednesday:(validWednesday(seedDate)?seedDate:''),
-  preparationDates:Array.isArray(stored.preparationDates)?stored.preparationDates.filter(x=>x===''||validIso(x)).slice(0,30):
-   [stored.preparationStart,stored.preparationEnd].filter(validIso)
- };
-}
 // A time belongs to a particular celebration DAY, not to the entire cycle.
 // Desktop and mobile: choose a quarter-hour or type any exact HH:MM.
 // Unlike input[type=time], these controls do not expose the browser's awkward minute spinner.
@@ -258,79 +188,11 @@ function updateDayTime(p,value){
  if(p.group!=='celebration'||!DAY_SLUGS.includes(slug))return;
  db.celebrationTimes={...(db.celebrationTimes||{}),[slug]:value};
  mark();save();
- // The active text editor must keep its DOM while a clock field is edited.
+ // An optional hour does not imply a specific Wednesday date.
  const summary=document.querySelector('[data-role="celebration-date"]');
- if(summary)summary.textContent=[dateSummary(p),value].filter(Boolean).join(' · ');
+ if(summary)summary.textContent=value||'';
 }
-function stageDate(p){
- if(p?.group!=='celebration')return '';
- const slot=DAY_SLUGS.indexOf(pageSlug(p));
- return slot<0?'':dayIso(currentDates().wednesday,slot);
-}
-function dateSummary(p){
- if(p?.group!=='celebration')return '';
- const date=stageDate(p);
- if(date)return prettyDate(date);
- if(pageSlug(p)==='preparation'){
-  return currentDates().preparationDates.filter(validIso).map(prettyDate).join(' · ');
- }
- return '';
-}
-function updateDate(key,value){
- if(value&&!validIso(value)){siteNotice('Date invalide.');return}
- const values={...currentDates(),[key]:value};
- db.celebrationDates=values;
- if(key==='wednesday'&&String(window.__PREPARATION_SEED__?.celebrationId).startsWith('plan-')){
-  try{
-   const drafts=plannedEntries(),entry=drafts.find(p=>p.id===String(window.__PREPARATION_SEED__.celebrationId));
-   if(entry){
-    entry.date=value;
-    if(!entry.customTitle)entry.title=proposedTitle(entry.archangel,value,drafts[drafts.indexOf(entry)-1]);
-    localStorage.setItem(PLANS_KEY,JSON.stringify(drafts));
-   }
-  }catch{}
- }
- mark();save();render();
-}
-function updatePreparationDate(index,value){
- if(value&&!validIso(value)){siteNotice('Date invalide.');return}
- const values=currentDates(),list=values.preparationDates.slice();
- if(index<0||index>29)return;
- list[index]=value;
- if(value&&list.some((x,i)=>i!==index&&x===value)){siteNotice('Cette date existe déjà.');return}
- db.celebrationDates={...values,preparationDates:list};mark();save();render();
-}
-function addPreparationDate(){
- const values=currentDates(),dates=values.preparationDates;
- if(dates.length>=30)return;
- db.celebrationDates={...values,preparationDates:dates.length?[...dates,'']:['','']};mark();save();render();
-}
-function removePreparationDate(index){
- const values=currentDates(),dates=values.preparationDates.slice();
- dates.splice(index,1);db.celebrationDates={...values,preparationDates:dates};mark();save();render();
-}
-// Older planned celebrations inserted a read-only date line into their page content.
-// Remove only the unchanged generated line; customised text is never removed.
-function removeGeneratedDates(pages){
- if(!String(window.__PREPARATION_SEED__?.celebrationId||'').startsWith('plan-'))return;
- for(const p of pages||[]){
-  if(p.group!=='celebration'||!DAY_SLUGS.some(day=>p.id===day+'-'+window.__PREPARATION_SEED__.celebrationId))continue;
-  const original=window.__PREPARATION_SEED__.pages.find(x=>x.id===p.id)?.blocks.find(x=>x.id===2);
-  if(!original||!/^Date : \d{4}-\d{2}-\d{2}$/.test(original.text||''))continue;
-  p.blocks=p.blocks.filter(x=>!(x.id===2&&x.kind==='text'&&x.text===original.text&&!x.rich&&!x.bold&&!x.italic&&!x.color&&!x.size));
- }
-}
-removeGeneratedDates(db.pages);
-// Old unedited historical date lines can still be in local browser drafts.
-for(const p of db.pages||[])for(const b of p.blocks||[]){
- if(b.kind!=='text'||b.rich)continue;
- const match=/^Dates : ([0-9]{4}-[0-9]{2}-[0-9]{2})(?:[ ]*→[ ]*([0-9]{4}-[0-9]{2}-[0-9]{2}))?$/.exec(String(b.text||''));
- if(!match||!validIso(match[1])||(match[2]&&!validIso(match[2])))continue;
- b.text=prettyDate(match[1])+(match[2]?' → '+prettyDate(match[2]):'');
-}
-
-
-
+// Keep every historically authored date inside page content unchanged.
 const fileRecords=new Map(),assetUrls=new Map(),selectedImageFiles=new Set();let chosenBlock=null,mediaReturnTab='celebrations',storageReady=false;
 let mediaUploadState=null;
 const MAX_ASSET_BYTES=60*1024*1024;
@@ -2635,28 +2497,10 @@ function pageWorkspace(group,mount=w){
  }
  const p=page(),layout=n('div','layout'),side=n('aside','panel');
  if(group==='footer')side.append(n('h2','','Pages de bas de page'));
- if(p.group==='celebration'&&IS_STAGE&&!privateEdit){
-  const dates=currentDates(),timing=n('div','celebration-date-time'),field=n('label','date-field','Date du mercredi :');
-  const input=n('input','celebration-wednesday');input.type='date';input.value=dates.wednesday;
-  input.setAttribute('aria-label','Mercredi de la célébration');
-  input.onchange=()=>updateDate('wednesday',input.value);
-  field.append(input);timing.append(field);
-  if(DAY_SLUGS.includes(pageSlug(p))){
-   const clock=timeChooser(dayTime(p),'Heure du '+pageSlug(p),hour=>updateDayTime(p,hour));
-   clock.dataset.day=pageSlug(p);clock.classList.add('celebration-day-hour');
-   timing.append(clock);
-  }
-  side.append(timing);
-  if(dates.wednesday){
-   const week=n('div','week-dates');
-   week.textContent=prettyDate(dates.wednesday)+' – '+prettyDate(dayIso(dates.wednesday,4));
-   side.append(week);
-  }
- }
  const list=n('div',group==='celebration'?'list':'list general-pages-list');
  if(group==='celebration'){
   for(const q of editorPageModel.groupPages(db.pages,'celebration')){
-   const date=stageDate(q),label='✧ '+q.name+(date?' · '+prettyDate(date):'');
+   const label='✧ '+q.name;
    const choose=b(label,()=>enter('celebrations',q.id));
    choose.className='item'+(q.id===p.id?' active':'');choose.dataset.pageId=q.id;list.append(choose);
   }
@@ -2709,9 +2553,7 @@ function pageWorkspace(group,mount=w){
      // swallow the very click intended to persist the new page name.
      const nav=layout.querySelector('[data-page-id="'+CSS.escape(canonicalPage().id)+'"]');
      if(nav){
-      const date=p.group==='celebration'?stageDate(canonicalPage()):null;
-      nav.textContent=p.group==='celebration'?
-       '✧ '+canonicalPage().name+(date?' · '+prettyDate(date):''):canonicalPage().name;
+      nav.textContent=p.group==='celebration'?'✧ '+canonicalPage().name:canonicalPage().name;
      }
     }
    };
@@ -2743,26 +2585,6 @@ function pageWorkspace(group,mount=w){
    right.append(n('small','editor-language-note','Cette version sera publiée avec sa page.'));
   }
  }
- if(p.group==='celebration'&&IS_STAGE&&!privateEdit&&pageSlug(p)==='preparation'&&!preview){
-  const dates=currentDates().preparationDates,fields=n('div','preparation-dates');
-  fields.append(n('strong','','Dates de préparation'));
-  for(let index=0;index<Math.max(1,dates.length);index++){
-   const line=n('div','prep-date-row'),input=n('input');
-   input.type='date';input.value=dates[index]||'';input.dataset.preparationIndex=String(index);
-   input.setAttribute('aria-label','Date de préparation '+(index+1));
-   input.onchange=()=>updatePreparationDate(index,input.value);
-   line.append(input);
-   if(dates.length>0){
-    const remove=b('×',()=>removePreparationDate(index),'sm');
-    remove.setAttribute('aria-label','Supprimer date de préparation '+(index+1));line.append(remove);
-   }
-   fields.append(line);
-  }
-  fields.append(b('＋ Date',addPreparationDate,'sm'));
-  right.append(fields);
- }
- const date=dateSummary(p),time=dayTime(p),when=[date,time].filter(Boolean).join(' · ');
- if(when){const info=n('div','page-date',when);info.dataset.role='celebration-date';right.append(info)}
  const outer=n('div','canvas-wrap'),canvas=n('div','canvas');
 
  if(!preview)canvas.append(sectionMenu(p,0));
@@ -2812,21 +2634,21 @@ function pageWorkspace(group,mount=w){
  }
 function pages(){pageWorkspace('page')}
 function footerPages(){pageWorkspace('footer')}
-// Creating a DIFFERENT celebration remains an explicit action, unlike language/category variants.
- async function m018DuplicateCelebration(entry){
-  if(!IS_STAGE||privateEdit||!entry)return;
-  if(dirty){save();if(dirty)return}
-  const choice=await siteDialog({title:'Dupliquer la célébration',fields:[{name:'date',label:'Date du mercredi :',type:'date',value:currentDateForDraft(entry)||entry.date||privateCatalogue?.record?.celebrationDates?.wednesday||currentDates().wednesday||'',required:true},{name:'title',label:'Titre',value:celebrationLabel(entry)+' (copie)',required:true}],confirm:'Créer le brouillon'});
-  const date=choice?.date;
-  if(!date)return;
-  if(!validIso(date)){siteNotice('Choisissez une date valide.');return}
-  try{
-   ensureMemberPanel();if(dirty||db._serverPending){save();await serverSave();if(db._serverPending)return}
-   const result=await memberPanel.commandContent('create-celebration',{archangel:entry.archangel,date,title:choice.title,copy:true});
-   location.assign(editorPageModel.editorUrl(result.targetCelebration));
-  }catch(error){siteNotice('Copie impossible : '+(error.message||error))}
-
- }
+// Only the reserved yearly slot may become a new D1 identity.
+// The backend validates the 14-cycle key and a real D1 UNIQUE index.
+async function prepareCanonicalCelebration(slot){
+ if(!IS_STAGE||privateEdit||!slot||!cycleRegistry.validCycleYear(slot.cycleYear))return;
+ if(dirty){save();if(dirty)return}
+ try{
+  ensureMemberPanel();
+  if(db._serverPending){await serverSave();if(db._serverPending)return}
+  const result=await memberPanel.commandContent('create-celebration',{
+   archangel:slot.archangel,cycleYear:slot.cycleYear
+  });
+  if(result?.targetCelebration)location.assign(editorPageModel.editorUrl(result.targetCelebration));
+  else siteNotice('Aucune nouvelle célébration créée.');
+ }catch(error){siteNotice('Préparation impossible : '+(error.message||error))}
+}
 function celebrations(){
  if(!IS_STAGE){pageWorkspace('celebration');return}
  const selector=n('label','celebration-choice-field'),select=n('select','celebration-select');
@@ -2847,64 +2669,46 @@ if(adminMembersEnabled){
   publication.append(b('Versions par catégorie',()=>showContentVersions(),'sm'));
  }
    publication.append(b('Dupliquer',()=>duplicateChoice(selectedEntry),'sm'));
+   const versions=celebrationMetadata[String(STAGE_SEED.celebrationId)]?.versions||[];
+   const versionList=n('details','m030-version-list');
+   versionList.append(n('summary','','Versions de cette célébration (1'+(versions.length?' + '+versions.length:'')+')'));
+   const baseline=n('p','m030-version-entry',celebrationLabel(selectedEntry)+' — Public — Français');
+   versionList.append(baseline);
+   for(const version of versions){
+    const publicLabel=version.audience?.scope==='PUBLIC'?'Public':
+      version.audience?.scope==='ALL_PRIVATE_TYPES'?'Privé — Tous les inscrits':
+      'Privé — catégorie '+(availableCategories.find(c=>c.id===version.audience?.categoryId)?.name||version.audience?.categoryId||'');
+    const lang=editorLocalization.registry.languages.find(l=>l.id===version.languageId)?.name||version.languageId;
+    versionList.append(n('p','m030-version-entry',version.name+' — '+publicLabel+' — '+lang+' — Brouillon'));
+   }
+   publication.append(versionList);
   w.append(publication);
- }
- const current=plannedEntries().find(p=>p.id===String(window.__PREPARATION_SEED__.celebrationId));
- if(current){
-  const line=n('label','celebration-title-edit','Titre de la célébration'),input=n('input');
-  input.type='text';input.maxLength=100;input.value=celebrationLabel(current);
-  input.setAttribute('aria-label','Titre de la célébration');
-  input.onchange=()=>{
-   if(!savePlannedTitle(current.id,input.value)){input.value=celebrationLabel(current);return}
-   input.classList.add('saved');select.selectedOptions[0].textContent=input.value.trim();
-   if(IS_STAGE){
-    db._serverPending=true;
-    localStorage.setItem(KEY,JSON.stringify(db));
-    status.textContent='Titre modifié : cliquez sur Enregistrer pour le serveur';
-   }else status.textContent='✓ Titre enregistré dans ce navigateur';
-  };
-  line.append(input);w.append(line);
-  const chosen=String(currentDateForDraft(current)||'');
-  const year=String(celebrationLabel(current)).match(/20\d{2}/)?.[0]||'';
-  if(year&&chosen&&year!==chosen.slice(0,4)){
-   const warning=n('small','celebration-date-warning','Date à vérifier : '+chosen.slice(0,4)+' (titre '+year+')');
-   w.append(warning);
-  }
  }
  const workspace=n('div','celebration-editor');
  w.append(workspace);
  pageWorkspace('celebration',workspace);
- const last=plannedEntries().at(-1)?.archangel||window.__PREPARATION_SEED__?.archangel||'Michaël';
- const index=ARCHANGELS.findIndex(x=>archSlug(x)===archSlug(last));
- const next=ARCHANGELS[((index<0?3:index)+1)%4];
- const details=n('details','new-celebration'),summary=n('summary','','＋ Nouvelle célébration');
- details.append(summary);
- const form=n('form','trial-planning'),label=n('label','','Date du mercredi :'),date=n('input');
- date.type='date';date.required=true;date.setAttribute('aria-label','Date du mercredi');
- label.append(date);form.append(label);
- const lastEntry=plannedEntries().at(-1)||celebrationEntries().find(p=>p.id===String(window.__PREPARATION_SEED__.celebrationId));
- const titleRow=n('label','celebration-title-field','Titre'),name=n('input');
- name.type='text';name.maxLength=100;name.setAttribute('aria-label','Titre proposé');
- const initial=proposedTitle(next,'',lastEntry);
- name.value=initial;titleRow.append(name);form.append(titleRow);
- date.onchange=()=>{
-  if(name.value===initial||name.dataset.auto==='true'){
-   name.value=proposedTitle(next,date.value,lastEntry);name.dataset.auto='true';
+ // Four archangels × 14 years: virtual, initially hidden slots.
+ const catalogue=celebrationCatalog();
+ const box=n('details','m030-planned-cycles'),summary=n('summary','','Célébrations prévues (2026–2039)');
+ box.append(summary,n('p','hint','Les célébrations futures sont masquées. Préparez uniquement celle dont vous avez besoin.'));
+ for(let year=cycleRegistry.CELEBRATION_CYCLE_START;year<=cycleRegistry.CELEBRATION_CYCLE_END;year++){
+  const group=n('details','m030-cycle-group');
+  group.append(n('summary','','Cycle '+year));
+  for(const slot of catalogue.slots.filter(x=>x.cycleYear===year)){
+   const line=n('div','m030-cycle-row');
+   line.append(n('span','',slot.title),
+    n('small','',slot.visibility==='published'?'Visible':'Masquée'));
+   const action=slot.provisioned?
+    b('Ouvrir',()=>openCelebration(slot.id),'sm'):
+    b('Préparer',()=>void prepareCanonicalCelebration(slot),'sm');
+   action.setAttribute('aria-label',(slot.provisioned?'Ouvrir ':'Préparer ')+slot.title);
+   line.append(action);group.append(line);
   }
- };
- name.oninput=()=>name.dataset.auto='false';
- const create=n('button','btn primary','Créer '+next);create.type='submit';form.append(create);
- form.onsubmit=async e=>{
-  e.preventDefault();if(!validIso(date.value)){siteNotice('Choisissez une date valide.');return}
-  const title=String(name.value||'').trim();if(!title){name.focus();return}
-  try{
-   ensureMemberPanel();if(dirty||db._serverPending){save();await serverSave();if(db._serverPending)return}
-   const result=await memberPanel.commandContent('create-celebration',{archangel:next,date:date.value,title,copy:false});
-   location.assign(editorPageModel.editorUrl(result.targetCelebration));
-  }catch(error){siteNotice('Création impossible : '+(error.message||error))}
-
- };
- details.append(form);w.append(details);
+  box.append(group);
+ }
+ if(catalogue.duplicates.length||catalogue.unsupported.length)
+  box.prepend(n('p','m030-catalogue-warning','D’anciennes célébrations en double sont encore présentes. Le nettoyage doit être terminé avant de préparer un nouveau cycle.'));
+ w.append(box);
 }
 // Media usage is obtained from the shared server's draft AND published pages.
 // Local scans cover edits not yet sent to the server.
@@ -3171,15 +2975,11 @@ const GUIDE_TOPICS=[
  {group:'Pages et célébrations',title:'Choisir une célébration et ses étapes',
   info:'Chaque célébration possède ses propres pages, notamment Préparation et les jours de la semaine.',
   steps:['Ouvrez « Célébrations ».','Choisissez la célébration dans la liste déroulante.','Touchez la page à modifier : accueil de la célébration, préparation, mercredi, jeudi, vendredi, samedi, dimanche ou après célébration.','Modifiez le contenu puis enregistrez.'],
-  note:'Vérifiez la célébration sélectionnée avant de modifier les dates ou les horaires.'},
- {group:'Pages et célébrations',title:'Créer une nouvelle célébration',
-  info:'La commande « + Nouvelle célébration » prépare le prochain cycle.',
-  steps:['Ouvrez Célébrations et développez « + Nouvelle célébration ».','Choisissez la date du mercredi de départ.','Contrôlez le titre proposé, ou personnalisez-le si besoin.','Touchez « Créer » puis ouvrez les pages de cette nouvelle célébration.','Complétez le programme et enregistrez.'],
-  note:'Le jour de départ doit être un mercredi. Le titre automatiquement proposé suit le cycle des archanges.'},
- {group:'Pages et célébrations',title:'Modifier les dates et les horaires',
-  info:'Les dates du programme et les heures d’événements sont des réglages distincts.',
-  steps:['Dans Célébrations, choisissez le mercredi de la célébration : les dates des cinq jours en découlent.','Dans la page Préparation, utilisez « + Date » pour ajouter une date et × pour en retirer une.','Pour mercredi, jeudi, vendredi, samedi ou dimanche, sélectionnez l’heure de la page dans la liste par quarts d’heure ou saisissez une heure exacte au format HH:MM.','Un « Titre événement » peut aussi posséder son horaire propre, indépendant de l’heure de la page.','Enregistrez votre travail.'],
-  note:'Les dates de préparation identiques sont refusées ; la saisie d’heure accepte notamment 18:30 et 18:32.'},
+  note:'Écrivez vous-même les dates dans les pages si elles sont nécessaires.'},
+ {group:'Pages et célébrations',title:'Préparer une célébration prévue',
+  info:'Une seule célébration par archange et cycle annuel, préparée masquée.',
+  steps:['Ouvrez Célébrations et la rubrique « Célébrations prévues ».','Dépliez l’année voulue.','Choisissez « Préparer », puis rédigez les dates librement dans vos pages.','Enregistrez, puis publiez explicitement.'],
+  note:'Aucune date de mercredi n’est imposée et aucune célébration libre ne peut être ajoutée.'},
  {group:'Pages et célébrations',title:'Créer ou supprimer une page supplémentaire dans une célébration',
   info:'On peut ajouter une page au programme d’une célébration donnée.',
   steps:['Choisissez la célébration, puis « + Page » dans la liste de ses pages.','Donnez un nom à cette page supplémentaire.','Ajoutez les éléments souhaités et enregistrez.','Pour supprimer uniquement une page supplémentaire, utilisez « ⋯ » près de son nom puis « Supprimer la page ».'],
@@ -3555,22 +3355,65 @@ async function showContentVersions(){
   memberPanel.showSpaces();w.append(memberPanelRoot);
  }catch(e){siteNotice('Versions indisponibles : '+e.message)}
 }
+// One dialog and one server command for public/private language versions.
 async function duplicateChoice(entry){
- if(!entry)return;
- if(!adminMembersEnabled)return m018DuplicateCelebration(entry);
+ if(!entry||privateEdit||preview)return;
  if(dirty||db._serverPending){
-  siteNotice('Enregistrez vos modifications de contenu avant de créer une version.');
+  siteNotice('Enregistrez les changements avant de créer une nouvelle version.');
   return;
  }
  try{
   ensureMemberPanel();
-  const pages=db.pages.filter(p=>p.group==='celebration'&&
-   p.id.endsWith('-'+String(STAGE_SEED.celebrationId)))
-   .map(p=>({name:p.name,group:p.group,blocks:clone(p.blocks||[]),
-    translations:clone(editorLocalization.pages[p.id]||{})}));
-  const created=await memberPanel.duplicateCelebrationVersion(pages,celebrationLabel(entry));
-  if(created)status.textContent='✓ Version créée en brouillon : '+celebrationLabel(entry)+' — '+created.category+' — '+created.language+' ('+created.pages+' pages).';
- }catch(e){siteNotice('Duplication impossible : '+(e.message||e))}
+  const categories=(await memberPanel.categories()).filter(t=>!t.disabled);
+  // No unpublished version may be made until a real category exists,
+  // including extra PUBLIC languages (M030 owner rule).
+  if(!categories.length){
+   siteNotice('Pour créer une autre version, commencez par définir une catégorie dans « Catégories ». Michaël Public / Français reste inchangée.');
+   return;
+  }
+  const audienceOptions=[
+   ['PUBLIC','Public — accessible à tous'],
+   ...(categories.length?[['ALL_PRIVATE_TYPES','Privé — tous les inscrits']]:[]),
+   ...categories.map(c=>['CATEGORY:'+c.id,'Privé — '+c.name])
+  ];
+  const languages=editorLocalization.registry.languages;
+  const answer=await siteDialog({
+   title:'Nouvelle version de '+celebrationLabel(entry),
+   message:'Donnez un nom différent, puis choisissez les destinataires et la langue. Une combinaison déjà existante sera refusée. Cette copie restera en brouillon.',
+   fields:[
+    {name:'name',label:'Nom distinct de la version',required:true,
+     value:celebrationLabel(entry)+' — nouvelle version',maxLength:120},
+    {name:'audience',label:'Destinataires',required:true,
+     value:'PUBLIC',options:audienceOptions},
+    {name:'languageId',label:'Langue',required:true,value:'fr',
+     options:languages.map(l=>[l.id,l.name])}
+   ],confirm:'Créer la version en brouillon'
+  });
+  if(!answer)return;
+  const selected=String(answer.audience||'PUBLIC');
+  const scope=selected.startsWith('CATEGORY:')?'SELECTED_TYPES':selected;
+  const categoryId=selected.startsWith('CATEGORY:')?selected.slice(9):'';
+  const existing=[{name:celebrationLabel(entry),key:'PUBLIC|fr'},
+   ...(celebrationMetadata[String(STAGE_SEED.celebrationId)]?.versions||[])];
+  // Instant feedback, but the R2 CAS + canonical server validation is authoritative.
+  const version=cycleRegistry.validateNewCelebrationVersion({
+   name:answer.name,audience:{scope,categoryId},languageId:answer.languageId
+  },{
+   celebrationTitle:celebrationLabel(entry),existing,categories,languages
+  });
+  const result=await memberPanel.commandContent('duplicate-version',{
+   name:version.name,scope:version.audience.scope,
+   categoryId:version.audience.categoryId,languageId:version.languageId
+  });
+  if(!result?.createdVersion)throw Error('Création non confirmée par le serveur.');
+  serverRevision=result.revision;
+  db._serverRevision=result.revision;
+  celebrationMetadata[String(STAGE_SEED.celebrationId)]||={title:celebrationLabel(entry)};
+  celebrationMetadata[String(STAGE_SEED.celebrationId)].versions=result.versions;
+  await serverLoad();
+  render();
+  status.textContent='✓ Nouvelle version « '+version.name+' » créée en brouillon, sans nouveaux droits.';
+ }catch(error){siteNotice('Nouvelle version impossible : '+(error.message||error))}
 }
 function accessControls(kind,p){
  const box=n('div','m020-access'),label=n('label','editor-language-choice','Accès'),select=n('select');

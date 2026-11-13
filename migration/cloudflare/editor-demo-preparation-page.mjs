@@ -8,7 +8,8 @@ import {MEMBER_SPACES_INLINE} from './app/admin/real-editor-member-spaces-inline
 import {TRIAL_AUDIO_CLIENT} from './editor-trial-audio-client.mjs';
 // SERVER_EDITOR_SYNC is composed explicitly by editor-demo-client.mjs.
 import {fiveColourways} from './editor-celebration-themes.mjs';
-import {eligiblePublicPage,projectPublicPage,eligiblePublicPlan,privatePublicationIds,allowedPublicLink}
+import {publicCelebrationEntries} from './app/domain/celebration-cycle-registry.mjs';
+import {eligiblePublicPage,projectPublicPage,privatePublicationIds,allowedPublicLink}
  from './app/domain/editor-public-projection-security.mjs';
 const HOST='celebrations-exit-staging.rondes.workers.dev';
 export const STAGES=[
@@ -56,15 +57,7 @@ function toBlocks(celebration,step,events,eventContents,stepContents,links){
   else if(href&&kind==='image'&&source!=='file')add('button','Voir l’image : '+(c.name||'Image'),{href});
   if(!href&&c.external_url&&safeLink(c.external_url))add('button','Lien : '+(c.name||'Document'),{href:safeLink(c.external_url)});
  }
- function date(x){
-  const value=asText(x);
-  if(!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(value))return value;
-  const [y,m,d]=value.split('-').map(Number),check=new Date(Date.UTC(y,m-1,d));
-  return check.getUTCFullYear()===y&&check.getUTCMonth()===m-1&&check.getUTCDate()===d
-   ?new Intl.DateTimeFormat('fr-FR',{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'}).format(check):value;
- }
  add('heading',step.label||'Préparation');
- if((step.start_date||step.end_date)&&!String(step.step_key||'').startsWith('apres-celebration-'))add('text','Dates : '+date(step.start_date)+(step.end_date&&step.end_date!==step.start_date?' → '+date(step.end_date):''));
  if(step.body_text)add('text',step.body_text);
  const attachedByEvent=new Map();
  for(const row of eventContents){const arr=attachedByEvent.get(String(row.event_id))||[];arr.push(row);attachedByEvent.set(String(row.event_id),arr);}
@@ -80,31 +73,7 @@ function toBlocks(celebration,step,events,eventContents,stepContents,links){
  return blocks;
 }
 
-const ORDER=['Michaël','Gabriel','Raphaël','Ouriel'];
-const DRAFT_ID=/^plan-(michael|gabriel|raphael|ouriel)-(\d{4}-\d{2}-\d{2})$/;
-function plannedCelebration(id){
- const m=String(id||'').match(DRAFT_ID);if(!m)return null;
- const [year,month,day]=m[2].split('-').map(Number),date=new Date(Date.UTC(year,month-1,day));
- if(date.getUTCFullYear()!==year||date.getUTCMonth()!==month-1||date.getUTCDate()!==day||date.getUTCDay()!==3||year<2020||year>2100)return null;
- const archangel=ORDER.find(name=>clean(name)===m[1]);if(!archangel)return null;
- const sunday=new Date(date);sunday.setUTCDate(sunday.getUTCDate()+4);
- const iso=d=>d.toISOString().slice(0,10);
- const pages=STAGES.map(stage=>{
-  let heading=stage.label,details='';
-  if(['mercredi','jeudi','vendredi','samedi','dimanche'].includes(stage.slug)){
-   const day=new Date(date);
-   day.setUTCDate(day.getUTCDate()+['mercredi','jeudi','vendredi','samedi','dimanche'].indexOf(stage.slug));
-   details='Date : '+iso(day);
-  }
-  return {id:stage.slug+'-'+id,name:stage.label,group:'celebration',blocks:[
-   {id:1,kind:'heading',text:heading,align:'center'},
-   ...(details?[{id:2,kind:'text',text:details,align:'left'}]:[])
-  ]};
- });
- pages.unshift(generalHome());
- return {celebration:{id,archangel,year:String(year),status:'draft',start_date:iso(date),end_date:iso(sunday)},pages};
-}
-
+// M030: no legacy date-generated plan identities or synthetic Wednesday pages.
 // Inventory of PUBLIC resources actually attached to the selected celebration.
 // R2 objects are never copied or promoted; committee/private content stays excluded.
 function publicFileCatalogue(steps,events,eventContents,stepContents){
@@ -225,51 +194,25 @@ export async function loadSevenStageContent(env,selectedId,{publicOnly=false,pub
   const allCelebrations=await rows(env.DB,'SELECT id,archangel,year,status FROM celebrations_celebrations ORDER BY id');
   const pub=publishedState?.published||null;
   const visibility=pub?.celebrationVisibility||{};
-  const publicCelebration=c=>{
-   const status=String(c.status||'').toLowerCase();
-   // One canonical celebration may have private category+language variants.
-   const access=pub?.celebrationAccessPolicies?.[String(c.id)];
-   return (!access||access.mode==='PUBLIC') &&
-    !['draft','hidden','private','restricted'].includes(status)&&
-    !['draft','hidden','private','restricted'].includes(String(visibility[c.id]||'').toLowerCase());
-  };
-  const publicRows=publicOnly?allCelebrations.filter(publicCelebration):allCelebrations;
-  // A published PRIVATE celebration may advertise its name, but NEVER its pages.
-  // Its explicit visibility must be "published"; hidden/draft names remain secret.
-  const privateMenuRows=publicOnly?allCelebrations.filter(c=>
-    visibility[String(c.id)]==='published'&&
-    !['draft','hidden'].includes(String(c.status||'').toLowerCase())&&
-    ['ALL_PRIVATE_TYPES','SELECTED_TYPES'].includes(
-      pub?.celebrationAccessPolicies?.[String(c.id)]?.mode)): [];
-  const celebrations=publicOnly?[
-    ...publicRows.map(c=>({id:c.id,archangel:c.archangel,year:c.year})),
-    ...privateMenuRows.map(c=>({id:c.id,archangel:c.archangel,year:c.year,titleOnly:true}))
-  ]:allCelebrations;
-  // A label in the public menu is NOT a grant to select that celebration.
+  // One authoritative visibility: the explicitly published R2 decision.
+  // D1 status is historical identification, not a second visibility switch.
+  // This allows a prepared (D1 draft) year to be shown after intentional
+  // publication, while no preallocated/hidden slot becomes public on its own.
+  const visible=publicCelebrationEntries(allCelebrations,visibility,
+   pub?.celebrationAccessPolicies||{});
+  const celebrations=publicOnly?visible:allCelebrations;
+  // Private labels may appear on the public list, but their pages never do.
+  // Unpublished, hidden and duplicate historical identities are not routable.
+  const publicRows=publicOnly?allCelebrations.filter(c=>
+   visible.some(entry=>entry.id===String(c.id)&&!entry.titleOnly)):allCelebrations;
   const allowedIds=new Set(publicRows.map(c=>String(c.id)));
+  // The only routable public identities are explicitly published canonical
+  // D1 cycles. An old plan/date URL or duplicate no longer opens a page.
   const selected=selectedId;
-  const planned=plannedCelebration(selected);
-  if(publicOnly&&planned){
-   const released=pub?.plans?.find(p=>String(p.id)===String(selected)&&eligiblePublicPlan(p));
-   const access=pub?.celebrationAccessPolicies?.[String(selected)];
-   if(!released||(access&&access.mode!=='PUBLIC')||
-      visibility[selected]&&visibility[selected]!=='published')
-    throw new Error('Unknown celebration');
-  }
-  if(selected&&!allowedIds.has(String(selected))&&!planned)throw new Error('Unknown celebration');
+  if(selected&&!allowedIds.has(String(selected)))throw new Error('Unknown celebration');
   const available=publicOnly?publicRows:allCelebrations;
-  const celebration=planned?.celebration||available.find(c=>String(c.id)===(selected||'101'))||available[0];
+  const celebration=available.find(c=>String(c.id)===(selected||'101'))||available[0];
   if(!celebration)throw new Error('No celebration');
-  if(planned){
-   const releasedIds=new Set((pub?.drafts?.[String(celebration.id)]?.pages||[])
-    .filter(eligiblePublicPage).map(p=>p.id));
-   const pages=publicOnly?planned.pages.filter(p=>p.group==='page'||releasedIds.has(p.id))
-    .map(p=>projectPublicPage(p)).filter(Boolean):planned.pages;
-   const seed={celebrationId:celebration.id,archangel:celebration.archangel,year:celebration.year,
-    start_date:celebration.start_date,end_date:celebration.end_date,
-    palettes:fiveColourways(celebration.archangel),pages,media:[],files:[],library:[],celebrations};
-   return {celebrations,celebration,seed};
-  }
   const steps=await rows(env.DB,'SELECT * FROM celebrations_steps WHERE celebration_id=? ORDER BY sort_order,id',celebration.id);
   // Historic D1 public steps may not republish a deliberately hidden page.
   const rawEditorPages=publishedState?.drafts?.[String(celebration.id)]?.pages||[];
@@ -360,7 +303,7 @@ export async function handlePreparationDemo(request,env){
   // No request-time substitution of JavaScript function bodies is needed.
   const client=DEMO_CLIENT;
   const nonce=Array.from(crypto.getRandomValues(new Uint8Array(16)),v=>v.toString(16).padStart(2,'0')).join('');
-  const choices=celebrations.map(c=>'<option value="'+escapeHtml(c.id)+'"'+(String(c.id)===String(celebration.id)?' selected':'')+'>'+escapeHtml(c.archangel+' '+(c.year||''))+'</option>').join('')+(plannedCelebration(String(celebration.id))?'<option value="'+escapeHtml(celebration.id)+'" selected>'+escapeHtml(celebration.archangel+' · '+celebration.start_date+' (brouillon)')+'</option>':'');
+  const choices=celebrations.map(c=>'<option value="'+escapeHtml(c.id)+'"'+(String(c.id)===String(celebration.id)?' selected':'')+'>'+escapeHtml(c.archangel+' '+(c.year||''))+'</option>').join('');
   const html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Pages de la célébration — atelier Célébrations</title><style nonce="'+nonce+'">'+DEMO_CSS+'</style></head><body>'+
   '<div class="shell stage-editor"><aside class="rail"><div class="brand"><div class="mark">✦</div><div><strong>Administration</strong></div></div><nav aria-label="Navigation"><button class="navbtn" data-tab="pages">▤ Pages</button><button class="navbtn" data-tab="footer">▤ Pages de bas de page</button><button class="navbtn active" data-tab="celebrations">✧ Célébrations</button><button class="navbtn" data-tab="media">▧ Médiathèque (administration)</button><button class="navbtn" data-tab="members-spaces">♧ Membres</button><button class="navbtn" data-tab="languages-categories" hidden style="display:none">◇ Catégories</button><button class="navbtn" data-tab="settings">⚙ Paramètres</button><button class="navbtn" data-tab="guide">ⓘ Mode d’emploi</button></nav></aside>'+
   '<div class="content"><header class="topbar"><div></div><div class="actions"><button id="preview-btn" class="btn sm" title="Voir la page en brouillon, sans publication">Aperçu du brouillon</button><button id="save-btn" class="btn primary">Enregistrer</button><a id="view-site-btn" class="btn view-site-btn" href="/__editor/voir-le-site" target="_blank" rel="noopener noreferrer">Voir le site</a></div></header>'+

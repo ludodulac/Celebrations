@@ -3,7 +3,8 @@ import {authorize,sha256} from '../../auth-api.mjs';
 import {readEditorState,writeEditorState,initialPublication} from '../../editor-publication-api.mjs';
 import {expectedRevisionMatches,EDITOR_SNAPSHOT_LIMIT} from '../ports/editor-snapshot-contract.mjs';
 import {ACCESS_MODES,SPACE_VISIBILITIES,isMemberTypeId} from '../domain/member-access.mjs';
-import {createCelebrationSpace,getCelebrationSpaces,duplicateCelebration} from '../domain/celebration-spaces.mjs';
+import {createCelebrationSpace,getCelebrationSpaces} from '../domain/celebration-spaces.mjs';
+import {celebrationCycle,validateNewCelebrationVersion,celebrationVersionKey} from '../domain/celebration-cycle-registry.mjs';
 import {createPreparedLanguageRegistry as createLanguageRegistry,setPageTranslation,setCelebrationSpaceTranslation} from '../domain/editor-localization.mjs';
 import {managedPage} from '../security/private-editor-boundary.mjs';
 import {acknowledgePrivateRelease,privateReleaseReady,validCelebrationId} from '../persistence/private-release-fence.mjs';
@@ -277,35 +278,6 @@ function saveDraft(state,cid,b,known,registry,idMap){
  }
  remap(r,idMap);getCelebrationSpaces({...r,id:cid});return revoked;
 }
-function duplicateDraft(state,cid,target,known,registry){
- const source=state.drafts[cid];
- if(!source||state.drafts[target]||state.published.drafts[target])conflict();
- const used=indexIds(state),spaceIds={},pageIds={};
- const alloc=(set,id)=>{if(set.has(id))conflict();set.add(id);return id};
- for(const p of source.pages??[]){
-  // Retain existing legacy stage syntax for ordinary pages; private IDs
-  // are freshly allocated and never copied from a browser.
-  if(!managedPage(p)&&!p.id.endsWith('-'+cid))invalid();
-  pageIds[p.id]=alloc(used.pages,managedPage(p)?'page:'+crypto.randomUUID():p.id.slice(0,-cid.length)+target);
- }
- for(const s of source.spaces??[]){
-  spaceIds[s.id]=alloc(used.spaces,'space:'+crypto.randomUUID());
-  for(const p of s.pages)pageIds[p.id]=alloc(used.pages,'page:'+crypto.randomUUID());
- }
- const copied=duplicateCelebration({...source,id:cid},{id:target,spaceIds,pageIds});
- const next={...emptyRecord(),celebrationDates:copy(copied.celebrationDates??{}),
-  celebrationTimes:copy(copied.celebrationTimes??{})};
- for(const p of copied.pages){
-  if(!managedPage(p))next.pages.push({...p,visibility:'draft',publicationStatus:'draft'});
-  else next.pages.push(pageDraft(p,null,p.id,target,null,known,registry));
- }
- for(const s of copied.spaces){
-  const pages=s.pages.map(p=>pageDraft(p,null,p.id,target,s.id,known,registry));
-  next.spaces.push(spaceDraft(s,null,s.id,target,pages,known,registry));
- }
- getCelebrationSpaces({...next,id:target});state.drafts[target]=next;
- return {spaceIds,pageIds};
-}
 function publishOrRevoke(state,cid,b,known,registry){
  const r=state.drafts[cid],pub=state.published;if(!r)missing();
  const target=ensurePublished(pub,cid);
@@ -380,49 +352,142 @@ function readResult(state,cid){
 }
 // Create a real canonical celebration using the existing D1 identity and R2
 // snapshot. The audit key makes retries recover the same draft after a CAS fault.
-async function createCanonicalCelebration(env,current,source,b,actor,known,registry){
- if(!['Michaël','Gabriel','Raphaël','Ouriel'].includes(b.archangel)||
-    typeof b.date!=='string'||!/^\d{4}-[0-9]{2}-[0-9]{2}$/.test(b.date)||
-    typeof b.copy!=='boolean')invalid();
- const date=new Date(b.date+'T12:00:00Z');
- if(!Number.isFinite(+date)||date.toISOString().slice(0,10)!==b.date)invalid();
- const title=name(b.title,100),auditId='audit:m019-create:'+await sha256(source+'|'+b.archangel+'|'+b.date+'|'+title+'|'+b.copy);
- const prior=await q(env.DB,'SELECT target_id FROM celebrations_directory_admin_audit WHERE id=? AND action=?',auditId,'create_celebration').first();
- let id=prior?.target_id;
+// Canonical slot creation is ONLY the activation of a planned annual identity.
+// No arbitrary name, date, copying, category, language, or member enrollment.
+async function createCanonicalCelebration(env,current,source,b,actor){
+ let slot;
+ try{slot=celebrationCycle(b.archangel,b.cycleYear)}catch{invalid()}
+ // D1 guarantees one slot using the unique index installed only after the
+ // legacy duplicates are safely removed. A code-only front-end check is unsafe.
+ const unique=await q(env.DB,
+  "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_celebrations_archangel_year_unique'").first();
+ if(!unique)fail(409,'Le calendrier unique est en cours de préparation : aucune nouvelle célébration ne peut être créée.');
+ const records=await q(env.DB,
+  'SELECT id FROM celebrations_celebrations WHERE archangel=? AND year=? ORDER BY id',
+  slot.archangel,slot.year).all();
+ if(!Array.isArray(records?.results)||records.results.length>1)
+  fail(409,'Plusieurs célébrations portent ce nom : nettoyage nécessaire avant création.');
+ let id=records.results[0]?.id?String(records.results[0].id):null;
  if(!id){
   const next=await q(env.DB,'SELECT COALESCE(max(id),0)+1 AS next_id FROM celebrations_celebrations').first();
-  id=String(next?.next_id);if(!validCelebrationId(id))fail(409,'Création indisponible. Réessayez.');
-  await env.DB.batch([
-   q(env.DB,'INSERT INTO celebrations_celebrations(id,archangel,year,status) VALUES(?,?,?,?)',Number(id),b.archangel,b.date.slice(0,4),'draft'),
-   q(env.DB,'INSERT INTO celebrations_directory_admin_audit(id,actor_email,action,target_id) VALUES(?,?,?,?)',auditId,actor,'create_celebration',id)
-  ]);
+  id=String(next?.next_id||'');
+  if(!validCelebrationId(id))fail(409,'Identifiant indisponible. Réessayez.');
+  // The unique index resolves racing requests to prepare the same year.
+  // If another administrator wins, we refuse; retry will return its ID.
+  try{await q(env.DB,
+    'INSERT INTO celebrations_celebrations(id,archangel,year,status) VALUES(?,?,?,?)',
+    Number(id),slot.archangel,slot.year,'draft').run();}
+  catch{conflict()}
  }
- const state=copy(current.state);state.published??=initialPublication(state);manifests(state.published);
- if(state.drafts[id])return reply({...readResult(state,id),targetCelebration:id,existing:true});
- if(b.copy&&state.drafts[source]){
-  const original=state.drafts[source];state.drafts[source]=copy(original);
-  for(const space of state.drafts[source].spaces??[]){space.accessPolicy={mode:ACCESS_MODES.PUBLIC};for(const page of space.pages)page.accessPolicy={mode:ACCESS_MODES.PUBLIC};}
-  for(const page of state.drafts[source].pages??[])if(managedPage(page))page.accessPolicy={mode:ACCESS_MODES.ALL_PRIVATE_TYPES};
-  const ids=duplicateDraft(state,source,id,known,registry);state.drafts[source]=original;
-  for(const [old,fresh]of Object.entries(ids.pageIds))if(state.localization?.pages?.[old])
-   state.localization.pages[fresh]=copy(state.localization.pages[old]);
-  // Content copies do not carry a category grant or individual enrollment.
-  for(const space of state.drafts[id].spaces??[]){
-   space.visibility=SPACE_VISIBILITIES.PRIVATE;space.accessScope='CELEBRATION';space.accessPolicy={mode:ACCESS_MODES.PUBLIC};
-   for(const page of space.pages)page.accessPolicy={mode:ACCESS_MODES.PUBLIC};
+ const state=copy(current.state);
+ state.published??=initialPublication(state);manifests(state.published);
+ if(!state.drafts[id]){
+  const labels=[
+   ['accueil-celebration','Accueil de la célébration'],
+   ['preparation','Préparation'],['mercredi','Mercredi'],['jeudi','Jeudi'],
+   ['vendredi','Vendredi'],['samedi','Samedi'],['dimanche','Dimanche'],
+   ['apres-celebration','Après célébration']
+  ];
+  state.drafts[id]={...emptyRecord(),pages:labels.map(([slug,name])=>({
+   id:slug+'-'+id,name,group:'celebration',visibility:'draft',blocks:[]
+  }))};
+  // No Wednesday date: celebrations may take place over multiple weeks.
+  state.drafts[id].celebrationDates={};
+  state.shared.celebrationVisibility={...state.shared.celebrationVisibility,[id]:'hidden'};
+  state.published.celebrationVisibility={...state.published.celebrationVisibility,[id]:'hidden'};
+  state.celebrationMetadata={...state.celebrationMetadata,[id]:{title:slot.title}};
+  assertUnique(state);
+  if(!await writeEditorState(env.EDITOR_BUCKET,current,state))conflict();
+ }
+ return reply({...readResult(state,id),targetCelebration:id,existing:!!records.results.length});
+}
+// The canonical celebration ID never changes on duplication. Only a draft
+// (audience, language) version is added, atomically in the existing R2 snapshot.
+async function duplicateCanonicalVersion(env,current,cid,b,known,registry){
+ const state=copy(current.state),record=state.drafts?.[cid];
+ const roots=record?.pages?.filter(p=>p.group==='celebration'&&!managedPage(p))||[];
+ if(!roots.length)missing();
+ const base=await q(env.DB,
+  'SELECT archangel,year FROM celebrations_celebrations WHERE id=?',Number(cid)).first();
+ if(!base)missing();
+ state.celebrationMetadata??={};
+ const meta=state.celebrationMetadata[cid]||{};
+ const celebrationTitle=meta.title||base.archangel+' '+base.year;
+ const registered=Array.isArray(meta.versions)?meta.versions:[];
+ const existing=[{name:celebrationTitle,key:'PUBLIC|fr'},...registered];
+ // Pre-existing translations and private pages reserve their combinations,
+ // even if they were created before named versions existed.
+ for(const page of roots)
+  for(const lang of Object.keys(state.localization?.pages?.[page.id]||{}))
+   existing.push({name:'Traduction existante '+lang,key:'PUBLIC|'+lang});
+ for(const space of record.spaces||[]){
+  if(space.visibility!==SPACE_VISIBILITIES.PRIVATE)continue;
+  const mode=space.accessPolicy?.mode;
+  if(![ACCESS_MODES.SELECTED_TYPES,ACCESS_MODES.ALL_PRIVATE_TYPES].includes(mode))continue;
+  const categoryId=mode===ACCESS_MODES.SELECTED_TYPES&&space.accessPolicy?.typeIds?.length===1?
+   space.accessPolicy.typeIds[0]:'';
+  if(mode===ACCESS_MODES.SELECTED_TYPES&&!categoryId)continue;
+  const audience={scope:mode,categoryId};
+  const langs=new Set();
+  for(const page of space.pages||[]){
+   if(page.blocks?.length)langs.add('fr');
+   for(const lang of Object.keys(page.translations||{}))langs.add(lang);
   }
-  for(const page of state.drafts[id].pages)if(managedPage(page))page.accessPolicy={mode:ACCESS_MODES.ALL_PRIVATE_TYPES};
- }else{
-  const labels=[['accueil-celebration','Accueil de la célébration'],['preparation','Préparation'],['mercredi','Mercredi'],['jeudi','Jeudi'],['vendredi','Vendredi'],['samedi','Samedi'],['dimanche','Dimanche'],['apres-celebration','Après célébration']];
-  state.drafts[id]={...emptyRecord(),pages:labels.map(([slug,name])=>({id:slug+'-'+id,name,group:'celebration',visibility:'draft',blocks:[]}))};
+  for(const lang of langs)existing.push({
+   name:'Version ancienne '+space.id+' '+lang,
+   key:celebrationVersionKey(audience,lang)});
  }
- state.drafts[id].celebrationDates={wednesday:b.date,preparationDates:[]};
- state.shared.celebrationVisibility={...state.shared.celebrationVisibility,[id]:'draft'};
- state.published.celebrationVisibility={...state.published.celebrationVisibility,[id]:'draft'};
- state.celebrationMetadata={...state.celebrationMetadata,[id]:{title,date:b.date}};
+ let version;
+ try{version=validateNewCelebrationVersion({
+  name:b.name,languageId:b.languageId,
+  audience:{scope:b.scope,categoryId:b.categoryId||''}
+ },{celebrationTitle,existing,categories:[...known].map(id=>({id})),
+  languages:registry.languages});}
+ catch(e){fail(409,String(e.message||'Version déjà existante'))}
+ if(version.audience.scope==='PUBLIC'){
+  if(version.languageId==='fr')conflict();
+  state.localization??={registry:copy(registry),pages:{}};
+  state.localization.pages??={};
+  for(const page of roots){
+   const localized=setPageTranslation({
+    ...page,translations:state.localization.pages[page.id]||{}
+   },registry,version.languageId,{name:page.name,blocks:copy(page.blocks||[])});
+   state.localization.pages[page.id]=localized.translations;
+  }
+ }else{
+  record.spaces??=[];
+  const policyTarget=version.audience.scope==='ALL_PRIVATE_TYPES'?
+   {mode:ACCESS_MODES.ALL_PRIVATE_TYPES}:
+   {mode:ACCESS_MODES.SELECTED_TYPES,typeIds:[version.audience.categoryId]};
+  let target=record.spaces.find(space=>space.visibility===SPACE_VISIBILITIES.PRIVATE&&
+   JSON.stringify(space.accessPolicy)===JSON.stringify(policyTarget));
+  if(!target){
+   target=spaceDraft({name:version.name,visibility:SPACE_VISIBILITIES.PRIVATE,
+    accessScope:'CELEBRATION',accessPolicy:policyTarget},
+    null,'space:'+crypto.randomUUID(),cid,[],known,registry);
+   record.spaces.push(target);
+  }
+  for(const source of roots){
+   let page=target.pages.find(p=>p.name===source.name);
+   if(!page){
+    page=pageDraft({name:source.name,blocks:[],
+     accessPolicy:{mode:ACCESS_MODES.PUBLIC}},null,
+     'page:'+crypto.randomUUID(),cid,target.id,known,registry);
+    target.pages.push(page);
+   }
+   if(version.languageId==='fr')page.blocks=copy(source.blocks||[]);
+   else page.translations=setPageTranslation(page,registry,version.languageId,
+    {name:source.name,blocks:copy(source.blocks||[])}).translations;
+   page.visibility='draft';page.publicationStatus='draft';
+  }
+ }
+ state.celebrationMetadata[cid]={...meta,versions:[...registered,version]};
+ // Not a publish action. All live release ledgers and member entitlements
+ // remain untouched. CAS resolves simultaneous attempts at the same key.
  assertUnique(state);
  if(!await writeEditorState(env.EDITOR_BUCKET,current,state))conflict();
- return reply({...readResult(state,id),targetCelebration:id});
+ return reply({...readResult(state,cid),
+  versions:state.celebrationMetadata[cid].versions,createdVersion:version});
 }
 // Route owner A must gate the isolated host and feature flag. This service
 // independently checks the real D1 admin session and same-origin mutations.
@@ -446,10 +511,10 @@ export async function handlePrivateEditorCommand(request,env){
   if((request.headers.get('content-type')??'').split(';')[0]!=='application/json')return reply({ok:false,error:'Format invalide'},415);
   const raw=await request.text();if(raw.length>EDITOR_SNAPSHOT_LIMIT)fail(413,'Commande trop volumineuse');
   let b;try{b=JSON.parse(raw)}catch{invalid()}
-  if(!obj(b)||!['save','publish','unpublish','delete','celebration-visibility','celebration-access','duplicate','reconcile','page-access','create-celebration','change-version'].includes(b.action))invalid();
+  if(!obj(b)||!['save','publish','unpublish','delete','celebration-visibility','celebration-access','reconcile','page-access','create-celebration','duplicate-version','change-version'].includes(b.action))invalid();
   safeJSON(b);
   const fields={save:['spaces','pages'],publish:['kind','id','spaceId'],unpublish:['kind','id','spaceId','visibility'],
-   delete:['kind','id','spaceId'],'celebration-visibility':['visibility'],'celebration-access':['accessPolicy'],duplicate:['targetCelebration'],reconcile:[],'page-access':['id','accessPolicy'],'create-celebration':['archangel','date','title','copy'],'change-version':['spaceId','pageId','languageId','targetLanguageId','typeIds']};
+   delete:['kind','id','spaceId'],'celebration-visibility':['visibility'],'celebration-access':['accessPolicy'],reconcile:[],'page-access':['id','accessPolicy'],'create-celebration':['archangel','cycleYear'],'duplicate-version':['name','scope','categoryId','languageId'],'change-version':['spaceId','pageId','languageId','targetLanguageId','typeIds']};
   keysOnly(b,['action','celebration','expectedRevision',...fields[b.action]]);
   if(!expectedRevisionMatches(b.expectedRevision,current.state.version))conflict();
   const cid=b.celebration,known=await catalogue(env.DB,cid);
@@ -462,8 +527,9 @@ export async function handlePrivateEditorCommand(request,env){
   }
   const state=copy(current.state);state.published??=initialPublication(state);manifests(state.published);
   const registry=createLanguageRegistry(state.localization?.registry??state.published.languageRegistry);
-  if(b.action==='create-celebration')return await createCanonicalCelebration(env,current,cid,b,actor,known,registry);
-  const idMap=Object.create(null);let changed=false,duplicate;
+  if(b.action==='create-celebration')return await createCanonicalCelebration(env,current,cid,b,actor);
+  if(b.action==='duplicate-version')return await duplicateCanonicalVersion(env,current,cid,b,known,registry);
+  const idMap=Object.create(null);let changed=false;
   if(b.action==='reconcile'){
    // Only the current trusted canonical snapshot can be acknowledged.
    await acknowledgePrivateRelease(env.DB,state.published,cid,state.publishedRevision,releasedSpaces(state.published,cid));
@@ -499,9 +565,6 @@ export async function handlePrivateEditorCommand(request,env){
   }else if(b.action==='save'){
    if(!own(b,'spaces')&&!own(b,'pages'))invalid();
    changed=saveDraft(state,cid,b,known,registry,idMap);
-  }else if(b.action==='duplicate'){
-   const targetKnown=await catalogue(env.DB,b.targetCelebration);
-   duplicate=duplicateDraft(state,cid,b.targetCelebration,targetKnown,registry);
   }else{publishOrRevoke(state,cid,b,known,registry);changed=true}
   assertUnique(state);
   if(changed)publishedChange(state,cid);
@@ -513,8 +576,8 @@ export async function handlePrivateEditorCommand(request,env){
    catch{return reply({ok:false,error:'Snapshot enregistré; confirmation D1 incomplète. Accès privé bloqué. Rechargez puis réconciliez.',
     saved:true,revision:state.version,publishedRevision:state.publishedRevision,idMap},503)}
   }
-  const target=b.action==='duplicate'?b.targetCelebration:cid,result=readResult(state,target);
+  const target=cid,result=readResult(state,target);
   result.privateReleaseReady=await privateReleaseReady(env.DB,state.published,target,state.publishedRevision,releasedSpaces(state.published,target));
-  return reply({...result,idMap,...(duplicate?{duplicate}:{})});
+  return reply({...result,idMap});
  }catch(e){return reply({ok:false,error:e.status?e.message:e instanceof TypeError?'Modèle invalide':'Service indisponible'},e.status??(e instanceof TypeError?400:503))}
 }
