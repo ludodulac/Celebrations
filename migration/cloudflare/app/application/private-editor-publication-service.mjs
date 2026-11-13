@@ -3,7 +3,7 @@ import {authorize,sha256} from '../../auth-api.mjs';
 import {readEditorState,writeEditorState,initialPublication} from '../../editor-publication-api.mjs';
 import {expectedRevisionMatches,EDITOR_SNAPSHOT_LIMIT} from '../ports/editor-snapshot-contract.mjs';
 import {ACCESS_MODES,SPACE_VISIBILITIES,isMemberTypeId} from '../domain/member-access.mjs';
-import {createCelebrationSpace,getCelebrationSpaces,duplicateCelebration} from '../domain/celebration-spaces.mjs';
+import {createCelebrationSpace,getCelebrationSpaces} from '../domain/celebration-spaces.mjs';
 import {celebrationCycle,validateNewCelebrationVersion,celebrationVersionKey} from '../domain/celebration-cycle-registry.mjs';
 import {createPreparedLanguageRegistry as createLanguageRegistry,setPageTranslation,setCelebrationSpaceTranslation} from '../domain/editor-localization.mjs';
 import {managedPage} from '../security/private-editor-boundary.mjs';
@@ -278,35 +278,6 @@ function saveDraft(state,cid,b,known,registry,idMap){
  }
  remap(r,idMap);getCelebrationSpaces({...r,id:cid});return revoked;
 }
-function duplicateDraft(state,cid,target,known,registry){
- const source=state.drafts[cid];
- if(!source||state.drafts[target]||state.published.drafts[target])conflict();
- const used=indexIds(state),spaceIds={},pageIds={};
- const alloc=(set,id)=>{if(set.has(id))conflict();set.add(id);return id};
- for(const p of source.pages??[]){
-  // Retain existing legacy stage syntax for ordinary pages; private IDs
-  // are freshly allocated and never copied from a browser.
-  if(!managedPage(p)&&!p.id.endsWith('-'+cid))invalid();
-  pageIds[p.id]=alloc(used.pages,managedPage(p)?'page:'+crypto.randomUUID():p.id.slice(0,-cid.length)+target);
- }
- for(const s of source.spaces??[]){
-  spaceIds[s.id]=alloc(used.spaces,'space:'+crypto.randomUUID());
-  for(const p of s.pages)pageIds[p.id]=alloc(used.pages,'page:'+crypto.randomUUID());
- }
- const copied=duplicateCelebration({...source,id:cid},{id:target,spaceIds,pageIds});
- const next={...emptyRecord(),celebrationDates:copy(copied.celebrationDates??{}),
-  celebrationTimes:copy(copied.celebrationTimes??{})};
- for(const p of copied.pages){
-  if(!managedPage(p))next.pages.push({...p,visibility:'draft',publicationStatus:'draft'});
-  else next.pages.push(pageDraft(p,null,p.id,target,null,known,registry));
- }
- for(const s of copied.spaces){
-  const pages=s.pages.map(p=>pageDraft(p,null,p.id,target,s.id,known,registry));
-  next.spaces.push(spaceDraft(s,null,s.id,target,pages,known,registry));
- }
- getCelebrationSpaces({...next,id:target});state.drafts[target]=next;
- return {spaceIds,pageIds};
-}
 function publishOrRevoke(state,cid,b,known,registry){
  const r=state.drafts[cid],pub=state.published;if(!r)missing();
  const target=ensurePublished(pub,cid);
@@ -540,10 +511,10 @@ export async function handlePrivateEditorCommand(request,env){
   if((request.headers.get('content-type')??'').split(';')[0]!=='application/json')return reply({ok:false,error:'Format invalide'},415);
   const raw=await request.text();if(raw.length>EDITOR_SNAPSHOT_LIMIT)fail(413,'Commande trop volumineuse');
   let b;try{b=JSON.parse(raw)}catch{invalid()}
-  if(!obj(b)||!['save','publish','unpublish','delete','celebration-visibility','celebration-access','duplicate','reconcile','page-access','create-celebration','duplicate-version','change-version'].includes(b.action))invalid();
+  if(!obj(b)||!['save','publish','unpublish','delete','celebration-visibility','celebration-access','reconcile','page-access','create-celebration','duplicate-version','change-version'].includes(b.action))invalid();
   safeJSON(b);
   const fields={save:['spaces','pages'],publish:['kind','id','spaceId'],unpublish:['kind','id','spaceId','visibility'],
-   delete:['kind','id','spaceId'],'celebration-visibility':['visibility'],'celebration-access':['accessPolicy'],duplicate:['targetCelebration'],reconcile:[],'page-access':['id','accessPolicy'],'create-celebration':['archangel','cycleYear'],'duplicate-version':['name','scope','categoryId','languageId'],'change-version':['spaceId','pageId','languageId','targetLanguageId','typeIds']};
+   delete:['kind','id','spaceId'],'celebration-visibility':['visibility'],'celebration-access':['accessPolicy'],reconcile:[],'page-access':['id','accessPolicy'],'create-celebration':['archangel','cycleYear'],'duplicate-version':['name','scope','categoryId','languageId'],'change-version':['spaceId','pageId','languageId','targetLanguageId','typeIds']};
   keysOnly(b,['action','celebration','expectedRevision',...fields[b.action]]);
   if(!expectedRevisionMatches(b.expectedRevision,current.state.version))conflict();
   const cid=b.celebration,known=await catalogue(env.DB,cid);
@@ -558,7 +529,7 @@ export async function handlePrivateEditorCommand(request,env){
   const registry=createLanguageRegistry(state.localization?.registry??state.published.languageRegistry);
   if(b.action==='create-celebration')return await createCanonicalCelebration(env,current,cid,b,actor);
   if(b.action==='duplicate-version')return await duplicateCanonicalVersion(env,current,cid,b,known,registry);
-  const idMap=Object.create(null);let changed=false,duplicate;
+  const idMap=Object.create(null);let changed=false;
   if(b.action==='reconcile'){
    // Only the current trusted canonical snapshot can be acknowledged.
    await acknowledgePrivateRelease(env.DB,state.published,cid,state.publishedRevision,releasedSpaces(state.published,cid));
@@ -594,9 +565,6 @@ export async function handlePrivateEditorCommand(request,env){
   }else if(b.action==='save'){
    if(!own(b,'spaces')&&!own(b,'pages'))invalid();
    changed=saveDraft(state,cid,b,known,registry,idMap);
-  }else if(b.action==='duplicate'){
-   const targetKnown=await catalogue(env.DB,b.targetCelebration);
-   duplicate=duplicateDraft(state,cid,b.targetCelebration,targetKnown,registry);
   }else{publishOrRevoke(state,cid,b,known,registry);changed=true}
   assertUnique(state);
   if(changed)publishedChange(state,cid);
@@ -608,8 +576,8 @@ export async function handlePrivateEditorCommand(request,env){
    catch{return reply({ok:false,error:'Snapshot enregistré; confirmation D1 incomplète. Accès privé bloqué. Rechargez puis réconciliez.',
     saved:true,revision:state.version,publishedRevision:state.publishedRevision,idMap},503)}
   }
-  const target=b.action==='duplicate'?b.targetCelebration:cid,result=readResult(state,target);
+  const target=cid,result=readResult(state,target);
   result.privateReleaseReady=await privateReleaseReady(env.DB,state.published,target,state.publishedRevision,releasedSpaces(state.published,target));
-  return reply({...result,idMap,...(duplicate?{duplicate}:{})});
+  return reply({...result,idMap});
  }catch(e){return reply({ok:false,error:e.status?e.message:e instanceof TypeError?'Modèle invalide':'Service indisponible'},e.status??(e instanceof TypeError?400:503))}
 }
