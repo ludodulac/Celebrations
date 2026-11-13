@@ -15,7 +15,7 @@ jobs:
     env:
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
-      ORIGINAL_VERSION: '62c75430-fcc4-4c88-8bbf-65f056dacb5a'
+      ORIGINAL_VERSION: 'b5b06cbf-8902-48c5-bcc0-976615f6e22f'
     steps:
       - uses: actions/checkout@v4
         with: {persist-credentials: false}
