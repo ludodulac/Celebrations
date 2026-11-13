@@ -29,3 +29,15 @@ Lancement protégé par message explicite : les données sont restaurées en mé
 ## Dépendance trouvée pendant la simulation (sécurisée)
 
 La médiathèque conserve des **références d'utilisation** (`mediaCatalogue[].uses[].celebrationId`) pointant vers les anciennes célébrations. Leur présence est légitime dans la sauvegarde, mais deviendrait un lien obsolète après nettoyage. Le plan de simulation retire **uniquement les références d'utilisation vers les six célébrations supprimables**, jamais les fichiers eux-mêmes, leurs adresses de stockage, ni leurs utilisations par Michaël ou les pages générales. Le test conserve chaque élément média et compare le catalogue attendu par empreinte.
+
+## Mission 04 — résultat final (13 novembre 2026)
+
+**Réussite de la simulation sans écriture distante :** [GitHub Actions #43423239570](https://github.com/ludodulac/Celebrations/actions/runs/43423239570).
+
+**D1 copie locale uniquement :** 6 identités et 21 étapes supprimées dans la simulation ; transaction annulée par ROLLBACK. Toutes les 33 autres tables et les 7 étapes de Michaël 101 sont inchangées ; clés étrangères valides.
+
+**R2 copie locale uniquement :** suppression simulée des 6 brouillons secondaires, 3 métadonnées, 5 clés de visibilité/accès et 1 entrée de traduction de pages abandonnées. **269 associations d’utilisation de la médiathèque** pointant vers ces anciennes célébrations ont été détachées dans la copie : aucun fichier R2 supprimé, les **128 objets du catalogue** sont préservés ainsi que leurs autres associations.
+
+**Conservation certifiée dans la copie :** Michaël 101 (8 pages brouillon, 8 pages publiées), 4 pages générales et 1 page générale publiée, membres et droits, registre des langues, médias et toutes leurs ressources de stockage. **0 écriture sur le site officiel**.
+
+**Le nettoyage officiel n'est pas lancé.** Il faudra une nouvelle vérification des comptes et contenus avant d'appliquer ce plan aux données réelles.
