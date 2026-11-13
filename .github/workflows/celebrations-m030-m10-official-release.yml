@@ -1,0 +1,359 @@
+name: "Célébrations M030 — publication officielle et nettoyage atomique"
+on:
+  push:
+    branches: [feat/m030-canonical-celebration-cycles-20261113]
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: celebrations-existing-official-production-release
+  cancel-in-progress: false
+jobs:
+  owner-approved-official:
+    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M030_M10_OWNER_APPROVED_OFFICIAL]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    environment: celebrations-staging
+    env:
+      M030_PROD_APPROVED: 'YES'
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      M017_ADMIN_PASSWORD: ${{ secrets.CELEBRATIONS_M017_ADMIN_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Verify owner approval, exact source, successful M09 and CAS M016
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          umask 077
+          test "$GITHUB_REF" = 'refs/heads/feat/m030-canonical-celebration-cycles-20261113'
+          test "$M030_PROD_APPROVED" = YES
+          test "$CLOUDFLARE_ACCOUNT_ID" = 60a7b17758a93fe6681ce998e72ddff0
+          test "${#CLOUDFLARE_API_TOKEN}" -gt 20
+          test "${#M017_ADMIN_PASSWORD}" -ge 16
+          ! grep -Eq '^[[:space:]]*(route|routes|zone_id|custom_domain)[[:space:]]*=' migration/cloudflare/wrangler.m018.official.toml
+          node scripts/m018_official_validate.mjs
+          for RUN in 43437666207 43439444013; do
+            test "$(gh api "/repos/$GITHUB_REPOSITORY/actions/runs/$RUN" --jq .conclusion)" = success
+          done
+          node scripts/build-m012b-member-spaces-inline.mjs --check
+          node scripts/build-m019-editor-client.mjs --check
+          node --test tests/test_m030_canonical_celebrations.mjs \
+            tests/test_m012c_private_editor_publication.mjs \
+            tests/test_m029_navigation_title_only.mjs \
+            tests/test-editor-demo.mjs tests/test_m021b_admin_mode.mjs \
+            tests/test_m003_localization.mjs \
+            tests/test-editor-publication-media.mjs \
+            tests/test_m026_real_mp3_detection.mjs \
+            tests/test_m025_mp3_multipart.mjs \
+            tests/test_m020d_member_brevo.mjs
+          echo M030_M10_M09_AND_ATOMIC_CAS_PRECONDITIONS_PASS
+      - name: Exact live official Worker version, domains, D1, R2 and member rights
+        id: gate
+        env:
+          M026_HOTFIX_EXPECTED_OFFICIAL_VERSION: '76f31003-53b1-436f-ab6d-3217b05c91c3'
+        run: node scripts/m026_official_gate.mjs before
+      - name: Build and dry-run actual official Worker without changing site
+        run: |
+          set -euo pipefail
+          python scripts/build_production_assets.py
+          test -s production-public/admin.html
+          test -s production-public/index.html
+          npm install --no-save --no-package-lock wrangler@4 playwright@1.58.2
+          (cd migration/cloudflare && npx wrangler deploy --dry-run --config wrangler.m018.official.toml)
+          npx playwright install chromium
+          node --check scripts/m030_official_migration_worker.mjs
+      - name: Export FULL fresh production D1 and editor R2 — before any official change
+        working-directory: migration/cloudflare
+        run: |
+          set -euo pipefail
+          umask 077
+          npx wrangler d1 export celebrations-exit-production --remote \
+            --config wrangler.m018.official.toml --output /tmp/m030-M10-official-D1.sql
+          npx wrangler r2 object get \
+            celebrations-exit-staging/editor-trials/server-drafts-v1.json \
+            --remote --file /tmp/m030-M10-official-editor.json
+          test -s /tmp/m030-M10-official-D1.sql
+          test -s /tmp/m030-M10-official-editor.json
+          echo M030_M10_FRESH_FULL_DATA_EXPORTS_READ_ONLY
+      - name: Repeat exact destructive plan in LOCAL memory only and derive CAS rollback
+        run: |
+          set -euo pipefail
+          umask 077
+          python scripts/m030_verify_backup_restore.py /tmp/m030-M10-official-D1.sql /tmp/m030-M10-official-editor.json
+          python scripts/m030_prepare_official_release.py \
+            /tmp/m030-M10-official-D1.sql /tmp/m030-M10-official-editor.json /tmp/m030-release
+          test -s /tmp/m030-release/clean-editor.json
+          test -s /tmp/m030-release/rollback-editor.json
+          echo M030_M10_M04_FRESH_REPLAY_AND_REVERSAL_PASS
+      - name: Encrypt production D1 and editor R2, verify decrypt hashes (no plaintext artifact)
+        run: |
+          set -euo pipefail
+          umask 077
+          for name in D1.sql editor.json; do
+            openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt \
+              -in "/tmp/m030-M10-official-$name" \
+              -out "/tmp/m030-M10-official-$name.enc" \
+              -pass env:M017_ADMIN_PASSWORD
+            openssl enc -aes-256-cbc -d -pbkdf2 -iter 200000 \
+              -in "/tmp/m030-M10-official-$name.enc" \
+              -pass env:M017_ADMIN_PASSWORD | \
+              sha256sum | cut -d' ' -f1 | diff - <(sha256sum "/tmp/m030-M10-official-$name" | cut -d' ' -f1)
+          done
+          echo M030_M10_FRESH_ENCRYPTED_BACKUPS_VERIFIED
+      - uses: actions/upload-artifact@v4
+        with:
+          name: m030-M10-official-D1-AND-editor-R2-before-cleanup-encrypted
+          path: |
+            /tmp/m030-M10-official-D1.sql.enc
+            /tmp/m030-M10-official-editor.json.enc
+          retention-days: 30
+          if-no-files-found: error
+      - name: Production Worker still exact baseline and D1 unchanged after backup
+        run: node scripts/m026_official_gate.mjs before-promotion
+      - name: Upload candidate to SAME official Worker inactive
+        working-directory: migration/cloudflare
+        id: upload
+        env:
+          WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/m030-version-output.ndjson
+        run: |
+          set -euo pipefail
+          npx wrangler versions upload --config wrangler.m018.official.toml \
+            --message "M030: unique annual celebrations, draft-only versions, no derived dates"
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readFileSync,appendFileSync} from 'node:fs';
+          const events=readFileSync(process.env.WRANGLER_OUTPUT_FILE_PATH,'utf8')
+            .split('\n').filter(Boolean).map(x=>JSON.parse(x));
+          const item=events.filter(x=>x.type==='version-upload'&&x.worker_name==='celebrations-exit-production').at(-1);
+          assert.match(item?.version_id||'',/^[a-f0-9-]{36}$/);
+          appendFileSync(process.env.GITHUB_OUTPUT,'new_version='+item.version_id+'\n');
+          console.log('M030_M10_OFFICIAL_CANDIDATE_UPLOADED_INACTIVE '+item.version_id);
+          NODE
+      - name: Refuse promotion if any other official Worker version took over
+        run: node scripts/m026_official_gate.mjs before-promotion
+      - name: Activate M030 on existing official Worker, before data cleanup
+        id: promote
+        working-directory: migration/cloudflare
+        env:
+          NEW_VERSION: ${{ steps.upload.outputs.new_version }}
+        run: |
+          set -euo pipefail
+          test -n "$NEW_VERSION"
+          npx wrangler versions deploy "$NEW_VERSION@100%" --yes \
+            --config wrangler.m018.official.toml \
+            --message "M030: immutable canonical catalogue and safe draft-only duplication"
+          echo M030_M10_OFFICIAL_WORKER_PROMOTED
+      - name: Check exact new Worker version and all inherited official security flags
+        env:
+          M026_NEW_VERSION: ${{ steps.upload.outputs.new_version }}
+        run: node scripts/m026_official_gate.mjs after-promotion
+      - name: Real official mobile visitor and admin PIN gate before deleting anything
+        run: node scripts/m026_official_public_smoke.mjs
+      - name: Verify original editor snapshot has not changed since exported backup
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {createHash} from 'node:crypto';
+          import {readFileSync} from 'node:fs';
+          const manifest=JSON.parse(readFileSync('/tmp/m030-release/manifest.json','utf8'));
+          const r=await fetch('https://api.cloudflare.com/client/v4/accounts/'+
+           process.env.CLOUDFLARE_ACCOUNT_ID+
+           '/r2/buckets/celebrations-exit-staging/objects/editor-trials/server-drafts-v1.json',{
+            headers:{authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN},
+            signal:AbortSignal.timeout(30000)});
+          assert.equal(r.status,200);
+          const hash=createHash('sha256').update(await r.arrayBuffer()).digest('hex');
+          assert.equal(hash,manifest.oldSha256,'STOP: editor has changed since encrypted backup');
+          console.log('M030_M10_EDITOR_STILL_EXACT_AFTER_CODE_PROMOTION');
+          NODE
+      - name: Deploy short-lived CAS + D1 transaction bridge (NO official hostname route)
+        id: bridge
+        run: |
+          set -euo pipefail
+          umask 077
+          SERVICE="m030-official-cleanup-${GITHUB_RUN_ID}"
+          SECRET="$(openssl rand -hex 32)"
+          echo "::add-mask::$SECRET"
+          printf 'M030_TEMP_SERVICE=%s\nM030_TEMP_TOKEN=%s\n' "$SERVICE" "$SECRET" >> "$GITHUB_ENV"
+          cat >/tmp/m030-official-bridge.toml <<EOF
+          name = "$SERVICE"
+          main = "$GITHUB_WORKSPACE/scripts/m030_official_migration_worker.mjs"
+          compatibility_date = "2026-10-16"
+          compatibility_flags = ["nodejs_compat"]
+          workers_dev = true
+          [[d1_databases]]
+          binding = "DB"
+          database_name = "celebrations-exit-production"
+          database_id = "28736d2a-479b-472b-bf82-703ad0affe10"
+          [[r2_buckets]]
+          binding = "BUCKET"
+          bucket_name = "celebrations-exit-staging"
+          [vars]
+          M030_RELEASE_TOKEN = "$SECRET"
+          M030_TARGET_KEY = "editor-trials/server-drafts-v1.json"
+          M030_RELEASE_APPROVED = "YES"
+          EOF
+          if ! (cd migration/cloudflare && npx wrangler deploy --config /tmp/m030-official-bridge.toml >/tmp/m030-bridge-deploy.log 2>&1); then
+            echo M030_M10_TEMP_BRIDGE_DEPLOY_FAILED_NO_DATA_CHANGED
+            exit 1
+          fi
+          echo M030_M10_TEMP_BRIDGE_DEPLOYED_NO_OFFICIAL_ROUTE
+      - name: Commit exact six deletions atomically, keep Michaël 101, never erase concurrent R2 edits
+        id: cleanup
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readFileSync} from 'node:fs';
+          const url='https://'+process.env.M030_TEMP_SERVICE+'.rondes.workers.dev/m030-commit';
+          let ready=false;
+          for(let i=0;i<40;i++){
+           const r=await fetch(url,{method:'POST',signal:AbortSignal.timeout(15000)});
+           if(r.status===401){ready=true;break}
+           await new Promise(r=>setTimeout(r,750));
+          }
+          assert.equal(ready,true,'No migration until temporary bridge is reachable');
+          const body={
+           manifest:JSON.parse(readFileSync('/tmp/m030-release/manifest.json','utf8')),
+           cleanPayload:readFileSync('/tmp/m030-release/clean-editor.json','utf8'),
+           rollbackPayload:readFileSync('/tmp/m030-release/rollback-editor.json','utf8')
+          };
+          const r=await fetch(url,{method:'POST',
+           headers:{'content-type':'application/json','x-m030-release-token':process.env.M030_TEMP_TOKEN},
+           body:JSON.stringify(body),signal:AbortSignal.timeout(120000)});
+          const outcome=await r.json().catch(()=>({ok:false,error:'Request failed without JSON'}));
+          assert.equal(r.status,200,JSON.stringify({status:r.status,message:outcome.error||'failed'}));
+          assert.equal(outcome.ok,true);
+          assert.equal(outcome.removedIdentities,6);
+          assert.equal(outcome.removedSteps,21);
+          assert.equal(outcome.retainedCelebration,'101');
+          assert.equal(outcome.mediaObjectsDeleted,0);
+          console.log('M030_M10_ATOMIC_D1_R2_CLEANUP_PASS '+JSON.stringify(outcome));
+          NODE
+      - name: Verify cleaned D1 and R2 data exactly, no other data or media removed
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readFileSync} from 'node:fs';
+          import {createHash} from 'node:crypto';
+          const token=process.env.CLOUDFLARE_API_TOKEN,acct=process.env.CLOUDFLARE_ACCOUNT_ID;
+          const prefix='https://api.cloudflare.com/client/v4/accounts/'+acct;
+          const fetchDb=async sql=>{
+           const r=await fetch(prefix+'/d1/database/28736d2a-479b-472b-bf82-703ad0affe10/query',{
+            method:'POST',headers:{authorization:'Bearer '+token,'content-type':'application/json'},
+            body:JSON.stringify({sql}),signal:AbortSignal.timeout(30000)});
+           assert.equal(r.status,200);const j=await r.json();assert.equal(j.success,true);
+           return j.result?.[0]?.results||[];
+          };
+          const [ids,index]=await Promise.all([
+           fetchDb('SELECT id,archangel,year FROM celebrations_celebrations ORDER BY id'),
+           fetchDb("SELECT name FROM sqlite_master WHERE type='index' AND name='idx_celebrations_archangel_year_unique'")
+          ]);
+          assert.deepEqual(ids.map(x=>String(x.id)),['101']);
+          assert.equal(ids[0].year,'2026');assert.equal(index.length,1);
+          const manifest=JSON.parse(readFileSync('/tmp/m030-release/manifest.json','utf8'));
+          const r=await fetch(prefix+
+           '/r2/buckets/celebrations-exit-staging/objects/editor-trials/server-drafts-v1.json',{
+            headers:{authorization:'Bearer '+token},signal:AbortSignal.timeout(30000)});
+          assert.equal(r.status,200);
+          const data=await r.arrayBuffer();
+          assert.equal(createHash('sha256').update(data).digest('hex'),manifest.newSha256);
+          const snap=JSON.parse(Buffer.from(data).toString('utf8'));
+          assert.deepEqual(Object.keys(snap.drafts),['101']);
+          assert.deepEqual(Object.keys(snap.published.drafts),['101']);
+          assert.equal(snap.version,manifest.newRevision);
+          assert.equal(snap.mediaCatalogue.length,manifest.r2Summary.media_items_preserved);
+          console.log('M030_M10_OFFICIAL_D1_R2_AND_MEDIA_CATALOGUE_VERIFIED preserved_101=true');
+          NODE
+      - name: Official real mobile browser, one Michaël 2026 and old direct links denied
+        run: |
+          set -euo pipefail
+          node scripts/m026_official_public_smoke.mjs
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {chromium} from 'playwright';
+          const site='https://ronde-des-archanges-universelle.eu';
+          const browser=await chromium.launch({headless:true});
+          try{
+           const page=await browser.newPage({viewport:{width:390,height:850},isMobile:true,hasTouch:true});
+           const response=await page.goto(site+'/__editor/voir-le-site?celebration=101&page=celebrations',{waitUntil:'domcontentloaded'});
+           assert.equal(response?.status(),200);
+           await page.waitForTimeout(500);
+           const titles=await page.locator('.celebration-choice strong').allTextContents();
+           assert.deepEqual(titles,['Michaël 2026']);
+           const deleted=await page.request.get(site+'/__editor/voir-le-site?celebration=102',{failOnStatusCode:false});
+           assert.equal(deleted.status(),404);
+           const anon=await page.request.get(site+'/api/editor-open-draft?celebration=101',{failOnStatusCode:false});
+           assert.equal(anon.status(),401);
+           console.log('M030_M10_REAL_OFFICIAL_SINGLE_MICHAEL_AND_PRIVATE_ACL_PASS');
+          }finally{await browser.close()}
+          NODE
+      - name: Final live Worker version and domain still exact after cleanup
+        env:
+          M030_EXPECTED_NEW_VERSION: ${{ steps.upload.outputs.new_version }}
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const acct=process.env.CLOUDFLARE_ACCOUNT_ID,token=process.env.CLOUDFLARE_API_TOKEN;
+          const get=async p=>{
+           const r=await fetch('https://api.cloudflare.com/client/v4/accounts/'+acct+p,{
+            headers:{authorization:'Bearer '+token},signal:AbortSignal.timeout(30000)});
+           assert.equal(r.status,200);const x=await r.json();assert.equal(x.success,true);return x.result;
+          };
+          const [d,domains]=await Promise.all([
+           get('/workers/scripts/celebrations-exit-production/deployments'),
+           get('/workers/domains')
+          ]);
+          const version=d.deployments?.[0]?.versions||[];
+          assert.equal(version.length,1);assert.equal(version[0].percentage,100);
+          assert.equal(version[0].version_id,process.env.M030_EXPECTED_NEW_VERSION);
+          for(const hostname of ['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu'])
+           assert.equal(domains.find(x=>x.hostname===hostname)?.service,'celebrations-exit-production');
+          console.log('M030_M10_OFFICIAL_RELEASE_SUCCESS all_10_missions_complete=true');
+          NODE
+      - name: On failure after code promotion, restore former Worker code only if no third-party drift
+        if: ${{ failure() && steps.promote.outcome == 'success' }}
+        env:
+          NEW_VERSION: ${{ steps.upload.outputs.new_version }}
+          OLD_VERSION: ${{ steps.gate.outputs.previous_version }}
+        working-directory: migration/cloudflare
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {appendFileSync} from 'node:fs';
+          const p='https://api.cloudflare.com/client/v4/accounts/'+process.env.CLOUDFLARE_ACCOUNT_ID+
+           '/workers/scripts/celebrations-exit-production/deployments';
+          const r=await fetch(p,{headers:{authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN}});
+          assert.equal(r.status,200);const j=await r.json();assert.equal(j.success,true);
+          const active=j.result?.deployments?.[0]?.versions||[];
+          assert.equal(active.length,1);assert.ok([process.env.NEW_VERSION,process.env.OLD_VERSION].includes(active[0].version_id));
+          if(active[0].version_id===process.env.NEW_VERSION)
+           appendFileSync(process.env.GITHUB_OUTPUT||'/tmp/m030-rollback','yes\n');
+          NODE
+          # The old code can still read Michaël 101 whether the authorised
+          # six-record deletion committed or not; never revert unrelated D1/R2 writes.
+          npx wrangler versions deploy "$OLD_VERSION@100%" --yes \
+            --config wrangler.m018.official.toml \
+            --message "M030 guarded rollback: former Worker code; D1/R2 backup preserved"
+          echo M030_M10_CODE_ROLLBACK_ATTEMPTED
+      - name: Always delete TEMPORARY migration Worker and local plaintext (never media)
+        if: always()
+        run: |
+          set +e
+          if [[ "${M030_TEMP_SERVICE:-}" =~ ^m030-official-cleanup-[0-9]+$ ]]; then
+            curl -fsS -X DELETE -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$M030_TEMP_SERVICE" >/dev/null
+          fi
+          rm -f /tmp/m030-M10-official-D1.sql /tmp/m030-M10-official-editor.json
+          rm -rf /tmp/m030-release /tmp/m030-official-bridge.toml /tmp/m030-bridge-deploy.log
+          echo M030_M10_TEMPORARY_WORKER_AND_PLAINTEXT_CLEANUP_DONE
