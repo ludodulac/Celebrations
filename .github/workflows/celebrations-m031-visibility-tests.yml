@@ -20,5 +20,5 @@ jobs:
           node scripts/build-m019-editor-client.mjs --check
           node --check migration/cloudflare/editor-demo-client.mjs
           node --check migration/cloudflare/editor-server-draft-api.mjs
-          node --test tests/test_m031_published_visibility.mjs tests/test_m030_canonical_celebrations.mjs tests/test_m012c_private_editor_publication.mjs tests/test-editor-demo.mjs tests/test-editor-publication-media.mjs
+          node --test tests/test_m031_published_visibility.mjs tests/test_m031_d1_visibility_route.mjs tests/test_m018_official_pin_bridge.mjs tests/test_m030_canonical_celebrations.mjs tests/test_m012c_private_editor_publication.mjs tests/test-editor-demo.mjs tests/test-editor-publication-media.mjs
           echo M031_VISIBILITY_REGRESSIONS_PASS
