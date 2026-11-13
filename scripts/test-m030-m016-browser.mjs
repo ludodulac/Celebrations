@@ -31,7 +31,7 @@ try{
  assert.equal(await page.getByText('Dates de préparation').count(),0);
  assert.equal(await page.getByText('+ Nouvelle célébration').count(),0);
  assert.equal(await page.locator('.m030-cycle-row').first().getByText('Michaël 2026').count(),1);
- const history=await page.locator('.m030-cycle-group').first().locator('summary').innerText();
+ const history=await page.locator('.m030-cycle-group').first().locator('summary').textContent();
  assert.ok(history.includes('2026'));
  await page.screenshot({path:folder+'/01-admin-cycles-ordinateur.png',fullPage:true});
  await page.locator('.m030-planned-cycles>summary').click();
