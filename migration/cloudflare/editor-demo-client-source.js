@@ -1978,6 +1978,21 @@ if(x.kind==='image'){
     };
     input.oninput=resize;input.onchange=resize;
     sizing.append(label,input,value);
+    // Full-width is an explicit, reusable image setting on EVERY page.
+    // The normal 20–100% slider is still available independently.
+    const fullLabel=n('label','m036-full-bleed-field');
+    const full=n('input');full.type='checkbox';full.checked=x.fullBleed===true;
+    full.setAttribute('aria-label','Image sur toute la largeur de la page');
+    full.onchange=()=>{
+     x.fullBleed=full.checked;
+     if(x.fullBleed){x.widthPct=100;input.value='100';value.textContent='100 %';pic.style.width='100%'}
+     mark();
+     status.textContent=full.checked?
+      '✓ L’image prendra toute la largeur de la page, sans marge, après publication.':
+      '✓ Largeur ordinaire rétablie pour cette image après publication.';
+    };
+    fullLabel.append(full,n('span','','Prendre toute la largeur de la page (sans marge)'));
+    sizing.append(fullLabel);
     // Publishing remains a separate explicit action; the Validate button
     // continues to save privately without altering the visitor site.
     if(IS_STAGE){
@@ -2455,7 +2470,7 @@ function moveGeneralPage(p,dir){
  if(!editorPageCommands.moveGeneralPage(db,p,dir))return;
  mark();save();render();
 }
-function makeHome(p){db.siteHomeId=p.id;mark();save();render()}
+// The homepage is always Accueil général: it is no longer user-reassignable.
 
 // Saving a draft never makes new pages public. These actions publish or hide
 // a single chosen page, or the entire celebration, on the server.
