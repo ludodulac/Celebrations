@@ -41,6 +41,9 @@ export function localizedPublishedPage(page,registry,languageId,releases={}){
  for(const field of publicFields)
   if(hasOwn(result.content,field))rendered[field]=clone(result.content[field]);
  const projected=projectPublicPage(rendered);
+ // A released translation owns its own translated navigation label.
+ // The independent French menu label remains available as the default.
+ if(projected&&result.languageId!=='fr')projected.menuLabel=projected.name;
  if(projected)Object.assign(projected,{languageId:result.languageId,
   requestedLanguageId:languageId,usedFallback:result.languageId!==languageId});
  return projected;
