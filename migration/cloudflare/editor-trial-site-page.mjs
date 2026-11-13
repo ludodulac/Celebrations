@@ -70,6 +70,17 @@ export const M031_VISITOR_NAV_STYLE=`
 export const M033_SPLASH_HOME_CSS=`
 /* M034: Borderless CENTRAL page, not photo across viewport.
    Original author headings stay visible, editable and deletable. */
+/* Keep the page/home title beside ☰ Menu on phones as well, with a
+   normal anchor pointing to /; preserve the separate member/language tools. */
+@media(max-width:700px){
+ .site-menu-bar .site-nav-title{
+  display:block!important;flex:1 1 140px;min-width:0;
+  max-width:calc(100vw - 154px);margin:0;
+  font-size:clamp(12px,3.5vw,17px);line-height:1.3;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap
+ }
+ .site-menu-bar.has-nav-title{display:flex;flex-wrap:wrap}
+}
 body.is-splash-home{width:100%;margin:0!important;background:#fff!important}
 body.is-splash-home #site-identity,
 body.is-splash-home .site-menu-bar,
