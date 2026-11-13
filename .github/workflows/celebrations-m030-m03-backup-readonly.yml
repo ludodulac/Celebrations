@@ -1,0 +1,138 @@
+name: "Célébrations M030 — M03 sauvegarde officielle chiffrée, restauration locale"
+on:
+  push:
+    branches: [feat/m030-canonical-celebration-cycles-20261113]
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-m030-official-readonly-backup
+  cancel-in-progress: false
+jobs:
+  encrypt-and-verify:
+    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M030_M03_BACKUP_ONLY]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    environment: celebrations-staging
+    env:
+      M030_M03_READ_ONLY: 'YES'
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      M017_ADMIN_PASSWORD: ${{ secrets.CELEBRATIONS_M017_ADMIN_PASSWORD }}
+      EXPECTED_OFFICIAL_WORKER: '76f31003-53b1-436f-ab6d-3217b05c91c3'
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Guard — only this branch, current official Worker unchanged, R2/D1 bindings exact
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          test "$M030_M03_READ_ONLY" = YES
+          test "$GITHUB_REF" = 'refs/heads/feat/m030-canonical-celebration-cycles-20261113'
+          test "$CLOUDFLARE_ACCOUNT_ID" = 60a7b17758a93fe6681ce998e72ddff0
+          test "${#CLOUDFLARE_API_TOKEN}" -gt 20
+          test "${#M017_ADMIN_PASSWORD}" -ge 16
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const account=process.env.CLOUDFLARE_ACCOUNT_ID,token=process.env.CLOUDFLARE_API_TOKEN;
+          async function get(path){
+           const r=await fetch('https://api.cloudflare.com/client/v4/accounts/'+account+path,{
+            headers:{authorization:'Bearer '+token},signal:AbortSignal.timeout(30000)});
+           assert.equal(r.status,200,path);
+           const p=await r.json();assert.equal(p.success,true,path);return p.result;
+          }
+          const [deployed,settings,domains]=await Promise.all([
+           get('/workers/scripts/celebrations-exit-production/deployments'),
+           get('/workers/scripts/celebrations-exit-production/settings'),
+           get('/workers/domains')
+          ]);
+          const versions=deployed.deployments?.[0]?.versions||[];
+          assert.equal(versions.length,1);
+          assert.equal(versions[0].percentage,100);
+          assert.equal(versions[0].version_id,process.env.EXPECTED_OFFICIAL_WORKER,
+           'Official code changed; redo inventory, never back up unexpected version');
+          for(const host of ['ronde-des-archanges-universelle.eu','www.ronde-des-archanges-universelle.eu'])
+           assert.equal(domains.find(d=>d.hostname===host)?.service,'celebrations-exit-production');
+          const bindings=new Map((settings.bindings||[]).map(x=>[x.name,x]));
+          assert.equal(bindings.get('DB')?.id||bindings.get('DB')?.database_id,
+           '28736d2a-479b-472b-bf82-703ad0affe10');
+          assert.equal(bindings.get('EDITOR_BUCKET')?.bucket_name,'celebrations-exit-staging');
+          assert.equal(bindings.get('MEDIA_BUCKET')?.bucket_name,'celebrations-exit-production');
+          console.log('M030_M03_OFFICIAL_BASELINE_READONLY_OK '+versions[0].version_id);
+          NODE
+      - name: Install Wrangler for exports only — absolutely no deploy or D1 write
+        run: npm install --no-save --no-package-lock wrangler@4
+      - name: Export complete official D1 SQL and complete official R2 editor JSON (GET only)
+        shell: bash
+        working-directory: migration/cloudflare
+        run: |
+          set -euo pipefail
+          umask 077
+          npx wrangler d1 export celebrations-exit-production --remote \
+            --config wrangler.m018.official.toml --output /tmp/m030-official-D1.sql
+          npx wrangler r2 object get \
+            celebrations-exit-staging/editor-trials/server-drafts-v1.json \
+            --remote --file /tmp/m030-official-editor.json
+          test -s /tmp/m030-official-D1.sql
+          test -s /tmp/m030-official-editor.json
+          echo M030_M03_BOTH_OFFICIAL_EXPORTS_RECEIVED
+      - name: Restore both backups locally and verify database/reader integrity
+        run: |
+          set -euo pipefail
+          python scripts/m030_verify_backup_restore.py \
+            /tmp/m030-official-D1.sql /tmp/m030-official-editor.json
+          echo M030_M03_PRE_ENCRYPT_RESTORE_PASS
+      - name: AES-256 encrypt both backups, immediately verify decrypt hashes, and dry-run restore again
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt \
+            -in /tmp/m030-official-D1.sql -out /tmp/m030-official-D1.sql.enc \
+            -pass env:M017_ADMIN_PASSWORD
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt \
+            -in /tmp/m030-official-editor.json -out /tmp/m030-official-editor.json.enc \
+            -pass env:M017_ADMIN_PASSWORD
+          openssl enc -aes-256-cbc -d -pbkdf2 -iter 200000 \
+            -in /tmp/m030-official-D1.sql.enc -out /tmp/m030-verification-D1.sql \
+            -pass env:M017_ADMIN_PASSWORD
+          openssl enc -aes-256-cbc -d -pbkdf2 -iter 200000 \
+            -in /tmp/m030-official-editor.json.enc -out /tmp/m030-verification-editor.json \
+            -pass env:M017_ADMIN_PASSWORD
+          cmp /tmp/m030-official-D1.sql /tmp/m030-verification-D1.sql
+          cmp /tmp/m030-official-editor.json /tmp/m030-verification-editor.json
+          python scripts/m030_verify_backup_restore.py \
+            /tmp/m030-verification-D1.sql /tmp/m030-verification-editor.json
+          python - <<'PY'
+          import hashlib,json,datetime,pathlib
+          paths=['/tmp/m030-official-D1.sql','/tmp/m030-official-editor.json']
+          manifest={'created_utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),
+           'official_worker':'76f31003-53b1-436f-ab6d-3217b05c91c3',
+           'scope':'full D1 SQL + full R2 editor snapshot; media objects unchanged and not archived',
+           'sha256':{pathlib.Path(x).name:hashlib.sha256(pathlib.Path(x).read_bytes()).hexdigest()
+                     for x in paths},
+           'restore_tested':True,
+           'production_writes':0}
+          pathlib.Path('/tmp/m030-backup-manifest.json').write_text(json.dumps(manifest,indent=2))
+          PY
+          echo M030_M03_ENCRYPTED_BOTH_AND_RESTORABLE_PASS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: m030-official-D1-and-editor-R2-encrypted-restore-verified
+          path: |
+            /tmp/m030-official-D1.sql.enc
+            /tmp/m030-official-editor.json.enc
+            /tmp/m030-backup-manifest.json
+          retention-days: 30
+          if-no-files-found: error
+      - name: Delete plaintext temporary copies; never upload plaintext or touch production
+        if: always()
+        shell: bash
+        run: |
+          rm -f /tmp/m030-official-D1.sql /tmp/m030-official-editor.json \
+            /tmp/m030-verification-D1.sql /tmp/m030-verification-editor.json
+          echo M030_M03_NO_PRODUCTION_WRITES_AND_NO_PLAINTEXT_ARTIFACTS
