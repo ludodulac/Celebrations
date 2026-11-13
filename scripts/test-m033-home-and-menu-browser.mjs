@@ -115,10 +115,10 @@ try{
   assert.equal(await homeRow.locator(':scope > .inline-page-state').count(),1);
   await homeRow.locator(':scope > .page-options > summary').click();
   const menu=homeRow.locator('.page-options-menu');
-  assert.equal(await menu.getByRole('button',{name:'Modifier cette page'}).count(),1);
-  assert.equal(await menu.getByRole('button',{name:'Monter'}).count(),1);
-  assert.equal(await menu.getByRole('button',{name:'Descendre'}).count(),1);
-  assert.equal(await menu.getByLabel(/Visibilité/).count(),1);
+  assert.equal(await menu.locator('button').filter({hasText:'Modifier cette page'}).count(),1);
+  assert.equal(await menu.locator('button').filter({hasText:'Monter'}).count(),1);
+  assert.equal(await menu.locator('button').filter({hasText:'Descendre'}).count(),1);
+  assert.equal(await menu.locator('select[aria-label^="Visibilité"]').count(),1);
   assert.deepEqual(errors,[],name+': '+errors.join('; '));
   assert.equal(writes,0);
   await context.close();
