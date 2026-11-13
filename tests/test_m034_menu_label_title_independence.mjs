@@ -122,7 +122,7 @@ test('M034: live-handler label change modifies ONLY draft and already published 
  assert.equal(projection.shared.pages.find(p=>p.id===uid).menuLabel,'La démarche');
  assert.equal(projection.shared.pages.find(p=>p.id===uid).blocks.length,1);
 });
-test('M034: unpublished private page remains private after standalone menu rename',async()=>{
+test('M034: unpublished privately managed page rejects legacy menu rename, remains private',async()=>{
  const data=makeState();
  data.shared.pages.push({id:'neutral-123e4567-e89b-42d3-a456-426614174001',
   group:'page',name:'Secret',visibility:'draft',accessPolicy:{mode:'ALL_PRIVATE_TYPES'},
