@@ -241,3 +241,11 @@ test('M07 no generated calendar or legacy free-creation form remains in admin an
  assert.ok(!visitor.includes('window.__PUBLIC_SITE_SNAPSHOT__?.titleOnlyCelebrations||[]'),
   'No second shadow list of variants');
 });
+
+test('M08 visitor JavaScript bundle parses after removing legacy date/plan branches',async()=>{
+ const {TRIAL_SITE_CLIENT}=await import('../migration/cloudflare/editor-trial-site-client.mjs');
+ assert.ok(TRIAL_SITE_CLIENT.includes('function celebrations(){'));
+ assert.ok(TRIAL_SITE_CLIENT.includes('seed.celebrations||[]'));
+ assert.doesNotThrow(()=>new Function(TRIAL_SITE_CLIENT),
+  'Visitor code must compile under the existing nonce-protected script');
+});
