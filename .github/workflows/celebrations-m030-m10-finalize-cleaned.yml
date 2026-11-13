@@ -89,7 +89,7 @@ jobs:
           NEW_VERSION: ${{ steps.upload.outputs.new_version }}
         run: |
           set -euo pipefail
-          node scripts/../../scripts/m026_official_gate.mjs before-promotion
+          node ../../scripts/m026_official_gate.mjs before-promotion
           npx wrangler versions deploy "$NEW_VERSION@100%" --yes --config wrangler.m018.official.toml --message "M030 M10 finished, previous D1/R2 cleanup preserved"
       - name: Confirm new official code, permissions, and exactly one Michaël 2026
         env:
