@@ -225,20 +225,19 @@ export async function loadSevenStageContent(env,selectedId,{publicOnly=false,pub
   const allCelebrations=await rows(env.DB,'SELECT id,archangel,year,status FROM celebrations_celebrations ORDER BY id');
   const pub=publishedState?.published||null;
   const visibility=pub?.celebrationVisibility||{};
+  // One authoritative visibility: the explicitly published R2 decision.
+  // D1 status is historical identification, not a second visibility switch.
+  // This allows a prepared (D1 draft) year to be shown after intentional
+  // publication, while no preallocated/hidden slot becomes public on its own.
   const publicCelebration=c=>{
-   const status=String(c.status||'').toLowerCase();
-   // One canonical celebration may have private category+language variants.
    const access=pub?.celebrationAccessPolicies?.[String(c.id)];
-   return (!access||access.mode==='PUBLIC') &&
-    !['draft','hidden','private','restricted'].includes(status)&&
-    !['draft','hidden','private','restricted'].includes(String(visibility[c.id]||'').toLowerCase());
+   return (!access||access.mode==='PUBLIC')&&visibility[String(c.id)]==='published';
   };
   const publicRows=publicOnly?allCelebrations.filter(publicCelebration):allCelebrations;
   // A published PRIVATE celebration may advertise its name, but NEVER its pages.
   // Its explicit visibility must be "published"; hidden/draft names remain secret.
   const privateMenuRows=publicOnly?allCelebrations.filter(c=>
     visibility[String(c.id)]==='published'&&
-    !['draft','hidden'].includes(String(c.status||'').toLowerCase())&&
     ['ALL_PRIVATE_TYPES','SELECTED_TYPES'].includes(
       pub?.celebrationAccessPolicies?.[String(c.id)]?.mode)): [];
   const celebrations=publicOnly?[
