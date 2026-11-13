@@ -386,20 +386,43 @@ export async function handleEditorPublication(request,env){
  const denied=await protectedWrite(request,env);if(denied)return denied;
  let body;try{body=await request.json()}catch{return err('JSON invalide',400)}
  if(!body||!celebrationIdOk(body.celebration)||!Number.isSafeInteger(body.expectedRevision))return err('Commande invalide',400);
- if(!['page','celebration','media','translation','language-registry'].includes(body.kind))return err('Type invalide',400);
+ if(!['page','page-menu-label','celebration','media','translation','language-registry'].includes(body.kind))return err('Type invalide',400);
  if(body.kind==='translation'&&(!pageIdOk(body.pageId)||typeof body.languageId!=='string'||
     !/^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/.test(body.languageId)||
     !['published','draft'].includes(body.visibility)))return err('Traduction invalide',400);
  if(body.kind==='page'&&(!pageIdOk(body.pageId)||!validVisibility(body.visibility)))return err('Page ou visibilité invalide',400);
+ if(body.kind==='page-menu-label'&&(!pageIdOk(body.pageId)||
+    typeof body.menuLabel!=='string'||!body.menuLabel.trim()||body.menuLabel.trim().length>95||
+    /[\\\u0000-\u001f\u007f]/.test(body.menuLabel)))
+  return err('Nom du menu invalide',400);
  if(body.kind==='celebration'&&!validVisibility(body.visibility))return err('Statut invalide',400);
  if(body.kind==='media'&&(typeof body.mediaId!=='string'||body.mediaId.length>720||typeof body.general!=='boolean'))return err('Média invalide',400);
  const current=await readEditorState(env.EDITOR_BUCKET);
  if(!expectedRevisionMatches(body.expectedRevision,current.state.version))return err('Une nouvelle version du serveur existe. Rechargez.',409);
- if((body.kind==='page'||body.kind==='translation')&&managedPageId(current.state,body.celebration,body.pageId)||
+ if((body.kind==='page'||body.kind==='page-menu-label'||body.kind==='translation')&&managedPageId(current.state,body.celebration,body.pageId)||
     body.kind==='celebration'&&managedCelebration(current.state,body.celebration))
   return err('Commande privée : session D1 et service dédiés requis',403);
  const state=copy(current.state),pub=state.published||initialPublication(state);
- if(body.kind==='page'){
+ if(body.kind==='page-menu-label'){
+  const isShared=body.pageId.startsWith('neutral-');
+  const draftPages=isShared?state.shared.pages:state.drafts[body.celebration]?.pages;
+  const original=draftPages?.find(p=>p.id===body.pageId);
+  if(!original||!['page','celebration'].includes(original.group))
+   return err('Page non enregistrée dans la médiathèque des pages',404);
+  if(!isShared&&(!original.id.endsWith('-'+body.celebration)))return err('Page incorrecte',403);
+  const newName=body.menuLabel.trim();
+  const siblings=(isShared?state.shared.pages:state.drafts[body.celebration].pages)
+   .filter(p=>p.group===original.group&&(p.placement||'')===(original.placement||''));
+  if(siblings.some(p=>p!==original&&
+   String(p.menuLabel||p.name||'').trim().toLocaleLowerCase('fr')===newName.toLocaleLowerCase('fr')))
+   return err('Ce nom est déjà utilisé dans ce menu',409);
+  // Modify ONLY menu labels in draft and an ALREADY PUBLISHED page.
+  // Never copy draft body, image, ACL or visibility to the public snapshot.
+  original.menuLabel=newName;
+  const publishedPages=isShared?pub.shared?.pages:pub.drafts?.[body.celebration]?.pages;
+  const publishedPage=publishedPages?.find(p=>p.id===body.pageId);
+  if(publishedPage)publishedPage.menuLabel=newName;
+ }else if(body.kind==='page'){
   const isShared=body.pageId.startsWith('neutral-');
   const source=isShared?state.shared.pages:state.drafts[body.celebration]?.pages;
   const page=source?.find(p=>p.id===body.pageId);
@@ -471,7 +494,9 @@ export async function handleEditorPublication(request,env){
  state.published=pub;state.publishedAt=new Date().toISOString();
  state.publishedRevision=(state.publishedRevision||0)+1;
  if(!await writeEditorState(env.EDITOR_BUCKET,current,state))return err('Une sauvegarde simultanée a eu lieu',409);
- return json({ok:true,revision:state.version,visibility:body.visibility||null,general:body.general??null,updatedAt:state.updatedAt});
+ return json({ok:true,revision:state.version,visibility:body.visibility||null,
+  ...(body.kind==='page-menu-label'?{pageId:body.pageId,menuLabel:body.menuLabel.trim()}:{}),
+  general:body.general??null,updatedAt:state.updatedAt});
 }
 
 const allowedUrl=s=>typeof s==='string'&&s.length<=650&&validWeb(s)===s;
