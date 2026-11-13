@@ -25,3 +25,7 @@
 ## Exécution isolée
 
 Lancement protégé par message explicite : les données sont restaurées en mémoire, jamais sur les services officiels. Le rapport final ne contient que les compteurs et contrôles de conservation.
+
+## Dépendance trouvée pendant la simulation (sécurisée)
+
+La médiathèque conserve des **références d'utilisation** (`mediaCatalogue[].uses[].celebrationId`) pointant vers les anciennes célébrations. Leur présence est légitime dans la sauvegarde, mais deviendrait un lien obsolète après nettoyage. Le plan de simulation retire **uniquement les références d'utilisation vers les six célébrations supprimables**, jamais les fichiers eux-mêmes, leurs adresses de stockage, ni leurs utilisations par Michaël ou les pages générales. Le test conserve chaque élément média et compare le catalogue attendu par empreinte.
