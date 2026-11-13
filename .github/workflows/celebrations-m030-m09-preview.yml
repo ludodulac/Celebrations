@@ -139,7 +139,7 @@ jobs:
         run: |
           npx wrangler deploy --config wrangler.m018.existing-preprod.toml
           echo M030_M09_ISOLATED_M016_ONLY_DEPLOYED
-      - name: M030: run isolated Chromium desktop/mobile canonical calendar, visitor rights (read only)
+      - name: 'M030 — isolated Chromium desktop/mobile canonical calendar and rights'
         run: node scripts/test-m030-m016-browser.mjs
       - uses: actions/upload-artifact@v4
         if: always()
