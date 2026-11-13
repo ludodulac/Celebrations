@@ -79,8 +79,26 @@ export async function editorLoginPage(request,env,wrong=false){
  const nonce=hex(crypto.getRandomValues(new Uint8Array(16)));
  const csrf=await makeFormChallenge(env);
  if(!csrf)return new Response('Accès indisponible',{status:503,headers:noCache});
- const html=`<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Administration — Célébrations</title><style nonce="${nonce}">:root{font-family:system-ui,-apple-system,Arial,sans-serif;background:#fcfaf7;color:#243028}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:18px}main{width:min(100%,420px);border-radius:18px;padding:clamp(22px,5vw,36px);background:white;border:1px solid #e6dfd5;box-shadow:0 14px 34px #1e24130f}h1{font-size:clamp(1.55rem,5vw,1.95rem);margin:0 0 14px}p{line-height:1.5;color:#576459;margin:0 0 20px}label{font-size:.95rem;font-weight:650}input{display:block;width:100%;font:inherit;padding:14px;border-radius:10px;border:1px solid #aeb6ae;margin:8px 0 16px}input:focus{outline:3px solid #b1d9bf;outline-offset:1px}button{width:100%;padding:14px;border:0;border-radius:10px;background:#35734d;color:white;font:700 1rem system-ui;cursor:pointer}.error{color:#ad2937;margin-bottom:13px}.return{display:block;text-align:center;margin-top:20px;color:#365c45;text-decoration:none;font-size:.92rem}</style></head><body><main><h1>Administration</h1><p>Entrez votre code pour modifier les pages de Célébrations.</p>${wrong?'<p class="error" role="alert">Code incorrect ou trop de tentatives. Réessayez.</p>':''}<form action="/api/editor-access" method="post"><input type="hidden" name="_csrf" value="${csrf}"><label for="code">Code d’accès</label><input id="code" name="code" type="password" required maxlength="32" autocomplete="off" autocapitalize="none" spellcheck="false" autofocus><button type="submit">Ouvrir l’administration</button></form><a class="return" href="/">← Retour au site</a></main></body></html>`;
- return new Response(request.method==='HEAD'?null:html,{status:200,headers:{...noCache,'content-type':'text/html; charset=utf-8','content-security-policy':`default-src 'none'; style-src 'nonce-${nonce}'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'`}});
+ const html=`<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Administration — Célébrations</title><style nonce="${nonce}">:root{font-family:system-ui,-apple-system,Arial,sans-serif;background:#fcfaf7;color:#243028}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:18px}main{width:min(100%,420px);border-radius:18px;padding:clamp(22px,5vw,36px);background:white;border:1px solid #e6dfd5;box-shadow:0 14px 34px #1e24130f}h1{font-size:clamp(1.55rem,5vw,1.95rem);margin:0 0 14px}p{line-height:1.5;color:#576459;margin:0 0 20px}label{font-size:.95rem;font-weight:650}input{display:block;width:100%;font:inherit;padding:14px;border-radius:10px;border:1px solid #aeb6ae;margin:8px 0 16px}input:focus{outline:3px solid #b1d9bf;outline-offset:1px}button{width:100%;padding:14px;border:0;border-radius:10px;background:#35734d;color:white;font:700 1rem system-ui;cursor:pointer}
+.pin-input-wrap{position:relative}
+.pin-input-wrap input{padding-right:58px}
+.pin-eye{position:absolute;right:8px;top:8px;width:44px;height:42px;padding:6px;
+ border:1px solid #c6d2c8;border-radius:9px;background:#f5f9f6;
+ color:#284b36;font-size:22px;line-height:1;display:grid;place-items:center}
+.pin-eye:focus-visible{outline:3px solid #b1d9bf;outline-offset:2px}
+.error{color:#ad2937;margin-bottom:13px}.return{display:block;text-align:center;margin-top:20px;color:#365c45;text-decoration:none;font-size:.92rem}</style></head><body><main><h1>Administration</h1><p>Entrez votre code pour modifier les pages de Célébrations.</p>${wrong?'<p class="error" role="alert">Code incorrect ou trop de tentatives. Réessayez.</p>':''}<form action="/api/editor-access" method="post"><input type="hidden" name="_csrf" value="${csrf}"><label for="code">Code d’accès</label><div class="pin-input-wrap"><input id="code" name="code" type="password" required maxlength="32" autocomplete="off" autocapitalize="none" spellcheck="false" autofocus><button class="pin-eye" id="pin-eye" type="button" aria-label="Afficher le code" aria-pressed="false" title="Afficher ou masquer le code">👁</button></div><button type="submit">Ouvrir l’administration</button></form><a class="return" href="/">← Retour au site</a></main>
+<script nonce="${nonce}">(()=>{
+ const input=document.getElementById('code'),eye=document.getElementById('pin-eye');
+ if(!input||!eye)return;
+ eye.addEventListener('click',()=>{
+  const visible=input.type==='password';
+  input.type=visible?'text':'password';
+  eye.setAttribute('aria-pressed',String(visible));
+  eye.setAttribute('aria-label',visible?'Masquer le code':'Afficher le code');
+  eye.title=visible?'Masquer le code':'Afficher le code';
+ });
+})()</script></body></html>`;
+ return new Response(request.method==='HEAD'?null:html,{status:200,headers:{...noCache,'content-type':'text/html; charset=utf-8','content-security-policy':`default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'`}});
 }
 const setCookie=(value,maxAge,host=DOMAIN)=>`${COOKIE}=${value}; Max-Age=${maxAge}; Path=/; ${official(host)?'Domain='+DOMAIN+'; ':''}HttpOnly; Secure; SameSite=Lax`;
 function toHome(status,cookieValue){
