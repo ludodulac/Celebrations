@@ -21,3 +21,7 @@
 **Règle de passage :** Mission 04 sera considérée terminée si GitHub Actions retourne `M030_M04_LOCAL_CLEANUP_DRY_RUN_PASS` et un artefact de rapport sécurisé, sans écriture distante.
 
 [Workflow M04 : simulation locale uniquement](https://github.com/ludodulac/Celebrations/actions/workflows/celebrations-m030-m04-local-dry-run.yml).
+
+## Exécution isolée
+
+Lancement protégé par message explicite : les données sont restaurées en mémoire, jamais sur les services officiels. Le rapport final ne contient que les compteurs et contrôles de conservation.
