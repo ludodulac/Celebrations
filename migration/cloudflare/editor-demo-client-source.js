@@ -112,20 +112,12 @@ restoreShared();
 // M034: ALL authored headings, including the first one and old id=1,
 // are ordinary removable blocks. Page routing/name never depends on them.
 // Never silently delete a block just because its text matches page.name.
-// Keep earlier edits while updating obsolete default labels / site welcome picture.
-const homeMedia=window.__PREPARATION_SEED__?.pages?.find(p=>p.id==='neutral-accueil-general')?.blocks.find(b=>b.kind==='image')?.src||'';
+// Correct one historical page label only. Never reinsert an image or a
+// heading after the author removes it from the fully editable homepage.
 for(const p of db.pages||[]){
- if(p.id==='apres-celebration-'+window.__PREPARATION_SEED__?.celebrationId&&p.name==='Après préparation')p.name='Après célébration';
- if(p.id==='neutral-accueil-general'&&homeMedia&&
-  p.blocks?.some(b=>b.kind==='heading'&&['Accueil général','Ronde des Archanges Universelle','Bienvenue sur le site de la Ronde des Archanges Universelle'].includes(b.text))&&
-  // The original welcome image may now be inside a populated section.
-  // Never append a duplicate on reload when the old root image is nested.
-  !p.blocks.some(b=>b.kind==='image'||(b.kind==='section'&&
-    (b.columns||[]).some(col=>Array.isArray(col)&&col.some(x=>x.kind==='image'))))){
-  p.blocks.push({id:99991,kind:'image',text:'Ronde des Archanges Universelle',src:homeMedia,align:'center'});
- }
+ if(p.id==='apres-celebration-'+window.__PREPARATION_SEED__?.celebrationId&&
+    p.name==='Après préparation')p.name='Après célébration';
 }
-
 
 // Day names are page labels, never computed dates.
 const DAY_SLUGS=['mercredi','jeudi','vendredi','samedi','dimanche'];
