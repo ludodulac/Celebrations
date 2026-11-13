@@ -1,0 +1,67 @@
+name: "M031 D1 — diagnostic official en lecture seule"
+on:
+  push:
+    branches: [feat/m031-audit-visibilite-d1-cycles-20261113]
+permissions: {contents: read}
+jobs:
+  audit-d1:
+    if: ${{ contains(github.event.head_commit.message, '[M031_D1_DIAG]') }}
+    runs-on: ubuntu-24.04
+    environment: celebrations-staging
+    timeout-minutes: 12
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - name: Diagnostic read-only of official flag setup and old/private classification
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const base='https://api.cloudflare.com/client/v4/accounts/'+process.env.CLOUDFLARE_ACCOUNT_ID;
+          const headers={authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN};
+          async function cf(path){
+           const r=await fetch(base+path,{headers,signal:AbortSignal.timeout(30000)});
+           if(!r.ok) return {status:r.status,available:false};
+           const j=await r.json();return j.success?j.result:{status:r.status,available:false};
+          }
+          const [settings,d1]=await Promise.all([
+           cf('/workers/scripts/celebrations-exit-production/settings'),
+           cf('/d1/database/28736d2a-479b-472b-bf82-703ad0affe10')
+          ]);
+          const flags=['MEMBER_DIRECTORY_API_ENABLED','MEMBER_DIRECTORY_API_HOST','MEMBER_DIRECTORY_OFFICIAL_ENABLED','EDITOR_D1_SESSION_API_ENABLED','EDITOR_PIN_D1_BRIDGE_ENABLED','MEMBER_PAGE_READ_API_ENABLED'];
+          const enabled=Object.fromEntries(flags.map(k=>[k,settings.bindings?.filter(x=>x.type==='plain_text').find(x=>x.name===k)?.text??'NOT_AVAILABLE']));
+          const r=await fetch(base+'/r2/buckets/celebrations-exit-staging/objects/editor-trials/server-drafts-v1.json',{headers,signal:AbortSignal.timeout(30000)});
+          assert.equal(r.status,200);const state=await r.json();
+          const pageType=p=>({
+           id:p.id,
+           privateManaged:p.privateManaged===true,spaceId:Object.hasOwn(p,'spaceId'),
+           private:p.private===true,isPrivate:p.isPrivate===true,restricted:p.restricted===true,
+           visibility:p.visibility??null,status:p.status??null,
+           accessPolicy:Object.hasOwn(p,'accessPolicy')?{
+             mode:p.accessPolicy?.mode??null,
+             extras:Object.keys(p.accessPolicy??{}).filter(k=>k!=='mode')
+           }:null
+          });
+          function managed(p){return !!p&&(p.privateManaged===true||Object.hasOwn(p,'spaceId')||
+            p.private===true||p.isPrivate===true||p.restricted===true||
+            ['private','restricted'].includes(p.visibility)||['private','restricted'].includes(p.status)||
+            ['private','restricted'].includes(p.publicationStatus)||
+            Object.hasOwn(p,'accessPolicy')&&(p.accessPolicy?.mode!=='PUBLIC'||Object.keys(p.accessPolicy??{}).some(k=>k!=='mode')));}
+          const draft=state.drafts?.['101']||{}, shared=state.shared||{},
+           pub=state.published||{},other=pub.drafts?.['101']||{};
+          const lists=[['draft',draft.pages||[]],['shared',shared.pages||[]],['published',other.pages||[]],['publishedShared',pub.shared?.pages||[]]];
+          // IDs only (never page text). Report only pages whose metadata trips privacy guard.
+          const classification=Object.fromEntries(lists.map(([k,v])=>[k,{total:v.length,managed:v.filter(managed).map(pageType)}]));
+          const view=await fetch('https://ronde-des-archanges-universelle.eu/__editor/demo-preparation?celebration=101',{redirect:'manual'});
+          console.log('M031_D1_DIAG_RESULTS '+JSON.stringify({d1MetadataFound:!!d1.uuid,flags:enabled,r2Version:state.version,
+            privateSpacesCount:(draft.spaces||[]).length,
+            releaseIdsCount:Object.keys(pub.privateReleaseRevisions||{}).length,
+            privatePageReleaseCount:Object.keys(pub.privatePageReleases||{}).length,
+            classification,editorWithoutCookieStatus:view.status}));
+          assert.equal(state.published?.celebrationVisibility?.['101'],'published');
+          console.log('M031_D1_DIAG_READ_ONLY_COMPLETE');
+          NODE
