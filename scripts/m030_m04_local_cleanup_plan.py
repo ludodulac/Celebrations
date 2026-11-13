@@ -176,7 +176,7 @@ def prune_obsolete_media_uses(medias):
         item["uses"]=filtered
     return cleaned,detached
 
-def dry_run_r2(data):
+def dry_run_r2(data, return_cleaned=False):
     require(isinstance(data,dict) and
             isinstance(data.get("drafts"),dict) and
             isinstance(data.get("published"),dict), "Snapshot éditeur invalide")
@@ -271,7 +271,7 @@ def dry_run_r2(data):
     require(set(result["published"]["drafts"])=={KEEP},
             "Les publications secondaires n'ont pas toutes disparu")
     require(digest(data)==digest(copy.deepcopy(data)), "Sauvegarde d'entrée altérée")
-    return {
+    report = {
         "draft_identifiers_deleted_local_only":keys_removed.get("drafts",0),
         "metadata_keys_deleted_local_only":keys_removed.get("celebrationMetadata",0),
         "visibility_and_access_keys_deleted_local_only":(
@@ -290,6 +290,7 @@ def dry_run_r2(data):
         "media_objects_deleted":0,
         "remote_writes":0
     }
+    return (report, result) if return_cleaned else report
 
 def main():
     require(len(sys.argv)==3, "Usage: verify_local.py database.sql editor.json")
