@@ -13,7 +13,7 @@
 | **07** | Supprimer les dates obligatoires du mercredi et les anciens chemins de création libre, client et serveur | ✅ Terminée sur branche : formulaire et calculs supprimés, création libre refusée |
 | **08** | Afficher une célébration unique aux visiteurs avec la version autorisée, et ranger les années en rubriques repliables | ✅ Terminée sur branche : cartes publiques uniques, langues et droits existants préservés |
 | **09** | Parcours Chromium M016, droits et tests de régression | ✅ Vérifications isolées réalisées ; M016 n'a pas de célébration canonique publique pour l'essai mobile des cartes |
-| **10** | Nettoyage officiel contrôlé, index unique, publication finale et retour arrière éprouvé | À faire |
+| **10** | Nettoyage officiel contrôlé, index unique, publication finale et retour arrière éprouvé | ✅ Terminée — en ligne le 13 novembre 2026 |
 
 ## Mission 01 — audit réel, sans aucune écriture
 
@@ -79,13 +79,18 @@ Un **module de règles partagé** `migration/cloudflare/app/domain/celebration-c
 
 [Workflow isolé #43437666207](https://github.com/ludodulac/Celebrations/actions/runs/43437666207) : **SUCCESS**, sans changement du Worker officiel. L'administration affiche correctement les **14 cycles et 56 emplacements**, sans formulaire « Date du mercredi » ni création libre. Les contrôles hors ligne du domaine, de l'authentification, des catégories, des traductions, des pages publiées/privées et des anciennes fonctions sont réussis. Une copie chiffrée de M016 a été faite avant déploiement, et le code de M016 a été validé en navigateur ordinateur. **Réserve importante** : M016 ne comporte aucune célébration canonique publique (les IDs testés 101–106 et 90000001–90000002 renvoient 404). Le parcours visiteur de liste n'a donc pas pu être éprouvé intégralement sur M016 : les tests de domaine et de sécurité ont validé ce comportement, mais le vrai contrôle public est une condition de la publication M10.
 
-## Mission 10 — barrière de sécurité de migration R2
+## Mission 10 — nettoyage et déploiement officiels terminés (13 novembre 2026)
 
-L'ancien procédé REST de Cloudflare a été **explicitement testé sur une clé R2 jetable M016** : le serveur a accepté un PUT accompagné d'un `If-Match` erroné (HTTP 200 au lieu de HTTP 412). **On ne l'utilisera jamais sur le snapshot officiel**, car il pourrait écraser une modification récente de l'administration. Un second mécanisme utilisant `R2Bucket.put(..., {onlyIf:{etagMatches}})` est en test uniquement sur un Worker temporaire M016, qui est effacé après chaque tentative. Tant que cette protection et la restauration ne sont pas validées, **zéro suppression D1/R2 et zéro déploiement officiel M030**. Les copies historiques restent conservées.
+- CAS R2 atomique confirmé en préproduction (Worker temporaire M016), workflow #43439444013 ; ancien REST non atomique exclu.
+- Nettoyage officiel du workflow #43454479973 : copie chiffrée D1/R2, six anciennes identités 102–107 et 21 étapes supprimées dans une transaction contrôlée, index unique créé, Michaël 101 préservé, révision éditeur 248, zéro média supprimé. Un défaut de vérification Node 24 a signalé un échec après le nettoyage et déclenché la restauration du code antérieur, sans modifier les données nettoyées.
+- Finalisation code uniquement : workflow #43455030326, SUCCESS. Site officiel servi à 100 % par le Worker celebrations-exit-production version c26fd5b9-212e-4c58-a22b-98b9a502ce5a. Accueil, PIN admin, droits privés, une seule carte Michaël 2026, refus des anciens liens 102, et 128 médias conservés vérifiés.
+- Liens de contrôle : https://github.com/ludodulac/Celebrations/actions/runs/43454479973 et https://github.com/ludodulac/Celebrations/actions/runs/43455030326.
+
+**Les dix missions M030 sont terminées et la version est publiée sur le domaine officiel https://ronde-des-archanges-universelle.eu/.**
 
 ## Principe impératif
 
-**Le site officiel n'a pas été modifié par M030.** Les missions 02 et 03 préparent les garanties, mais n'autorisent pas l'effacement immédiat : le nettoyage attend encore les missions 04–05 et la validation finale.
+**Historique :** M01–M09 n'ont pas modifié l'officiel ; M10 a procédé au nettoyage protégé et à la publication finale.
 
 
 ## M10 — demande de mise en ligne (13 novembre 2026)
