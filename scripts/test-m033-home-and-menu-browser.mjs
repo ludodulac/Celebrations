@@ -65,8 +65,13 @@ try{
   page.on('pageerror',e=>errors.push(String(e.message||e)));
   await page.route(HOST+'/**',async route=>{
    const request=route.request(),url=new URL(request.url());
+   // The existing official administration automatically attempts to exchange
+   // its PIN cookie for a short-lived D1 session: this is authentication,
+   // never a persistent content write. Reject safely in this unauthenticated mock.
+   if(url.pathname==='/api/admin/editor-session'&&request.method()==='POST')
+    return route.fulfill({status:401,contentType:'application/json',body:'{"ok":false,"error":"test session disabled"}'});
    if(request.method()!=='GET'&&request.method()!=='HEAD'){
-    writes++;return route.fulfill({status:405,body:'No writes in M033 smoke'});
+    writes++;return route.fulfill({status:405,body:'No content writes in M033 smoke'});
    }
    if(url.pathname==='/media/m033-home-existing-photo.jpg')
     return route.fulfill({status:200,contentType:'image/png',body:PNG});
