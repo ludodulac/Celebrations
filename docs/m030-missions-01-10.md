@@ -86,3 +86,8 @@ L'ancien procédé REST de Cloudflare a été **explicitement testé sur une cl�
 ## Principe impératif
 
 **Le site officiel n'a pas été modifié par M030.** Les missions 02 et 03 préparent les garanties, mais n'autorisent pas l'effacement immédiat : le nettoyage attend encore les missions 04–05 et la validation finale.
+
+
+## M10 — demande de mise en ligne (13 novembre 2026)
+
+Autorisation explicite reçue pour terminer et déployer M030 sur le site officiel le plus directement possible. Le workflow de publication conserve toutes les barrières critiques : copie D1/R2 chiffrée avant action, lecture réelle de la version officielle, simulation locale du nettoyage, CAS atomique R2, transaction D1, contrôle réel des accès visiteurs/administration, rollback du Worker si nécessaire. Aucune suppression de fichier média n'est prévue. **Le présent déclenchement ne prouve pas à lui seul le succès final : consulter le résultat du workflow avant de marquer M10 terminée.**
