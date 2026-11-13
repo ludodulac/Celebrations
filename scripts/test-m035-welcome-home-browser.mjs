@@ -153,6 +153,8 @@ try{
   assert.equal(await menu.locator('button').filter({hasText:'Monter'}).count(),1);
   assert.equal(await menu.locator('button').filter({hasText:'Descendre'}).count(),1);
   assert.equal(await menu.locator('select[aria-label^="Visibilité"]').count(),1);
+  // Close the page-action popup before opening the separate settings gear.
+  await homeRow.locator(':scope > .page-options > summary').click();
   // The controls exist only in the original page settings gear (no new admin).
   const gear=page.locator('.m031-settings-details > summary');
   await gear.click();
