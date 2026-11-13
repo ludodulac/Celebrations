@@ -28,6 +28,7 @@ jobs:
           set -euo pipefail
           npm install --no-save --no-package-lock playwright@1.58.2
           npx playwright install --with-deps chromium
+          node scripts/test-m031-m4-compact-browser.mjs
           node scripts/test-m036-unified-pages-browser.mjs
           node scripts/test-m032-media-browser.mjs
           echo M036_TEST_SUCCESS
