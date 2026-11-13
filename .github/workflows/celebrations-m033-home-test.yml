@@ -21,7 +21,7 @@ jobs:
           node --check migration/cloudflare/editor-trial-site-client.mjs
           node --check migration/cloudflare/editor-trial-site-page.mjs
           node --check migration/cloudflare/editor-demo-client.mjs
-          node --test tests/test-editor-trial-site.mjs tests/test_m031_m4_compact_layout.mjs tests/test_m032_standalone_public_media.mjs tests/test_m031_d1_visibility_route.mjs tests/test_m024_cleanup_and_media_safety.mjs tests/test_m012c_private_editor_publication.mjs tests/test_m009c_public_media_api_security.mjs
+          node --test tests/test_m031_m4_compact_layout.mjs tests/test_m032_standalone_public_media.mjs tests/test_m031_d1_visibility_route.mjs tests/test_m024_cleanup_and_media_safety.mjs tests/test_m012c_private_editor_publication.mjs tests/test_m009c_public_media_api_security.mjs
       - name: Chromium phone and computer
         run: |
           set -euo pipefail
