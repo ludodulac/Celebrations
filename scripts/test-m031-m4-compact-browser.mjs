@@ -63,7 +63,7 @@ try{
    await first.hover();
    await page.locator('.m031-page-flyout:popover-open').first().waitFor();
   }
-  await page.getByRole('button',{name:'▤ Pages'}).click();
+  await page.getByRole('button',{name:'▤ Pages',exact:true}).click();
   assert.equal(await page.locator('.m031-workbar #save-btn').count(),1,
    'The real Save button must survive a render/navigation change');
   assert.ok((await page.locator('#workspace .m031-rail-pages').count())+
