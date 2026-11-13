@@ -2961,9 +2961,10 @@ function libraryPicture(card,name,src,unused){
 function libraryUnusedText(card,unused,hasImage){
  // No "Inutilisé" badge: accurate page references appear below the image.
 }
-function libraryLocationLinks(card,links){
+function libraryLocationLinks(card,links,usageUnknown=false){
  const box=n('div','file-usage-links');
- if(!links.length)box.append(n('span','file-location-nowhere','N’apparaît nulle part'));
+ if(!links.length)box.append(n('span','file-location-nowhere',
+  usageUnknown?'Référence à vérifier':'N’apparaît nulle part'));
  for(const item of links){
   const state=['hidden','draft','published'].includes(item.usageStatus)?
     item.usageStatus:'published';
@@ -3076,7 +3077,7 @@ function media(){
   if(hasImage)libraryPicture(card,record.name,record.src,unused);
   libraryPreview(card,record.name,record.src,record.category||mediaCategoryOf(record));
   libraryUnusedText(card,unused,hasImage);
-  libraryLocationLinks(card,refs);
+  libraryLocationLinks(card,refs,record.usageUnknown===true);
   const controls=n('div','file-actions');
   if(chosenBlock&&mediaCategory==='audios'&&record.type==='audio')
    controls.append(b('Insérer dans le lecteur',()=>attachChosenAudio(record),'sm primary'));
