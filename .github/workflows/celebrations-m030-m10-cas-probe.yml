@@ -1,0 +1,22 @@
+name: "Célébrations M030 M10 — test CAS R2 en préproduction uniquement"
+on:
+  push:
+    branches: [feat/m030-canonical-celebration-cycles-20261113]
+permissions: {contents: read}
+jobs:
+  isolated-r2-condition:
+    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M030_M10_CAS_PROBE]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    environment: celebrations-staging
+    env:
+      M030_CAS_PROBE_ONLY: 'YES'
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - name: Test atomic If-Match only against disposable M016 R2 key
+        run: node scripts/m030_probe_r2_conditional.mjs
