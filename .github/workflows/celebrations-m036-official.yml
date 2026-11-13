@@ -240,7 +240,8 @@ jobs:
             assert.ok(second.height>=Math.min(510,h*.66)-6,
              'Short pages retain an actual minimum page surface');
             await page.locator('#menu-toggle').click();
-            const items=await page.locator('#general-navigation .general-tab').allInnerTexts();
+            const items=(await page.locator('#general-navigation .general-tab').allTextContents()).map(x=>x.trim());
+            console.log('M036_PUBLIC_MENU_ORDER width='+w+' items='+JSON.stringify(items));
             const celebration=items.findIndex(t=>t.includes('Célébrations'));
             const media=items.findIndex(t=>t.includes('Médiathèque'));
             assert.ok(celebration>=1&&media>celebration);
