@@ -46,7 +46,7 @@ export async function readLegacyMediaReferences(db){
  }catch{return null}
 }
 export function canSafelyDeleteMedia(entry,state,legacyRefs){
- if(!entry||!CAN_DELETE.has(entry.source)||entry.general||
+ if(!entry||!CAN_DELETE.has(entry.source)||entry.general||entry.publicLink===true||
     !entry.src||!(legacyRefs instanceof Set))return false;
  if(inSavedContent(state,entry.src))return false;
  // Legacy D1 data is a second authority; check both old paths and URLs.
