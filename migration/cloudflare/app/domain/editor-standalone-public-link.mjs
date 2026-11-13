@@ -4,13 +4,13 @@
 // so every request rechecks private-page/space/category ownership before R2 reads.
 // No automatic promotion of "unused" files or hidden celebration assets.
 import {editorUploadPath} from './editor-upload-formats.mjs';
+import {canAccessPolicy,ACCESS_MODES} from './member-access.mjs';
 import {isPrivateMediaRecord,isPrivateMediaReference} from '../security/public-media-boundary.mjs';
 
 const own=(obj,key)=>Object.prototype.hasOwnProperty.call(obj||{},key);
 const object=value=>value!==null&&typeof value==='object';
 const PRIVATE=new Set(['private','restricted']);
-const publicPolicy=policy=>!policy||policy.mode==='PUBLIC'&&
- !Object.keys(policy).some(key=>key!=='mode');
+const publicPolicy=policy=>!policy||canAccessPolicy(policy)&&policy.mode===ACCESS_MODES.PUBLIC;
 
 function references(value,src){
  if(!object(value))return typeof value==='string'&&value.includes(src);
