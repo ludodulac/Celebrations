@@ -142,4 +142,27 @@ export const M031_COMPACT_LAYOUT_CSS = `
   grid-template-columns:minmax(0,1fr);max-height:63dvh
  }
 }
+
+/* M032 — direct media URL controls on the existing admin cards, no new panel. */
+.stage-editor.m031-compact .global-media-card .file-actions{
+ display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-top:8px
+}
+.stage-editor.m031-compact .global-media-card .file-actions .btn{
+ min-height:40px;white-space:normal;line-height:1.25;
+ text-align:center;text-decoration:none
+}
+.stage-editor.m031-compact .media-direct-public-status,
+.stage-editor.m031-compact .media-direct-private-status{
+ display:block;font:600 12px/1.4 system-ui,sans-serif;margin:9px 0 3px;
+ padding:8px 9px;border-radius:8px;overflow-wrap:anywhere
+}
+.stage-editor.m031-compact .media-direct-public-status{
+ color:#145737;background:#eaf8ef;border:1px solid #bfe6c9
+}
+.stage-editor.m031-compact .media-direct-private-status{
+ color:#414f5b;background:#f5f7f8;border:1px solid #e1e6ea
+}
+@media(max-width:600px){
+ .stage-editor.m031-compact .global-media-card .file-actions .btn{flex:1 1 140px}
+}
 `;
