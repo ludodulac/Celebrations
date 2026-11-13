@@ -56,7 +56,7 @@ function visibleSlotCatalogue(existingRows=[],visibility={}){
  return {duplicates,unsupported,slots:preparedCelebrationSlots().map(slot=>{
   const original=byKey.get(slot.slotKey),id=original?String(original.id):null;
   // 56 scheduled identities are not 56 pages or 56 published celebrations.
-  const isVisible=id&&visibility[id]==='published'&&original?.status!=='draft';
+  const isVisible=id&&visibility[id]==='published';
   return {...slot,id,provisioned:!!id,visibility:isVisible?'published':'hidden'};
  })};
 }
