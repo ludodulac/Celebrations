@@ -5,7 +5,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {
  CELEBRATION_CYCLE_START,CELEBRATION_CYCLE_END,CANONICAL_ARCHANGELS,
  celebrationCycle,preparedCelebrationSlots,cycleFromExisting,
- categorizeExistingCelebrations,visibleSlotCatalogue,canonicalAudience,
+ categorizeExistingCelebrations,visibleSlotCatalogue,publicCelebrationEntries,canonicalAudience,
  celebrationVersionKey,validateNewCelebrationVersion
 } from '../migration/cloudflare/app/domain/celebration-cycle-registry.mjs';
 
@@ -180,4 +180,64 @@ test('M05–M06 existing editor has one 14-cycle selector and one safeguarded va
  assert.ok(catalog.includes("publication.append(b('Dupliquer'"));
  assert.ok(generated.includes('Nom distinct de la version'),
   'Regenerated editor contains the same single duplicate dialogue');
+});
+
+test('M08 visitor sees a canonical cycle once despite historical D1 duplicates',()=>{
+ const rows=[
+  {id:101,archangel:'Michaël',year:'2026'},
+  {id:105,archangel:'Michaël',year:'2026'},
+  {id:106,archangel:'Michael',year:'2026'},
+  {id:102,archangel:'Gabriel',year:'2026–2027'},
+  {id:103,archangel:'Raphaël',year:'2027'},
+  {id:104,archangel:'Ouriel',year:'2028'},
+  {id:107,archangel:'Gabriel',year:'2027'}
+ ];
+ const vis={'101':'published','105':'published','106':'published','102':'published',
+  '103':'draft','104':'hidden','107':'published'};
+ const policies={'102':{mode:'SELECTED_TYPES',typeIds:['porteurs']},
+  '105':{mode:'SELECTED_TYPES',typeIds:['porteurs']}};
+ const cards=publicCelebrationEntries(rows,vis,policies);
+ assert.deepEqual(cards.map(x=>x.id),['101','102']);
+ assert.deepEqual(cards.map(x=>x.title),['Michaël 2026','Gabriel 2026–2027']);
+ assert.equal(cards[0].titleOnly,false);
+ assert.equal(cards[1].titleOnly,true,'Private title appears without visitor pages');
+ assert.equal(cards[0].slotKey,'michael-2026');
+ assert.equal(publicCelebrationEntries(rows,{'101':'hidden'},policies).some(x=>x.id==='101'),false);
+ assert.deepEqual(publicCelebrationEntries(rows,{},policies),[],
+  'A virtual future slot or unpublished name is never sent to visitors');
+});
+test('M08 private-only celebration has title only; public version may replace the label',()=>{
+ const row1={id:201,archangel:'Michaël',year:'2026'};
+ const row2={id:205,archangel:'Michaël',year:'2026'};
+ let items=publicCelebrationEntries([row1,row2],{'201':'published','205':'published'},
+  {'201':{mode:'ALL_PRIVATE_TYPES'}});
+ assert.deepEqual(items.map(x=>x.id),['205'],'Public identity takes priority');
+ items=publicCelebrationEntries([row1],{'201':'published'},
+  {'201':{mode:'SELECTED_TYPES',typeIds:['porteurs']}});
+ assert.equal(items[0].titleOnly,true);
+ assert.equal(items[0].id,'201');
+});
+test('M07 no generated calendar or legacy free-creation form remains in admin and public scripts',async()=>{
+ const admin=readFileSync(new URL('../migration/cloudflare/editor-demo-client-source.js',import.meta.url),'utf8');
+ const visitor=readFileSync(new URL('../migration/cloudflare/editor-trial-site-client.mjs',import.meta.url),'utf8');
+ const loader=readFileSync(new URL('../migration/cloudflare/editor-demo-preparation-page.mjs',import.meta.url),'utf8');
+ const saveApi=readFileSync(new URL('../migration/cloudflare/editor-server-draft-api.mjs',import.meta.url),'utf8');
+ for(const bad of ['Date du mercredi :','Dates de préparation','function validWednesday(',
+  'function dayIso(','function updatePreparationDate(','function addPreparationDate('])
+  assert.ok(!admin.includes(bad),'Obsolete admin date control: '+bad);
+ assert.ok(!visitor.includes('function validWednesday('));
+ assert.ok(!visitor.includes('function dayIso('));
+ assert.ok(!visitor.includes('function dateForPage('));
+ assert.ok(!loader.includes('function plannedCelebration('));
+ assert.ok(!loader.includes('Dates : '));
+ assert.ok(saveApi.includes('JSON.stringify(body.plans)!==JSON.stringify(current.state.plans)'),
+  'Legacy API cannot recreate date-based plans');
+ assert.ok(saveApi.includes('!Object.hasOwn(current.state.drafts,body.celebration)'),
+  'Legacy API cannot create another celebration record');
+ assert.ok(loader.includes('publicCelebrationEntries(allCelebrations'));
+ assert.ok(loader.includes("if(selected&&!allowedIds.has(String(selected)))"),
+  'Anonymous direct links cannot bypass visibility/rights or duplicate identities');
+ assert.ok(visitor.includes('seed.celebrations||[]'));
+ assert.ok(!visitor.includes('window.__PUBLIC_SITE_SNAPSHOT__?.titleOnlyCelebrations||[]'),
+  'No second shadow list of variants');
 });
