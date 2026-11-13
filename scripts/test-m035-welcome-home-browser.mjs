@@ -157,7 +157,7 @@ try{
   const gear=page.locator('.m031-settings-details > summary');
   await gear.click();
   const set=page.locator('.m035-entry-settings');
-  await set.locator('> summary').click();
+  await set.locator(':scope > summary').click();
   const nameField=set.getByRole('textbox',{name:'Texte du bouton d’accueil'});
   assert.equal(await nameField.inputValue(),'Bienvenue');
   await nameField.fill('Entrer dans la ronde');
