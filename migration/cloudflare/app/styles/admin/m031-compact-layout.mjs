@@ -260,4 +260,25 @@ export const M031_COMPACT_LAYOUT_CSS = `
  .stage-editor.m031-compact .m035-entry-fields{padding:9px 10px}
  .stage-editor.m031-compact .m035-entry-colors{grid-template-columns:1fr 1fr}
 }
+
+/* M036 — The original star is the only shortcut to the public site. */
+.stage-editor .rail .brand .m036-public-star{
+ display:grid;place-items:center;flex:0 0 auto;
+ color:inherit;text-decoration:none;cursor:pointer
+}
+.stage-editor .rail .brand .m036-public-star:hover{
+ filter:brightness(1.12);box-shadow:0 2px 10px #13282035
+}
+.stage-editor .rail .brand .m036-public-star:focus-visible{
+ outline:3px solid #7ca796;outline-offset:3px
+}
+/* Image size controls remain in the existing block editor, on touch too. */
+.stage-editor .m036-full-bleed-field{
+ display:flex;align-items:center;gap:10px;margin:9px 0;
+ font-weight:600;font-size:13px;line-height:1.35;
+ min-height:42px;cursor:pointer
+}
+.stage-editor .m036-full-bleed-field input[type=checkbox]{
+ flex:0 0 21px;width:21px;min-width:21px;height:21px;cursor:pointer
+}
 `;
