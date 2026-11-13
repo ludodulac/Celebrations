@@ -16,7 +16,7 @@ import {
 import {indexCanonicalPublishedContent} from './app/persistence/private-canonical-content.mjs';
 import {privateReleaseReady} from './app/persistence/private-release-fence.mjs';
 import {canAccessPage,SPACE_VISIBILITIES,ACCESS_MODES} from './app/domain/member-access.mjs';
-import {readLegacyMediaReferences,canSafelyDeleteMedia} from './app/domain/editor-media-usage-safety.mjs';
+import {readLegacyMediaReferences,canSafelyDeleteMedia,inSavedContent} from './app/domain/editor-media-usage-safety.mjs';
 import {handleEditorMultipartUpload} from './app/application/editor-multipart-upload.mjs';
 import {canShareStandaloneMedia} from './app/domain/editor-standalone-public-link.mjs';
 
@@ -546,7 +546,10 @@ export async function handleEditorMedia(request,env){
   // item is absent from all saved drafts, publications, translations, private
   // versions, branding and historical D1 references. Unknown = protected.
   const items=discoverMedia(legacyEditorView(state)).map(item=>({
-   ...item,canDelete:canSafelyDeleteMedia(item,state,legacyRefs)
+   ...item,canDelete:canSafelyDeleteMedia(item,state,legacyRefs),
+   // Private/language/identity references may not have a navigable page link.
+   // Never claim that such an object appears nowhere.
+   usageUnknown:(!item.uses||item.uses.length===0)&&inSavedContent(state,item.src)
   }));
   return json({ok:true,items});
  }
