@@ -1,7 +1,7 @@
 name: "M037 — médiathèque simplifiée et guide actualisé (tests)"
 on:
   push:
-    branches: [feat/m037-unified-pages-menu-polish-20261113]
+    branches: [feat/m037-media-library-usage-cleanup-20261113]
 permissions: {contents: read}
 jobs:
   m033:
