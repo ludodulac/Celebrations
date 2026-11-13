@@ -922,6 +922,8 @@ function editorFormatToolbar(x,z,box){
 const SERVER_ENDPOINT='/api/editor-open-draft';
 const SERVER_ID=String(window.__PREPARATION_SEED__?.celebrationId||'');
 let serverRevision=null,serverRemoteVersion=0,serverSaving=false,serverDiverged=false;
+// M031: server-published R2 visibility is authoritative, not browser-local draft state.
+let serverPublishedCelebrationVisibility=null;
 let serverBaseRecord=null,serverBaseShared=null,serverBasePlans=null,serverBaseLocalization=null;
 let serverSaveQueued=false,serverLocalEditCounter=0;
 const serverSame=(a,b)=>editorSyncPolicy.same(a,b);
@@ -938,6 +940,8 @@ async function serverLoad(){
   }
   const payload=await response.json();
   serverRevision=payload.revision;if(payload.celebrationMetadata)celebrationMetadata=payload.celebrationMetadata;
+  const publicStates=payload.publishedCelebrationVisibility;
+  serverPublishedCelebrationVisibility=publicStates&&typeof publicStates==='object'&&!Array.isArray(publicStates)?{...publicStates}:null;
   globalMedia=Array.isArray(payload.mediaCatalogue)?payload.mediaCatalogue:globalMedia;
   const remote=payload.record;
   serverBaseRecord=clone(remote);serverBaseShared=clone(payload.shared);
@@ -1016,6 +1020,7 @@ async function serverPublish(command,{flushContent=true}={}){
     let shared={};try{shared=JSON.parse(localStorage.getItem(SHARED_KEY)||'{}')}catch{}
     shared.celebrationVisibility={...shared.celebrationVisibility,[SERVER_ID]:command.visibility};
     localStorage.setItem(SHARED_KEY,JSON.stringify(shared));
+    serverPublishedCelebrationVisibility={...(serverPublishedCelebrationVisibility||{}),[SERVER_ID]:command.visibility};
     render();serverMessage('Visibilité enregistrée.');return true;
    }
   }
@@ -1038,6 +1043,7 @@ async function serverPublish(command,{flushContent=true}={}){
    shared.celebrationVisibility||={};
    shared.celebrationVisibility[SERVER_ID]=command.visibility;
    localStorage.setItem(SHARED_KEY,JSON.stringify(shared));
+   serverPublishedCelebrationVisibility={...(serverPublishedCelebrationVisibility||{}),[SERVER_ID]:command.visibility};
    const plans=plannedEntries(),plan=plans.find(x=>x.id===SERVER_ID);
    if(plan){plan.visibility=command.visibility;localStorage.setItem(PLANS_KEY,JSON.stringify(plans));}
   }else if(command.kind==='media'){
@@ -2409,6 +2415,8 @@ function makeHome(p){db.siteHomeId=p.id;mark();save();render()}
 const VISIBILITY_LABELS=editorPageModel.visibilityLabels;
 function stateOfPage(p){return editorPageModel.pageVisibility(p)}
 function sharedVisibility(){
+ // An authenticated current server status wins over a stale local browser draft.
+ if(IS_STAGE&&serverPublishedCelebrationVisibility!==null)return serverPublishedCelebrationVisibility;
  try{return JSON.parse(localStorage.getItem(SHARED_KEY)||'{}').celebrationVisibility||{}}catch{return {}}
 }
 function celebrationState(entry){
