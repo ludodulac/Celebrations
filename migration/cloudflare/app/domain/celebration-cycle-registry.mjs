@@ -68,7 +68,7 @@ function publicCelebrationEntries(rows=[],visibility={},policies={}){
  const selected=new Map();
  for(const row of rows){
   const slot=cycleFromExisting(row),id=String(row?.id||'');
-  if(!slot||!/^[1-9]\\d*$/.test(id)||visibility[id]!=='published')continue;
+  if(!slot||!Number.isSafeInteger(Number(id))||Number(id)<1||String(Number(id))!==id||visibility[id]!=='published')continue;
   const mode=policies[id]?.mode||'PUBLIC';
   if(!['PUBLIC','ALL_PRIVATE_TYPES','SELECTED_TYPES'].includes(mode))continue;
   const entry={id,archangel:slot.archangel,year:slot.year,
