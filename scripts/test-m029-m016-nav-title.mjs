@@ -76,7 +76,17 @@ try{
    errors}));
  }
  console.log('M029_M016_API_PERSISTENCE_PASS');
- r=await page.goto(HOST+'/__editor/voir-le-site?celebration=90000002',{waitUntil:'domcontentloaded'});
+ // M016 has different test celebrations from the editor page selected above.
+ // Find an actually published public celebration without adding any data.
+ let preview=null;const attempts=[];
+ for(const cid of ['101','102','103','104','105','106','90000001','90000002']){
+  const url='/__editor/voir-le-site?celebration='+cid;
+  const probe=await ctx.request.get(HOST+url,{failOnStatusCode:false});
+  attempts.push({cid,status:probe.status()});
+  if(probe.status()===200){preview=url;break}
+ }
+ if(!preview)throw Error('M016 has no readable visitor celebration: '+JSON.stringify(attempts));
+ r=await page.goto(HOST+preview,{waitUntil:'domcontentloaded'});
  assert.equal(r.status(),200);
  const label=page.locator('.site-menu-bar .site-nav-title');
  assert.equal(await label.innerText(),'Ronde des Archanges');
@@ -86,7 +96,7 @@ try{
  await page.screenshot({path:folder+'/02-titre-visible-menu-ordinateur.png',fullPage:true});
  // The same title must be present but hidden by CSS on a narrow viewport.
  const mobile=await mobileCtx.newPage();
- r=await mobile.goto(HOST+'/__editor/voir-le-site?celebration=90000002',{waitUntil:'domcontentloaded'});
+ r=await mobile.goto(HOST+preview,{waitUntil:'domcontentloaded'});
  assert.equal(r.status(),200);
  const hidden=mobile.locator('.site-menu-bar .site-nav-title');
  assert.equal(await hidden.count(),1);
