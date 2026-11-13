@@ -27,3 +27,7 @@
 5. Test Chromium sur M016, restauration et déploiement officiel protégé.
 
 Aucune suppression officielle pendant l'inventaire.
+
+## Audit réel du 13 novembre 2026
+
+Inventaire officiel lecture seule : 7 identités D1 dont **3 Michaël 2026** (IDs 101, 105, 106), une Gabriel 2026–2027 (102), une Raphaël 2027 (103), une Ouriel 2028 (104), et une Gabriel 2027 (107). **La seule Michaël 2026 publiée et active est l'ID 101**, avec huit pages de brouillon et huit publiées. Les copies 105/106 sont des brouillons (106 a une traduction non publiée), Gabriel 102 possède une page publiée : tout doit être couvert par une sauvegarde avant suppression. Le Worker officiel observé est la version 76f31003-53b1-436f-ab6d-3217b05c91c3. Aucune modification effectuée pendant cet inventaire. Le deuxième audit vérifie les références D1 avant de décider comment retirer les identités secondaires.
