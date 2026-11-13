@@ -650,6 +650,49 @@ async function createExternalMedia(){
  globalMedia=globalMedia.filter(x=>x.id!==result.item.id).concat(result.item);
  status.textContent='✓ Lien conservé dans la médiathèque globale';render();
 }
+// M032 — a file's URL and sharing choice are independent of a celebration.
+// Never publish anything automatically when it is uploaded or marked "Inutilisé".
+async function copyPermanentMediaUrl(media){
+ const full=new URL(media.src,location.origin).href;
+ try{
+  if(!navigator.clipboard?.writeText)throw Error('Clipboard absent');
+  await navigator.clipboard.writeText(full);
+  status.textContent='✓ Adresse du fichier copiée.';
+ }catch{
+  await sitePrompt('Copiez cette adresse du fichier :',full);
+ }
+}
+async function setStandalonePublicLink(media,publicLink){
+ if(!IS_STAGE||!LIVE_MEDIA_UPLOAD_HOST)return;
+ if(serverRevision===null||!Number.isSafeInteger(serverRevision)){
+  siteNotice('Rechargez l’administration pour retrouver la dernière version de la médiathèque.');return;
+ }
+ const accepted=await siteConfirm(publicLink?
+  'Rendre « '+media.name+' » accessible à toute personne possédant son adresse Internet, même si la célébration est masquée ? Les contenus privés des membres restent protégés.':
+  'Désactiver le lien public direct de « '+media.name+' » ? Le fichier sera conservé dans la médiathèque.');
+ if(!accepted)return;
+ const response=await fetch('/api/editor-media?action=public-link',{
+  method:'POST',cache:'no-store',headers:{'content-type':'application/json'},
+  body:JSON.stringify({id:media.id,publicLink,expectedRevision:serverRevision})
+ });
+ const result=await response.json().catch(()=>({}));
+ if(!response.ok){
+  if(response.status===409)serverRevision=null;
+  siteNotice(result.error||'Changement du lien impossible. Aucun fichier supprimé.');return;
+ }
+ if(result.publicLink!==publicLink||!Number.isSafeInteger(result.revision)){
+  siteNotice('Confirmation du serveur manquante, rechargez la médiathèque.');return;
+ }
+ serverRevision=result.revision;db._serverRevision=serverRevision;
+ globalMedia=globalMedia.map(item=>item.id===media.id?
+  {...item,...result.item,publicLink,canDelete:false}:item);
+ status.textContent=publicLink?
+  '✓ Lien public direct activé. Il reste valable si la célébration est masquée.':
+  '✓ Lien public direct désactivé. Le fichier est conservé.';
+ render();
+ // Refresh the server's conservative unused/delete badge after the toggle.
+ void refreshGlobalMedia();
+}
 async function deleteGlobalMedia(media){
  if(!(await siteConfirm('Supprimer « '+media.name+' » de la médiathèque ? Si ce fichier est encore utilisé, la suppression sera refusée.')))return;
  const response=await fetch('/api/editor-media?action=delete',{method:'POST',
@@ -2899,6 +2942,26 @@ function media(){
   const controls=n('div','file-actions');
   if(chosenBlock&&mediaCategory==='audios'&&record.type==='audio')
    controls.append(b('Insérer dans le lecteur',()=>attachChosenAudio(record),'sm primary'));
+  // Existing R2 paths stay exactly the same. Only admin-uploaded objects
+  // can be released independently of a celebration.
+  const standaloneUpload=record.source==='uploaded'&&
+   /^\\/media\\/new\\/[a-f0-9-]+\\.(?:jpg|png|webp|pdf|mp3|wav|txt|docx)$/i.test(record.src||'');
+  if(standaloneUpload){
+   const open=n('a','btn sm media-open-direct','👁 Voir');
+   open.href=record.src;open.target='_blank';open.rel='noopener noreferrer';
+   open.title='Afficher le fichier dans le navigateur lorsque le format le permet';
+   controls.append(open);
+   if(record.publicLink===true){
+    controls.append(b('🔗 Copier l’URL',()=>void copyPermanentMediaUrl(record),'sm'));
+    card.append(n('small','media-direct-public-status',
+     '🌍 Lien public autonome : reste accessible si la célébration est masquée.'));
+   }else{
+    card.append(n('small','media-direct-private-status',
+     '🔒 Fichier conservé. Partage public direct non activé.'));
+   }
+   controls.append(b(record.publicLink===true?'🔒 Désactiver le lien public':'🌍 Rendre le lien public',
+    ()=>void setStandalonePublicLink(record,record.publicLink!==true),'sm'));
+  }
   if(unused)controls.append(b('Supprimer si inutilisé',()=>void deleteGlobalMedia(record),'sm'));
   card.append(controls);cards.append(card);
  }
