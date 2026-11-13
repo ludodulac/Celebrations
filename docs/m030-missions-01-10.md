@@ -10,8 +10,8 @@
 | **04** | Préparer le plan exact du nettoyage et le répéter sur des copies isolées sans perdre Michaël 101 ni les pages générales | ✅ Terminée — simulation locale et retour arrière validés |
 | **05** | Imposer l'identité unique archange/cycle en D1 et préparer les 56 emplacements masqués, avec visibilité cohérente | ✅ Terminée sur branche ; index D1 différé après nettoyage M10 |
 | **06** | Corriger une seule fois la duplication interne : nouveau nom, langue, catégorie/public, refus des doublons et brouillon protégé | ✅ Terminée sur branche ; bouton et API sécurisés, tests ciblés réussis |
-| **07** | Supprimer les dates obligatoires du mercredi et les anciens chemins de création libre, client et serveur | À faire |
-| **08** | Afficher une célébration unique aux visiteurs avec la version autorisée, et ranger les années en rubriques repliables | À faire |
+| **07** | Supprimer les dates obligatoires du mercredi et les anciens chemins de création libre, client et serveur | ✅ Terminée sur branche : formulaire et calculs supprimés, création libre refusée |
+| **08** | Afficher une célébration unique aux visiteurs avec la version autorisée, et ranger les années en rubriques repliables | ✅ Terminée sur branche : cartes publiques uniques, langues et droits existants préservés |
 | **09** | Parcours complet Chromium M016 (smartphone/ordinateur), droits privés, langues, sauvegardes et tests de régression | À faire |
 | **10** | Nettoyage officiel contrôlé, index unique, publication finale et retour arrière éprouvé | À faire |
 
@@ -64,6 +64,16 @@ Un **module de règles partagé** `migration/cloudflare/app/domain/celebration-c
 **M06 :** dans une célébration existante, le bouton « Dupliquer » ouvre **un seul formulaire** avec un nom différent, un choix de destinataires (Public / catégorie / tous les inscrits) et une langue. S'il n'y a pas de catégorie active, le dialogue n'est pas ouvert et l'utilisateur reçoit une indication explicite. Le serveur confirme la catégorie réelle et la langue, rejette les combinaisons destinataires + langue déjà présentes (et les noms identiques), conserve la **même identité D1**, écrit uniquement un **brouillon R2**, n'accorde aucun droit, ne publie aucune version et utilise la protection de révision contre deux doublons simultanés. Tests serveur : pas de catégorie => aucun écrit, nouvelle version publique anglais => brouillon, répétition refusée, version privée espagnole => brouillon sans inscription ni publication ; tests de l'interface/bundle réussis.
 
 **Important :** ces changements ne sont **pas déployés** sur le site officiel ; M10 devra appliquer l'index D1 après le nettoyage isolé et faire la mise en service. Tous les fichiers et célébrations existants sont encore en place.
+
+## Missions 07 et 08 — modifications réalisées sur la branche
+
+[Tests ciblés GitHub Actions M030 #43436024301](https://github.com/ludodulac/Celebrations/actions/runs/43436024301) : **SUCCESS**. Domaine, routes de création, menu public et compilation du JavaScript visiteur validés ; **aucun déploiement Cloudflare**. Les tests généraux et le parcours Chromium restent regroupés en mission 09.
+
+**M07 — calendrier et création :** l'administration ne demande plus de « date du mercredi » ni de « dates de préparation » ; les calculs d'horaires calendaires et les textes de date injectés automatiquement ont été retirés de l'éditeur et du site visiteur. Les **dates rédigées librement dans les pages existantes restent inchangées**. Les routes de plans obsolètes dérivés d'un mercredi ne sont plus proposées au visiteur. L'ancienne API de sauvegarde refuse de créer des brouillons arbitraires et de changer la liste des plans : seule la commande canonique de préparation de cycle peut activer un emplacement. Les éventuelles heures manuelles de page restent disponibles.
+
+**M08 — accueil visiteurs :** un **seul choix** par couple archange/cycle publié est construit côté serveur ; les anciens doublons D1 ne produisent pas de deuxième carte. Les 56 emplacements futurs masqués ne sont jamais envoyés aux visiteurs ; seules les célébrations explicitement publiées y figurent. Une célébration privée publiée peut afficher son nom sans exposer ses pages ni accepter un lien direct anonyme. La langue choisie continue d'utiliser les traductions **explicitement publiées** ; les versions privées restent dans les parcours membres, jamais dans la liste publique. Les 14 années prévues étaient déjà rangées dans des rubriques repliables dans l'administration (M05).
+
+**Précaution de livraison :** pas de suppression des six anciennes célébrations ni de migration de l'index UNIQUE avant le nettoyage M10. Le site officiel est inchangé ; la vérification navigateur complète et la sécurité fin-à-fin restent en M09.
 
 ## Principe impératif
 
