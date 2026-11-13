@@ -36,6 +36,8 @@ jobs:
           test -s /tmp/m030-editor-readonly.json
       - name: Count and compare existing official celebrations (no personal data)
         run: node scripts/m030_readonly_inventory.mjs
+      - name: Count foreign references to every celebration before any cleanup
+        run: node scripts/m030_readonly_dependencies.mjs
       - name: Remove local plaintext copy, do not upload it
         if: always()
         run: rm -f /tmp/m030-editor-readonly.json
