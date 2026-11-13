@@ -138,6 +138,8 @@ export async function handleServerDraft(request,env){
    const {state}=await stored(draftBucket);
    const view=legacyEditorView(state);
    return json({ok:true,revision:state.version,record:view.drafts[id]||null,plans:state.plans,shared:view.shared,
+    // Published R2 is authoritative. Draft shared/localStorage can be absent or stale.
+    publishedCelebrationVisibility:state.published?.celebrationVisibility||state.shared?.celebrationVisibility||{},
     localization:view.localization||null,celebrationMetadata:state.celebrationMetadata??{},
     mediaCatalogue:discoverMedia(view),updatedAt:state.updatedAt||null});
   }
