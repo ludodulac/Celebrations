@@ -20,7 +20,7 @@ jobs:
         with: {persist-credentials: false}
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
-      - name: Guard: exact branch, no Cloudflare access, expected M03 run
+      - name: 'Guard — exact branch, no Cloudflare access, expected M03 run'
         shell: bash
         run: |
           set -euo pipefail
