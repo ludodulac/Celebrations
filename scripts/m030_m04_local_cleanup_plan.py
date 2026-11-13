@@ -157,6 +157,25 @@ def page_ids(record):
         pages.extend(space.get("pages",[]) or [])
     return {p["id"] for p in pages if isinstance(p,dict) and isinstance(p.get("id"),str)}
 
+def prune_obsolete_media_uses(medias):
+    # Media entries, storage references and actual R2 files are immutable.
+    # A "uses" entry solely pointing to a deleted celebration is obsolete
+    # metadata, not an owned asset. Strip only those use associations in copy.
+    require(isinstance(medias,list), "Médiathèque inattendue")
+    cleaned=copy.deepcopy(medias)
+    detached=0
+    for item in cleaned:
+        require(isinstance(item,dict), "Fichier média malformé")
+        if "uses" not in item:
+            continue
+        uses=item["uses"]
+        require(isinstance(uses,list), "Références média malformées")
+        filtered=[use for use in uses if not (isinstance(use,dict)
+                   and str(use.get("celebrationId")) in REMOVE)]
+        detached+=len(uses)-len(filtered)
+        item["uses"]=filtered
+    return cleaned,detached
+
 def dry_run_r2(data):
     require(isinstance(data,dict) and
             isinstance(data.get("drafts"),dict) and
@@ -166,12 +185,13 @@ def dry_run_r2(data):
             isinstance(data.get("shared"),dict), "Publication ou pages générales absentes")
     require(KEEP in data["drafts"] and KEEP in published["drafts"],
             "Michaël 101 doit être conservé en brouillon ET publié")
+    media_expected,detached_media_references=prune_obsolete_media_uses(data.get("mediaCatalogue",[]))
     keep={
         "draft":digest(data["drafts"][KEEP]),
         "published":digest(published["drafts"][KEEP]),
         "shared":digest(data["shared"].get("pages",[])),
         "published_shared":digest(published.get("shared",{})),
-        "media":digest(data.get("mediaCatalogue",[])),
+        "media":digest(media_expected),
         "languages":digest(data.get("localization",{}).get("registry",{})),
         "members":digest({k:v for k,v in data.items()
                           if any(s in k.lower() for s in ("member","person","enroll"))}),
@@ -227,8 +247,9 @@ def dry_run_r2(data):
             if pid in pages:
                 pages.pop(pid)
                 translations_removed+=1
-    # Never touch the media library or R2 objects. If media references an old
-    # celebration, it is flagged; keep the object and any shared references.
+    # Correct ONLY the obsolete usage associations: keep every media asset,
+    # every other usage, all stored paths and every R2 media object untouched.
+    result["mediaCatalogue"]=media_expected
     refs=walk_refs(result)
     require(not refs,
             "Références résiduelles après simulation : "+",".join(refs[:8]))
@@ -263,7 +284,8 @@ def dry_run_r2(data):
         "michael_published_pages_preserved":len(published["drafts"][KEEP].get("pages",[])),
         "general_pages_preserved":len(data["shared"].get("pages",[])),
         "general_published_pages_preserved":len(published.get("shared",{}).get("pages",[])),
-        "media_items_untouched":len(data.get("mediaCatalogue",[])),
+        "media_items_preserved":len(data.get("mediaCatalogue",[])),
+        "obsolete_media_use_references_detached_local_only":detached_media_references,
         "michael_101_and_shared_unchanged":True,
         "media_objects_deleted":0,
         "remote_writes":0
