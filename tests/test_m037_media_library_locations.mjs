@@ -1,4 +1,4 @@
-// M037 — vérifications avant livraison sur le site officiel : galerie, accès, mode d’emploi.
+// M037 — tests du déploiement approuvé sur le site officiel : galerie, accès, mode d’emploi.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
