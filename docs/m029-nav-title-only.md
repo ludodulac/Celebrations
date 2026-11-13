@@ -7,3 +7,7 @@
 **Tests M016 isolés** : déploiement limité au Worker `celebrations-m016-admin-preprod`, sauvegardes chiffrées D1/R2 préalables ; authentification admin M016 ; saisie et sauvegarde d'un titre d'essai ; vérification de lecture serveur, du rendu sur le site visiteur sur ordinateur, de l'absence visuelle du titre sur téléphone ; restauration du titre initial en fin de test ; vérification que le Worker officiel reste inchangé ; rollback Worker M016 si échec.
 
 **Publication** : uniquement après passage des tests isolés, sous garde de version exacte du Worker officiel M028, sauvegardes chiffrées, contrôle des routes et données et rollback automatique. Ne jamais utiliser la branche M027 en bloc pour cette petite fonctionnalité.
+
+## Vérification M016 — reprise ciblée
+
+Le premier passage a confirmé l'affichage du formulaire et la réponse de sauvegarde, mais sa lecture immédiate sur un autre Worker Cloudflare a renvoyé l'ancienne valeur. L'essai a restauré le titre initial et le Worker M016 a été automatiquement rétabli. Le second passage impose maintenant une relecture serveur indépendante (répétée brièvement) avant de considérer la sauvegarde réussie, sans modifier le site officiel.
