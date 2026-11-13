@@ -1,0 +1,25 @@
+name: "M031/4 — vérification navigateur PC et téléphone"
+on:
+  push:
+    branches: [feat/m031-audit-visibilite-d1-cycles-20261113]
+permissions: {contents: read}
+jobs:
+  smoke:
+    if: ${{ contains(github.event.head_commit.message, '[M031_M4_BROWSER]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - name: Install isolated Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Run exact UI against local mock, no live admin PIN
+        run: |
+          set -euo pipefail
+          node scripts/test-m031-m4-compact-browser.mjs
+          node scripts/build-m019-editor-client.mjs --check
+          echo M031_M4_BROWSER_SUCCEEDED
