@@ -1012,17 +1012,23 @@ async function serverPublish(command,{flushContent=true}={}){
  }
  if(serverRevision===null){serverMessage('Rechargez la version du serveur avant de publier.');return false}
  try{
-  if(command.kind==='celebration'){
-   ensureMemberPanel();const record=await memberPanel.readContent();
-   if(record.record.spaces?.length||record.record.pages?.some(p=>p.privateManaged)){
-    privateCatalogue=await memberPanel.commandContent('celebration-visibility',{visibility:command.visibility});
-    serverRevision=privateCatalogue.revision;db._serverRevision=serverRevision;
-    let shared={};try{shared=JSON.parse(localStorage.getItem(SHARED_KEY)||'{}')}catch{}
-    shared.celebrationVisibility={...shared.celebrationVisibility,[SERVER_ID]:command.visibility};
-    localStorage.setItem(SHARED_KEY,JSON.stringify(shared));
-    serverPublishedCelebrationVisibility={...(serverPublishedCelebrationVisibility||{}),[SERVER_ID]:command.visibility};
-    render();serverMessage('Visibilité enregistrée.');return true;
-   }
+  // M031/2: the OFFICIAL celebration has a D1 private-release fence even when
+  // it currently has ZERO private pages/spaces. Inspecting the visible pages
+  // to decide the route incorrectly fell through to legacy publication (403).
+  // Every official celebration visibility write now uses the existing PIN ->
+  // short-lived D1 bearer -> canonical guarded command. No legacy fallback.
+  if(command.kind==='celebration'&&IS_STAGE&&LIVE_MEDIA_UPLOAD_HOST){
+   ensureMemberPanel();
+   const confirmed=await memberPanel.commandContent('celebration-visibility',{visibility:command.visibility});
+   if(confirmed.celebrationVisibility!==command.visibility||
+      !Number.isSafeInteger(confirmed.revision))
+    throw Error('La visibilité de la célébration n’a pas été confirmée par le serveur D1.');
+   privateCatalogue=confirmed;serverRevision=confirmed.revision;db._serverRevision=serverRevision;
+   let shared={};try{shared=JSON.parse(localStorage.getItem(SHARED_KEY)||'{}')}catch{}
+   shared.celebrationVisibility={...shared.celebrationVisibility,[SERVER_ID]:command.visibility};
+   try{localStorage.setItem(SHARED_KEY,JSON.stringify(shared))}catch{}
+   serverPublishedCelebrationVisibility={...(serverPublishedCelebrationVisibility||{}),[SERVER_ID]:command.visibility};
+   render();serverMessage('✓ Visibilité de la célébration confirmée par le serveur.');return true;
   }
   const response=await fetch('/api/editor-publication',{method:'POST',cache:'no-store',
    headers:{'content-type':'application/json'},
@@ -1061,7 +1067,12 @@ async function serverPublish(command,{flushContent=true}={}){
   render();
   if(!flushContent&&unsavedContent)serverMessage('✓ Visibilité modifiée. Le contenu en cours reste à enregistrer.');
   return true;
- }catch(e){serverMessage('❌ Connexion indisponible : aucun changement public effectué.');return false}
+ }catch(e){
+  const reason=String(e?.message||'');
+  serverMessage(command.kind==='celebration'&&IS_STAGE&&LIVE_MEDIA_UPLOAD_HOST?
+   '❌ Visibilité non modifiée : commande D1 non confirmée. Vérifiez votre session administrateur et réessayez.'+(reason.includes('reconnecter')?' Réactivez les membres dans l’administration.':''):
+   '❌ Connexion indisponible : aucun changement public effectué.');return false
+ }
 }
 const serverFileAsDataURL=file=>new Promise((resolve,reject)=>{
  const reader=new FileReader();reader.onload=()=>resolve(reader.result);
