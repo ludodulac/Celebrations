@@ -158,6 +158,14 @@ export async function handleServerDraft(request,env){
    return error('Page à mettre à jour introuvable',400);
   const current=await stored(draftBucket);
   if(!expectedRevisionMatches(body.expectedRevision,current.state.version))return error('Une version plus récente existe sur le serveur. Rechargez sans effacer votre brouillon local.',409);
+  // M030: the legacy editor may edit an EXISTING D1-backed celebration,
+  // never manufacture date-derived plan identities, arbitrary draft IDs or
+  // a new catalogue via plans. The single canonical creation route handles
+  // activation of a prepared cycle under the D1 UNIQUE lock instead.
+  if(String(body.celebration).startsWith('plan-')||
+     !Object.hasOwn(current.state.drafts,body.celebration)||
+     JSON.stringify(body.plans)!==JSON.stringify(current.state.plans))
+   return error('La création libre de célébrations et les anciens plans sont désactivés.',409);
   if(body.localization!==undefined&&
      !goodLocalization(body.localization,body.shared,record,current.state,body.celebration))
    return error('Traductions ou registre multilingue invalides',400);
