@@ -170,7 +170,7 @@ jobs:
             headers:{authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN},
             signal:AbortSignal.timeout(30000)});
           assert.equal(r.status,200);
-          const hash=createHash('sha256').update(await r.arrayBuffer()).digest('hex');
+          const hash=createHash('sha256').update(Buffer.from(await r.arrayBuffer())).digest('hex');
           assert.equal(hash,manifest.oldSha256,'STOP: editor has changed since encrypted backup');
           console.log('M030_M10_EDITOR_STILL_EXACT_AFTER_CODE_PROMOTION');
           NODE
@@ -330,7 +330,6 @@ jobs:
           set -euo pipefail
           node --input-type=module <<'NODE'
           import assert from 'node:assert/strict';
-          import {appendFileSync} from 'node:fs';
           const p='https://api.cloudflare.com/client/v4/accounts/'+process.env.CLOUDFLARE_ACCOUNT_ID+
            '/workers/scripts/celebrations-exit-production/deployments';
           const r=await fetch(p,{headers:{authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN}});
@@ -338,7 +337,7 @@ jobs:
           const active=j.result?.deployments?.[0]?.versions||[];
           assert.equal(active.length,1);assert.ok([process.env.NEW_VERSION,process.env.OLD_VERSION].includes(active[0].version_id));
           if(active[0].version_id===process.env.NEW_VERSION)
-           appendFileSync(process.env.GITHUB_OUTPUT||'/tmp/m030-rollback','yes\n');
+           console.log('M030_M10_SAFE_CODE_ROLLBACK_ALLOWED');
           NODE
           # The old code can still read Michaël 101 whether the authorised
           # six-record deletion committed or not; never revert unrelated D1/R2 writes.
