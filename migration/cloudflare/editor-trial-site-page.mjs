@@ -214,7 +214,7 @@ body.is-splash-home.is-neutral-preview .site-paper{
  border:0!important;border-radius:0!important;box-shadow:none!important;
  overflow:visible!important
 }
-.site-paper:not(body.is-splash-home .site-paper){
+body:not(.is-splash-home) .site-paper{
  padding:var(--m036-paper-gutter)!important
 }
 body.is-splash-home .site-paper{padding:0!important}
