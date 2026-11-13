@@ -34,3 +34,5 @@ Aucune donnée officielle ne doit être modifiée tant que la prise en charge ef
 Le REST Cloudflare R2 ignore If-Match sur PUT (test M016 : retour 200 au lieu de 412). Un Worker **temporaire** lié exclusivement au R2 isolé de M016 teste donc `R2Bucket.put` avec `onlyIf.etagMatches`, puis il est supprimé ainsi que sa clé de test, quel que soit le résultat.
 
 Essai Worker CAS reprogrammé après stabilisation du sous-domaine : une première requête immédiatement après déploiement obtenait 404 avant propagation, sans aucune écriture officielle. L'essai attend désormais explicitement la disponibilité.
+
+Dernier contrôle de la sonde CAS : uniquement le Worker temporaire M016, diagnostics de déploiement expurgés et aucune connexion aux données officielles.
