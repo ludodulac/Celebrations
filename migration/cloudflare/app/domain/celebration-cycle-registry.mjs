@@ -70,7 +70,7 @@ export function canonicalAudience({scope,categoryId}={},categories=[]){
 export function celebrationVersionKey(audience,languageId){
  const {scope,categoryId=''}=audience||{};
  if(!['PUBLIC','ALL_PRIVATE_TYPES','SELECTED_TYPES'].includes(scope)||
-    scope==='SELECTED_TYPES'?!categoryId:!!categoryId)throw new TypeError('Public cible invalide');
+    (scope==='SELECTED_TYPES'?!categoryId:!!categoryId))throw new TypeError('Public cible invalide');
  if(typeof languageId!=='string'||!/^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/.test(languageId))
   throw new TypeError('Langue invalide');
  return (scope==='SELECTED_TYPES'?'category:'+categoryId:scope)+'|'+languageId;
