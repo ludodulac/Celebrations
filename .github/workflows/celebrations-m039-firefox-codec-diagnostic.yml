@@ -20,6 +20,10 @@ jobs:
       - name: Install ffmpeg MP3 codec support for diagnostics
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg
+          sudo apt-get install -y -qq ffmpeg pulseaudio pulseaudio-utils
+          pulseaudio --start --exit-idle-time=-1
+          pactl load-module module-null-sink sink_name=ci_dummy >/dev/null
+          pactl set-default-sink ci_dummy
+          pactl info | grep 'Default Sink'
       - name: Compare known good synthetic MP3 versus official MP3 across engines
         run: node scripts/test-m039-firefox-audio-codec-diagnostic.mjs
