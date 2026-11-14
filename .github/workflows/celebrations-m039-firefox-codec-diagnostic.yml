@@ -17,5 +17,9 @@ jobs:
         run: |
           npm install --no-save --no-package-lock playwright@1.58.2
           npx playwright install --with-deps chromium firefox
+      - name: Install ffmpeg MP3 codec support for diagnostics
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
       - name: Compare known good synthetic MP3 versus official MP3 across engines
         run: node scripts/test-m039-firefox-audio-codec-diagnostic.mjs
