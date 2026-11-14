@@ -7,9 +7,9 @@ const ORIGIN='https://ronde-des-archanges-universelle.eu';
 const PROFILES=[
   {name:'Chrome ordinateur',engine:chromium,mobile:false,all:true},
   {name:'Chrome Android simulé',engine:chromium,mobile:true,all:true},
-  {name:'Firefox ordinateur',engine:firefox,mobile:false,all:false},
-  {name:'Safari ordinateur (WebKit)',engine:webkit,mobile:false,all:false},
-  {name:'Safari iPhone simulé (WebKit)',engine:webkit,mobile:true,all:false}
+  {name:'Firefox ordinateur',engine:firefox,mobile:false,all:true},
+  {name:'Safari ordinateur (WebKit)',engine:webkit,mobile:false,all:true},
+  {name:'Safari iPhone simulé (WebKit)',engine:webkit,mobile:true,all:true}
 ];
 const out=[],failures=[];
 const log=(status,where,what)=>{const line=status+' | '+where+' | '+what;console.log(line);out.push(line);if(status==='FAIL')failures.push(line);};
@@ -72,6 +72,18 @@ for(const profile of PROFILES){
   if(badLink.length)log('FAIL',profile.name,'Liens lecteur/direct incohérents '+JSON.stringify(badLink));
   else log('PASS',profile.name,'Tous les liens lecteurs/directs correspondent à leur MP3');
   if(await page.locator('#stage-main .media-empty').count())log('FAIL',profile.name,'Un message Aucun contenu reste affiché malgré les MP3');
+  // Test the actual navigation a visitor uses, then return to media library.
+  const shortcut=page.locator('#celebration-shortcuts .celebration-shortcut').filter({hasText:/Médiathèque/i}).first();
+  if(await shortcut.isVisible()){
+    await page.locator('#celebration-shortcuts .celebration-shortcut').first().click();
+    if(await page.locator('#stage-main .media-tabs').count())log('FAIL',profile.name,'Le bouton Programme ne quitte pas la médiathèque');
+    else{
+      await page.locator('#celebration-shortcuts .celebration-shortcut').filter({hasText:/Médiathèque/i}).first().click();
+      await page.locator('.media-tab').filter({hasText:/Audios/i}).first().click();
+      if(await cards.count()===count)log('PASS',profile.name,'Navigation visiteur Programme → Médiathèque → Audios fonctionne');
+      else log('FAIL',profile.name,'MP3 perdus après navigation visiteur');
+    }
+  }else log('FAIL',profile.name,'Bouton public Médiathèque introuvable dans les raccourcis');
   const toTry=profile.all?[...Array(count).keys()]:[...samples].filter(i=>i<count);
   let passes=0;
   for(const index of toTry){
