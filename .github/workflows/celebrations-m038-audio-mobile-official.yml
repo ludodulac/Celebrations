@@ -90,8 +90,8 @@ jobs:
           const audioUrl=site+'/media/media/1789374359623/file-1789374361142-26.-2008-09-18-les-7-flammes-de-larchange-michael.mp3';
           const audio=await fetch(audioUrl,{headers:{range:'bytes=0-1023'}});
           assert.equal(audio.status,206,'The public MP3 must support HTTP Range for Android');
-          assert.match(audio.headers.get('content-type')||'',/^audio\\/mpeg/);
-          assert.match(audio.headers.get('content-range')||'',/^bytes 0-1023\\/\\d+$/);
+          assert.equal((audio.headers.get('content-type')||'').split(';')[0].trim(),'audio/mpeg');
+          assert.ok((audio.headers.get('content-range')||'').startsWith('bytes 0-1023/'));
           assert.equal((await audio.arrayBuffer()).byteLength,1024);
           console.log('M038_AUDIO_HTTP_RANGE_PASS');
           console.log('M038_DEPLOYED_OFFICIAL');
