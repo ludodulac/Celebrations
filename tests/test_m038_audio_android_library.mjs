@@ -8,7 +8,8 @@ test('M038: site visitor client still compiles after audio amendments',()=>{
  assert.doesNotThrow(()=>new Function(source));
 });
 test('M038: Android users may play audio immediately or open a direct link',()=>{
- assert.match(source,/audio\.preload='metadata'/);
+ assert.match(source,/audio\.preload='none'/);
+ assert.match(source,/player\.preload='metadata'/);
  assert.match(source,/player\.play\(\)/);
  assert.match(source,/media-audio-direct/);
  assert.match(source,/audio\.addEventListener\('error'/);
