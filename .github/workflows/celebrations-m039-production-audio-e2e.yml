@@ -1,0 +1,22 @@
+name: "M039 — vrais tests lecture Célébrations sur 5 navigateurs"
+on:
+  push:
+    branches: [fix/m038-audio-android-library-20261114]
+permissions: {contents: read}
+jobs:
+  visitor-audio:
+    if: ${{ contains(github.event.head_commit.message, '[M039_AUDIO_UI]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - name: Install Playwright browsers without changing the site
+        run: |
+          set -euo pipefail
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install --with-deps chromium firefox webkit
+      - name: Test official Michaël gallery links, playback, seek, loop, filters, menus and reload
+        run: node scripts/test-m039-production-audio-browser.mjs
