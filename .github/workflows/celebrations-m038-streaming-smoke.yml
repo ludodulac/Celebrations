@@ -1,0 +1,34 @@
+name: "M038 — contrôle public des MP3 après déploiement"
+on:
+  push:
+    branches: [fix/m038-audio-android-library-20261114]
+permissions: {contents: read}
+jobs:
+  smoke:
+    if: ${{ contains(github.event.head_commit.message, '[M038_VERIFY]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - name: Vérifier la lecture partielle des MP3 sur le domaine officiel
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const site='https://ronde-des-archanges-universelle.eu';
+          const audio=[
+            'media/1789374359623/file-1789374361142-26.-2008-09-18-les-7-flammes-de-larchange-michael.mp3',
+            'media/1789374573022/file-1789374573727-33.-Allume-ta-bougie.mp3',
+            'media/1789378707546/file-1789378708136-34.-Lappel-des-Maitres.mp3'
+          ];
+          for(const path of audio){
+            const u=site+'/media/'+path;
+            const r=await fetch(u,{headers:{range:'bytes=0-1023'},signal:AbortSignal.timeout(12000)});
+            assert.equal(r.status,206,'HTTP 206 requis pour '+path+' (obtenu '+r.status+')');
+            assert.equal((r.headers.get('content-type')||'').split(';')[0].trim(),'audio/mpeg');
+            assert.ok((r.headers.get('content-range')||'').startsWith('bytes 0-1023/'));
+            assert.equal((await r.arrayBuffer()).byteLength,1024);
+            console.log('OK Android HTTP Range: '+path);
+          }
+          console.log('M038_PUBLIC_AUDIO_RANGE_3_PASS');
+          NODE
