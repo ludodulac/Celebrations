@@ -567,7 +567,7 @@ export async function handleEditorMedia(request,env){
    // Never claim that such an object appears nowhere.
    usageUnknown:(!item.uses||item.uses.length===0)&&inSavedContent(state,item.src)
   }));
-  return json({ok:true,items,audioTypes:uniqueAudioTypes(state)});
+  return json({ok:true,items,revision:state.version,audioTypes:uniqueAudioTypes(state)});
  }
  if(request.method!=='POST')return err('Méthode interdite',405);
  const denied=await protectedWrite(request,env);if(denied)return denied;
