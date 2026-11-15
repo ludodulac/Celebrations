@@ -12,7 +12,8 @@ try{
   const page=await context.newPage(),errors=[];
   page.on('pageerror',e=>errors.push(String(e.message||e)));
   await page.goto(SITE+'/?celebration=101&page=celebrations',{waitUntil:'domcontentloaded',timeout:35000});
-  await page.locator('#general-navigation').waitFor({state:'attached'});
+  // The public script hydrates asynchronously after DOMContentLoaded.
+  await page.locator('#general-navigation .general-tab').first().waitFor({state:'attached',timeout:20000});
   await page.locator('#menu-toggle').click({timeout:10000});
   const items=await page.locator('#general-navigation .general-tab').allInnerTexts();
   assert.ok(items.length>0,'Existing visitor menu must remain');
