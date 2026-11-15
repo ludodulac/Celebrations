@@ -98,5 +98,6 @@ jobs:
           console.log('M041_DEPLOYED_OFFICIAL');
           NODE
       - name: Verify visitor menus, audio types and 10-second controls on desktop and Android
-        run: node scripts/test-m040-global-gallery-retired-browser.mjs
+        run: |
+          node scripts/test-m040-global-gallery-retired-browser.mjs
           node scripts/test-m041-public-audio-browser.mjs
