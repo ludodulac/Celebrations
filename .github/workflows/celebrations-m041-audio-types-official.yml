@@ -4,7 +4,7 @@ on:
     branches: [fix/m038-audio-android-library-20261114]
 permissions: {contents: read}
 concurrency:
-  group: celebrations-existing-official-production-release
+  group: celebrations-m041-audio-type-production-release
   cancel-in-progress: false
 jobs:
   publish:
