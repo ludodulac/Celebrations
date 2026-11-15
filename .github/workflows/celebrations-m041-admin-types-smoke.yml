@@ -1,0 +1,21 @@
+name: "M041 — vérifier administration types d'audio en simulation"
+on:
+  push:
+    branches: [fix/m038-audio-android-library-20261114]
+permissions: {contents: read}
+jobs:
+  audio-type-admin:
+    if: ${{ contains(github.event.head_commit.message, '[M041_ADMIN_VERIFY]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - name: Install Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install chromium
+      - name: Test upload type chooser, creation and reclassification with mock server
+        run: node scripts/test-m041-admin-types-browser.mjs
