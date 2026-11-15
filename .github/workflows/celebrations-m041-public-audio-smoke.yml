@@ -1,0 +1,21 @@
+name: "M041 — contrôler en production catégories et boutons audio"
+on:
+  push:
+    branches: [fix/m038-audio-android-library-20261114]
+permissions: {contents: read}
+jobs:
+  verify-public-audio:
+    if: ${{ contains(github.event.head_commit.message, '[M041_VERIFY]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - name: Install Chromium for read-only public audio verification
+        run: |
+          npm install --no-save --no-package-lock playwright@1.58.2
+          npx playwright install chromium
+      - name: Check all media groups, invocation dates, +/-10 controls and mobile
+        run: node scripts/test-m041-public-audio-browser.mjs
