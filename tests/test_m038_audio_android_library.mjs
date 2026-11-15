@@ -15,9 +15,17 @@ test('M038: Android users may play audio immediately or open a direct link',()=>
  assert.match(source,/audio\.addEventListener\('error'/);
  assert.match(source,/direct\.target='_blank'/);
 });
-test('M038: an empty general media catalogue is not advertised in the home menu',()=>{
- assert.match(source,/if\(generalGalleryEntries\(\)\.length\)/);
- assert.match(source,/general\.append\(library\)/);
+test('M040: no visitor global media gallery, even if general media exists',()=>{
+ assert.doesNotMatch(source,/function generalGalleryEntries\(/);
+ assert.doesNotMatch(source,/general\.append\(library\)/);
+ assert.doesNotMatch(source,/Médiathèque générale/);
+ assert.match(source,/if\(active==='mediatheque-generale'\)active='celebrations'/);
+ assert.match(source,/\'\/mediatheque-generale\':\'celebrations\'/);
+});
+test('M040: each celebration still has its own gallery shortcut',()=>{
+ assert.match(source,/\['preparation',t\('Programme'\)\],\['mediatheque',t\('Médiathèque'\)\]/);
+ assert.match(source,/const all=galleryEntries\(\),tabs=/);
+ assert.match(source,/galleryCard\(item\)/);
 });
 test('M038: do not display an empty gallery tab when audio is present',()=>{
  assert.match(source,/if\(all\.length&&!all\.some/);
