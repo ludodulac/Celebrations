@@ -1,0 +1,122 @@
+name: Replace Célébrations homepage autumn image (one-time)
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/replace-celebrations-home-image-once.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: celebrations-home-image-once
+  cancel-in-progress: false
+
+jobs:
+  replace:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: celebrations-staging
+    env:
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      STAGING_R2_ACCESS_KEY_ID: ${{ secrets.CELEBRATIONS_STAGING_R2_ACCESS_KEY_ID }}
+      STAGING_R2_SECRET_ACCESS_KEY: ${{ secrets.CELEBRATIONS_STAGING_R2_SECRET_ACCESS_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install R2 client
+        run: python -m pip install 'boto3>=1.38,<2'
+      - name: Replace only the published and draft homepage image
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import copy, datetime, hashlib, json, os
+          from pathlib import Path
+          import boto3
+          from botocore.config import Config
+          from botocore.exceptions import ClientError
+
+          bucket = 'celebrations-exit-staging'
+          snapshot_key = 'editor-trials/server-drafts-v1.json'
+          asset_key = 'editor-trials/uploads/7b6b713a-164e-42b6-a7c2-c448821c787a.webp'
+          old = '/media/media/celebrations-staging-welcome-autumn-2026.jpg'
+          new = '/media/new/7b6b713a-164e-42b6-a7c2-c448821c787a.webp'
+          expected_hash = 'da38207840da70995aba5bd9435016c150b92d0da9d184801427cd43ea4b956c'
+
+          for env in ('R2_ENDPOINT', 'STAGING_R2_ACCESS_KEY_ID', 'STAGING_R2_SECRET_ACCESS_KEY'):
+              if not os.environ.get(env):
+                  raise RuntimeError('Required R2 credential is missing: ' + env)
+          endpoint = os.environ['R2_ENDPOINT'].rstrip('/')
+          if not endpoint.startswith('https://'):
+              raise RuntimeError('R2 endpoint must use HTTPS')
+          data = Path('assets/accueil-erables-2026.webp').read_bytes()
+          if len(data) != 54078 or hashlib.sha256(data).hexdigest() != expected_hash:
+              raise RuntimeError('Homepage image binary does not match the approved file')
+          s3 = boto3.client('s3',
+              endpoint_url=endpoint,
+              aws_access_key_id=os.environ['STAGING_R2_ACCESS_KEY_ID'],
+              aws_secret_access_key=os.environ['STAGING_R2_SECRET_ACCESS_KEY'],
+              region_name='auto', config=Config(signature_version='s3v4',
+                  retries={'max_attempts':3, 'mode':'standard'}))
+          original = s3.get_object(Bucket=bucket, Key=snapshot_key)
+          etag = original['ETag']
+          state = json.loads(original['Body'].read())
+          if state.get('version') != 275 or state.get('publishedRevision') != 27:
+              raise RuntimeError('Homepage snapshot revision has changed. Stopping without update.')
+
+          def home_block(shared):
+              if shared.get('homeId') != 'neutral-accueil-general':
+                  raise RuntimeError('Unexpected homepage selection')
+              home = next((p for p in shared.get('pages', []) if p.get('id') == 'neutral-accueil-general'), None)
+              if not home or home.get('visibility') != 'published':
+                  raise RuntimeError('Published homepage not found')
+              blocks = home.get('blocks', [])
+              if len(blocks) != 1 or blocks[0].get('id') != 99991 or blocks[0].get('kind') != 'image':
+                  raise RuntimeError('Homepage structure changed; refusing to modify')
+              if blocks[0].get('src') != old:
+                  raise RuntimeError('Homepage image changed; refusing to overwrite')
+              return blocks[0]
+
+          draft = home_block(state['shared'])
+          public = home_block(state['published']['shared'])
+          before = copy.deepcopy(state)
+          try:
+              s3.put_object(Bucket=bucket, Key=asset_key, Body=data,
+                  ContentType='image/webp', IfNoneMatch='*',
+                  Metadata={'origin':'celebrations-home-2026-11-15'})
+          except ClientError as e:
+              if e.response.get('Error', {}).get('Code') not in ('PreconditionFailed', '412'):
+                  raise
+          actual = s3.get_object(Bucket=bucket, Key=asset_key)['Body'].read()
+          if hashlib.sha256(actual).hexdigest() != expected_hash:
+              raise RuntimeError('R2 image verification failed; snapshot unchanged')
+
+          draft['src'] = new
+          public['src'] = new
+          now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z')
+          state['version'] += 1
+          state['publishedRevision'] += 1
+          state['updatedAt'] = now
+          state['publishedAt'] = now
+          check = copy.deepcopy(state)
+          check['shared']['pages'] = before['shared']['pages']
+          check['published']['shared']['pages'] = before['published']['shared']['pages']
+          for k in ('version','publishedRevision','updatedAt','publishedAt'):
+              check[k] = before[k]
+          if check != before:
+              raise RuntimeError('Unexpected changes outside homepage image')
+          output = json.dumps(state, ensure_ascii=False, separators=(',',':')).encode('utf-8')
+          s3.put_object(Bucket=bucket, Key=snapshot_key, Body=output,
+              ContentType='application/json', IfMatch=etag)
+          latest = json.loads(s3.get_object(Bucket=bucket, Key=snapshot_key)['Body'].read())
+          if (home_block_original := latest['published']['shared']['pages'][0].get('id')) is None:
+              raise RuntimeError('Homepage snapshot verification failed')
+          pages = latest['published']['shared']['pages']
+          final = next(p for p in pages if p.get('id') == 'neutral-accueil-general')
+          if final['blocks'][0]['src'] != new or latest['publishedRevision'] != 28:
+              raise RuntimeError('Publication verification failed')
+          print('SUCCÈS : nouvelle image d’accueil publiée, bouton Bienvenue inchangé, R2 vérifié.')
+          PY
