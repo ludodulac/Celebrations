@@ -27,8 +27,9 @@ try{
   const audios=await page.locator('#stage-main .media-card audio.media-player').count();
   assert.equal(audios,38,'Michaël 2026 audio gallery must keep all 38 MP3');
   await page.goto(SITE+'/?celebration=101&page=mediatheque-generale',{waitUntil:'domcontentloaded',timeout:35000});
+  // The previous route must resolve to the Célébrations list after async hydration.
+  await page.locator('#stage-main .celebration-choices').waitFor({state:'visible',timeout:20000});
   assert.equal(await page.locator('#stage-main .media-tabs').count(),0,'Deprecated global media page must not render gallery');
-  assert.ok(await page.locator('#stage-main .celebration-choices').count()>0,'Old global media page should show celebrations listing');
   assert.deepEqual(errors,[],'Visitor JS errors');
   await context.close();
   console.log('M040_PUBLIC_MENU_PASS '+profile.name+' media shortcut intact, '+audios+' MP3, no general library');
