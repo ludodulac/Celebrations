@@ -3137,6 +3137,19 @@ function media(){
   card.append(n('small','media-format-label',
    ({image:'Image',pdf:'PDF',audio:'Audio',video:'Vidéo'})[record.type]||'Fichier'));
   if(hasImage)libraryPicture(card,record.name,record.src,unused);
+  if(mediaCategory==='audios'&&record.type==='audio'){
+   const row=n('div','audio-type-file-selector'),label=n('label','','Type : ');
+   const select=n('select','audio-type-select');
+   select.setAttribute('aria-label','Type de l’audio '+record.name);
+   for(const type of currentAudioTypes()){
+    const opt=n('option','',type);opt.value=type;select.append(opt);
+   }
+   select.value=currentAudioTypes().includes(record.audioType)?record.audioType:inferredAudioType(record.name);
+   select.onchange=()=>void saveAudioTypeForMedia(record,select.value).catch(e=>{
+    siteNotice(e.message||'Type non enregistré');render();
+   });
+   label.append(select);row.append(label);card.append(row);
+  }
   libraryPreview(card,record.name,record.src,record.category||mediaCategoryOf(record));
   libraryUnusedText(card,unused,hasImage);
   libraryLocationLinks(card,refs,record.usageUnknown===true);
