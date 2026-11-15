@@ -233,8 +233,9 @@ async function importFiles(files){
    const actual=mp3&&!file.type?new File([file],file.name,{type:'audio/mpeg'}):file;
    if(mp3)mediaUploadFeedback(0,'Envoi du MP3 : '+file.name+' (0 %)');
    try{
-    await uploadToMediaServer(actual,mp3?pct=>
+    const stored=await uploadToMediaServer(actual,mp3?pct=>
      mediaUploadFeedback(pct,'Envoi du MP3 : '+file.name+' ('+pct+' %)'):null);
+    if(mp3&&stored)await saveAudioTypeForMedia(stored,selectedAudioType,{quiet:true});
     success++;
     if(mp3)mediaUploadFeedback(100,'✓ MP3 importé : '+file.name);
    }catch(e){
@@ -438,6 +439,52 @@ function publicFiles(){return mediaCatalogue.publicFiles(window.__PREPARATION_SE
 const fileSeeds=new Map(),fileGroups=new Map();
 let globalFiles=null,globalFilesLoading=null,globalFilesComplete=false,hiddenFileIds=new Set();
 let globalMedia=[],remoteMediaLoading=false,globalMediaLoaded=false;
+
+const DEFAULT_AUDIO_TYPES=['Invocations','Chants','Méditations','Enseignements','Guidances','Autres'];
+let audioTypes=[...DEFAULT_AUDIO_TYPES],selectedAudioType='Autres';
+const currentAudioTypes=()=>[...new Set([...DEFAULT_AUDIO_TYPES,...audioTypes])];
+function inferredAudioType(name){
+ const text=String(name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+ if(/^(invocation|psaume)/.test(text))return 'Invocations';
+ if(/^(chant|chanson|melodie|niama|om\b)/.test(text))return 'Chants';
+ if(/^meditation/.test(text))return 'Méditations';
+ if(/^(conference|enseignement)/.test(text))return 'Enseignements';
+ if(/^guidance/.test(text))return 'Guidances';
+ return 'Autres';
+}
+async function saveAudioTypeForMedia(media,type,{quiet=false}={}){
+ const response=await fetch('/api/editor-media?action=set-audio-type',{
+  method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},
+  body:JSON.stringify({id:media.id,audioType:type,expectedRevision:serverRevision})
+ });
+ const data=await response.json().catch(()=>({}));
+ if(!response.ok||!data.ok){
+  if(response.status===409){serverRevision=null;void refreshGlobalMedia()}
+  throw Error(data.error||'Type audio non enregistré');
+ }
+ serverRevision=data.revision;
+ audioTypes=Array.isArray(data.audioTypes)?data.audioTypes:audioTypes;
+ globalMedia=globalMedia.map(item=>item.id===media.id?{...item,audioType:data.audioType}:item);
+ if(!quiet){status.textContent='✓ Type audio : '+data.audioType;render()}
+ return data.audioType;
+}
+async function createAudioType(){
+ const name=String((await sitePrompt('Nom du nouveau type d’audio :'))||'').trim();
+ if(!name)return;
+ const response=await fetch('/api/editor-media?action=audio-type-create',{
+  method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},
+  body:JSON.stringify({name,expectedRevision:serverRevision})
+ });
+ const data=await response.json().catch(()=>({}));
+ if(!response.ok||!data.ok){
+  if(response.status===409){serverRevision=null;void refreshGlobalMedia()}
+  siteNotice(data.error||'Impossible de créer ce type audio');return;
+ }
+ serverRevision=data.revision;
+ audioTypes=Array.isArray(data.audioTypes)?data.audioTypes:audioTypes;
+ selectedAudioType=data.audioType;status.textContent='✓ Nouveau type audio : '+data.audioType;render();
+}
+
 const mediaCategoryOf=m=>mediaCatalogue.mediaCategoryOf(m);
 async function refreshGlobalMedia(){
  if(remoteMediaLoading)return;
@@ -447,6 +494,8 @@ async function refreshGlobalMedia(){
   if(!response.ok)throw Error('Bibliothèque distante indisponible');
   const result=await response.json();
   globalMedia=Array.isArray(result.items)?result.items:[];
+  if(Array.isArray(result.audioTypes))audioTypes=result.audioTypes;
+  if(Number.isSafeInteger(result.revision))serverRevision=result.revision;
   globalMediaLoaded=true;
   if(tab==='media')render();
  }catch{status.textContent='La médiathèque du serveur n’est pas accessible. Les fichiers existants sont conservés.'}
@@ -3044,6 +3093,19 @@ function media(){
  w.append(external);
  w.append(n('p','hint','Import serveur : JPG, PNG, WebP, PDF, MP3, WAV, TXT et DOCX. Pour les vidéos, référencez un lien externe.'));
  w.append(n('p','hint','Les fichiers importés restent dans la médiathèque même lorsqu’une page est masquée, retirée ou supprimée. Cliquez sur une image pour l’ouvrir ; les pages où elle figure sont indiquées sous elle.'));
+ if(mediaCategory==='audios'){
+  const row=n('div','audio-type-upload-selector'),label=n('label','','Type de MP3 : ');
+  const select=n('select','audio-type-select');
+  select.setAttribute('aria-label','Type de MP3 à importer');
+  for(const type of currentAudioTypes()){
+   const opt=n('option','',type);opt.value=type;select.append(opt);
+  }
+  if(!currentAudioTypes().includes(selectedAudioType))selectedAudioType='Autres';
+  select.value=selectedAudioType;select.onchange=()=>{selectedAudioType=select.value};
+  const add=b('＋ Créer un type',()=>void createAudioType(),'sm');
+  add.dataset.action='create-audio-type';
+  label.append(select);row.append(label,add);w.append(row);
+ }
  const importButton=b(mediaCategory==='audios'?'＋ Importer un MP3':'＋ Importer',()=>{
   const picker=el('asset-file-picker');
   picker.accept=mediaCategory==='audios'?'.mp3,audio/mpeg':
