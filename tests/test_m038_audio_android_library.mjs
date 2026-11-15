@@ -18,7 +18,8 @@ test('M038: Android users may play audio immediately or open a direct link',()=>
 test('M040: no visitor global media gallery, even if general media exists',()=>{
  assert.doesNotMatch(source,/function generalGalleryEntries\(/);
  assert.doesNotMatch(source,/general\.append\(library\)/);
- assert.doesNotMatch(source,/Médiathèque générale/);
+ // Translation keys may remain in a shared dictionary; no clickable menu entry may use one.
+ assert.doesNotMatch(source,/t\('▧ Médiathèque générale'\)/);
  assert.match(source,/if\(active==='mediatheque-generale'\)active='celebrations'/);
  assert.match(source,/\'\/mediatheque-generale\':\'celebrations\'/);
 });
