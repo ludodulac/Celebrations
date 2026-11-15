@@ -32,6 +32,15 @@ const m030PublicVersion=(state,celebration,languageId)=>
   version.key==='PUBLIC|'+languageId&&version.audience?.scope==='PUBLIC');
 
 const validState=x=>x&&typeof x==='object'&&Number.isSafeInteger(x.version)&&x.drafts&&x.shared&&Array.isArray(x.plans);
+const DEFAULT_AUDIO_TYPES=['Invocations','Chants','Méditations','Enseignements','Guidances','Autres'];
+const cleanAudioType=value=>{
+ if(typeof value!=='string')return '';
+ const name=value.trim().replace(/\s+/g,' ');
+ if(name.length<2||name.length>50||/[<>\\\u0000-\u001f\u007f]/.test(name))return '';
+ return name;
+};
+const uniqueAudioTypes=state=>[...new Map([...DEFAULT_AUDIO_TYPES,...(Array.isArray(state.audioTypes)?state.audioTypes:[])]
+ .map(cleanAudioType).filter(Boolean).map(name=>[name.toLocaleLowerCase('fr'),name])).values()];
 const defaultState=()=>({version:0,drafts:{},plans:[],shared:{pages:[],homeId:''},mediaCatalogue:[]});
 export async function readEditorState(bucket){
  return readEditorSnapshot(bucket,{empty:defaultState,validate:validState});
@@ -280,8 +289,12 @@ export function publishedMedia(state,privateIds){
   .filter(m=>m?.general===true&&(!restricted.has(m.src)||publicSources.has(m.src)))
   .map(m=>projectPublicMediaItem(m,blocked)).filter(Boolean);
  const source={mediaCatalogue:catalogue,shared:{pages:sharedPages},drafts};
+ const assigned=new Map((state.mediaCatalogue||[])
+  .filter(m=>m?.type==='audio'&&cleanAudioType(m.audioType))
+  .map(m=>[m.src,cleanAudioType(m.audioType)]));
  return discoverMedia(source).map(m=>projectPublicMediaItem(m,blocked))
-  .filter(m=>m&&(m.general===true||m.uses.length>0));
+  .filter(m=>m&&(m.general===true||m.uses.length>0))
+  .map(m=>m.type==='audio'&&assigned.has(m.src)?{...m,audioType:assigned.get(m.src)}:m);
 }
 const historicMediaType=(source,kind='')=>{
  const path=String(source||'').split(/[?#]/)[0].toLowerCase();
@@ -388,7 +401,10 @@ export async function handleEditorPublication(request,env){
   // Public D1 records have their own historic storage catalogue; include them
   // once per request without exposing unpublished editor drafts or private rows.
   const historic=await publicHistoricalMedia(env.DB,state);
-  snapshot.media=mergePublicMedia(snapshot.media,historic);
+  snapshot.media=mergePublicMedia(snapshot.media,historic).map(m=>{
+   const assigned=(state.mediaCatalogue||[]).find(x=>x?.type==='audio'&&x.src===m.src&&cleanAudioType(x.audioType));
+   return m.type==='audio'&&assigned?{...m,audioType:cleanAudioType(assigned.audioType)}:m;
+  });
   // Discover languages across the site through the SAME anonymous projection.
   // Hidden/private celebrations and their releases cannot advertise a language.
   const availablePages=[...(snapshot.shared?.pages||[])];
@@ -551,7 +567,7 @@ export async function handleEditorMedia(request,env){
    // Never claim that such an object appears nowhere.
    usageUnknown:(!item.uses||item.uses.length===0)&&inSavedContent(state,item.src)
   }));
-  return json({ok:true,items});
+  return json({ok:true,items,revision:state.version,audioTypes:uniqueAudioTypes(state)});
  }
  if(request.method!=='POST')return err('Méthode interdite',405);
  const denied=await protectedWrite(request,env);if(denied)return denied;
@@ -559,6 +575,36 @@ export async function handleEditorMedia(request,env){
  if(action?.startsWith('mpu-'))return handleEditorMultipartUpload(action,request,env,{
   readEditorState,writeEditorState,discoverMedia
  });
+ // M041: media type describes a recording; it never changes its access rights.
+ // Types are stored in the same revisioned R2 editor snapshot as the media catalogue.
+ if(action==='audio-type-create'||action==='set-audio-type'){
+  let data;try{data=await request.json()}catch{return err('JSON invalide',400)}
+  if(!Number.isSafeInteger(data?.expectedRevision))return err('Révision requise',400);
+  const current=await readEditorState(env.EDITOR_BUCKET);
+  if(!expectedRevisionMatches(data.expectedRevision,current.state.version))
+   return err('La médiathèque a été modifiée. Rechargez et réessayez.',409);
+  const state=copy(current.state);
+  const allowed=uniqueAudioTypes(state);
+  if(action==='audio-type-create'){
+   const name=cleanAudioType(data?.name);
+   if(!name)return err('Nom de type audio invalide (2 à 50 caractères)',400);
+   const existing=allowed.find(x=>x.toLocaleLowerCase('fr')===name.toLocaleLowerCase('fr'));
+   if(existing)return json({ok:true,revision:state.version,audioType:existing,audioTypes:allowed});
+   if(allowed.length>=60)return err('Nombre maximum de types atteint',400);
+   state.audioTypes=[...(state.audioTypes||[]),name];
+   if(!await writeEditorState(env.EDITOR_BUCKET,current,state))return err('Modification simultanée',409);
+   return json({ok:true,revision:state.version,audioType:name,audioTypes:uniqueAudioTypes(state)});
+  }
+  const name=cleanAudioType(data?.audioType);
+  const selected=allowed.find(x=>x.toLocaleLowerCase('fr')===name.toLocaleLowerCase('fr'));
+  if(!selected||typeof data?.id!=='string'||data.id.length>720)return err('Type ou MP3 invalide',400);
+  // Only media already stored in the administrator's own catalogue may be retyped.
+  const target=(state.mediaCatalogue||[]).find(x=>x?.id===data.id&&x.type==='audio');
+  if(!target)return err('Audio introuvable dans le catalogue de l’administration',404);
+  target.audioType=selected;
+  if(!await writeEditorState(env.EDITOR_BUCKET,current,state))return err('Modification simultanée',409);
+  return json({ok:true,revision:state.version,item:target,audioType:selected,audioTypes:uniqueAudioTypes(state)});
+ }
  // M032: independent media sharing is an EXPLICIT choice, unrelated to
  // publishing a page or a celebration. Never move/copy/rename the R2 object.
  // Only official admin-origin same-cookie writes can change this flag.
