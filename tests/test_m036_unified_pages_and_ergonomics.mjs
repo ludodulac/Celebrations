@@ -17,13 +17,14 @@ test('M036: existing author-controlled Bienvenue text is never automatically hid
  assert.doesNotThrow(()=>new Function(TRIAL_SITE_CLIENT));
  assert.doesNotThrow(()=>new Function(DEMO_CLIENT));
 });
-test('M036: personal pages are in visitor nav before Célébrations and Médiathèque',()=>{
+test('M040: personal pages remain before Célébrations; no global media gallery in visitor nav',()=>{
  const start=TRIAL_SITE_CLIENT.indexOf('const general=el(\'general-navigation\')');
  const group=TRIAL_SITE_CLIENT.slice(start,TRIAL_SITE_CLIENT.indexOf('const menu=el(\'menu-toggle\')',start));
  const p=group.indexOf("for(const p of pages.filter(p=>p.group==='page'");
  const c=group.indexOf("t('✧ Célébrations')");
- const m=group.indexOf("t('▧ Médiathèque générale')");
- assert.ok(p>=0&&c>p&&m>c);
+ assert.ok(p>=0&&c>p);
+ assert.ok(!group.includes("t('▧ Médiathèque générale')"));
+ assert.ok(TRIAL_SITE_CLIENT.includes("['mediatheque',t('Médiathèque')]"));
  assert.match(TRIAL_SITE_CLIENT,/const fixed=rows\.find\(p=>p\.id==='neutral-accueil-general'\)/,
   'Accueil général is always home; no optional home assignment');
  assert.ok(!src.includes("b('Définir comme accueil'"));
