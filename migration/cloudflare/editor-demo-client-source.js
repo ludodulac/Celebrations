@@ -1140,26 +1140,9 @@ async function serverLoad(){
   serverPublishedCelebrationVisibility=publicStates&&typeof publicStates==='object'&&!Array.isArray(publicStates)?{...publicStates}:null;
   globalMedia=Array.isArray(payload.mediaCatalogue)?payload.mediaCatalogue:globalMedia;
   const remote=payload.record;
-  // NEVER upload a locally recovered copy on page load. It may be older than
-  // the colleague's work, even though the browser remembers it as "pending".
-  let pending=null;
-  try{pending=JSON.parse(localStorage.getItem(KEY)||'null')}catch{}
-  if(pending?._serverPending===true&&Array.isArray(pending.pages)){
-   const base=recoverServerBase(pending);
-   if(base){
-    serverRevision=serverBaseRevision=base.revision;
-    serverBaseRecord=clone(base.record);serverBaseShared=clone(base.shared);
-    serverBasePlans=clone(base.plans);serverBaseLocalization=clone(base.localization??null);
-    serverDiverged=false;
-    serverMessage('⚠️ Brouillon local non transmis : il est conservé. Cliquez sur Enregistrer pour vérifier les changements des autres avant de fusionner.');
-   }else{
-    serverRevision=serverBaseRevision=null;
-    serverDiverged=true;
-    serverMessage('⚠️ Brouillon local conservé, mais version initiale inconnue : aucun envoi ne sera autorisé. Copiez votre travail avant de recharger depuis le serveur.');
-   }
-   db._serverPending=true;
-   return;
-  }
+  // The shared server draft is authoritative on every device.
+  // Never auto-upload a pending local copy: the sync below backs it up
+  // before loading the latest shared draft from the server.
   serverRevision=serverBaseRevision=payload.revision;
   serverBaseRecord=clone(remote);serverBaseShared=clone(payload.shared);
   serverBasePlans=clone(payload.plans||[]);
