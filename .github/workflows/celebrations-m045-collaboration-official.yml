@@ -71,8 +71,16 @@ jobs:
           const version=items.filter(x=>x.type==='version-upload'&&x.worker_name==='celebrations-exit-production').at(-1)?.version_id;
           if(!/^[a-f0-9-]{36}$/i.test(version||''))throw Error('Aucune version certifiée');
           const {spawnSync}=await import('node:child_process');
-          const proc=spawnSync('npx',['wrangler','versions','deploy',version+'@100%','--yes','--config','wrangler.m018.official.toml','--message','M045 protection des sauvegardes entre administrateurs : code seulement'],{stdio:'inherit'});
-          if(proc.status!==0)throw Error('Déploiement refusé');
+          // Wrangler may return a newly uploaded version before it has fully
+          // propagated to the deployment API. Retry only that exact version.
+          let deployed=false;
+          for(let attempt=0;attempt<8;attempt++){
+            const proc=spawnSync('npx',['wrangler','versions','deploy',version+'@100%','--yes','--config','wrangler.m018.official.toml','--message','M045 protection des sauvegardes entre administrateurs : code seulement'],{stdio:'inherit'});
+            if(proc.status===0){deployed=true;break;}
+            console.log('M045_VERSION_PROPAGATION_RETRY '+(attempt+1));
+            await new Promise(resolve=>setTimeout(resolve,3000*(attempt+1)));
+          }
+          if(!deployed)throw Error('Déploiement refusé après propagation');
           const {writeFileSync}=await import('node:fs');
           writeFileSync('/tmp/m045-promoted','1');
           NODE
