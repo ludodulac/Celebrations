@@ -2839,6 +2839,8 @@ function attachPagePublicationControls(list,group){
 function m035EntrySettings(homePage){
  const values={enabled:true,label:'Bienvenue',background:'#28483D',
   color:'#FFFFFF',borderColor:'#F3E5C9',borderWidth:2,radius:16,width:0,height:0,positionY:0,
+  desktopImage:'/assets/home/automne-ordinateur.webp',
+  mobileImage:'/assets/home/automne-telephone.webp',
   ...(homePage.homeEntryButton||{})};
  const controls=n('details','m035-entry-settings');
  const summary=n('summary','','✏ Modifier le bouton « Bienvenue »');
@@ -2846,7 +2848,36 @@ function m035EntrySettings(homePage){
  controls.open=true;
  controls.append(summary);
  const body=n('div','m035-entry-fields');
- body.append(n('p','hint','Le bouton « Bienvenue » s’affiche devant l’image et ouvre la page suivante, comme un clic sur l’image. Le bloc de texte original reste enregistré dans l’éditeur.'));
+ body.append(n('p','hint','Le titre du site reste visible. Les deux images s’adaptent aux écrans sans modifier les autres pages.'));
+ const imageFields=n('div','m048-home-images');
+ for(const [key,title,ratio] of [
+  ['desktopImage','Image d’accueil — ordinateur','16:9 (ex. 1920 × 1080)'],
+  ['mobileImage','Image d’accueil — téléphone','9:16 (ex. 1080 × 1920)']
+ ]){
+  const group=n('div','m048-image-field');
+  group.append(n('strong','',title),n('small','hint','Proportion conseillée : '+ratio));
+  const thumb=n('img','m048-image-preview');
+  thumb.alt='Aperçu : '+title;
+  thumb.src=values[key]||homePage.blocks?.find(x=>x.kind==='image')?.src||'';
+  thumb.loading='lazy';
+  thumb.style.aspectRatio=key==='desktopImage'?'16 / 9':'9 / 16';
+  group.append(thumb);
+  const actions=n('div','file-actions');
+  actions.append(b('Choisir / Remplacer',()=>{
+   const imageTarget={
+    get src(){return values[key]},
+    set src(url){values[key]=url;modify()},
+    kind:'image'
+   };
+   showImagePicker(imageTarget);
+  },'sm'));
+  actions.append(b('Utiliser l’image de la page',()=>{
+   values[key]='';modify();render();
+  },'sm'));
+  group.append(actions);imageFields.append(group);
+ }
+ body.append(imageFields);
+ body.append(n('small','hint','Les images se changent ici, indépendamment. Une image déjà utilisée sur une autre page reste intacte.'));
  const preview=n('span','m035-entry-preview',values.label);
  const paint=()=>{
   preview.textContent=values.label||'Bienvenue';
@@ -2946,7 +2977,7 @@ function m035EntrySettings(homePage){
   if(preview.hasPointerCapture(e.pointerId))preview.releasePointerCapture(e.pointerId);
  };
  paint();
- const apply=b('Appliquer le bouton sur le site',async()=>{
+ const apply=b('Appliquer l’accueil sur le site',async()=>{
   const label=String(values.label||'').trim();
   if(!label||label.length>64||/[<>\u0000-\u001f\u007f]/.test(label)){
    siteNotice('Écrivez un texte de 1 à 64 caractères pour le bouton.');return;
