@@ -416,8 +416,16 @@ export async function handleEditorPublication(request,env){
   // once per request without exposing unpublished editor drafts or private rows.
   const historic=await publicHistoricalMedia(env.DB,state);
   snapshot.media=mergePublicMedia(snapshot.media,historic).map(m=>{
-   const assigned=(state.mediaCatalogue||[]).find(x=>x?.type==='audio'&&x.src===m.src&&cleanAudioType(x.audioType));
-   return m.type==='audio'&&assigned?{...m,audioType:cleanAudioType(assigned.audioType)}:m;
+   // Public projection already authorized this item. Only decorate it with
+   // benign labels; never expose an unpublished catalogue item or private use.
+   const assigned=(state.mediaCatalogue||[]).find(x=>x?.type===m.type&&x.src===m.src);
+   if(!assigned)return m;
+   return {...m,
+    ...(cleanMediaName(assigned.name)?{name:cleanMediaName(assigned.name)}:{}),
+    ...(m.type==='audio'&&cleanAudioType(assigned.audioType)?
+      {audioType:cleanAudioType(assigned.audioType)}:{}),
+    ...(m.type==='video'?{videoType:VIDEO_TYPES.includes(assigned.videoType)?
+      assigned.videoType:videoTypeOf(assigned.name||m.name)}:{})};
   });
   // Discover languages across the site through the SAME anonymous projection.
   // Hidden/private celebrations and their releases cannot advertise a language.
