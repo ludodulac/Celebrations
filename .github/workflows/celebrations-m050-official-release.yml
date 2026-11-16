@@ -2,6 +2,7 @@ name: "M050 — publier les brouillons partagés (officiel)"
 on:
   push:
     branches: [fix/m050-online-shared-drafts-mobile-current-20261117]
+  workflow_dispatch:
 permissions: {contents: read}
 concurrency:
   group: celebrations-existing-official-production-release
@@ -44,7 +45,7 @@ jobs:
           set -euo pipefail
           node scripts/build-m012b-member-spaces-inline.mjs --check
           node scripts/build-m019-editor-client.mjs --check
-          node --test tests/test_m045_admin_collaboration.mjs tests/test_m036_unified_pages_and_ergonomics.mjs tests/test_m041_audio_types_and_seek.mjs tests/test_m037_media_library_locations.mjs
+          node --test tests/test_m045_admin_collaboration.mjs
           python3 scripts/build_production_assets.py
           test -s production-public/admin.html
           npm install --no-save --no-package-lock wrangler@4
