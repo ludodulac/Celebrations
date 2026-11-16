@@ -3448,26 +3448,38 @@ function media(){
   const card=n('article','card historic-file'+(unused?' unused-file':''));
   card.dataset.publicFileId=record.id;card.dataset.fileCategory=record.category;
   card.dataset.usage=unused?'unused':'used';
-  libraryTitle(card,record.name,record.src);
+  const displayName=remoteCopy?.name||record.name;
+  libraryTitle(card,displayName,record.src);
   if(record.category==='autres')
    card.append(n('small','media-format-label',libraryTypeLabel(record)));
-  if(hasImage)libraryPicture(card,record.name,record.src,unused);
-  libraryPreview(card,record.name,record.src,record.category||mediaCategoryOf(record));
+  if(hasImage)libraryPicture(card,displayName,record.src,unused);
+  libraryPreview(card,displayName,record.src,record.category||mediaCategoryOf(record));
   libraryUnusedText(card,unused,hasImage);
   libraryLocationLinks(card,refs);
   if(chosenBlock&&mediaCategory==='audios'&&record.category==='audios')
    card.append(b('Insérer dans le lecteur',()=>attachChosenAudio(record),'sm primary'));
   const historicalActions=n('div','file-actions');
   const known=remoteCopy||{id:(record.category==='images'?'image':record.category==='audios'?'audio':record.category==='videos'?'video':record.category==='pdf'?'pdf':'file')+'|'+record.src,
-   name:record.name,src:record.src,type:record.category==='images'?'image':record.category==='audios'?'audio':record.category==='videos'?'video':record.category==='pdf'?'pdf':'file'};
+   name:displayName,src:record.src,type:record.category==='images'?'image':record.category==='audios'?'audio':record.category==='videos'?'video':record.category==='pdf'?'pdf':'file'};
   historicalActions.append(b('Renommer',()=>void renameMedia(known),'sm'));
   if(hasImage)historicalActions.append(b('Supprimer',()=>void removeMediaFromAdmin(known,refs),'sm'));
+  if(mediaCategory==='videos'&&known.type==='video'){
+   const label=n('label','audio-type-file-selector','Type : ');
+   const sel=n('select','audio-type-select');
+   sel.setAttribute('aria-label','Type de vidéo '+displayName);
+   for(const type of DEFAULT_VIDEO_TYPES){const opt=n('option','',type);opt.value=type;sel.append(opt)}
+   sel.value=videoTypeForMedia(known);
+   sel.onchange=()=>void saveVideoTypeForMedia(known,sel.value).catch(error=>{
+    siteNotice(error.message||'Type non enregistré');render();
+   });
+   label.append(sel);card.append(label);
+  }
   card.append(historicalActions);
   card._mediaUses=refs;card._videoType=known.type==='video'?videoTypeForMedia(known):'';
-  card._sortName=String(record.name||'');card._sortDate=String(record.createdAt||'');
+  card._sortName=String(displayName||'');card._sortDate=String(record.createdAt||'');
   cards.append(card);
  }
- for(const record of local.filter(x=>matches(localCategory(x)))){
+ for(const record of local.filter(x=>matches(localCategory(x))&&!hiddenFileIds.has(x.id))){
   const localUrl=assetUrls.get(record.id)||'';
   const refs=fileUsages(record.id),unused=refs.length===0,hasImage=mediaCategory==='images';
   const card=n('article','card'+(unused?' unused-file':''));card.dataset.fileId=record.id;
@@ -3492,6 +3504,13 @@ function media(){
   if(unused){
    const del=b('Supprimer',()=>deleteFile(record),'sm');
    del.dataset.action='delete-unused-file';actions.append(del);
+  }else if(hasImage){
+   actions.append(b('Supprimer',async()=>{
+    if(!(await siteConfirm('Retirer cette image de la médiathèque locale ? Elle restera sur les pages qui l’utilisent pour éviter une image cassée.')))return;
+    hiddenFileIds.add(record.id);
+    try{localStorage.setItem('celebrations-files-hidden-v1',JSON.stringify([...hiddenFileIds]))}catch{}
+    render();
+   },'sm'));
   }
   card.append(actions);
   card._mediaUses=refs.map(x=>({celebrationId:'general',pageId:x.page,pageName:x.page,name:x.page}));
