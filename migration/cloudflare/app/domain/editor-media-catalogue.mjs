@@ -38,11 +38,11 @@ export function createMediaCatalogue({validHref}){
   for(const record of remote||[])add(record,mediaCategoryOf(record));
   return [...entries.values()].sort((a,b)=>a.name.localeCompare(b.name,'fr'));
  }
- function imageItems({historical,pages,globalMedia,fileRecords,assetUrls}){
+ function imageItems({historical,pages,globalMedia,hiddenMediaUrls,fileRecords,assetUrls}){
   const entries=new Map(),pageImages=[];
   // An administrator's explicit rename wins over legacy filename captions.
   // Soft-archived images must not reappear in the picker through saved pages.
-  const hidden=new Set((globalMedia||[]).filter(x=>x.hiddenFromLibrary===true).map(x=>x.src));
+  const hidden=new Set([...(hiddenMediaUrls||[]),...(globalMedia||[]).filter(x=>x.hiddenFromLibrary===true).map(x=>x.src)]);
   for(const item of globalMedia||[])if(item.type==='image'&&item.src&&!hidden.has(item.src))
    entries.set(item.src,{name:item.name,src:item.src});
   for(const file of historical||[])if(file?.category==='images'&&
