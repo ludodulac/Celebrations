@@ -1,0 +1,38 @@
+name: "M047 — boutons de téléchargement PDF"
+on:
+  push:
+    branches: [feat/m047-document-download-buttons-20261116]
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  downloads:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Parse both scripts and verify generated client
+        run: |
+          node --check migration/cloudflare/editor-demo-client.mjs
+          node --check migration/cloudflare/editor-trial-site-client.mjs
+          node --check migration/cloudflare/public-upload-gateway.mjs
+          node --check migration/cloudflare/media-gateway.mjs
+          node scripts/build-m019-editor-client.mjs --check
+      - name: Download, security, editor, visitor, media and collaboration tests
+        run: |
+          node --test \
+            tests/test_m047_document_download.mjs \
+            tests/test_m046_media_libraries.mjs \
+            tests/test_m045_admin_collaboration.mjs \
+            tests/test_m032_standalone_public_media.mjs \
+            tests/test_m009c_public_media_api_security.mjs \
+            tests/test_m012c_private_editor_publication.mjs \
+            tests/test_m041_audio_types_and_seek.mjs \
+            tests/test_mission12_public_renderer.mjs
+      - name: Build site without deployment
+        run: |
+          python scripts/build_production_assets.py
+          test -s production-public/admin.html
