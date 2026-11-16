@@ -31,7 +31,7 @@ jobs:
             tests/test_m009c_public_media_api_security.mjs \
             tests/test_m012c_private_editor_publication.mjs \
             tests/test_m041_audio_types_and_seek.mjs \
-            tests/test_mission12_public_renderer.mjs
+            tests/test_m022_editor_commands.mjs
       - name: Build site without deployment
         run: |
           python scripts/build_production_assets.py
