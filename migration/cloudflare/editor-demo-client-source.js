@@ -697,13 +697,26 @@ async function createExternalMedia(){
  const type=({1:'video',2:'pdf',3:'image',4:'audio'})[input];
  if(!type){siteNotice('Choisissez 1, 2, 3 ou 4.');return}
  const name=String((await sitePrompt('Nom du média :',url.hostname))||'').trim().slice(0,120);
+ let videoCategory=null;
+ if(type==='video'){
+  const guess=videoTypeForMedia({name});
+  const initial=String(DEFAULT_VIDEO_TYPES.indexOf(guess)+1);
+  const chosen=await sitePrompt('Type de vidéo : 1 Conférences · 2 Rituels · 3 Explications · 4 Exercices',initial);
+  if(chosen===null)return;
+  videoCategory=DEFAULT_VIDEO_TYPES[Number(chosen)-1];
+  if(!videoCategory){siteNotice('Choisissez 1, 2, 3 ou 4');return}
+ }
  const response=await fetch('/api/editor-media?action=external',{method:'POST',
   headers:{'content-type':'application/json'},body:JSON.stringify({type,src:url.href,name:name||url.hostname})});
  const result=await response.json().catch(()=>({}));
  if(!response.ok){siteNotice(result.error||'Enregistrement impossible');return}
  mediaRevision=result.revision;
  globalMedia=globalMedia.filter(x=>x.id!==result.item.id).concat(result.item);
- status.textContent='✓ Lien conservé dans la médiathèque globale';render();
+ if(type==='video'&&videoCategory){
+  try{await saveVideoTypeForMedia(result.item,videoCategory,{quiet:true})}
+  catch(error){siteNotice('Vidéo ajoutée mais classement non enregistré : '+error.message)}
+ }
+ status.textContent='✓ Lien conservé dans la médiathèque';render();
 }
 // M032 — a file's URL and sharing choice are independent of a celebration.
 // Never publish anything automatically when it is uploaded or marked "Inutilisé".
