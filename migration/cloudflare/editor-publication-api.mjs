@@ -430,8 +430,7 @@ export async function handleEditorPublication(request,env){
     ...(cleanMediaName(assigned.name)?{name:cleanMediaName(assigned.name)}:{}),
     ...(m.type==='audio'&&cleanAudioType(assigned.audioType)?
       {audioType:cleanAudioType(assigned.audioType)}:{}),
-    ...(m.type==='video'?{videoType:VIDEO_TYPES.includes(assigned.videoType)?
-      normalizedVideoType(assigned.videoType,assigned.name||m.name)}:{})};
+    ...(m.type==='video'?{videoType:normalizedVideoType(assigned.videoType,assigned.name||m.name)}:{})};
   });
   // Discover languages across the site through the SAME anonymous projection.
   // Hidden/private celebrations and their releases cannot advertise a language.
