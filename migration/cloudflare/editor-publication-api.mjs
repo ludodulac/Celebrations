@@ -719,7 +719,7 @@ export async function handleEditorMedia(request,env){
   const state=copy(current.state);
   const items=discoverMedia(state),id=input.type+'|'+input.src;
   if(!items.some(x=>x.id===id))items.push({id,type:input.type,src:input.src,
-   name:String(input.name||input.src).slice(0,120),source:'link',general:false});
+   name:String(input.name||input.src).slice(0,120),source:'link',general:false,createdAt:new Date().toISOString()});
   state.mediaCatalogue=items;
   if(!await writeEditorState(env.EDITOR_BUCKET,current,state))return err('Une sauvegarde simultanée existe',409);
   return json({ok:true,revision:state.version,item:items.find(x=>x.id===id)});
@@ -734,7 +734,7 @@ export async function handleEditorMedia(request,env){
   if(!format||file.size<1||file.size>format.max)return err('Format ou taille non pris en charge (vidéos : lien externe)',415);
   const id=crypto.randomUUID()+format.extension;
   const path='/media/new/'+id,record={id:format.type+'|'+path,type:format.type,
-   src:path,name:String(file.name||id).slice(0,120),source:'uploaded',general:false};
+   src:path,name:String(file.name||id).slice(0,120),source:'uploaded',general:false,createdAt:new Date().toISOString()};
   const current=await readEditorState(env.EDITOR_BUCKET),state=copy(current.state);
   await env.EDITOR_BUCKET.put(PREFIX+id,await file.arrayBuffer(),{httpMetadata:{contentType:mime}});
   try{
