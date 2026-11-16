@@ -1,0 +1,33 @@
+name: "M045 — deux administrateurs sans écrasement"
+on:
+  push:
+    branches: [fix/m045-admin-collaboration-no-overwrite-20261116]
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  test-collaboration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Editor code and generated source parity
+        run: |
+          # Source is intentionally an async-IIFE body, not a standalone JS module.
+          node --check migration/cloudflare/editor-demo-client.mjs
+          node --check migration/cloudflare/app/application/editor-sync-policy.mjs
+          node scripts/build-m019-editor-client.mjs --check
+      - name: Multi-admin conflicts, save confirmation and regressions
+        run: |
+          node --test \
+            tests/test_m045_admin_collaboration.mjs \
+            tests/test_m038_audio_android_library.mjs \
+            tests/test_m036_unified_pages_and_ergonomics.mjs \
+            tests/test_m012c_private_editor_publication.mjs \
+            tests/test_m041_audio_types_and_seek.mjs
+      - name: Build production Worker without deploying
+        run: |
+          python3 scripts/build_production_assets.py
+          test -s production-public/admin.html

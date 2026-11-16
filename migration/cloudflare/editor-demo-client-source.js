@@ -998,7 +998,7 @@ function editorFormatToolbar(x,z,box){
 // Shared staging copy: a browser displays the last deliberately saved server version.
 const SERVER_ENDPOINT='/api/editor-open-draft';
 const SERVER_ID=String(window.__PREPARATION_SEED__?.celebrationId||'');
-let serverRevision=null,serverRemoteVersion=0,serverSaving=false,serverDiverged=false;
+let serverRevision=null,serverBaseRevision=null,serverRemoteVersion=0,serverSaving=false,serverDiverged=false;
 // M031: server-published R2 visibility is authoritative, not browser-local draft state.
 let serverPublishedCelebrationVisibility=null;
 let serverBaseRecord=null,serverBaseShared=null,serverBasePlans=null,serverBaseLocalization=null;
@@ -1009,6 +1009,22 @@ function serverMessage(message){
  status.textContent=message;
  const old=document.getElementById('server-login-link');if(old)old.remove();
 }
+const SERVER_BASE_KEY=KEY+'-last-confirmed-server-base-m045';
+function rememberServerBase(revision,record,shared,plans,localization){
+ if(!Number.isSafeInteger(revision)||revision<0)return false;
+ try{
+  localStorage.setItem(SERVER_BASE_KEY,JSON.stringify({revision,record,shared,plans,localization}));
+  return true;
+ }catch{return false}
+}
+function recoverServerBase(local){
+ try{
+  const base=JSON.parse(localStorage.getItem(SERVER_BASE_KEY)||'null');
+  if(base&&Number.isSafeInteger(base.revision)&&base.revision===local?._serverRevision&&
+     base.record&&base.shared&&Array.isArray(base.plans))return base;
+ }catch{}
+ return null;
+}
 async function serverLoad(){
  try{
   const response=await fetch(SERVER_ENDPOINT+'?celebration='+encodeURIComponent(SERVER_ID),{cache:'no-store'});
@@ -1016,23 +1032,35 @@ async function serverLoad(){
    serverMessage('Impossible de charger la version commune : vos modifications locales restent intactes.');return;
   }
   const payload=await response.json();
-  serverRevision=payload.revision;if(payload.celebrationMetadata)celebrationMetadata=payload.celebrationMetadata;
+  if(payload.celebrationMetadata)celebrationMetadata=payload.celebrationMetadata;
   const publicStates=payload.publishedCelebrationVisibility;
   serverPublishedCelebrationVisibility=publicStates&&typeof publicStates==='object'&&!Array.isArray(publicStates)?{...publicStates}:null;
   globalMedia=Array.isArray(payload.mediaCatalogue)?payload.mediaCatalogue:globalMedia;
   const remote=payload.record;
-  serverBaseRecord=clone(remote);serverBaseShared=clone(payload.shared);
-  serverBasePlans=clone(payload.plans||[]);
-  serverBaseLocalization=clone(payload.localization??null);
-  // Never lose a page with a failed server save merely because it is reloaded.
+  // NEVER upload a locally recovered copy on page load. It may be older than
+  // the colleague's work, even though the browser remembers it as "pending".
   let pending=null;
   try{pending=JSON.parse(localStorage.getItem(KEY)||'null')}catch{}
   if(pending?._serverPending===true&&Array.isArray(pending.pages)){
-   db._serverRevision=serverRevision;db._serverPending=true;
-   serverDiverged=true;
-   serverMessage('⚠️ Modifications locales non transmises retrouvées. Elles sont conservées. Cliquez sur Enregistrer pour les envoyer au serveur.');
+   const base=recoverServerBase(pending);
+   if(base){
+    serverRevision=serverBaseRevision=base.revision;
+    serverBaseRecord=clone(base.record);serverBaseShared=clone(base.shared);
+    serverBasePlans=clone(base.plans);serverBaseLocalization=clone(base.localization??null);
+    serverDiverged=false;
+    serverMessage('⚠️ Brouillon local non transmis : il est conservé. Cliquez sur Enregistrer pour vérifier les changements des autres avant de fusionner.');
+   }else{
+    serverRevision=serverBaseRevision=null;
+    serverDiverged=true;
+    serverMessage('⚠️ Brouillon local conservé, mais version initiale inconnue : aucun envoi ne sera autorisé. Copiez votre travail avant de recharger depuis le serveur.');
+   }
+   db._serverPending=true;
    return;
   }
+  serverRevision=serverBaseRevision=payload.revision;
+  serverBaseRecord=clone(remote);serverBaseShared=clone(payload.shared);
+  serverBasePlans=clone(payload.plans||[]);
+  serverBaseLocalization=clone(payload.localization??null);
   if(!remote){
    if(payload.localization){editorLocalization=normalizeLocalization(payload.localization);clearLocaleView();saveLocalizationLocal();}
    serverMessage('Aucune version commune enregistrée. Depuis l’appareil contenant les bonnes pages, cliquez sur Enregistrer.');
@@ -1043,13 +1071,12 @@ async function serverLoad(){
   try{localShared=JSON.parse(localStorage.getItem(SHARED_KEY)||'null')}catch{}
   try{localPlans=JSON.parse(localStorage.getItem(PLANS_KEY)||'null')}catch{}
   const changed=!!local&&JSON.stringify(local.pages?.filter(p=>p.group==='celebration'))!==JSON.stringify(remote.pages);
-  const sharedChanged=!!localShared&&Array.isArray(payload.shared?.pages)&&payload.shared.pages.length>0&&
+  const sharedChanged=!!localShared&&Array.isArray(payload.shared?.pages)&&
    JSON.stringify(localShared.pages)!==JSON.stringify(payload.shared.pages);
   let localLocalization=null;
   try{localLocalization=JSON.parse(localStorage.getItem(LOCALIZATION_KEY)||'null')}catch{}
   const localizationChanged=!!localLocalization&&
    JSON.stringify(localLocalization)!==JSON.stringify(payload.localization??emptyLocalization());
-  // Never silently destroy older browser-specific drafts: keep one recoverable archive.
   if(changed||sharedChanged||localizationChanged){
    try{
     const key='celebrations-last-browser-draft-before-sync-v1';
@@ -1070,6 +1097,7 @@ async function serverLoad(){
   clearLocaleView();saveLocalizationLocal();
   if(Array.isArray(payload.plans))localStorage.setItem(PLANS_KEY,JSON.stringify(payload.plans));
   try{localStorage.setItem(KEY,JSON.stringify(db))}catch{}
+  rememberServerBase(payload.revision,remote,payload.shared,payload.plans||[],payload.localization??null);
   serverDiverged=false;
   serverMessage('✓ Version commune chargée depuis le serveur. Même contenu sur tous les appareils.');
  }catch{
@@ -1183,12 +1211,11 @@ async function serverRecord(){
  return {record,localization};
 }
 async function serverSave(){
- // Private pages are stored by their own canonical guarded command, never legacy R2.
  if(privateEdit)return savePrivatePage();
  if(serverSaving){serverSaveQueued=true;return false}
- if(serverRevision===null){
+ if(serverRevision===null||!serverBaseRecord||!serverBaseShared||!serverBasePlans){
   db._serverPending=true;
-  serverMessage('❌ Impossible de joindre la version du serveur. Vos modifications sont conservées dans ce navigateur. Connectez-vous à nouveau à l’administration.');
+  serverMessage('❌ Aucun envoi sans version serveur confirmée : le brouillon local est conservé. Rechargez les données avant de reprendre la modification.');
   return false;
  }
  serverSaving=true;
@@ -1196,94 +1223,111 @@ async function serverSave(){
  button.classList.remove('save-confirmed','save-failed');
  serverMessage('Sauvegarde sécurisée en cours…');
  const started=serverLocalEditCounter;
+ let confirmed=false,mergedFromRemote=false;
  try{
-  const {record,localization}=await serverRecord(),plans=plannedEntries();
+  let {record,localization}=await serverRecord(),plans=plannedEntries();
   let shared;
   try{shared=JSON.parse(localStorage.getItem(SHARED_KEY)||'null')}catch{}
-  // Always send the CURRENT in-memory page, not a stale localStorage copy.
-  // Full browser storage may reject writes while server storage still works.
   shared={...(shared||{}),pages:db.pages.filter(p=>p.group==='page'),
    homeId:db.siteHomeId||'neutral-accueil-general'};
   const selected=(tab==='pages'||tab==='celebrations')?page():null;
   const pageId=selected?.id||null;
-  if(serverDiverged){
-   // A locally recovered draft must never overwrite newer server work quietly.
-   if(!(await siteConfirm('Cette version locale diffère du serveur. Souhaitez-vous envoyer vos modifications ? Une copie locale de secours est conservée.'))){
-    serverMessage('Modifications locales conservées ; rien n’a été écrasé sur le serveur.');
-    return false;
-   }
-   serverDiverged=false;
-  }
   let response,payload={};
-  for(let attempt=0;attempt<2;attempt++){
+  for(let attempt=0;attempt<3;attempt++){
    response=await fetch(SERVER_ENDPOINT,{method:'POST',cache:'no-store',
     headers:{...serverHeaders(),'content-type':'application/json'},
     body:JSON.stringify({celebration:SERVER_ID,expectedRevision:serverRevision,
      record,plans,shared,localization,...(pageId?{publishPageId:pageId}:{})})});
    payload=await response.json().catch(()=>({}));
    if(response.ok)break;
-   if(response.status!==409||attempt===1)
+   if(response.status!==409||attempt===2)
     throw Error(payload.error||('Le serveur a refusé la sauvegarde (HTTP '+response.status+').'));
    const reload=await fetch(SERVER_ENDPOINT+'?celebration='+encodeURIComponent(SERVER_ID),{cache:'no-store'});
-   if(!reload.ok)throw Error('Version du serveur indisponible après conflit.');
+   if(!reload.ok)throw Error('Impossible de vérifier la version de votre collègue : aucun enregistrement effectué.');
    const fresh=await reload.json();
-   const unchanged=editorSyncPolicy.unchangedRemote(fresh,serverBaseRecord,serverBaseShared,serverBasePlans,serverBaseLocalization);
-   serverRevision=fresh.revision;
-   if(!unchanged){
-    serverDiverged=true;
-    throw Error('Une autre version de ces pages existe sur le serveur. Votre travail reste ici. Cliquez à nouveau sur Enregistrer pour décider.');
+   if(!Number.isSafeInteger(fresh.revision)||!fresh.record||!fresh.shared||!Array.isArray(fresh.plans))
+    throw Error('Version commune invalide : sauvegarde bloquée.');
+   // Three-way merge: only disjoint page changes can be combined. A page
+   // edited by both admins NEVER gets silently replaced or auto-confirmed.
+   const merged=editorSyncPolicy.mergeSnapshots(
+    {record:serverBaseRecord,shared:serverBaseShared,plans:serverBasePlans,localization:serverBaseLocalization},
+    {record,shared,plans,localization},fresh);
+   if(!merged.ok){
+    const places=merged.conflicts.slice(0,3).join(' ; ');
+    throw Error('Conflit entre administrateurs ('+places+'). Aucun travail écrasé. Brouillon conservé dans ce navigateur. Demandez à votre collègue de terminer puis réconciliez les changements.');
    }
+   ({record,shared,plans,localization}=merged);
+   serverRevision=fresh.revision;
+   mergedFromRemote=true;
   }
   if(!response?.ok)throw Error(payload.error||'Enregistrement refusé.');
-  serverRevision=payload.revision;if(payload.celebrationMetadata)celebrationMetadata=payload.celebrationMetadata;
-  serverBaseRecord=clone(record);serverBaseShared=clone(shared);
-  serverBaseLocalization=clone(localization);
-  serverBasePlans=clone(plans);
+  const savedRevision=payload.revision;
   const stillCurrent=editorSyncPolicy.noNewEdits(started,serverLocalEditCounter);
-  db._serverRevision=serverRevision;db._serverPending=!stillCurrent;
+  db._serverRevision=savedRevision;
+  db._serverPending=!stillCurrent;
   if(stillCurrent)dirty=false;
   if(!stillCurrent)serverSaveQueued=true;
   try{localStorage.setItem(KEY,JSON.stringify(db))}catch{}
-  // HTTP 200 is not a reliable success message unless the page can be read
-  // back intact from the same server and its expected revision.
-  let confirmed=false;
-  try{
-   const check=await fetch(SERVER_ENDPOINT+'?celebration='+encodeURIComponent(SERVER_ID),{cache:'no-store'});
-   if(check.ok){
-    const saved=await check.json();
-    confirmed=editorSyncPolicy.readbackConfirmed(saved,payload.revision,pageId,record,shared,localization);
-    if(confirmed){serverBaseRecord=clone(saved.record);serverBaseShared=clone(saved.shared);
-     serverBasePlans=clone(saved.plans||[]);serverBaseLocalization=clone(saved.localization??null);}
+  // A 200 is not a valid success indicator until server readback confirms
+  // EVERY submitted page (not merely the selected one) and all translations.
+  const check=await fetch(SERVER_ENDPOINT+'?celebration='+encodeURIComponent(SERVER_ID),{cache:'no-store'});
+  if(check.ok){
+   const saved=await check.json();
+   confirmed=editorSyncPolicy.readbackConfirmed(saved,savedRevision,pageId,record,shared,localization,plans);
+   if(confirmed){
+    serverRevision=serverBaseRevision=saved.revision;
+    serverBaseRecord=clone(saved.record);serverBaseShared=clone(saved.shared);
+    serverBasePlans=clone(saved.plans||[]);serverBaseLocalization=clone(saved.localization??null);
+    rememberServerBase(saved.revision,saved.record,saved.shared,saved.plans||[],saved.localization??null);
+    if(stillCurrent&&(mergedFromRemote||saved.revision!==savedRevision)){
+     // Refresh the other pages locally only AFTER confirmation; otherwise a
+     // later Save could accidentally reintroduce stale pages.
+     db={...db,...clone(saved.record),pages:clone(saved.shared.pages).concat(clone(saved.record.pages)),
+      siteHomeId:saved.shared.homeId||db.siteHomeId,
+      _serverRevision:saved.revision,_serverPending:false};
+     editorLocalization=normalizeLocalization(saved.localization);
+     saveLocalizationLocal();
+     try{localStorage.setItem(SHARED_KEY,JSON.stringify(saved.shared))}catch{}
+     try{localStorage.setItem(PLANS_KEY,JSON.stringify(saved.plans||[]))}catch{}
+     resetUndoHistory();
+     render();
+    }
+    db._serverRevision=saved.revision;
+    try{localStorage.setItem(KEY,JSON.stringify(db))}catch{}
    }
-  }catch{}
+  }
   if(!confirmed){
    db._serverPending=true;
    try{localStorage.setItem(KEY,JSON.stringify(db))}catch{}
-   throw Error('Le serveur a accepté l’envoi, mais sa relecture ne confirme pas encore votre page.');
+   throw Error('Le serveur a reçu l’envoi, mais la relecture ne confirme pas toutes les pages. Brouillon local conservé.');
   }
   const live=!!payload.publishedPageId;
-  const label=live?'✓ Enregistré et mis à jour sur le site public':
-   '✓ Enregistré sur le serveur (brouillon)';
-  button.textContent=label;button.classList.add('save-confirmed');syncSecondarySave();
-  serverMessage(label+' — contenu revérifié après enregistrement.');
+  const label=live?'✓ Enregistré et mis à jour sur le site public':'✓ Enregistré sur le serveur (brouillon)';
+  const liveButton=el('save-btn')||button;
+  liveButton.textContent=label;liveButton.classList.add('save-confirmed');syncSecondarySave();
+  serverMessage(label+' — pages et traductions revérifiées après enregistrement.');
   clearTimeout(saveFeedbackTimer);
   saveFeedbackTimer=setTimeout(()=>{
-   button.classList.remove('save-confirmed');
-   if(!dirty)button.textContent='Enregistrer';
+   liveButton.classList.remove('save-confirmed');
+   if(!dirty)liveButton.textContent='Enregistrer';
   },5000);
   return true;
  }catch(e){
-  button.textContent='Échec — réessayer';button.classList.add('save-failed');
+  // A failed retry must not leave the client pointing at an unverified newer
+  // revision: the next click needs to re-check for conflicts too.
+  serverRevision=serverBaseRevision;
+  const liveButton=el('save-btn')||button;
+  liveButton.textContent='Échec — réessayer';liveButton.classList.add('save-failed');
   db._serverPending=true;
   try{localStorage.setItem(KEY,JSON.stringify(db))}catch{}
   serverMessage('❌ '+(e.message||'Erreur réseau')+' Modifications conservées sur cet appareil.');
   return false;
  }finally{
-  serverSaving=false;button.disabled=false;syncSecondarySave();
+  serverSaving=false;
+  const liveButton=el('save-btn')||button;liveButton.disabled=false;syncSecondarySave();
   if(serverSaveQueued){
    serverSaveQueued=false;
-   // Another edit made while the first save was in flight is never discarded.
-   if(db._serverPending&&started!==serverLocalEditCounter)
+   if(confirmed&&db._serverPending&&started!==serverLocalEditCounter)
     queueMicrotask(()=>{save();void serverSave()});
   }
  }
@@ -4148,7 +4192,7 @@ el('image-input').onchange=async function(){
 
 const uploadPicker=n('input');uploadPicker.id='asset-file-picker';uploadPicker.type='file';uploadPicker.accept=IS_STAGE&&LIVE_MEDIA_UPLOAD_HOST?'.pdf,.txt,.docx,.jpg,.jpeg,.png,.webp,.mp3,.wav':'.pdf,.txt,.doc,.docx,.odt,.rtf,.csv,image/*,audio/*,video/*';uploadPicker.multiple=true;uploadPicker.hidden=true;document.body.append(uploadPicker);
 uploadPicker.onchange=async()=>{const files=[...uploadPicker.files];uploadPicker.value='';await importFiles(files)};
-if(IS_STAGE){await loadAdminMode();await serverLoad();if(db._serverPending){serverDiverged=false;await serverSave();}}
+if(IS_STAGE){await loadAdminMode();await serverLoad();}
 render();loadFiles();
 
 })();
