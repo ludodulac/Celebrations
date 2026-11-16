@@ -42,6 +42,12 @@ function publicRelease(state,src){
  const entry=(state.mediaCatalogue||[]).find(row=>row?.src===src);
  if(entry&&isPrivateMediaRecord(entry))return false;
  if(referencedByRestrictedOwner(state,src))return false;
+ // Homepage image selections have exactly the same public-page authorization
+ // as the original homepage illustration; drafts never release media.
+ const homeId=state.published?.shared?.homeId||state.shared?.homeId;
+ const home=state.published?.shared?.pages?.find(page=>page.id===homeId);
+ if(home&&pubPage(home)&&['desktopImage','mobileImage'].some(key=>
+  home.homeEntryButton?.[key]===src))return true;
  if(state.siteIdentity?.imageSrc===src&&entry?.type==='image')return true;
  if(publishedPageReferences(state,src))return true;
  // An explicit standalone public URL survives a hidden celebration and does

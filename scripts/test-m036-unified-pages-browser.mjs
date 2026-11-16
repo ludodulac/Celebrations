@@ -2,6 +2,7 @@
 // Never touch the official PIN, database, Cloudflare storage or media.
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
+import {readFileSync} from 'node:fs';
 import {handleTrialSite} from '../migration/cloudflare/editor-trial-site-page.mjs';
 import {handlePreparationDemo,STAGES} from '../migration/cloudflare/editor-demo-preparation-page.mjs';
 const HOST='https://ronde-des-archanges-universelle.eu';
@@ -79,6 +80,11 @@ try{
    }
    if(url.pathname==='/media/m033-home-existing-photo.jpg')
     return route.fulfill({status:200,contentType:'image/png',body:PNG});
+   if(/^\/assets\/home\/automne-(?:ordinateur|telephone)\.webp$/.test(url.pathname)){
+    const filename=url.pathname.split('/').at(-1);
+    return route.fulfill({status:200,contentType:'image/webp',
+     body:readFileSync(new URL('../assets/home/'+filename,import.meta.url))});
+   }
    if(url.pathname==='/api/editor-publication')return route.fulfill({
     status:200,contentType:'application/json',body:JSON.stringify(snapshot)});
    if(url.pathname==='/api/site-identity')return route.fulfill({
@@ -101,26 +107,29 @@ try{
   assert.equal(await page.locator('.site-menu-bar').evaluate(el=>getComputedStyle(el).backgroundColor),
    'rgb(255, 255, 255)');
   assert.equal(await page.locator('.m021-site-identity').isVisible().catch(()=>false),false);
-  assert.equal(await page.locator('.footer').isVisible(),true);
-  assert.equal(await page.locator('#back-admin').isVisible(),true);
+  assert.equal(await page.locator('.footer').isVisible(),false,'Welcome page should not display footer links');
+  assert.equal(await page.locator('#back-admin').isVisible(),false,'No admin link on entry page');
   assert.ok((await page.locator('#back-admin').getAttribute('href')).includes('__editor'));
   const box=await page.locator('.m033-splash-enter').boundingBox();
   assert.ok(box,'Full-screen cover must be present');
   const paper=await page.locator('#site-paper').boundingBox();
-  assert.ok(paper&&paper.width<=940,'Homepage stays in its central paper, not 100vw');
-  assert.ok(paper.x>=0&&paper.x<w/2,'Central paper is properly inset');
+  assert.ok(paper&&paper.width<=Math.min(1280,w)+1,'Homepage bounded at desktop width');
+  assert.ok(paper.x>=0&&paper.x<w/2,'Homepage remains centered');
   assert.ok(box&&Math.abs(box.x-paper.x)<1,'Image touches left edge of paper');
   assert.ok(Math.abs(box.width-paper.width)<=1,'Image spans central paper width');
-  // Real pixel proportions, not a cover crop nor a forced max-height.
+  // The cover uses a purpose-composed responsive image for each viewport.
   const dims=await cover.evaluate(img=>({
    naturalWidth:img.naturalWidth,naturalHeight:img.naturalHeight,
-   displayHeight:img.getBoundingClientRect().height,displayWidth:img.getBoundingClientRect().width
+   displayHeight:img.getBoundingClientRect().height,
+   displayWidth:img.getBoundingClientRect().width,currentSrc:img.currentSrc
   }));
   assert.ok(dims.naturalWidth>0&&dims.naturalHeight>0);
-  assert.ok(Math.abs(dims.displayHeight-dims.displayWidth*dims.naturalHeight/dims.naturalWidth)<2,
-   'Image must remain uncropped at its natural aspect ratio');
-  assert.equal(await cover.evaluate(el=>getComputedStyle(el).objectFit),'contain');
+  assert.equal(dims.currentSrc.endsWith('/assets/home/automne-'+name+'.webp'),true,
+   'Desktop loads panoramic art; smartphone loads vertical art');
+  assert.equal(dims.naturalWidth>dims.naturalHeight,!mobile);
+  assert.equal(await cover.evaluate(el=>getComputedStyle(el).objectFit),'cover');
   assert.ok(Math.abs(box.height-dims.displayHeight)<2);
+  assert.ok(Math.abs(box.height-(h-(mobile?62:76)))<3,'Cover fills viewport beneath site name');
 
   assert.equal(await page.locator('#site-paper').evaluate(el=>getComputedStyle(el).borderTopWidth),'0px');
   const cta=page.locator('.m035-welcome-button');
@@ -152,7 +161,7 @@ try{
   assert.ok(await navTitle.isVisible(),'Site title is clickable on PC and Android');
   assert.equal((await navTitle.innerText()).trim(),'Ronde des Archanges Universelle');
   const secondPaper=await page.locator('#site-paper').boundingBox();
-  assert.ok(Math.abs(secondPaper.width-paper.width)<2,'Every page has same central width');
+  assert.ok(secondPaper.width<=940&&secondPaper.width<=w,'Non-home pages retain their original width');
   assert.ok(secondPaper.height>=Math.min(510,h*.66)-5,
    'Even a short sentence has a real minimum page height');
   await page.locator('#menu-toggle').click();
@@ -218,7 +227,7 @@ try{
   await verticalSlider.fill('35');
   assert.equal(await set.locator('.m035-entry-preview').evaluate(el=>el.style.top),'35%');
   assert.equal(await set.locator('.m043-entry-position-value').innerText(),'Position : 35 %');
-  assert.ok(await set.getByRole('button',{name:'Appliquer le bouton sur le site'}).isVisible());
+  assert.ok(await set.getByRole('button',{name:'Appliquer l’accueil sur le site'}).isVisible());
   await page.keyboard.press('Escape');
   assert.equal(await page.locator('.m031-settings-details[open]').count(),0,
    'Escape closes page settings');
@@ -239,6 +248,6 @@ try{
   assert.deepEqual(errors,[],name+': '+errors.join('; '));
   assert.equal(writes,0);
   await context.close();
-  console.log('M036_BROWSER_PASS device='+name+' author_pages_first=true welcome_authored=true image_uncropped=true uniform_pages=true full_width_toggle=true settings_dismiss=true star=true');
+  console.log('M036_BROWSER_PASS device='+name+' author_pages_first=true welcome_authored=true art_direction=true other_pages_unchanged=true full_width_toggle=true settings_dismiss=true star=true');
  }
 }finally{await browser.close()}

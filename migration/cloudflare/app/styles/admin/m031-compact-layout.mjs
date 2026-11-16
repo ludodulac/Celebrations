@@ -332,4 +332,27 @@ export const M031_COMPACT_LAYOUT_CSS = `
 .stage-editor.m031-compact .global-media-card .media-picture-link:focus-visible{
  outline:3px solid #187248;outline-offset:3px
 }
+
+/* M048: the existing home controls, no new administration page. */
+.stage-editor.m031-compact .m048-home-images{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;
+ align-items:start
+}
+.stage-editor.m031-compact .m048-image-field{
+ display:flex;flex-direction:column;gap:7px;
+ padding:12px;border:1px solid #e1e9e5;border-radius:11px;
+ background:#fbfdfb;min-width:0
+}
+.stage-editor.m031-compact .m048-image-field strong{font-size:14px}
+.stage-editor.m031-compact .m048-image-preview{
+ display:block;width:100%;max-height:210px;min-height:80px;
+ object-fit:cover;border-radius:7px;background:#e8eee9
+}
+.stage-editor.m031-compact .m048-image-field .file-actions{
+ display:flex;flex-wrap:wrap;gap:6px
+}
+@media(max-width:680px){
+ .stage-editor.m031-compact .m048-home-images{grid-template-columns:minmax(0,1fr)}
+ .stage-editor.m031-compact .m048-image-preview{max-height:230px}
+}
 `;
