@@ -3288,6 +3288,16 @@ function media(){
   add.dataset.action='create-audio-type';
   label.append(select);row.append(label,add);w.append(row);
  }
+ if(mediaCategory==='videos'){
+  const row=n('div','audio-type-upload-selector'),label=n('label','','Type de vidéo : ');
+  const select=n('select','audio-type-select');
+  select.setAttribute('aria-label','Filtrer les vidéos par type');
+  for(const type of ['all',...DEFAULT_VIDEO_TYPES]){
+   const opt=n('option','',type==='all'?'Tous les types':type);opt.value=type;select.append(opt);
+  }
+  select.value=mediaVideoTypeFilter;select.onchange=()=>{mediaVideoTypeFilter=select.value;render()};
+  label.append(select);row.append(label);w.append(row);
+ }
  const importButton=b(mediaCategory==='audios'?'＋ Importer un MP3':'＋ Importer',()=>{
   const picker=el('asset-file-picker');
   picker.accept=mediaCategory==='audios'?'.mp3,audio/mpeg':
@@ -3305,8 +3315,61 @@ function media(){
  }
  const search=n('input','media-search');search.type='search';search.placeholder='Rechercher un fichier';
  search.setAttribute('aria-label','Rechercher un fichier');search.value=mediaSearch;w.append(search);
+ // Saved pages AND published pages count, including hidden and drafts.
+ const allUses=[...remote.flatMap(item=>mediaLinksFor(item)),
+  ...historical.flatMap(item=>{
+   const source=remote.find(x=>x.src===item.src);
+   return mediaLinksFor(source||item,fileUses(item));
+  })];
+ const celebrations=new Map([['general','Pages générales']]);
+ for(const use of allUses)
+  if(use?.celebrationId)celebrations.set(use.celebrationId,use.celebrationName);
+ const filterRow=n('div','audio-type-upload-selector media-page-filters');
+ const celebrationField=n('label','','Célébration / site : ');
+ const celebrationSelect=n('select');celebrationSelect.setAttribute('aria-label','Filtrer par célébration ou pages générales');
+ const choices=[['all','Toutes les célébrations et pages'],...celebrations.entries()];
+ if(!choices.some(([key])=>key===mediaCelebrationFilter))mediaCelebrationFilter='all';
+ for(const [value,label] of choices){
+  const option=n('option','',label);option.value=value;celebrationSelect.append(option);
+ }
+ celebrationSelect.value=mediaCelebrationFilter;celebrationField.append(celebrationSelect);
+ const pageField=n('label','','Page : ');
+ const pageSelect=n('select');pageSelect.setAttribute('aria-label','Filtrer les fichiers par page');
+ const refreshPages=()=>{
+  pageSelect.replaceChildren();const options=new Map();
+  for(const use of allUses)
+   if(use?.pageId&&(mediaCelebrationFilter==='all'||use.celebrationId===mediaCelebrationFilter))
+    options.set(use.celebrationId+'|'+use.pageId,use.name);
+  if(mediaPageFilter!=='all'&&!options.has(mediaPageFilter))mediaPageFilter='all';
+  for(const [value,label] of [['all','Toutes les pages'],...options.entries()]){
+   const option=n('option','',label);option.value=value;pageSelect.append(option);
+  }
+  pageSelect.value=mediaPageFilter;
+ };
+ refreshPages();pageField.append(pageSelect);filterRow.append(celebrationField,pageField);w.append(filterRow);
+ const sorting=n('label','audio-type-upload-selector','Trier : '),sort=n('select');
+ sort.setAttribute('aria-label','Trier les fichiers de la médiathèque');
+ for(const [key,label] of [['name','Nom A → Z'],['recent','Date : récent d’abord'],['oldest','Date : ancien d’abord']]){
+  const o=n('option','',label);o.value=key;sort.append(o);
+ }
+ sort.value=mediaSort;sort.onchange=()=>{mediaSort=sort.value;render()};sorting.append(sort);w.append(sorting);
  const cards=n('div','cards');
- const filterCards=()=>{const query=mediaSearch.trim().toLocaleLowerCase('fr');let visible=0;for(const card of cards.children){card.hidden=!card.querySelector('h3')?.textContent.toLocaleLowerCase('fr').includes(query);if(!card.hidden)visible++}empty.hidden=visible>0;};
+ const filterCards=()=>{
+  const query=mediaSearch.trim().toLocaleLowerCase('fr');let visible=0;
+  for(const card of cards.children){
+   const uses=card._mediaUses||[];
+   const byPlace=(mediaCelebrationFilter==='all'&&mediaPageFilter==='all')||
+    uses.some(use=>(mediaCelebrationFilter==='all'||use.celebrationId===mediaCelebrationFilter)&&
+     (mediaPageFilter==='all'||use.celebrationId+'|'+use.pageId===mediaPageFilter));
+   const byType=mediaCategory!=='videos'||mediaVideoTypeFilter==='all'||card._videoType===mediaVideoTypeFilter;
+   const byName=(card.querySelector('h3')?.textContent||'').toLocaleLowerCase('fr').includes(query)||
+    uses.some(use=>String(use.name||'').toLocaleLowerCase('fr').includes(query));
+   card.hidden=!(byPlace&&byType&&byName);if(!card.hidden)visible++;
+  }
+  empty.hidden=visible>0;
+ };
+ celebrationSelect.onchange=()=>{mediaCelebrationFilter=celebrationSelect.value;mediaPageFilter='all';refreshPages();filterCards()};
+ pageSelect.onchange=()=>{mediaPageFilter=pageSelect.value;filterCards()};
  search.oninput=()=>{mediaSearch=search.value;filterCards()};
  const matches=category=>category===mediaCategory||mediaCategory==='autres'&&category==='pdf';
  for(const record of remote.filter(x=>matches(mediaCategoryOf(x))&&!usedUrls.has(x.src))){
