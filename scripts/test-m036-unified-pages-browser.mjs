@@ -208,6 +208,12 @@ try{
   await set.getByLabel('Couleur du bouton').fill('#1a453a');
   await set.getByLabel('Épaisseur du contour du bouton').selectOption('4');
   assert.equal(await set.locator('.m035-entry-preview').evaluate(el=>getComputedStyle(el).borderWidth),'4px');
+  const widthField=set.getByLabel('Largeur (pixels) du bouton d’accueil');
+  await widthField.fill('300');await widthField.blur();
+  const heightField=set.getByLabel('Hauteur (pixels) du bouton d’accueil');
+  await heightField.fill('90');await heightField.blur();
+  assert.equal(await set.locator('.m035-entry-preview').evaluate(el=>el.style.width),'300px');
+  assert.equal(await set.locator('.m035-entry-preview').evaluate(el=>el.style.minHeight),'90px');
   assert.ok(await set.getByRole('button',{name:'Appliquer le bouton sur le site'}).isVisible());
   await page.keyboard.press('Escape');
   assert.equal(await page.locator('.m031-settings-details[open]').count(),0,
