@@ -89,3 +89,5 @@ jobs:
           if test -f /tmp/m050-promoted; then
             npx wrangler versions deploy f5cda1d7-1064-4f96-8916-cbe127ea0a6b@100% --yes --config wrangler.m018.official.toml --message "M050 rollback code only"
           fi
+
+# M050 guarded official release requested. Preserve production R2 and all existing URLs.
