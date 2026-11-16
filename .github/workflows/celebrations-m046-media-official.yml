@@ -122,3 +122,5 @@ jobs:
 # M046_OFFICIAL release requested after successful collaborative regression pipeline.
 
 # [M046_OFFICIAL] Published after green M046 test suite; M045 production version guard.
+
+# [M046_OFFICIAL] Retry with M024 safety assertion updated: archive used images, delete only verified unused media.
