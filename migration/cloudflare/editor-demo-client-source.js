@@ -230,7 +230,13 @@ async function importFiles(files){
   let success=0;const failures=[];
   for(const file of files){
    const mp3=/\.mp3$/i.test(file.name);
-   const actual=mp3&&!file.type?new File([file],file.name,{type:'audio/mpeg'}):file;
+   let actual=mp3&&!file.type?new File([file],file.name,{type:'audio/mpeg'}):file;
+   if(/^image\/(?:jpeg|png|webp)$/.test(file.type)){
+    const stem=file.name.replace(/\.[^.]+$/,'');
+    const entered=await sitePrompt('Nom de cette image dans la médiathèque (facultatif) :',stem);
+    const name=String(entered||stem).trim().replace(/[<>\\/\u0000-\u001f]/g,'').slice(0,110)||stem;
+    actual=new File([file],name+file.name.slice(file.name.lastIndexOf('.')),{type:file.type});
+   }
    if(mp3)mediaUploadFeedback(0,'Envoi du MP3 : '+file.name+' (0 %)');
    try{
     const stored=await uploadToMediaServer(actual,mp3?pct=>
@@ -2335,7 +2341,7 @@ function showImagePicker(x,cover=false){
   const {entries,local}=mediaCatalogue.imageItems({
    historical:[...(globalFiles||[]),...publicFiles()],
    pages:[...(db.pages||[]),...(window.__PREPARATION_SEED__?.pages||[])],
-   globalMedia,fileRecords:[...fileRecords.values()],assetUrls
+   globalMedia,hiddenMediaUrls,fileRecords:[...fileRecords.values()],assetUrls
   });
   function imageCard(name,url,onChoose){
    const item=b('',onChoose,'sm image-picker-card');
@@ -2351,7 +2357,17 @@ function showImagePicker(x,cover=false){
    return item;
   }
   for(const image of entries){
-   grid.append(imageCard(image.name,image.src,()=>choose({src:image.src})));
+   const wrap=n('div','image-picker-item');
+   wrap.append(imageCard(image.name,image.src,()=>choose({src:image.src})));
+   if(image.src.startsWith('/media/')){
+    const rename=b('✎ Renommer',async()=>{
+     const done=await renameMediaSource(image.src,image.name);
+     if(done&&dialog.open)populate();
+    },'sm');
+    rename.setAttribute('aria-label','Renommer dans la médiathèque : '+image.name);
+    wrap.append(rename);
+   }
+   grid.append(wrap);
   }
   for(const record of local){
    grid.append(imageCard(record.name,record.src,()=>choose({assetId:record.assetId})));
@@ -4355,7 +4371,10 @@ el('image-input').onchange=async function(){
   const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.84));
   if(!blob)throw Error('Conversion de l’image impossible');
   if(IS_STAGE&&LIVE_MEDIA_UPLOAD_HOST){
-   const record=await uploadToMediaServer(new File([blob],file.name.replace(/\.[^.]+$/,'.jpg'),{type:'image/jpeg'}));
+   const currentName=file.name.replace(/\.[^.]+$/,'');
+   const requested=await sitePrompt('Nom de cette image dans la médiathèque (facultatif) :',currentName);
+   const chosen=String(requested||currentName).trim().replace(/[<>\\/\u0000-\u001f]/g,'').slice(0,110)||currentName;
+   const record=await uploadToMediaServer(new File([blob],chosen.replace(/\.jpe?g$/i,'')+'.jpg',{type:'image/jpeg'}));
    if(imageCoverTarget){x.cover=record.src;delete x.coverAssetId}
    else{x.src=record.src;delete x.assetId;x.text=file.name}
    mark();render();
