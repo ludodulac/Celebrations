@@ -253,6 +253,40 @@ body.is-splash-home .m033-splash-image{
  }
  :root{--m036-paper-gutter:clamp(12px,3vw,17px)}
 }
+
+/* M048 — one clean responsive landing, with the title kept above the image.
+   These overrides apply only to the homepage, never to ordinary pages. */
+body.is-splash-home .footer{display:none!important}
+body.is-splash-home .site-paper,
+body.is-splash-home.is-neutral-preview .site-paper{
+ min-height:0!important;max-width:100%!important;
+ width:min(1280px,100%)!important;margin:0 auto!important
+}
+body.is-splash-home #stage-main{margin:0!important}
+body.is-splash-home .m033-splash-enter{
+ height:calc(100svh - 76px)!important;min-height:360px!important;
+ overflow:hidden!important;aspect-ratio:auto!important
+}
+body.is-splash-home .m048-splash-picture,
+body.is-splash-home .m033-splash-image{
+ display:block!important;width:100%!important;height:100%!important;
+ max-width:none!important;max-height:none!important
+}
+body.is-splash-home .m033-splash-image{
+ object-fit:cover!important;object-position:center top!important
+}
+body.is-splash-home .site-menu-bar.has-nav-title{min-height:76px!important}
+@media(max-width:700px){
+ body.is-splash-home .site-menu-bar.has-nav-title{min-height:62px!important}
+ body.is-splash-home .m033-splash-enter{
+  height:calc(100svh - 62px)!important;min-height:260px!important
+ }
+ body.is-splash-home .site-paper,
+ body.is-splash-home.is-neutral-preview .site-paper{
+  width:100%!important;margin:0!important
+ }
+}
+
 `;
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const safeJson=x=>JSON.stringify(x).replace(/</g,'\\u003c').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029');
