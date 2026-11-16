@@ -230,7 +230,13 @@ async function importFiles(files){
   let success=0;const failures=[];
   for(const file of files){
    const mp3=/\.mp3$/i.test(file.name);
-   const actual=mp3&&!file.type?new File([file],file.name,{type:'audio/mpeg'}):file;
+   let actual=mp3&&!file.type?new File([file],file.name,{type:'audio/mpeg'}):file;
+   if(/^image\/(?:jpeg|png|webp)$/.test(file.type)){
+    const stem=file.name.replace(/\.[^.]+$/,'');
+    const entered=await sitePrompt('Nom de cette image dans la médiathèque (facultatif) :',stem);
+    const name=String(entered||stem).trim().replace(/[<>\\/\u0000-\u001f]/g,'').slice(0,110)||stem;
+    actual=new File([file],name+file.name.slice(file.name.lastIndexOf('.')),{type:file.type});
+   }
    if(mp3)mediaUploadFeedback(0,'Envoi du MP3 : '+file.name+' (0 %)');
    try{
     const stored=await uploadToMediaServer(actual,mp3?pct=>
@@ -439,6 +445,19 @@ function publicFiles(){return mediaCatalogue.publicFiles(window.__PREPARATION_SE
 const fileSeeds=new Map(),fileGroups=new Map();
 let globalFiles=null,globalFilesLoading=null,globalFilesComplete=false,hiddenFileIds=new Set();
 let globalMedia=[],remoteMediaLoading=false,globalMediaLoaded=false;
+let mediaRevision=null,hiddenMediaUrls=new Set();
+const DEFAULT_VIDEO_TYPES=['Conférences','Rituels','Explications','Exercices'];
+let selectedVideoType='Explications',videoTypes=[...DEFAULT_VIDEO_TYPES];
+const videoTypeForMedia=record=>{
+ if(DEFAULT_VIDEO_TYPES.includes(record?.videoType))return record.videoType;
+ const name=String(record?.name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+ if(/conference|enseignement|causerie|intervention/.test(name))return 'Conférences';
+ if(/rituel|ceremonie|celebration|office/.test(name))return 'Rituels';
+ if(/explication|comment|tutoriel|demonstration|allumer|bougie/.test(name))return 'Explications';
+ if(/exercice|mouvement|chant|danse|pratique|gestuelle/.test(name))return 'Exercices';
+ return 'Explications';
+};
+
 
 const DEFAULT_AUDIO_TYPES=['Invocations','Chants','Méditations','Enseignements','Guidances','Autres'];
 let audioTypes=[...DEFAULT_AUDIO_TYPES],selectedAudioType='Autres';
@@ -455,14 +474,14 @@ function inferredAudioType(name){
 async function saveAudioTypeForMedia(media,type,{quiet=false}={}){
  const response=await fetch('/api/editor-media?action=set-audio-type',{
   method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},
-  body:JSON.stringify({id:media.id,audioType:type,expectedRevision:serverRevision})
+  body:JSON.stringify({id:media.id,audioType:type,expectedRevision:mediaRevision})
  });
  const data=await response.json().catch(()=>({}));
  if(!response.ok||!data.ok){
-  if(response.status===409){serverRevision=null;void refreshGlobalMedia()}
+  if(response.status===409){mediaRevision=null;void refreshGlobalMedia()}
   throw Error(data.error||'Type audio non enregistré');
  }
- serverRevision=data.revision;
+ mediaRevision=data.revision;
  audioTypes=Array.isArray(data.audioTypes)?data.audioTypes:audioTypes;
  globalMedia=globalMedia.map(item=>item.id===media.id?{...item,audioType:data.audioType}:item);
  if(!quiet){status.textContent='✓ Type audio : '+data.audioType;render()}
@@ -473,14 +492,14 @@ async function createAudioType(){
  if(!name)return;
  const response=await fetch('/api/editor-media?action=audio-type-create',{
   method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},
-  body:JSON.stringify({name,expectedRevision:serverRevision})
+  body:JSON.stringify({name,expectedRevision:mediaRevision})
  });
  const data=await response.json().catch(()=>({}));
  if(!response.ok||!data.ok){
-  if(response.status===409){serverRevision=null;void refreshGlobalMedia()}
+  if(response.status===409){mediaRevision=null;void refreshGlobalMedia()}
   siteNotice(data.error||'Impossible de créer ce type audio');return;
  }
- serverRevision=data.revision;
+ mediaRevision=data.revision;
  audioTypes=Array.isArray(data.audioTypes)?data.audioTypes:audioTypes;
  selectedAudioType=data.audioType;status.textContent='✓ Nouveau type audio : '+data.audioType;render();
 }
@@ -495,7 +514,9 @@ async function refreshGlobalMedia(){
   const result=await response.json();
   globalMedia=Array.isArray(result.items)?result.items:[];
   if(Array.isArray(result.audioTypes))audioTypes=result.audioTypes;
-  if(Number.isSafeInteger(result.revision))serverRevision=result.revision;
+  if(Array.isArray(result.videoTypes))videoTypes=result.videoTypes;
+  hiddenMediaUrls=new Set(Array.isArray(result.hiddenMediaUrls)?result.hiddenMediaUrls:[]);
+  if(Number.isSafeInteger(result.revision))mediaRevision=result.revision;
   globalMediaLoaded=true;
   if(tab==='media')render();
  }catch{status.textContent='La médiathèque du serveur n’est pas accessible. Les fichiers existants sont conservés.'}
@@ -632,7 +653,7 @@ async function uploadToMediaServer(file,onProgress=null){
  if(mp3&&file.size>MP3_SINGLE_REQUEST){
   const result=await uploadLargeMp3(file,onProgress);
   globalMedia=globalMedia.filter(x=>x.id!==result.item.id).concat({...result.item,canDelete:false});
-  serverRevision=result.revision;
+  mediaRevision=result.revision;
   return result.item;
  }
  const form=new FormData();form.append('file',file);
@@ -663,7 +684,7 @@ async function uploadToMediaServer(file,onProgress=null){
   if(!response.ok||result.ok!==true||!result.item)throw Error(result.error||'Envoi vers le serveur impossible');
  }
  globalMedia=globalMedia.filter(x=>x.id!==result.item.id).concat(result.item);
- serverRevision=result.revision;
+ mediaRevision=result.revision;
  return result.item;
 }
 async function createExternalMedia(){
@@ -676,13 +697,26 @@ async function createExternalMedia(){
  const type=({1:'video',2:'pdf',3:'image',4:'audio'})[input];
  if(!type){siteNotice('Choisissez 1, 2, 3 ou 4.');return}
  const name=String((await sitePrompt('Nom du média :',url.hostname))||'').trim().slice(0,120);
+ let videoCategory=null;
+ if(type==='video'){
+  const guess=videoTypeForMedia({name});
+  const initial=String(DEFAULT_VIDEO_TYPES.indexOf(guess)+1);
+  const chosen=await sitePrompt('Type de vidéo : 1 Conférences · 2 Rituels · 3 Explications · 4 Exercices',initial);
+  if(chosen===null)return;
+  videoCategory=DEFAULT_VIDEO_TYPES[Number(chosen)-1];
+  if(!videoCategory){siteNotice('Choisissez 1, 2, 3 ou 4');return}
+ }
  const response=await fetch('/api/editor-media?action=external',{method:'POST',
   headers:{'content-type':'application/json'},body:JSON.stringify({type,src:url.href,name:name||url.hostname})});
  const result=await response.json().catch(()=>({}));
  if(!response.ok){siteNotice(result.error||'Enregistrement impossible');return}
- serverRevision=result.revision;
+ mediaRevision=result.revision;
  globalMedia=globalMedia.filter(x=>x.id!==result.item.id).concat(result.item);
- status.textContent='✓ Lien conservé dans la médiathèque globale';render();
+ if(type==='video'&&videoCategory){
+  try{await saveVideoTypeForMedia(result.item,videoCategory,{quiet:true})}
+  catch(error){siteNotice('Vidéo ajoutée mais classement non enregistré : '+error.message)}
+ }
+ status.textContent='✓ Lien conservé dans la médiathèque';render();
 }
 // M032 — a file's URL and sharing choice are independent of a celebration.
 // Never publish anything automatically when it is uploaded or marked "Inutilisé".
@@ -698,7 +732,7 @@ async function copyPermanentMediaUrl(media){
 }
 async function setStandalonePublicLink(media,publicLink){
  if(!IS_STAGE||!LIVE_MEDIA_UPLOAD_HOST)return;
- if(serverRevision===null||!Number.isSafeInteger(serverRevision)){
+ if(mediaRevision===null||!Number.isSafeInteger(mediaRevision)){
   siteNotice('Rechargez l’administration pour retrouver la dernière version de la médiathèque.');return;
  }
  const accepted=await siteConfirm(publicLink?
@@ -707,17 +741,17 @@ async function setStandalonePublicLink(media,publicLink){
  if(!accepted)return;
  const response=await fetch('/api/editor-media?action=public-link',{
   method:'POST',cache:'no-store',headers:{'content-type':'application/json'},
-  body:JSON.stringify({id:media.id,publicLink,expectedRevision:serverRevision})
+  body:JSON.stringify({id:media.id,publicLink,expectedRevision:mediaRevision})
  });
  const result=await response.json().catch(()=>({}));
  if(!response.ok){
-  if(response.status===409)serverRevision=null;
+  if(response.status===409)mediaRevision=null;
   siteNotice(result.error||'Changement du lien impossible. Aucun fichier supprimé.');return;
  }
  if(result.publicLink!==publicLink||!Number.isSafeInteger(result.revision)){
   siteNotice('Confirmation du serveur manquante, rechargez la médiathèque.');return;
  }
- serverRevision=result.revision;db._serverRevision=serverRevision;
+ mediaRevision=result.revision;
  globalMedia=globalMedia.map(item=>item.id===media.id?
   {...item,...result.item,publicLink,canDelete:false}:item);
  status.textContent=publicLink?
@@ -727,13 +761,79 @@ async function setStandalonePublicLink(media,publicLink){
  // Refresh the server's conservative unused/delete badge after the toggle.
  void refreshGlobalMedia();
 }
+async function saveVideoTypeForMedia(media,type,{quiet=false}={}){
+ if(!DEFAULT_VIDEO_TYPES.includes(type))throw Error('Type de vidéo inconnu.');
+ const response=await fetch('/api/editor-media?action=set-video-type',{
+  method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},
+  body:JSON.stringify({id:media.id,videoType:type,expectedRevision:mediaRevision})
+ });
+ const data=await response.json().catch(()=>({}));
+ if(!response.ok||!data.ok){
+  if(response.status===409)void refreshGlobalMedia();
+  throw Error(data.error||'Type vidéo non enregistré');
+ }
+ mediaRevision=data.revision;
+ globalMedia=globalMedia.map(item=>item.id===media.id?{...item,videoType:type}:item);
+ if(!quiet){status.textContent='✓ Vidéo classée : '+type;render()}
+ return type;
+}
+async function renameMedia(media,newName=null,{quiet=false}={}){
+ if(!media?.id)return false;
+ const name=String(newName===null?(await sitePrompt('Renommer ce fichier dans toute la médiathèque :',media.name||'')):newName||'').trim().replace(/\s+/g,' ');
+ if(!name||name===media.name)return false;
+ if(name.length>120||/[<>\\\u0000-\u001f\u007f]/.test(name)){siteNotice('Nom invalide : 120 caractères maximum.');return false}
+ const response=await fetch('/api/editor-media?action=rename',{
+  method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},
+  body:JSON.stringify({id:media.id,name,expectedRevision:mediaRevision})
+ });
+ const data=await response.json().catch(()=>({}));
+ if(!response.ok||!data.ok){
+  if(response.status===409)void refreshGlobalMedia();
+  siteNotice(data.error||'Nom non enregistré');return false;
+ }
+ mediaRevision=data.revision;
+ const existing=globalMedia.some(x=>x.id===media.id);
+ globalMedia=existing?globalMedia.map(x=>x.id===media.id?{...x,name}:x):
+  [...globalMedia,{...data.item,name}];
+ if(!quiet){status.textContent='✓ Fichier renommé dans la médiathèque (adresse inchangée).';render()}
+ return true;
+}
+async function renameMediaSource(src,defaultName='Image'){
+ const known=globalMedia.find(x=>x.src===src&&x.type==='image');
+ if(mediaRevision===null){await refreshGlobalMedia();}
+ return renameMedia(known||{id:'image|'+src,src,type:'image',name:defaultName});
+}
+async function removeMediaFromAdmin(media,refs=[]){
+ const used=refs.length>0||media.canDelete!==true;
+ const prompt=used?
+  'Êtes-vous sûr de vouloir supprimer « '+media.name+' » de la médiathèque ? '+(refs.length?'Cette image figure sur '+refs.length+' page(s). ':'')+
+  'Pour ne pas casser le site, elle restera visible sur les pages qui l’utilisent. Vous pourrez la retirer des pages séparément.':
+  'Êtes-vous sûr de vouloir supprimer définitivement « '+media.name+' » ?';
+ if(!(await siteConfirm(prompt)))return;
+ const action=used?'archive':'delete';
+ const response=await fetch('/api/editor-media?action='+action,{
+  method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},
+  body:JSON.stringify({id:media.id,...(used?{expectedRevision:mediaRevision}:{})})
+ });
+ const result=await response.json().catch(()=>({}));
+ if(!response.ok||!result.ok){
+  if(response.status===409)void refreshGlobalMedia();
+  siteNotice(result.error||'Retrait impossible');return;
+ }
+ mediaRevision=result.revision;
+ globalMedia=globalMedia.filter(x=>x.id!==media.id);
+ hiddenMediaUrls.add(media.src);
+ status.textContent=used?'✓ Image retirée de la médiathèque. Les pages existantes sont conservées.':
+  '✓ Fichier définitivement supprimé.';
+ render();
+}
 async function deleteGlobalMedia(media){
  if(!(await siteConfirm('Êtes-vous sûr de vouloir supprimer « '+media.name+' » ?')))return;
  const response=await fetch('/api/editor-media?action=delete',{method:'POST',
   headers:{'content-type':'application/json'},body:JSON.stringify({id:media.id})});
  const result=await response.json().catch(()=>({}));
  if(!response.ok){siteNotice(result.error||'Suppression non autorisée');return}
- serverRevision=result.revision;globalMedia=globalMedia.filter(x=>x.id!==media.id);
+ mediaRevision=result.revision;globalMedia=globalMedia.filter(x=>x.id!==media.id);
  status.textContent='✓ Média inutilisé supprimé du catalogue';render();
 }
 
@@ -2254,7 +2354,7 @@ function showImagePicker(x,cover=false){
   const {entries,local}=mediaCatalogue.imageItems({
    historical:[...(globalFiles||[]),...publicFiles()],
    pages:[...(db.pages||[]),...(window.__PREPARATION_SEED__?.pages||[])],
-   globalMedia,fileRecords:[...fileRecords.values()],assetUrls
+   globalMedia,hiddenMediaUrls,fileRecords:[...fileRecords.values()],assetUrls
   });
   function imageCard(name,url,onChoose){
    const item=b('',onChoose,'sm image-picker-card');
@@ -2270,7 +2370,17 @@ function showImagePicker(x,cover=false){
    return item;
   }
   for(const image of entries){
-   grid.append(imageCard(image.name,image.src,()=>choose({src:image.src})));
+   const wrap=n('div','image-picker-item');
+   wrap.append(imageCard(image.name,image.src,()=>choose({src:image.src})));
+   if(image.src.startsWith('/media/')){
+    const rename=b('✎ Renommer',async()=>{
+     const done=await renameMediaSource(image.src,image.name);
+     if(done&&dialog.open)populate();
+    },'sm');
+    rename.setAttribute('aria-label','Renommer dans la médiathèque : '+image.name);
+    wrap.append(rename);
+   }
+   grid.append(wrap);
   }
   for(const record of local){
    grid.append(imageCard(record.name,record.src,()=>choose({assetId:record.assetId})));
@@ -3057,8 +3167,13 @@ function mediaLinksFor(record,related=[]){
   const key=(use.group==='page'?'page:':'celebration:'+cid+':')+String(use.pageId||slug);
   if(!slug||seen.has(key))return;
   seen.add(key);
-  entries.push({name:use.group==='page'?use.pageName:
-    String(use.name||'Célébration')+' · '+use.pageName,
+  const general=use.group==='page';
+  const knownCelebration=celebrationEntries().find(entry=>String(entry.id)===cid);
+  const celebrationName=general?'Pages générales':
+   String(use.name|| (knownCelebration?celebrationLabel(knownCelebration):'Célébration '+cid));
+  entries.push({name:general?use.pageName:celebrationName+' · '+use.pageName,
+   celebrationId:general?'general':cid,celebrationName,
+   pageId:String(use.pageId||slug),pageName:String(use.pageName),
    usageStatus:['published','hidden','draft'].includes(use.usageStatus)?
     use.usageStatus:'published',
    href:'/__editor/voir-le-site?celebration='+encodeURIComponent(cid)+'&page='+encodeURIComponent(slug)});
@@ -3167,7 +3282,7 @@ function libraryPreview(card,name,src,category){
  const open=n('a','media-open-link','Ouvrir '+(category==='pdf'?'le PDF':'le fichier')+' ↗');
  open.href=src;open.target='_blank';open.rel='noopener noreferrer';box.append(open);card.append(box);
 }
-let mediaSearch='';
+let mediaSearch='',mediaCelebrationFilter='all',mediaPageFilter='all',mediaVideoTypeFilter='all',mediaSort='name';
 function media(){
  if(IS_STAGE&&!remoteMediaLoading&&!globalMediaLoaded)void refreshGlobalMedia();
  if(!globalFilesLoading)
@@ -3175,7 +3290,7 @@ function media(){
  // Ignore historical inline paragraphs, obsolete descriptions and navigation links.
  const historical=(globalFiles||publicFiles().map(r=>({...r,uses:
   (r.pages||[]).map(name=>filePageRef(window.__PREPARATION_SEED__,name)).filter(Boolean)})))
-  .filter(r=>typeof r.src==='string'&&r.src.length>0&&r.category!=='links');
+  .filter(r=>typeof r.src==='string'&&r.src.length>0&&r.category!=='links'&&!hiddenMediaUrls.has(r.src));
  const {local,remote,usedUrls,countFor}=mediaCatalogue.libraryCollections(
   historical,[...fileRecords.values()],globalMedia);
  const tabs=n('div','file-category-tabs');
@@ -3204,6 +3319,16 @@ function media(){
   add.dataset.action='create-audio-type';
   label.append(select);row.append(label,add);w.append(row);
  }
+ if(mediaCategory==='videos'){
+  const row=n('div','audio-type-upload-selector'),label=n('label','','Type de vidéo : ');
+  const select=n('select','audio-type-select');
+  select.setAttribute('aria-label','Filtrer les vidéos par type');
+  for(const type of ['all',...DEFAULT_VIDEO_TYPES]){
+   const opt=n('option','',type==='all'?'Tous les types':type);opt.value=type;select.append(opt);
+  }
+  select.value=mediaVideoTypeFilter;select.onchange=()=>{mediaVideoTypeFilter=select.value;render()};
+  label.append(select);row.append(label);w.append(row);
+ }
  const importButton=b(mediaCategory==='audios'?'＋ Importer un MP3':'＋ Importer',()=>{
   const picker=el('asset-file-picker');
   picker.accept=mediaCategory==='audios'?'.mp3,audio/mpeg':
@@ -3221,8 +3346,61 @@ function media(){
  }
  const search=n('input','media-search');search.type='search';search.placeholder='Rechercher un fichier';
  search.setAttribute('aria-label','Rechercher un fichier');search.value=mediaSearch;w.append(search);
+ // Saved pages AND published pages count, including hidden and drafts.
+ const allUses=[...remote.flatMap(item=>mediaLinksFor(item)),
+  ...historical.flatMap(item=>{
+   const source=remote.find(x=>x.src===item.src);
+   return mediaLinksFor(source||item,fileUses(item));
+  })];
+ const celebrations=new Map([['general','Pages générales']]);
+ for(const use of allUses)
+  if(use?.celebrationId)celebrations.set(use.celebrationId,use.celebrationName);
+ const filterRow=n('div','audio-type-upload-selector media-page-filters');
+ const celebrationField=n('label','','Célébration / site : ');
+ const celebrationSelect=n('select');celebrationSelect.setAttribute('aria-label','Filtrer par célébration ou pages générales');
+ const choices=[['all','Toutes les célébrations et pages'],...celebrations.entries()];
+ if(!choices.some(([key])=>key===mediaCelebrationFilter))mediaCelebrationFilter='all';
+ for(const [value,label] of choices){
+  const option=n('option','',label);option.value=value;celebrationSelect.append(option);
+ }
+ celebrationSelect.value=mediaCelebrationFilter;celebrationField.append(celebrationSelect);
+ const pageField=n('label','','Page : ');
+ const pageSelect=n('select');pageSelect.setAttribute('aria-label','Filtrer les fichiers par page');
+ const refreshPages=()=>{
+  pageSelect.replaceChildren();const options=new Map();
+  for(const use of allUses)
+   if(use?.pageId&&(mediaCelebrationFilter==='all'||use.celebrationId===mediaCelebrationFilter))
+    options.set(use.celebrationId+'|'+use.pageId,use.name);
+  if(mediaPageFilter!=='all'&&!options.has(mediaPageFilter))mediaPageFilter='all';
+  for(const [value,label] of [['all','Toutes les pages'],...options.entries()]){
+   const option=n('option','',label);option.value=value;pageSelect.append(option);
+  }
+  pageSelect.value=mediaPageFilter;
+ };
+ refreshPages();pageField.append(pageSelect);filterRow.append(celebrationField,pageField);w.append(filterRow);
+ const sorting=n('label','audio-type-upload-selector','Trier : '),sort=n('select');
+ sort.setAttribute('aria-label','Trier les fichiers de la médiathèque');
+ for(const [key,label] of [['name','Nom A → Z'],['recent','Date : récent d’abord'],['oldest','Date : ancien d’abord']]){
+  const o=n('option','',label);o.value=key;sort.append(o);
+ }
+ sort.value=mediaSort;sort.onchange=()=>{mediaSort=sort.value;render()};sorting.append(sort);w.append(sorting);
  const cards=n('div','cards');
- const filterCards=()=>{const query=mediaSearch.trim().toLocaleLowerCase('fr');let visible=0;for(const card of cards.children){card.hidden=!card.querySelector('h3')?.textContent.toLocaleLowerCase('fr').includes(query);if(!card.hidden)visible++}empty.hidden=visible>0;};
+ const filterCards=()=>{
+  const query=mediaSearch.trim().toLocaleLowerCase('fr');let visible=0;
+  for(const card of cards.children){
+   const uses=card._mediaUses||[];
+   const byPlace=(mediaCelebrationFilter==='all'&&mediaPageFilter==='all')||
+    uses.some(use=>(mediaCelebrationFilter==='all'||use.celebrationId===mediaCelebrationFilter)&&
+     (mediaPageFilter==='all'||use.celebrationId+'|'+use.pageId===mediaPageFilter));
+   const byType=mediaCategory!=='videos'||mediaVideoTypeFilter==='all'||card._videoType===mediaVideoTypeFilter;
+   const byName=(card.querySelector('h3')?.textContent||'').toLocaleLowerCase('fr').includes(query)||
+    uses.some(use=>String(use.name||'').toLocaleLowerCase('fr').includes(query));
+   card.hidden=!(byPlace&&byType&&byName);if(!card.hidden)visible++;
+  }
+  empty.hidden=visible>0;
+ };
+ celebrationSelect.onchange=()=>{mediaCelebrationFilter=celebrationSelect.value;mediaPageFilter='all';refreshPages();filterCards()};
+ pageSelect.onchange=()=>{mediaPageFilter=pageSelect.value;filterCards()};
  search.oninput=()=>{mediaSearch=search.value;filterCards()};
  const matches=category=>category===mediaCategory||mediaCategory==='autres'&&category==='pdf';
  for(const record of remote.filter(x=>matches(mediaCategoryOf(x))&&!usedUrls.has(x.src))){
@@ -3249,15 +3427,30 @@ function media(){
    label.append(select);row.append(label);card.append(row);
   }
   libraryPreview(card,record.name,record.src,record.category||mediaCategoryOf(record));
+  if(mediaCategory==='videos'&&record.type==='video'){
+   const label=n('label','audio-type-file-selector','Type : ');
+   const select=n('select','audio-type-select');
+   select.setAttribute('aria-label','Type de vidéo '+record.name);
+   for(const type of DEFAULT_VIDEO_TYPES){const opt=n('option','',type);opt.value=type;select.append(opt)}
+   select.value=videoTypeForMedia(record);
+   select.onchange=()=>void saveVideoTypeForMedia(record,select.value).catch(e=>{
+    siteNotice(e.message||'Type vidéo non enregistré');render();
+   });
+   label.append(select);card.append(label);
+  }
   libraryUnusedText(card,unused,hasImage);
   libraryLocationLinks(card,refs,record.usageUnknown===true);
   const controls=n('div','file-actions');
   if(chosenBlock&&mediaCategory==='audios'&&record.type==='audio')
    controls.append(b('Insérer dans le lecteur',()=>attachChosenAudio(record),'sm primary'));
-  // The picture/title itself is the permanent openable link. Keep only
-  // the delete action in the image card; the backend refuses unsafe deletes.
-  if(record.canDelete===true)controls.append(b('Supprimer',()=>void deleteGlobalMedia(record),'sm'));
-  if(controls.childElementCount)card.append(controls);
+  controls.append(b('Renommer',()=>void renameMedia(record),'sm'));
+  if(record.type==='image')
+   controls.append(b('Supprimer',()=>void removeMediaFromAdmin(record,refs),'sm'));
+  else if(record.canDelete===true)
+   controls.append(b('Supprimer',()=>void deleteGlobalMedia(record),'sm'));
+  card.append(controls);
+  card._mediaUses=refs;card._videoType=record.type==='video'?videoTypeForMedia(record):'';
+  card._sortName=String(record.name||'');card._sortDate=String(record.createdAt||'');
   cards.append(card);
  }
  for(const record of historical.filter(x=>matches(x.category))){
@@ -3270,22 +3463,38 @@ function media(){
   const card=n('article','card historic-file'+(unused?' unused-file':''));
   card.dataset.publicFileId=record.id;card.dataset.fileCategory=record.category;
   card.dataset.usage=unused?'unused':'used';
-  libraryTitle(card,record.name,record.src);
+  const displayName=remoteCopy?.name||record.name;
+  libraryTitle(card,displayName,record.src);
   if(record.category==='autres')
    card.append(n('small','media-format-label',libraryTypeLabel(record)));
-  if(hasImage)libraryPicture(card,record.name,record.src,unused);
-  libraryPreview(card,record.name,record.src,record.category||mediaCategoryOf(record));
+  if(hasImage)libraryPicture(card,displayName,record.src,unused);
+  libraryPreview(card,displayName,record.src,record.category||mediaCategoryOf(record));
   libraryUnusedText(card,unused,hasImage);
   libraryLocationLinks(card,refs);
   if(chosenBlock&&mediaCategory==='audios'&&record.category==='audios')
    card.append(b('Insérer dans le lecteur',()=>attachChosenAudio(record),'sm primary'));
-  if(unused){
-   const info=n('small','delete-pending','Suppression après vérification des références');
-   card.append(info);
+  const historicalActions=n('div','file-actions');
+  const known=remoteCopy||{id:(record.category==='images'?'image':record.category==='audios'?'audio':record.category==='videos'?'video':record.category==='pdf'?'pdf':'file')+'|'+record.src,
+   name:displayName,src:record.src,type:record.category==='images'?'image':record.category==='audios'?'audio':record.category==='videos'?'video':record.category==='pdf'?'pdf':'file'};
+  historicalActions.append(b('Renommer',()=>void renameMedia(known),'sm'));
+  if(hasImage)historicalActions.append(b('Supprimer',()=>void removeMediaFromAdmin(known,refs),'sm'));
+  if(mediaCategory==='videos'&&known.type==='video'){
+   const label=n('label','audio-type-file-selector','Type : ');
+   const sel=n('select','audio-type-select');
+   sel.setAttribute('aria-label','Type de vidéo '+displayName);
+   for(const type of DEFAULT_VIDEO_TYPES){const opt=n('option','',type);opt.value=type;sel.append(opt)}
+   sel.value=videoTypeForMedia(known);
+   sel.onchange=()=>void saveVideoTypeForMedia(known,sel.value).catch(error=>{
+    siteNotice(error.message||'Type non enregistré');render();
+   });
+   label.append(sel);card.append(label);
   }
+  card.append(historicalActions);
+  card._mediaUses=refs;card._videoType=known.type==='video'?videoTypeForMedia(known):'';
+  card._sortName=String(displayName||'');card._sortDate=String(record.createdAt||'');
   cards.append(card);
  }
- for(const record of local.filter(x=>matches(localCategory(x)))){
+ for(const record of local.filter(x=>matches(localCategory(x))&&!hiddenFileIds.has(x.id))){
   const localUrl=assetUrls.get(record.id)||'';
   const refs=fileUsages(record.id),unused=refs.length===0,hasImage=mediaCategory==='images';
   const card=n('article','card'+(unused?' unused-file':''));card.dataset.fileId=record.id;
@@ -3300,12 +3509,34 @@ function media(){
   const locations=n('div','file-usage-links');
   for(const use of refs)locations.append(n('p','',use.page));
   card.append(locations);
+  const actions=n('div','file-actions');
+  actions.append(b('Renommer',async()=>{
+   const name=String((await sitePrompt('Renommer ce fichier :',record.name))||'').trim();
+   if(!name||name.length>120)return;
+   const changed={...record,name};await fileOperation('put',changed);
+   fileRecords.set(record.id,changed);render();
+  },'sm'));
   if(unused){
-   const actions=n('div','file-actions'),del=b('Supprimer',()=>deleteFile(record),'sm');
-   del.dataset.action='delete-unused-file';actions.append(del);card.append(actions);
+   const del=b('Supprimer',()=>deleteFile(record),'sm');
+   del.dataset.action='delete-unused-file';actions.append(del);
+  }else if(hasImage){
+   actions.append(b('Supprimer',async()=>{
+    if(!(await siteConfirm('Retirer cette image de la médiathèque locale ? Elle restera sur les pages qui l’utilisent pour éviter une image cassée.')))return;
+    hiddenFileIds.add(record.id);
+    try{localStorage.setItem('celebrations-files-hidden-v1',JSON.stringify([...hiddenFileIds]))}catch{}
+    render();
+   },'sm'));
   }
+  card.append(actions);
+  card._mediaUses=refs.map(x=>({celebrationId:'general',pageId:x.page,pageName:x.page,name:x.page}));
+  card._sortName=String(record.name||'');card._sortDate=String(record.createdAt||'');
   cards.append(card);
  }
+ // Visual sorting only: no storage URL, page or publication is changed.
+ for(const card of [...cards.children].sort((a,b)=>mediaSort==='name'?
+  (a._sortName||'').localeCompare(b._sortName||'','fr',{numeric:true}):
+  mediaSort==='recent'?(b._sortDate||'').localeCompare(a._sortDate||''):
+  (a._sortDate||'').localeCompare(b._sortDate||'')))cards.append(card);
  const empty=n('p','hint','Aucun fichier ne correspond à votre recherche.');w.append(cards,empty);filterCards();
  if(mediaCategory==='audios'&&window.__STAGING_AUDIO__&&!LIVE_MEDIA_UPLOAD_HOST){
   const details=n('details','audio-import-section'),summary=n('summary','','Importer MP3 / WAV');
@@ -4174,7 +4405,10 @@ el('image-input').onchange=async function(){
   const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.84));
   if(!blob)throw Error('Conversion de l’image impossible');
   if(IS_STAGE&&LIVE_MEDIA_UPLOAD_HOST){
-   const record=await uploadToMediaServer(new File([blob],file.name.replace(/\.[^.]+$/,'.jpg'),{type:'image/jpeg'}));
+   const currentName=file.name.replace(/\.[^.]+$/,'');
+   const requested=await sitePrompt('Nom de cette image dans la médiathèque (facultatif) :',currentName);
+   const chosen=String(requested||currentName).trim().replace(/[<>\\/\u0000-\u001f]/g,'').slice(0,110)||currentName;
+   const record=await uploadToMediaServer(new File([blob],chosen.replace(/\.jpe?g$/i,'')+'.jpg',{type:'image/jpeg'}));
    if(imageCoverTarget){x.cover=record.src;delete x.coverAssetId}
    else{x.src=record.src;delete x.assetId;x.text=file.name}
    mark();render();

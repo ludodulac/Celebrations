@@ -41,6 +41,20 @@ const cleanAudioType=value=>{
 };
 const uniqueAudioTypes=state=>[...new Map([...DEFAULT_AUDIO_TYPES,...(Array.isArray(state.audioTypes)?state.audioTypes:[])]
  .map(cleanAudioType).filter(Boolean).map(name=>[name.toLocaleLowerCase('fr'),name])).values()];
+const VIDEO_TYPES=['Conférences','Rituels','Explications','Exercices'];
+const videoTypeOf=(name)=>{
+ const n=String(name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+ if(/conference|enseignement|causerie|intervention/.test(n))return 'Conférences';
+ if(/rituel|ceremonie|celebration|office/.test(n))return 'Rituels';
+ if(/explication|comment|tutoriel|demonstration|allumer|bougie/.test(n))return 'Explications';
+ if(/exercice|mouvement|chant|danse|pratique|gestuelle/.test(n))return 'Exercices';
+ return 'Explications';
+};
+const cleanMediaName=value=>{
+ if(typeof value!=='string')return '';
+ const name=value.trim().replace(/\s+/g,' ');
+ return name.length>=1&&name.length<=120&&!/[<>\\\u0000-\u001f\u007f]/.test(name)?name:'';
+};
 const defaultState=()=>({version:0,drafts:{},plans:[],shared:{pages:[],homeId:''},mediaCatalogue:[]});
 export async function readEditorState(bucket){
  return readEditorSnapshot(bucket,{empty:defaultState,validate:validState});
@@ -402,8 +416,16 @@ export async function handleEditorPublication(request,env){
   // once per request without exposing unpublished editor drafts or private rows.
   const historic=await publicHistoricalMedia(env.DB,state);
   snapshot.media=mergePublicMedia(snapshot.media,historic).map(m=>{
-   const assigned=(state.mediaCatalogue||[]).find(x=>x?.type==='audio'&&x.src===m.src&&cleanAudioType(x.audioType));
-   return m.type==='audio'&&assigned?{...m,audioType:cleanAudioType(assigned.audioType)}:m;
+   // Public projection already authorized this item. Only decorate it with
+   // benign labels; never expose an unpublished catalogue item or private use.
+   const assigned=(state.mediaCatalogue||[]).find(x=>x?.type===m.type&&x.src===m.src);
+   if(!assigned)return m;
+   return {...m,
+    ...(cleanMediaName(assigned.name)?{name:cleanMediaName(assigned.name)}:{}),
+    ...(m.type==='audio'&&cleanAudioType(assigned.audioType)?
+      {audioType:cleanAudioType(assigned.audioType)}:{}),
+    ...(m.type==='video'?{videoType:VIDEO_TYPES.includes(assigned.videoType)?
+      assigned.videoType:videoTypeOf(assigned.name||m.name)}:{})};
   });
   // Discover languages across the site through the SAME anonymous projection.
   // Hidden/private celebrations and their releases cannot advertise a language.
@@ -567,7 +589,11 @@ export async function handleEditorMedia(request,env){
    // Never claim that such an object appears nowhere.
    usageUnknown:(!item.uses||item.uses.length===0)&&inSavedContent(state,item.src)
   }));
-  return json({ok:true,items,revision:state.version,audioTypes:uniqueAudioTypes(state)});
+  const hiddenMediaUrls=(state.mediaCatalogue||[]).filter(x=>x?.hiddenFromLibrary===true&&
+   typeof x.src==='string').map(x=>x.src).slice(0,2000);
+  return json({ok:true,items:items.filter(x=>x.hiddenFromLibrary!==true),
+   hiddenMediaUrls,revision:state.version,audioTypes:uniqueAudioTypes(state),
+   videoTypes:VIDEO_TYPES});
  }
  if(request.method!=='POST')return err('Méthode interdite',405);
  const denied=await protectedWrite(request,env);if(denied)return denied;
@@ -605,6 +631,61 @@ export async function handleEditorMedia(request,env){
   if(!await writeEditorState(env.EDITOR_BUCKET,current,state))return err('Modification simultanée',409);
   return json({ok:true,revision:state.version,item:target,audioType:selected,audioTypes:uniqueAudioTypes(state)});
  }
+ // M046: consistent media names and exactly four video categories, without
+ // changing URLs or automatically publishing any document or page.
+ if(action==='rename'||action==='set-video-type'||action==='archive'){
+  let input;try{input=await request.json()}catch{return err('JSON invalide',400)}
+  if(!input||typeof input.id!=='string'||input.id.length>720||
+     !Number.isSafeInteger(input.expectedRevision))
+   return err('Commande de médiathèque invalide',400);
+  const current=await readEditorState(env.EDITOR_BUCKET);
+  if(!expectedRevisionMatches(input.expectedRevision,current.state.version))
+   return err('La médiathèque a changé. Rechargez avant de réessayer.',409);
+  const state=copy(current.state);
+  let target=(state.mediaCatalogue||[]).find(x=>x?.id===input.id);
+  if(!target){
+   const found=discoverMedia(legacyEditorView(state)).find(x=>x.id===input.id);
+   // Old D1 media may predate the modern R2 catalogue. Admit it only
+   // when the exact safe URL is present in the legacy reference inventory.
+   let candidate=found;
+   if(!candidate){
+    const separator=input.id.indexOf('|');
+    const type=input.id.slice(0,separator),src=input.id.slice(separator+1);
+    if(!['image','video','pdf','audio','file'].includes(type)||
+       !/^\/media\/(?!.*\.\.)[^?#\s]+$/.test(src))
+     return err('Fichier non reconnu par le catalogue',404);
+    const refs=await readLegacyMediaReferences(env.DB);
+    const relative=src.slice('/media/'.length),basename=relative.split('/').pop();
+    if(!(refs instanceof Set)||![src,relative,basename].some(value=>refs.has(value)||
+       [...refs].some(record=>record.endsWith('/'+value))))
+     return err('Fichier historique non identifié',404);
+    candidate={id:input.id,type,src,name:basename,source:'historical'};
+   }
+   target={id:candidate.id,type:candidate.type,src:candidate.src,name:candidate.name,
+    source:candidate.source||'historical',general:false,publicLink:false};
+   state.mediaCatalogue||=[];state.mediaCatalogue.push(target);
+  }
+  if(action==='rename'){
+   const name=cleanMediaName(input.name);
+   if(!name)return err('Nom invalide (1 à 120 caractères)',400);
+   target.name=name;
+  }else if(action==='set-video-type'){
+   if(target.type!=='video'||!VIDEO_TYPES.includes(input.videoType))
+    return err('Choisissez Conférences, Rituels, Explications ou Exercices.',400);
+   target.videoType=input.videoType;
+  }else{
+   // A used file is removed from the ADMIN picker/library without deleting
+   // the R2 object or breaking published pages / D1 / private references.
+   // Physical deletion remains a separate strictly guarded operation.
+   if(target.type!=='image')return err('Retrait réservé aux images',400);
+   target.hiddenFromLibrary=true;
+  }
+  if(!await writeEditorState(env.EDITOR_BUCKET,current,state))
+   return err('Modification simultanée, veuillez recharger',409);
+  return json({ok:true,revision:state.version,item:target,
+   ...(action==='set-video-type'?{videoTypes:VIDEO_TYPES}:{}),
+   ...(action==='archive'?{archived:true,retainedOnPages:true}: {})});
+ }
  // M032: independent media sharing is an EXPLICIT choice, unrelated to
  // publishing a page or a celebration. Never move/copy/rename the R2 object.
  // Only official admin-origin same-cookie writes can change this flag.
@@ -638,7 +719,7 @@ export async function handleEditorMedia(request,env){
   const state=copy(current.state);
   const items=discoverMedia(state),id=input.type+'|'+input.src;
   if(!items.some(x=>x.id===id))items.push({id,type:input.type,src:input.src,
-   name:String(input.name||input.src).slice(0,120),source:'link',general:false});
+   name:String(input.name||input.src).slice(0,120),source:'link',general:false,createdAt:new Date().toISOString()});
   state.mediaCatalogue=items;
   if(!await writeEditorState(env.EDITOR_BUCKET,current,state))return err('Une sauvegarde simultanée existe',409);
   return json({ok:true,revision:state.version,item:items.find(x=>x.id===id)});
@@ -653,7 +734,7 @@ export async function handleEditorMedia(request,env){
   if(!format||file.size<1||file.size>format.max)return err('Format ou taille non pris en charge (vidéos : lien externe)',415);
   const id=crypto.randomUUID()+format.extension;
   const path='/media/new/'+id,record={id:format.type+'|'+path,type:format.type,
-   src:path,name:String(file.name||id).slice(0,120),source:'uploaded',general:false};
+   src:path,name:String(file.name||id).slice(0,120),source:'uploaded',general:false,createdAt:new Date().toISOString()};
   const current=await readEditorState(env.EDITOR_BUCKET),state=copy(current.state);
   await env.EDITOR_BUCKET.put(PREFIX+id,await file.arrayBuffer(),{httpMetadata:{contentType:mime}});
   try{

@@ -93,9 +93,12 @@ test('D1 protected reference list loads once with fail-closed errors',async()=>{
  assert.equal(await readLegacyMediaReferences({prepare(){throw Error('DB unavailable')}}),null);
  assert.equal(await readLegacyMediaReferences(null),null);
 });
-test('media frontend only offers DELETE when the backend attests safe unused status',()=>{
+test('media frontend only physically deletes after safe-unused attestation; referenced images archive',()=>{
  assert.match(code,/const unused=record\.canDelete===true&&refs\.length===0/);
- assert.match(code,/if\(record\.canDelete===true\)controls\.append\(b\('Supprimer'/);
+ assert.match(code,/if\(record\.type==='image'\)/);
+ assert.match(code,/removeMediaFromAdmin\(record,refs\)/);
+ assert.match(code,/else if\(record\.canDelete===true\)/);
+ assert.match(code,/const action=used\?'archive':'delete'/);
  assert.match(code,/const unused=false;/);
  assert.match(code,/block\?\.coverAssetId===fileId/);
  assert.match(api,/const legacyRefs=await readLegacyMediaReferences\(env\.DB\)/);
