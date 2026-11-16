@@ -3168,7 +3168,9 @@ function mediaLinksFor(record,related=[]){
   if(!slug||seen.has(key))return;
   seen.add(key);
   const general=use.group==='page';
-  const celebrationName=general?'Pages générales':String(use.name||'Célébration');
+  const knownCelebration=celebrationEntries().find(entry=>String(entry.id)===cid);
+  const celebrationName=general?'Pages générales':
+   String(use.name|| (knownCelebration?celebrationLabel(knownCelebration):'Célébration '+cid));
   entries.push({name:general?use.pageName:celebrationName+' · '+use.pageName,
    celebrationId:general?'general':cid,celebrationName,
    pageId:String(use.pageId||slug),pageName:String(use.pageName),
