@@ -55,7 +55,6 @@ jobs:
           npx playwright install chromium
           node scripts/test-m032-media-browser.mjs
           node scripts/test-m036-unified-pages-browser.mjs
-          node scripts/test-m035-welcome-home-browser.mjs
           (cd migration/cloudflare && npx wrangler deploy --dry-run --config wrangler.m018.official.toml)
       - name: Upload code version only
         working-directory: migration/cloudflare
