@@ -1,0 +1,124 @@
+name: "M047 — téléchargement des documents (officiel)"
+on:
+  push:
+    branches: [feat/m047-document-download-buttons-20261116]
+permissions: {contents: read}
+concurrency:
+  group: celebrations-existing-official-production-release
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: ${{ contains(github.event.head_commit.message, '[M047_OFFICIAL]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      WRANGLER_OUTPUT_FILE_PATH: /tmp/m047-version-output.ndjson
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Verify existing official version before release
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const acct=process.env.CLOUDFLARE_ACCOUNT_ID,token=process.env.CLOUDFLARE_API_TOKEN;
+          assert.ok(token&&acct);
+          const url='https://api.cloudflare.com/client/v4/accounts/'+acct+
+            '/workers/scripts/celebrations-exit-production/deployments';
+          const r=await fetch(url,{headers:{authorization:'Bearer '+token}});
+          assert.equal(r.status,200);
+          const j=await r.json();
+          assert.equal(j.success,true);
+          const versions=j.result?.deployments?.[0]?.versions||[];
+          assert.deepEqual(versions.map(x=>[x.version_id,x.percentage]),
+            [['cf2469e8-a8df-4489-978d-e1aea789ff07',100]],
+            'Site modified since M046 baseline, refusing unsafe overwrite');
+          console.log('M047_PRE_RELEASE_GUARD_PASS');
+          NODE
+      - name: Build and test without changing site data
+        run: |
+          set -euo pipefail
+          node scripts/build-m012b-member-spaces-inline.mjs --check
+          node scripts/build-m019-editor-client.mjs --check
+          node --check migration/cloudflare/editor-publication-api.mjs
+          node --check migration/cloudflare/public-upload-gateway.mjs
+          node --check migration/cloudflare/media-gateway.mjs
+          node --test tests/test_m047_document_download.mjs tests/test_m046_media_libraries.mjs tests/test_m045_admin_collaboration.mjs tests/test_m035_welcome_home_button.mjs tests/test_m041_audio_types_and_seek.mjs tests/test_m037_media_library_locations.mjs tests/test_m038_audio_android_library.mjs tests/test_m036_unified_pages_and_ergonomics.mjs tests/test_m024_cleanup_and_media_safety.mjs tests/test_m032_standalone_public_media.mjs tests/test_m012c_private_editor_publication.mjs
+          python scripts/build_production_assets.py
+          test -s production-public/admin.html
+          npm install --no-save --no-package-lock wrangler@4 playwright@1.58.2
+          npx playwright install chromium
+          node scripts/test-m032-media-browser.mjs
+          node scripts/test-m036-unified-pages-browser.mjs
+          (cd migration/cloudflare && npx wrangler deploy --dry-run --config wrangler.m018.official.toml)
+      - name: Upload code version only
+        working-directory: migration/cloudflare
+        run: |
+          set -euo pipefail
+          npx wrangler versions upload --config wrangler.m018.official.toml --message "M047 boutons telechargement PDF securises, code uniquement"
+      - name: Promote uploaded code
+        working-directory: migration/cloudflare
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs';
+          const items=readFileSync(process.env.WRANGLER_OUTPUT_FILE_PATH,'utf8').split('\n').filter(Boolean).map(JSON.parse);
+          const version=items.filter(x=>x.type==='version-upload'&&x.worker_name==='celebrations-exit-production').at(-1)?.version_id;
+          if(!/^[a-f0-9-]{36}$/i.test(version||''))throw Error('Aucune version certifiée');
+          const {spawnSync}=await import('node:child_process');
+          // Wrangler may return a newly uploaded version before it has fully
+          // propagated to the deployment API. Retry only that exact version.
+          let deployed=false;
+          for(let attempt=0;attempt<8;attempt++){
+            const proc=spawnSync('npx',['wrangler','versions','deploy',version+'@100%','--yes','--config','wrangler.m018.official.toml','--message','M047 boutons PDF telechargeables, code seulement'],{stdio:'inherit'});
+            if(proc.status===0){deployed=true;break;}
+            console.log('M047_VERSION_PROPAGATION_RETRY '+(attempt+1));
+            await new Promise(resolve=>setTimeout(resolve,3000*(attempt+1)));
+          }
+          if(!deployed)throw Error('Déploiement refusé après propagation');
+          const {writeFileSync}=await import('node:fs');
+          writeFileSync('/tmp/m047-promoted','1');
+          NODE
+      - name: Check public and protected routes
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const site='https://ronde-des-archanges-universelle.eu';
+          const [home,admin,privateRoute,unknown]=await Promise.all([
+            fetch(site+'/'),fetch(site+'/admin'),fetch(site+'/api/editor-open-draft?celebration=101'),
+            fetch(site+'/media/new/00000000-0000-4000-8000-000000000000.jpg')
+          ]);
+          assert.equal(home.status,200);
+          assert.equal(admin.status,200);
+          assert.equal(privateRoute.status,401);
+          assert.equal(unknown.status,404);
+          const audioUrl=site+'/media/media/1789374359623/file-1789374361142-26.-2008-09-18-les-7-flammes-de-larchange-michael.mp3';
+          const audio=await fetch(audioUrl,{headers:{range:'bytes=0-1023'}});
+          assert.equal(audio.status,206,'The public MP3 must support HTTP Range for Android');
+          assert.equal((audio.headers.get('content-type')||'').split(';')[0].trim(),'audio/mpeg');
+          assert.ok((audio.headers.get('content-range')||'').startsWith('bytes 0-1023/'));
+          assert.equal((await audio.arrayBuffer()).byteLength,1024);
+          console.log('M047_AUDIO_HTTP_RANGE_PASS');
+          console.log('M047_DEPLOYED_OFFICIAL');
+          NODE
+      - name: Verify visitor menus, audio types and 10-second controls on desktop and Android
+        run: |
+          node scripts/test-m040-global-gallery-retired-browser.mjs
+          node scripts/test-m041-public-audio-browser.mjs
+
+      - name: Roll back code to verified M041 if live checks fail
+        if: ${{ failure() }}
+        working-directory: migration/cloudflare
+        run: |
+          if test -f /tmp/m047-promoted; then
+            npx wrangler versions deploy cf2469e8-a8df-4489-978d-e1aea789ff07@100% --yes --config wrangler.m018.official.toml --message "M047 rollback vers M046 si verification echoue"
+          fi
+# Official deployment is opt-in via the exact [M047_OFFICIAL] commit marker.
