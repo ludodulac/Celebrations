@@ -153,13 +153,12 @@ try{
   assert.equal(await menu.locator('button').filter({hasText:'Monter'}).count(),1);
   assert.equal(await menu.locator('button').filter({hasText:'Descendre'}).count(),1);
   assert.equal(await menu.locator('select[aria-label^="Visibilité"]').count(),1);
-  // Close the page-action popup before opening the separate settings gear.
+  // M042: the homepage button editor is immediately visible, without
+  // opening a gear or another administration screen.
   await homeRow.locator(':scope > .page-options > summary').click();
-  // The controls exist only in the original page settings gear (no new admin).
-  const gear=page.locator('.m031-settings-details > summary');
-  await gear.click();
   const set=page.locator('.m035-entry-settings');
-  await set.locator(':scope > summary').click();
+  assert.equal(await set.evaluate(el=>el.open),true,'Homepage button panel is expanded by default');
+  assert.ok(await set.isVisible(),'Homepage button settings are visible without the gear');
   const nameField=set.getByRole('textbox',{name:'Texte du bouton d’accueil'});
   assert.equal(await nameField.inputValue(),'Bienvenue');
   await nameField.fill('Entrer dans la ronde');
@@ -167,6 +166,12 @@ try{
   await set.getByLabel('Couleur du bouton').fill('#1a453a');
   await set.getByLabel('Épaisseur du contour du bouton').selectOption('4');
   assert.equal(await set.locator('.m035-entry-preview').evaluate(el=>getComputedStyle(el).borderWidth),'4px');
+  const width=set.getByLabel('Largeur (pixels) du bouton d’accueil');
+  await width.fill('300');await width.blur();
+  const height=set.getByLabel('Hauteur (pixels) du bouton d’accueil');
+  await height.fill('90');await height.blur();
+  assert.equal(await set.locator('.m035-entry-preview').evaluate(el=>Math.round(parseFloat(getComputedStyle(el).width))),300);
+  assert.equal(await set.locator('.m035-entry-preview').evaluate(el=>Math.round(parseFloat(getComputedStyle(el).minHeight))),90);
   assert.ok(await set.getByRole('button',{name:'Appliquer le bouton sur le site'}).isVisible());
   assert.deepEqual(errors,[],name+': '+errors.join('; '));
   assert.equal(writes,0);
