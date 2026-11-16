@@ -142,3 +142,5 @@ jobs:
             npx wrangler versions deploy 1f4d08ed-3f7e-4edf-9ef0-0c9dbab8795a@100% --yes --config wrangler.m018.official.toml --message "M049 rollback vers M048 si verification echoue"
           fi
 # M049 official release is opt-in only by commit [M049_OFFICIAL].
+
+# [M049_OFFICIAL] Deploy tested conference corrections and merged exercises/explanations; M048 verified baseline.
