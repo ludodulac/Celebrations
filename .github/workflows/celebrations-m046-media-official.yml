@@ -124,3 +124,5 @@ jobs:
 # [M046_OFFICIAL] Published after green M046 test suite; M045 production version guard.
 
 # [M046_OFFICIAL] Retry with M024 safety assertion updated: archive used images, delete only verified unused media.
+
+# [M046_OFFICIAL] Final verified release: browser confirmation and all 77 unit checks.
