@@ -2645,11 +2645,12 @@ function attachPagePublicationControls(list,group){
 // gear. Config is a display preference, never a membership/publication rule.
 function m035EntrySettings(homePage){
  const values={enabled:true,label:'Bienvenue',background:'#28483D',
-  color:'#FFFFFF',borderColor:'#F3E5C9',borderWidth:2,radius:16,
+  color:'#FFFFFF',borderColor:'#F3E5C9',borderWidth:2,radius:16,width:0,height:0,
   ...(homePage.homeEntryButton||{})};
  const controls=n('details','m035-entry-settings');
- const summary=n('summary','','Bouton sur l’image d’accueil');
- summary.title='Modifier le texte, le fond, le contour et la forme du bouton';
+ const summary=n('summary','','✏ Modifier le bouton « Bienvenue »');
+ summary.title='Modifier le texte, les couleurs et les dimensions du bouton';
+ controls.open=true;
  controls.append(summary);
  const body=n('div','m035-entry-fields');
  body.append(n('p','hint','Le bouton « Bienvenue » s’affiche devant l’image et ouvre la page suivante, comme un clic sur l’image. Le bloc de texte original reste enregistré dans l’éditeur.'));
@@ -2660,6 +2661,8 @@ function m035EntrySettings(homePage){
   preview.style.borderColor=values.borderColor;
   preview.style.borderWidth=values.borderWidth+'px';
   preview.style.borderRadius=values.radius+'px';
+  preview.style.width=values.width?values.width+'px':'';
+  preview.style.minHeight=values.height?values.height+'px':'';
   preview.hidden=!values.enabled;
  };
  const modify=()=>{homePage.homeEntryButton={...values};mark();paint()};
@@ -2698,6 +2701,26 @@ function m035EntrySettings(homePage){
  radius.value=String(values.radius);
  radius.onchange=()=>{values.radius=Number(radius.value);modify()};
  rounding.append(radius);shapes.append(rounding);body.append(shapes);
+ const sizes=n('div','m035-entry-colors');
+ for(const [key,title,min,max] of [
+  ['width','Largeur (pixels)',160,500],['height','Hauteur (pixels)',44,140]
+ ]){
+  const field=n('label','m035-entry-field',title),input=n('input');
+  input.type='number';input.inputMode='numeric';input.min=String(min);
+  input.max=String(max);input.step='1';input.placeholder='Automatique';
+  input.value=values[key]||'';
+  input.setAttribute('aria-label',title+' du bouton d’accueil');
+  input.onchange=()=>{
+   const value=input.value.trim()===''?0:Number(input.value);
+   if(!Number.isInteger(value)||(value!==0&&(value<min||value>max))){
+    siteNotice('Dimensions autorisées : '+min+' à '+max+' pixels, ou vide pour automatique.');
+    input.value=values[key]||'';return;
+   }
+   values[key]=value;modify();
+  };
+  field.append(input);sizes.append(field);
+ }
+ body.append(sizes,n('small','hint','Laissez un champ vide pour conserver la dimension automatique.'));
  const sample=n('div','m035-entry-preview-wrap');sample.append(preview);body.append(sample);paint();
  const apply=b('Appliquer le bouton sur le site',async()=>{
   const label=String(values.label||'').trim();
@@ -2797,8 +2820,6 @@ function pageWorkspace(group,mount=w){
   const row=n('div','editor-language-row m020-settings');
   row.append(n('strong','','Réglages de la page'));
   row.append(publicationActions('page',canonicalPage()));
-  if(p.id==='neutral-accueil-general'&&editingLanguageId==='fr')
-   row.append(m035EntrySettings(canonicalPage()));
   if(adminMembersEnabled)row.append(accessControls('page',canonicalPage()));
   if(adminLanguagesVisible){
    const label=n('label','editor-language-choice','Langue'),picker=n('select');picker.setAttribute('aria-label','Langue');
@@ -2810,6 +2831,8 @@ function pageWorkspace(group,mount=w){
    if(p.group!=='celebration')row.append(b('Dupliquer',()=>m018DuplicatePage(canonicalPage()),'sm'));
    row.append(b('Enregistrer',saveCurrentContent,'sm m022-save'));
    right.append(row);
+  if(p.id==='neutral-accueil-general'&&editingLanguageId==='fr')
+   right.append(m035EntrySettings(canonicalPage()));
   if(editingLanguageId!=='fr'){
    const field=n('label','editor-language-title','Titre de la page dans cette langue');
    const input=n('input');input.type='text';input.maxLength=180;input.value=p.name;

@@ -261,6 +261,12 @@ export const M031_COMPACT_LAYOUT_CSS = `
  .stage-editor.m031-compact .m035-entry-colors{grid-template-columns:1fr 1fr}
 }
 
+.stage-editor.m031-compact .m035-entry-settings{
+ margin:12px 0 16px;box-shadow:0 2px 9px #0b2a1c12
+}
+.stage-editor.m031-compact .m035-entry-field input[type=number]{
+ min-height:42px;width:100%;max-width:100%;box-sizing:border-box
+}
 /* M036 — The original star is the only shortcut to the public site. */
 .stage-editor .rail .brand .m036-public-star{
  display:grid;place-items:center;flex:0 0 auto;
