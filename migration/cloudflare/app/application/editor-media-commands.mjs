@@ -10,8 +10,11 @@ export function createEditorMediaCommands(){
     block.text=file.name.replace(/\.(?:mp4|webm|ogv|ogg)(?:[?#].*)?$/i,'');
   }else{
    block.displayAsButton=true;delete block.cover;delete block.coverAssetId;
-   if(!String(block.text||'').trim()||['Mon bouton','Découvrir le programme'].includes(block.text))
-    block.text='Ouvrir : '+file.name;
+   if(block.download===true)block.downloadName=String(file.name||'').slice(0,120);
+   else delete block.downloadName;
+   if(!String(block.text||'').trim()||
+      ['Mon bouton','Découvrir le programme','Télécharger le document'].includes(block.text))
+    block.text=(block.download===true?'Télécharger : ':'Ouvrir : ')+file.name;
   }
   return true;
  }

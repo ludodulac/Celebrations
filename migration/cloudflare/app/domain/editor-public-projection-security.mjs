@@ -49,7 +49,7 @@ export function allowedPublicLink(value,blockedIds=[]){
 }
 
 const BLOCK_FIELDS=['id','kind','text','rich','bold','italic','color','size','align',
- 'widthPct','fullBleed','layout','presentation','thickness','displayAsButton','atTime'];
+ 'widthPct','fullBleed','layout','presentation','thickness','displayAsButton','atTime','download'];
 const SECTION_STYLE_FIELDS=['border','width','color','shadow'];
 function projectBlock(block,blockedIds,depth=0){
  if(!object(block)||depth>12||block.hideOnSite===true||!publicFlags(block))return null;
@@ -58,6 +58,10 @@ function projectBlock(block,blockedIds,depth=0){
  for(const field of BLOCK_FIELDS)
   if(own(block,field)&&['string','number','boolean'].includes(typeof block[field]))
    result[field]=block[field];
+ if(block.kind==='button'&&block.download===true&&
+    typeof block.downloadName==='string'&&block.downloadName.length<=120&&
+    !/[\\/\u0000-\u001f\u007f]/.test(block.downloadName))
+   result.downloadName=block.downloadName;
  // IDs are safe canonical identifiers; never include assetId/remoteKey, which
  // can name unpublished objects in the editor bucket.
  if(block.kind==='section'){

@@ -284,8 +284,10 @@ function chooseFile(x){
  dialog.append(tabs,grid);
  const hint=n('p','file-picker-hint','Sélectionnez un fichier. Votre page reste ouverte derrière cette fenêtre.');
  dialog.append(hint);
- const categories=choosingVideo?[['videos','Vidéos']]:[['all','Tous'],...FILE_CATEGORIES];
- let filter=choosingVideo?'videos':'all';
+ const categories=choosingVideo?[['videos','Vidéos']]:
+  x.download===true?[['pdf','PDF'],['autres','Autres documents'],['all','Tous les fichiers']]:
+  [['all','Tous'],...FILE_CATEGORIES];
+ let filter=choosingVideo?'videos':x.download===true?'pdf':'all';
  const inventory=()=>mediaCatalogue.pickerItems(
   [...(globalFiles||[]),...publicFiles()],globalMedia
  );
@@ -1928,7 +1930,12 @@ function block(x,p,items=p.blocks,section=null){
  }
  if(['heading','text','button','event'].includes(x.kind)){
   const href=x.kind==='button'?buttonHref(x):'';
-  if(x.kind==='button'&&preview&&href){const a=n('a','link-block',x.text);a.href=href;a.target='_blank';a.rel='noopener noreferrer';box.append(a)}
+  if(x.kind==='button'&&preview&&href){
+   const a=n('a','link-block',x.text||(x.download?'Télécharger le document':'Ouvrir'));
+   a.href=href;a.target='_blank';a.rel='noopener noreferrer';
+   if(x.download===true){a.classList.add('download-button');a.setAttribute('download',String(x.downloadName||''))}
+   box.append(a)
+  }
   else{
    const z=n('div','ed '+(x.kind==='heading'||x.kind==='event'?'heading':x.kind==='text'?'text':'link-block'));
    if(x.kind!=='button'&&typeof x.rich==='string'&&x.rich){z.innerHTML=htmlSafe(x.rich);restoreInlineColours(z)}else z.textContent=x.text||'';
@@ -1978,11 +1985,38 @@ function block(x,p,items=p.blocks,section=null){
    }
   }
   if(x.kind==='button'&&!preview){
-   const row=n('div','link-line'),inp=n('input','link-input');inp.type='url';inp.value=x.assetId?'':x.href||'';inp.placeholder='Adresse https:// ou /';inp.setAttribute('aria-label','Adresse du bouton');
-   inp.onchange=()=>{const v=inp.value.trim();if(v&&!validHref(v)){siteNotice('Adresse incorrecte : utilisez https:// ou un chemin commençant par /');inp.value=x.href||'';return}x.href=v;delete x.assetId;x.displayAsButton=true;delete x.cover;delete x.coverAssetId;mark();render()};
-   row.append(inp);const pick=b('📎 Choisir un fichier',()=>chooseFile(x),'sm');pick.dataset.action='choose-asset';row.append(pick);
+   const row=n('div','link-line'),inp=n('input','link-input');inp.type='url';inp.value=x.assetId?'':x.href||'';
+   inp.placeholder='Coller le lien du PDF ou du document (https:// ou /media/…)';
+   inp.setAttribute('aria-label','Adresse du bouton ou du document à télécharger');
+   inp.onchange=()=>{
+    const v=inp.value.trim();
+    if(v&&!validHref(v)){
+     siteNotice('Adresse incorrecte : utilisez https:// ou un chemin commençant par /');
+     inp.value=x.href||'';return;
+    }
+    if(v!==x.href)delete x.downloadName;
+    x.href=v;delete x.assetId;x.displayAsButton=true;delete x.cover;delete x.coverAssetId;
+    mark();render();
+   };
+   row.append(inp);
+   const pick=b(x.download===true?'📄 Choisir un document dans la médiathèque':'📎 Choisir un fichier',
+    ()=>chooseFile(x),'sm');
+   pick.dataset.action='choose-asset';row.append(pick);
    if(x.assetId)row.append(n('small','file-chosen','Fichier : '+(fileRecords.get(x.assetId)?.name||'introuvable')));
    box.append(row);
+   const downloadOption=n('label','download-button-option');
+   const checkbox=n('input');checkbox.type='checkbox';checkbox.checked=x.download===true;
+   checkbox.setAttribute('aria-label','Télécharger ce document plutôt que simplement ouvrir le lien');
+   checkbox.onchange=()=>{
+    x.download=checkbox.checked;
+    if(!checkbox.checked){delete x.downloadName;if(/^Télécharger (?:le document|:)/i.test(x.text||''))x.text='Ouvrir le document'}
+    else if(!x.text||/^(Mon bouton|Ouvrir le document|Ouvrir :)/i.test(x.text))x.text='Télécharger le document';
+    x.displayAsButton=true;mark();render();
+   };
+   downloadOption.append(checkbox,n('span','','Bouton de téléchargement (PDF et documents)'));
+   box.append(downloadOption);
+   if(x.download===true)box.append(n('small','hint',
+    'Choisissez un PDF dans la médiathèque ou collez son adresse. Les fichiers du site seront téléchargés ; les liens extérieurs dépendent de leur hébergeur.'));
    const actions=n('div','block-edit-actions');
    if(videoInfo(x.href)||/\.(?:mp4|webm|ogg)(?:[?#]|$)/i.test(String(x.href||''))){
     actions.append(b('Afficher comme vidéo avec titre',()=>{
@@ -2443,7 +2477,7 @@ function existingBlockAddControls(original,p,box){
  add.setAttribute('aria-expanded','false');
  menu.hidden=true;
  for(const [label,kind] of [['Titre','heading'],['Image','image'],['Texte','text'],
-   ['Titre événement','event'],['Bouton','button'],['Vidéo','video'],['Lecteur audio','audio'],['Trait de séparation','divider']]){
+   ['Titre événement','event'],['Bouton','button'],['⬇ Bouton de téléchargement','download'],['Vidéo','video'],['Lecteur audio','audio'],['Trait de séparation','divider']]){
   menu.append(b(label,event=>{
    event.stopPropagation();
    const index=p.blocks.indexOf(original);
@@ -2485,7 +2519,12 @@ function sectionMenu(p,index){
               const section=editorBlockModel.createSection(uniqueBlockId(),'single',[[audio],[]]);
               p.blocks.splice(index,0,section);selectedBlockId=String(audio.id);mark();render();
              },'sm'),
-             b('Document : titre + PDF',()=>addResourcePreset(p,index,'documents'),'sm'),
+             b('Document : titre + PDF à télécharger',()=>addResourcePreset(p,index,'documents'),'sm'),
+             b('⬇ Bouton de téléchargement',()=>{
+              const link=createContent('download');
+              const section=editorBlockModel.createSection(uniqueBlockId(),'single',[[link],[]]);
+              p.blocks.splice(index,0,section);selectedBlockId=String(link.id);mark();render();
+             },'sm'),
              b('Trait de séparation',()=>{
               const divider=createContent('divider');p.blocks.splice(index,0,divider);
               selectedBlockId=String(divider.id);mark();render();
@@ -2596,7 +2635,7 @@ function sectionColumn(section,p,index,single=false){
   add.title='Ajouter un élément';add.setAttribute('aria-label','Ajouter '+(index===0?'à gauche':'à droite'));
   menu.hidden=true;
   for(const [label,kind] of [['Titre','heading'],['Image','image'],['Texte','text'],
-   ['Titre événement','event'],['Bouton','button'],['Vidéo','video'],['Lecteur audio','audio'],['Trait de séparation','divider']]){
+   ['Titre événement','event'],['Bouton','button'],['⬇ Bouton de téléchargement','download'],['Vidéo','video'],['Lecteur audio','audio'],['Trait de séparation','divider']]){
    menu.append(b(label,()=>{
     const x=createContent(kind);items.push(x);selectedBlockId=String(x.id);mark();render();
    },'sm'));
