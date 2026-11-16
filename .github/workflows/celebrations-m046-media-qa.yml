@@ -1,0 +1,29 @@
+name: "M046 — médiathèques et catégories vidéo"
+on:
+  push:
+    branches: [feat/m046-media-libraries-filter-names-video-20261116]
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  media-qa:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Check generated editor and Worker
+        run: |
+          node --check migration/cloudflare/editor-demo-client.mjs
+          node --check migration/cloudflare/editor-trial-site-client.mjs
+          node --check migration/cloudflare/editor-publication-api.mjs
+          node scripts/build-m019-editor-client.mjs --check
+      - name: Media, rights and multi-admin regressions
+        run: |
+          node --test tests/test_m046_media_libraries.mjs tests/test_m045_admin_collaboration.mjs tests/test_m041_audio_types_and_seek.mjs tests/test_m038_audio_android_library.mjs tests/test_m012c_private_editor_publication.mjs
+      - name: Build official assets without deploying
+        run: |
+          python scripts/build_production_assets.py
+          test -s production-public/admin.html
