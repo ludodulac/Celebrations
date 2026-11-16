@@ -42,7 +42,7 @@ const cleanAudioType=value=>{
 const uniqueAudioTypes=state=>[...new Map([...DEFAULT_AUDIO_TYPES,...(Array.isArray(state.audioTypes)?state.audioTypes:[])]
  .map(cleanAudioType).filter(Boolean).map(name=>[name.toLocaleLowerCase('fr'),name])).values()];
 const VIDEO_TYPES=['Conférences','Rituels','Exercices et explications'];
-const conferenceNames=/(?:comprendre le symbolisme de la ronde des archanges|comprendre le travail alchimique du rite du pardon des offenses|cernunnos.*autre visage|secrets de la menora|^voir\s*:\s*(?:vimeo|youtube)\s*$)/;
+const conferenceNames=/(?:comprendre le symbolisme de la ronde des archanges|comprendre le travail alchimique du rite du pardon des offenses|cernunnos.*autre visage|secrets de la menora|^(?:voir\s*:\s*)?(?:vimeo|youtube)\s*$)/;
 const videoTypeOf=name=>{
  const n=String(name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
  if(conferenceNames.test(n)||/conference|enseignement|causerie|intervention|comprendre/.test(n))return 'Conférences';
