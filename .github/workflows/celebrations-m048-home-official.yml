@@ -133,3 +133,5 @@ jobs:
             npx wrangler versions deploy 0e5e1ded-692d-46fb-95ec-5de6309228ad@100% --yes --config wrangler.m018.official.toml --message "M048 rollback vers M047 si verification echoue"
           fi
 # Opt-in release requires [M048_OFFICIAL] in the final commit message.
+
+# [M048_OFFICIAL] Publish after 66 focused tests and production build with both WebP assets.
