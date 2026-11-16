@@ -146,3 +146,5 @@ jobs:
 # [M048_OFFICIAL] Publish after 66 focused tests and production build with both WebP assets.
 
 # [M048_OFFICIAL] Recheck updated browser expectations for responsive welcome page.
+
+# [M048_OFFICIAL] Retry production asset validation after CDN version propagation.
