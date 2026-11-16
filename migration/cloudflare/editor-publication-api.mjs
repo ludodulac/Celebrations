@@ -577,7 +577,7 @@ export async function handleEditorMedia(request,env){
  });
  // M041: media type describes a recording; it never changes its access rights.
  // Types are stored in the same revisioned R2 editor snapshot as the media catalogue.
- if(action==='audio-type-create'||action==='set-audio-type'){
+ if(action==='audio-type-create'||action==='set-audio-type'||action==='set-audio-date'){
   let data;try{data=await request.json()}catch{return err('JSON invalide',400)}
   if(!Number.isSafeInteger(data?.expectedRevision))return err('Révision requise',400);
   const current=await readEditorState(env.EDITOR_BUCKET);
@@ -594,6 +594,21 @@ export async function handleEditorMedia(request,env){
    state.audioTypes=[...(state.audioTypes||[]),name];
    if(!await writeEditorState(env.EDITOR_BUCKET,current,state))return err('Modification simultanée',409);
    return json({ok:true,revision:state.version,audioType:name,audioTypes:uniqueAudioTypes(state)});
+  }
+  if(action==='set-audio-date'){
+   if(typeof data?.id!=='string'||data.id.length>720||
+      typeof data.audioDate!=='string')return err('Date ou MP3 invalide',400);
+   const date=data.audioDate;
+   if(date&&( !/^(?:19|20)\d\d-\d\d-\d\d$/.test(date)||
+      Number.isNaN(Date.parse(date+'T00:00:00Z'))||
+      new Date(date+'T00:00:00Z').toISOString().slice(0,10)!==date))
+    return err('Date invalide (AAAA-MM-JJ)',400);
+   const target=(state.mediaCatalogue||[]).find(x=>x?.id===data.id&&x.type==='audio');
+   if(!target)return err('Audio introuvable dans le catalogue de l’administration',404);
+   if(date)target.audioDate=date;else delete target.audioDate;
+   if(!await writeEditorState(env.EDITOR_BUCKET,current,state))
+    return err('Modification simultanée',409);
+   return json({ok:true,revision:state.version,item:target,audioDate:date});
   }
   const name=cleanAudioType(data?.audioType);
   const selected=allowed.find(x=>x.toLocaleLowerCase('fr')===name.toLocaleLowerCase('fr'));
@@ -653,7 +668,7 @@ export async function handleEditorMedia(request,env){
   if(!format||file.size<1||file.size>format.max)return err('Format ou taille non pris en charge (vidéos : lien externe)',415);
   const id=crypto.randomUUID()+format.extension;
   const path='/media/new/'+id,record={id:format.type+'|'+path,type:format.type,
-   src:path,name:String(file.name||id).slice(0,120),source:'uploaded',general:false};
+   src:path,name:String(file.name||id).slice(0,120),source:'uploaded',general:false,createdAt:new Date().toISOString()};
   const current=await readEditorState(env.EDITOR_BUCKET),state=copy(current.state);
   await env.EDITOR_BUCKET.put(PREFIX+id,await file.arrayBuffer(),{httpMetadata:{contentType:mime}});
   try{

@@ -136,7 +136,7 @@ export async function handleEditorMultipartUpload(action,request,env,{
    if(object?.size!==record.size)return fail('La vérification de taille du MP3 a échoué.',409);
    const src='/media/new/'+record.id+'.mp3';
    const item={id:'audio|'+src,type:'audio',src,name:record.name,
-    source:'uploaded',general:false};
+    source:'uploaded',general:false,createdAt:new Date(record.createdAt).toISOString()};
    // Retry the catalogue update on an optimistic-concurrency collision.
    // If a response was lost after completing R2, head() above recovers.
    for(let attempt=0;attempt<4;attempt++){
