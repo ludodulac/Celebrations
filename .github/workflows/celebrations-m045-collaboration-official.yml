@@ -1,7 +1,7 @@
 name: "M045 — sécurité de sauvegarde multi-administrateurs (officiel)"
 on:
   push:
-    branches: [fix/m045-home-button-position-save-20261116]
+    branches: [fix/m045-admin-collaboration-no-overwrite-20261116]
 permissions: {contents: read}
 concurrency:
   group: celebrations-existing-official-production-release
