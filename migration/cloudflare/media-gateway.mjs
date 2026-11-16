@@ -76,6 +76,12 @@ export async function handleMedia(request,env){
   headers.set("content-type","application/octet-stream");
   headers.set("content-disposition","attachment");
  }
+ if(u.searchParams.get('download')==='1'&&!committee){
+  const name=String(key.split('/').at(-1)||'document').replace(/[\u0000-\u001f\u007f]/g,'').slice(0,120);
+  const ascii=name.replace(/[^\x20-\x7e]/g,'_').replace(/[";\\]/g,'_');
+  headers.set('content-disposition','attachment; filename="'+ascii+
+   '"; filename*=UTF-8\'\''+encodeURIComponent(name));
+ }
  if((headers.get("content-type")||"").includes("svg+xml"))
   headers.set("content-security-policy","default-src 'none'; sandbox");
  if(range&&object.range){
