@@ -40,8 +40,13 @@ export function createMediaCatalogue({validHref}){
  }
  function imageItems({historical,pages,globalMedia,fileRecords,assetUrls}){
   const entries=new Map(),pageImages=[];
+  // An administrator's explicit rename wins over legacy filename captions.
+  // Soft-archived images must not reappear in the picker through saved pages.
+  const hidden=new Set((globalMedia||[]).filter(x=>x.hiddenFromLibrary===true).map(x=>x.src));
+  for(const item of globalMedia||[])if(item.type==='image'&&item.src&&!hidden.has(item.src))
+   entries.set(item.src,{name:item.name,src:item.src});
   for(const file of historical||[])if(file?.category==='images'&&
-   /^\/media\//.test(String(file.src||''))&&file.src&&!entries.has(file.src))
+   /^\/media\//.test(String(file.src||''))&&file.src&&!hidden.has(file.src)&&!entries.has(file.src))
    entries.set(file.src,{name:file.name,src:file.src});
   function gather(blocks){
    for(const item of blocks||[]){
@@ -51,10 +56,8 @@ export function createMediaCatalogue({validHref}){
    }
   }
   for(const page of pages||[])gather(page.blocks);
-  for(const image of pageImages)if(image.src&&!entries.has(image.src))
+  for(const image of pageImages)if(image.src&&!hidden.has(image.src)&&!entries.has(image.src))
    entries.set(image.src,{name:image.name,src:image.src});
-  for(const item of globalMedia||[])if(item.type==='image'&&item.src&&!entries.has(item.src))
-   entries.set(item.src,{name:item.name,src:item.src});
   const local=[];
   for(const item of fileRecords||[])if(categoryOfLocal(item)==='images')
    local.push({name:item.name,src:assetUrls.get(item.id)||'',assetId:item.id});
