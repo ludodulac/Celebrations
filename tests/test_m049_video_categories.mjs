@@ -29,6 +29,8 @@ test('M049: conference examples from the screenshots are recognized',()=>{
   'Voir : Comprendre le travail alchimique du rite du Pardon des Offenses',
   'Voir : Vimeo',
   'Voir : YouTube',
+  'Vimeo',
+  'YouTube',
   '2013.09.20 Cernunnos l’Autre visage de l’Archange Michaël chez les Celtes – vidéo',
   'Voir : 2026.09.16 Les secrets de la ménora Essénienne.'
  ];
