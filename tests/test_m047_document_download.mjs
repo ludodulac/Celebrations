@@ -115,7 +115,7 @@ test('M047: approved legacy D1 PDF can download, revoked media stays protected',
  const src=HOST+'/media/old/documents/programme.pdf';
  const display=await handleMedia(new Request(src),env);
  assert.equal(display.status,200);
- assert.notMatch(display.headers.get('content-disposition')||'',/attachment/);
+ assert.doesNotMatch(display.headers.get('content-disposition')||'',/attachment/);
  const download=await handleMedia(new Request(src+'?download=1'),env);
  assert.equal(download.status,200);
  assert.match(download.headers.get('content-disposition'),/^attachment;/);
