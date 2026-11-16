@@ -806,9 +806,9 @@ async function renameMediaSource(src,defaultName='Image'){
 async function removeMediaFromAdmin(media,refs=[]){
  const used=refs.length>0||media.canDelete!==true;
  const prompt=used?
-  'Voulez-vous vraiment retirer « '+media.name+' » de la médiathèque ? '+(refs.length?'Cette image figure sur '+refs.length+' page(s). ':'')+
+  'Êtes-vous sûr de vouloir supprimer « '+media.name+' » de la médiathèque ? '+(refs.length?'Cette image figure sur '+refs.length+' page(s). ':'')+
   'Pour ne pas casser le site, elle restera visible sur les pages qui l’utilisent. Vous pourrez la retirer des pages séparément.':
-  'Voulez-vous vraiment supprimer définitivement « '+media.name+' » ?';
+  'Êtes-vous sûr de vouloir supprimer définitivement « '+media.name+' » ?';
  if(!(await siteConfirm(prompt)))return;
  const action=used?'archive':'delete';
  const response=await fetch('/api/editor-media?action='+action,{
