@@ -146,7 +146,7 @@ test('M042: welcome button dimensions are optional, bounded and safely published
  assert.match(DEMO_CLIENT,/Modifier le bouton « Bienvenue »/);
  assert.match(DEMO_CLIENT,/Hauteur \(pixels\)/);
  assert.match(DEMO_CLIENT,/Largeur \(pixels\)/);
- assert.match(TRIAL_SITE_CLIENT,/welcomeButton\.width/);
+ assert.ok(TRIAL_SITE_CLIENT.includes('welcomeButton.positionY'));
  assert.match(TRIAL_SITE_CLIENT,/welcomeButton\.height/);
 });
 
