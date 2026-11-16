@@ -645,9 +645,24 @@ export async function handleEditorMedia(request,env){
   let target=(state.mediaCatalogue||[]).find(x=>x?.id===input.id);
   if(!target){
    const found=discoverMedia(legacyEditorView(state)).find(x=>x.id===input.id);
-   if(!found)return err('Fichier non reconnu par le catalogue',404);
-   target={id:found.id,type:found.type,src:found.src,name:found.name,
-    source:found.source||'historical',general:false,publicLink:false};
+   // Old D1 media may predate the modern R2 catalogue. Admit it only
+   // when the exact safe URL is present in the legacy reference inventory.
+   let candidate=found;
+   if(!candidate){
+    const separator=input.id.indexOf('|');
+    const type=input.id.slice(0,separator),src=input.id.slice(separator+1);
+    if(!['image','video','pdf','audio','file'].includes(type)||
+       !/^\/media\/(?!.*\.\.)[^?#\s]+$/.test(src))
+     return err('Fichier non reconnu par le catalogue',404);
+    const refs=await readLegacyMediaReferences(env.DB);
+    const relative=src.slice('/media/'.length),basename=relative.split('/').pop();
+    if(!(refs instanceof Set)||![src,relative,basename].some(value=>refs.has(value)||
+       [...refs].some(record=>record.endsWith('/'+value))))
+     return err('Fichier historique non identifié',404);
+    candidate={id:input.id,type,src,name:basename,source:'historical'};
+   }
+   target={id:candidate.id,type:candidate.type,src:candidate.src,name:candidate.name,
+    source:candidate.source||'historical',general:false,publicLink:false};
    state.mediaCatalogue||=[];state.mediaCatalogue.push(target);
   }
   if(action==='rename'){
