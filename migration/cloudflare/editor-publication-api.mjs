@@ -41,14 +41,20 @@ const cleanAudioType=value=>{
 };
 const uniqueAudioTypes=state=>[...new Map([...DEFAULT_AUDIO_TYPES,...(Array.isArray(state.audioTypes)?state.audioTypes:[])]
  .map(cleanAudioType).filter(Boolean).map(name=>[name.toLocaleLowerCase('fr'),name])).values()];
-const VIDEO_TYPES=['Conférences','Rituels','Explications','Exercices'];
-const videoTypeOf=(name)=>{
+const VIDEO_TYPES=['Conférences','Rituels','Exercices et explications'];
+const conferenceNames=/(?:comprendre le symbolisme de la ronde des archanges|comprendre le travail alchimique du rite du pardon des offenses|cernunnos.*autre visage|secrets de la menora|^voir\s*:\s*(?:vimeo|youtube)\s*$)/;
+const videoTypeOf=name=>{
  const n=String(name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
- if(/conference|enseignement|causerie|intervention/.test(n))return 'Conférences';
+ if(conferenceNames.test(n)||/conference|enseignement|causerie|intervention|comprendre/.test(n))return 'Conférences';
  if(/rituel|ceremonie|celebration|office/.test(n))return 'Rituels';
- if(/explication|comment|tutoriel|demonstration|allumer|bougie/.test(n))return 'Explications';
- if(/exercice|mouvement|chant|danse|pratique|gestuelle/.test(n))return 'Exercices';
- return 'Explications';
+ return 'Exercices et explications';
+};
+const normalizedVideoType=(type,name)=>{
+ // Legacy M046 categories remain readable without rewriting or dropping media.
+ // Listed conference titles were erroneously left in "Explications".
+ if(type==='Explications'&&videoTypeOf(name)==='Conférences')return 'Conférences';
+ if(type==='Explications'||type==='Exercices')return 'Exercices et explications';
+ return VIDEO_TYPES.includes(type)?type:videoTypeOf(name);
 };
 const cleanMediaName=value=>{
  if(typeof value!=='string')return '';
@@ -425,7 +431,7 @@ export async function handleEditorPublication(request,env){
     ...(m.type==='audio'&&cleanAudioType(assigned.audioType)?
       {audioType:cleanAudioType(assigned.audioType)}:{}),
     ...(m.type==='video'?{videoType:VIDEO_TYPES.includes(assigned.videoType)?
-      assigned.videoType:videoTypeOf(assigned.name||m.name)}:{})};
+      normalizedVideoType(assigned.videoType,assigned.name||m.name)}:{})};
   });
   // Discover languages across the site through the SAME anonymous projection.
   // Hidden/private celebrations and their releases cannot advertise a language.
@@ -671,7 +677,7 @@ export async function handleEditorMedia(request,env){
    target.name=name;
   }else if(action==='set-video-type'){
    if(target.type!=='video'||!VIDEO_TYPES.includes(input.videoType))
-    return err('Choisissez Conférences, Rituels, Explications ou Exercices.',400);
+    return err('Choisissez Conférences, Rituels ou Exercices et explications.',400);
    target.videoType=input.videoType;
   }else{
    // A used file is removed from the ADMIN picker/library without deleting
