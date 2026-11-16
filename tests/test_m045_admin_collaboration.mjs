@@ -77,3 +77,13 @@ test('confirm the whole result, not only currently selected page',()=>{
  readback.record.pages[1]=change(b,'Colleague');
  assert.equal(policy.readbackConfirmed(readback,3,'a-101',expected.record,expected.shared,expected.localization,expected.plans),true);
 });
+
+// M050: stale phone-only pending data must not lock a shared online draft.
+test('shared draft loading does not return early for an obsolete local pending copy',()=>{
+ const source=readFileSync(new URL('../migration/cloudflare/editor-demo-client-source.js',import.meta.url),'utf8');
+ const load=source.slice(source.indexOf('async function serverLoad(){'),source.indexOf('async function serverPublish(',source.indexOf('async function serverLoad(){'));
+ assert.ok(load.includes('serverRevision=serverBaseRevision=payload.revision;'));
+ assert.ok(load.includes('rememberServerBase(payload.revision'));
+ assert.ok(!load.includes('if(pending?._serverPending===true'));
+ assert.ok(load.includes('localStorage.setItem(KEY,JSON.stringify(db))'));
+});
