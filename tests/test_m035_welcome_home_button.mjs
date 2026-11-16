@@ -152,9 +152,10 @@ test('M042: welcome button dimensions are optional, bounded and safely published
 
 test('M043: Bienvenue is accepted; position is validated and published',async()=>{
  const source=readFileSync(new URL('../migration/cloudflare/editor-demo-client-source.js',import.meta.url),'utf8');
- const expression=source.match(/if\\(!label\\|\\|label\\.length>64\\|\\|(.+?)\\.test\\(label\\)\\)/);
- assert.ok(expression,'Client validates the label');
- const check=Function('return '+expression[1])();
+ const line=source.split('\n').find(row=>row.includes('if(!label||label.length>64||'));
+ assert.ok(line,'Client validates the label');
+ const expression=line.split('||').at(-1).split('.test(label)')[0];
+ const check=Function('return '+expression)();
  assert.equal(check.test('Bienvenue'),false);
  assert.equal(check.test('Entrer dans la ronde'),false);
  assert.equal(check.test('<script>'),true);
