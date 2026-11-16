@@ -1,0 +1,31 @@
+name: "M049 — conférences et exercices-explications"
+on:
+  push:
+    branches: [fix/m049-video-conferences-exercices-explications-20261116]
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  video-classification:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Validate generated scripts and production source
+        run: |
+          node scripts/build-m019-editor-client.mjs --check
+          node --check migration/cloudflare/editor-demo-client.mjs
+          node --check migration/cloudflare/editor-trial-site-client.mjs
+          node --check migration/cloudflare/editor-publication-api.mjs
+      - name: Targeted and non-regression suites
+        run: |
+          node --test tests/test_m049_video_categories.mjs tests/test_m046_media_libraries.mjs tests/test_m045_admin_collaboration.mjs tests/test_m041_audio_types_and_seek.mjs tests/test_m038_audio_android_library.mjs tests/test_m048_responsive_home.mjs
+      - name: Build production code without deploying
+        run: |
+          python scripts/build_production_assets.py
+          test -s production-public/admin.html
+          test -s production-public/assets/home/automne-ordinateur.webp
+          test -s production-public/assets/home/automne-telephone.webp

@@ -22,14 +22,14 @@ test('M046: visitor gallery excludes original images but retains PDF/audio/video
  assert.match(TRIAL_SITE_CLIENT,/\['audio',t\('Audios'\)\],\['video',t\('Vidéos'\)\],\['text',t\('Documents'\)\]/);
 });
 
-test('M046: four exact video types, with Exercises grouping chant and danse',()=>{
- const types=['Conférences','Rituels','Explications','Exercices'];
+test('M049: three video categories, old exercises and explanations still recognized',()=>{
+ const types=['Conférences','Rituels','Exercices et explications'];
  for(const type of types){
   assert.ok(TRIAL_SITE_CLIENT.includes(type));
   assert.ok(server.includes(type));
   assert.ok(admin.includes(type));
  }
- assert.match(TRIAL_SITE_CLIENT,/mouvement\|chant\|danse/);
+ assert.match(TRIAL_SITE_CLIENT,/item.videoType==='Exercices'\|\|item.videoType==='Explications'/);
  assert.match(server,/action==='set-video-type'/);
  assert.match(server,/VIDEO_TYPES\.includes\(input\.videoType\)/);
 });

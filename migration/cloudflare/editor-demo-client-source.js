@@ -448,16 +448,17 @@ const fileSeeds=new Map(),fileGroups=new Map();
 let globalFiles=null,globalFilesLoading=null,globalFilesComplete=false,hiddenFileIds=new Set();
 let globalMedia=[],remoteMediaLoading=false,globalMediaLoaded=false;
 let mediaRevision=null,hiddenMediaUrls=new Set();
-const DEFAULT_VIDEO_TYPES=['Conférences','Rituels','Explications','Exercices'];
-let selectedVideoType='Explications',videoTypes=[...DEFAULT_VIDEO_TYPES];
+const DEFAULT_VIDEO_TYPES=['Conférences','Rituels','Exercices et explications'];
+let selectedVideoType='Exercices et explications',videoTypes=[...DEFAULT_VIDEO_TYPES];
 const videoTypeForMedia=record=>{
- if(DEFAULT_VIDEO_TYPES.includes(record?.videoType))return record.videoType;
  const name=String(record?.name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
- if(/conference|enseignement|causerie|intervention/.test(name))return 'Conférences';
+ const isConference=/(?:comprendre le symbolisme de la ronde des archanges|comprendre le travail alchimique du rite du pardon des offenses|cernunnos.*autre visage|secrets de la menora|^(?:voir\s*:\s*)?(?:vimeo|youtube)\s*$|conference|enseignement|causerie|intervention|comprendre)/.test(name);
+ if(record?.videoType==='Explications'&&isConference)return 'Conférences';
+ if(['Explications','Exercices'].includes(record?.videoType))return 'Exercices et explications';
+ if(DEFAULT_VIDEO_TYPES.includes(record?.videoType))return record.videoType;
+ if(isConference)return 'Conférences';
  if(/rituel|ceremonie|celebration|office/.test(name))return 'Rituels';
- if(/explication|comment|tutoriel|demonstration|allumer|bougie/.test(name))return 'Explications';
- if(/exercice|mouvement|chant|danse|pratique|gestuelle/.test(name))return 'Exercices';
- return 'Explications';
+ return 'Exercices et explications';
 };
 
 
