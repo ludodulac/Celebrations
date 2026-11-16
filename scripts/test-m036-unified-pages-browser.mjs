@@ -193,13 +193,14 @@ try{
   assert.equal(await menu.locator('button').filter({hasText:'Monter'}).count(),1);
   assert.equal(await menu.locator('button').filter({hasText:'Descendre'}).count(),1);
   assert.equal(await menu.locator('select[aria-label^="Visibilité"]').count(),1);
-  // Close the page-action popup before opening the separate settings gear.
+  // M042: the welcome-button editor is visible without opening the gear.
+  // The gear remains available for the other general-page settings.
   await homeRow.locator(':scope > .page-options > summary').click();
-  // The controls exist only in the original page settings gear (no new admin).
+  const set=page.locator('.m035-entry-settings');
+  assert.equal(await set.evaluate(el=>el.open),true);
+  assert.ok(await set.isVisible());
   const gear=page.locator('.m031-settings-details > summary');
   await gear.click();
-  const set=page.locator('.m035-entry-settings');
-  await set.locator(':scope > summary').click();
   const nameField=set.getByRole('textbox',{name:'Texte du bouton d’accueil'});
   assert.equal(await nameField.inputValue(),'Bienvenue');
   await nameField.fill('Entrer dans la ronde');
@@ -207,6 +208,12 @@ try{
   await set.getByLabel('Couleur du bouton').fill('#1a453a');
   await set.getByLabel('Épaisseur du contour du bouton').selectOption('4');
   assert.equal(await set.locator('.m035-entry-preview').evaluate(el=>getComputedStyle(el).borderWidth),'4px');
+  const widthField=set.getByLabel('Largeur (pixels) du bouton d’accueil');
+  await widthField.fill('300');await widthField.blur();
+  const heightField=set.getByLabel('Hauteur (pixels) du bouton d’accueil');
+  await heightField.fill('90');await heightField.blur();
+  assert.equal(await set.locator('.m035-entry-preview').evaluate(el=>el.style.width),'300px');
+  assert.equal(await set.locator('.m035-entry-preview').evaluate(el=>el.style.minHeight),'90px');
   assert.ok(await set.getByRole('button',{name:'Appliquer le bouton sur le site'}).isVisible());
   await page.keyboard.press('Escape');
   assert.equal(await page.locator('.m031-settings-details[open]').count(),0,

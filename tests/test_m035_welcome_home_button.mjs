@@ -128,3 +128,24 @@ test('M035: rendered source has a real CTA inside the clickable photo, settings 
  assert.match(M033_SPLASH_HOME_CSS,/height:min\(47svh,400px\)/);
  assert.match(M033_SPLASH_HOME_CSS,/body\.is-splash-home \.footer/);
 });
+
+test('M042: welcome button dimensions are optional, bounded and safely published',async()=>{
+ assert.equal(validHomeEntryButton({...button,width:300,height:90}),true);
+ assert.equal(validHomeEntryButton({...button}),true,'preexisting homepage buttons stay valid');
+ assert.equal(normalizeHomeEntryButton({...button}).width,0);
+ assert.equal(normalizeHomeEntryButton({...button}).height,0);
+ for(const bad of [{width:120},{width:501},{height:20},{height:141},{height:90.5},{width:'300'}]){
+  assert.equal(validHomeEntryButton({...button,...bad}),false);
+ }
+ const bucket=new Bucket(state()),cookie=await signedCookie();
+ const response=await apply(bucket,{...button,width:300,height:90},{cookie});
+ assert.equal(response.status,200);
+ const shown=publicSnapshot(bucket.data,'101').shared.pages[0];
+ assert.equal(shown.homeEntryButton.width,300);
+ assert.equal(shown.homeEntryButton.height,90);
+ assert.match(DEMO_CLIENT,/Modifier le bouton « Bienvenue »/);
+ assert.match(DEMO_CLIENT,/Hauteur \(pixels\)/);
+ assert.match(DEMO_CLIENT,/Largeur \(pixels\)/);
+ assert.match(TRIAL_SITE_CLIENT,/welcomeButton\.width/);
+ assert.match(TRIAL_SITE_CLIENT,/welcomeButton\.height/);
+});
