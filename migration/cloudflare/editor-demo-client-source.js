@@ -732,7 +732,7 @@ async function setStandalonePublicLink(media,publicLink){
  if(result.publicLink!==publicLink||!Number.isSafeInteger(result.revision)){
   siteNotice('Confirmation du serveur manquante, rechargez la médiathèque.');return;
  }
- mediaRevision=result.revision;db._serverRevision=mediaRevision;
+ mediaRevision=result.revision;
  globalMedia=globalMedia.map(item=>item.id===media.id?
   {...item,...result.item,publicLink,canDelete:false}:item);
  status.textContent=publicLink?
@@ -3138,8 +3138,11 @@ function mediaLinksFor(record,related=[]){
   const key=(use.group==='page'?'page:':'celebration:'+cid+':')+String(use.pageId||slug);
   if(!slug||seen.has(key))return;
   seen.add(key);
-  entries.push({name:use.group==='page'?use.pageName:
-    String(use.name||'Célébration')+' · '+use.pageName,
+  const general=use.group==='page';
+  const celebrationName=general?'Pages générales':String(use.name||'Célébration');
+  entries.push({name:general?use.pageName:celebrationName+' · '+use.pageName,
+   celebrationId:general?'general':cid,celebrationName,
+   pageId:String(use.pageId||slug),pageName:String(use.pageName),
    usageStatus:['published','hidden','draft'].includes(use.usageStatus)?
     use.usageStatus:'published',
    href:'/__editor/voir-le-site?celebration='+encodeURIComponent(cid)+'&page='+encodeURIComponent(slug)});
@@ -3248,7 +3251,7 @@ function libraryPreview(card,name,src,category){
  const open=n('a','media-open-link','Ouvrir '+(category==='pdf'?'le PDF':'le fichier')+' ↗');
  open.href=src;open.target='_blank';open.rel='noopener noreferrer';box.append(open);card.append(box);
 }
-let mediaSearch='';
+let mediaSearch='',mediaCelebrationFilter='all',mediaPageFilter='all',mediaVideoTypeFilter='all',mediaSort='name';
 function media(){
  if(IS_STAGE&&!remoteMediaLoading&&!globalMediaLoaded)void refreshGlobalMedia();
  if(!globalFilesLoading)
@@ -3256,7 +3259,7 @@ function media(){
  // Ignore historical inline paragraphs, obsolete descriptions and navigation links.
  const historical=(globalFiles||publicFiles().map(r=>({...r,uses:
   (r.pages||[]).map(name=>filePageRef(window.__PREPARATION_SEED__,name)).filter(Boolean)})))
-  .filter(r=>typeof r.src==='string'&&r.src.length>0&&r.category!=='links');
+  .filter(r=>typeof r.src==='string'&&r.src.length>0&&r.category!=='links'&&!hiddenMediaUrls.has(r.src));
  const {local,remote,usedUrls,countFor}=mediaCatalogue.libraryCollections(
   historical,[...fileRecords.values()],globalMedia);
  const tabs=n('div','file-category-tabs');
