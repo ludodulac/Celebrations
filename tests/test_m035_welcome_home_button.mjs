@@ -146,7 +146,7 @@ test('M042: welcome button dimensions are optional, bounded and safely published
  assert.match(DEMO_CLIENT,/Modifier le bouton « Bienvenue »/);
  assert.match(DEMO_CLIENT,/Hauteur \(pixels\)/);
  assert.match(DEMO_CLIENT,/Largeur \(pixels\)/);
- assert.ok(TRIAL_SITE_CLIENT.includes('welcomeButton.positionY'));
+ assert.ok(TRIAL_SITE_CLIENT.includes('welcomeButton.width'));
  assert.match(TRIAL_SITE_CLIENT,/welcomeButton\.height/);
 });
 
@@ -171,5 +171,5 @@ test('M043: Bienvenue is accepted; position is validated and published',async()=
  assert.equal(normalizeHomeEntryButton({...button}).positionY,0);
  assert.match(DEMO_CLIENT,/Position verticale du bouton sur l’image/);
  assert.match(DEMO_CLIENT,/setPointerCapture/);
- assert.match(TRIAL_SITE_CLIENT,/welcomeButton\\.positionY/);
+ assert.ok(TRIAL_SITE_CLIENT.includes('welcomeButton.positionY'));
 });
