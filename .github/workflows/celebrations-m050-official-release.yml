@@ -9,6 +9,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   release:
+    if: ${{ github.ref == 'refs/heads/fix/m050-online-shared-drafts-mobile-current-20261117' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: celebrations-staging
