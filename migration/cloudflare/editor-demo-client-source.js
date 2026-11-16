@@ -3396,15 +3396,30 @@ function media(){
    label.append(select);row.append(label);card.append(row);
   }
   libraryPreview(card,record.name,record.src,record.category||mediaCategoryOf(record));
+  if(mediaCategory==='videos'&&record.type==='video'){
+   const label=n('label','audio-type-file-selector','Type : ');
+   const select=n('select','audio-type-select');
+   select.setAttribute('aria-label','Type de vidéo '+record.name);
+   for(const type of DEFAULT_VIDEO_TYPES){const opt=n('option','',type);opt.value=type;select.append(opt)}
+   select.value=videoTypeForMedia(record);
+   select.onchange=()=>void saveVideoTypeForMedia(record,select.value).catch(e=>{
+    siteNotice(e.message||'Type vidéo non enregistré');render();
+   });
+   label.append(select);card.append(label);
+  }
   libraryUnusedText(card,unused,hasImage);
   libraryLocationLinks(card,refs,record.usageUnknown===true);
   const controls=n('div','file-actions');
   if(chosenBlock&&mediaCategory==='audios'&&record.type==='audio')
    controls.append(b('Insérer dans le lecteur',()=>attachChosenAudio(record),'sm primary'));
-  // The picture/title itself is the permanent openable link. Keep only
-  // the delete action in the image card; the backend refuses unsafe deletes.
-  if(record.canDelete===true)controls.append(b('Supprimer',()=>void deleteGlobalMedia(record),'sm'));
-  if(controls.childElementCount)card.append(controls);
+  controls.append(b('Renommer',()=>void renameMedia(record),'sm'));
+  if(record.type==='image')
+   controls.append(b('Supprimer',()=>void removeMediaFromAdmin(record,refs),'sm'));
+  else if(record.canDelete===true)
+   controls.append(b('Supprimer',()=>void deleteGlobalMedia(record),'sm'));
+  card.append(controls);
+  card._mediaUses=refs;card._videoType=record.type==='video'?videoTypeForMedia(record):'';
+  card._sortName=String(record.name||'');card._sortDate=String(record.createdAt||'');
   cards.append(card);
  }
  for(const record of historical.filter(x=>matches(x.category))){
@@ -3426,10 +3441,14 @@ function media(){
   libraryLocationLinks(card,refs);
   if(chosenBlock&&mediaCategory==='audios'&&record.category==='audios')
    card.append(b('Insérer dans le lecteur',()=>attachChosenAudio(record),'sm primary'));
-  if(unused){
-   const info=n('small','delete-pending','Suppression après vérification des références');
-   card.append(info);
-  }
+  const historicalActions=n('div','file-actions');
+  const known=remoteCopy||{id:(record.category==='images'?'image':record.category==='audios'?'audio':record.category==='videos'?'video':record.category==='pdf'?'pdf':'file')+'|'+record.src,
+   name:record.name,src:record.src,type:record.category==='images'?'image':record.category==='audios'?'audio':record.category==='videos'?'video':record.category==='pdf'?'pdf':'file'};
+  historicalActions.append(b('Renommer',()=>void renameMedia(known),'sm'));
+  if(hasImage)historicalActions.append(b('Supprimer',()=>void removeMediaFromAdmin(known,refs),'sm'));
+  card.append(historicalActions);
+  card._mediaUses=refs;card._videoType=known.type==='video'?videoTypeForMedia(known):'';
+  card._sortName=String(record.name||'');card._sortDate=String(record.createdAt||'');
   cards.append(card);
  }
  for(const record of local.filter(x=>matches(localCategory(x)))){
@@ -3447,12 +3466,27 @@ function media(){
   const locations=n('div','file-usage-links');
   for(const use of refs)locations.append(n('p','',use.page));
   card.append(locations);
+  const actions=n('div','file-actions');
+  actions.append(b('Renommer',async()=>{
+   const name=String((await sitePrompt('Renommer ce fichier :',record.name))||'').trim();
+   if(!name||name.length>120)return;
+   const changed={...record,name};await fileOperation('put',changed);
+   fileRecords.set(record.id,changed);render();
+  },'sm'));
   if(unused){
-   const actions=n('div','file-actions'),del=b('Supprimer',()=>deleteFile(record),'sm');
-   del.dataset.action='delete-unused-file';actions.append(del);card.append(actions);
+   const del=b('Supprimer',()=>deleteFile(record),'sm');
+   del.dataset.action='delete-unused-file';actions.append(del);
   }
+  card.append(actions);
+  card._mediaUses=refs.map(x=>({celebrationId:'general',pageId:x.page,pageName:x.page,name:x.page}));
+  card._sortName=String(record.name||'');card._sortDate=String(record.createdAt||'');
   cards.append(card);
  }
+ // Visual sorting only: no storage URL, page or publication is changed.
+ for(const card of [...cards.children].sort((a,b)=>mediaSort==='name'?
+  (a._sortName||'').localeCompare(b._sortName||'','fr',{numeric:true}):
+  mediaSort==='recent'?(b._sortDate||'').localeCompare(a._sortDate||''):
+  (a._sortDate||'').localeCompare(b._sortDate||'')))cards.append(card);
  const empty=n('p','hint','Aucun fichier ne correspond à votre recherche.');w.append(cards,empty);filterCards();
  if(mediaCategory==='audios'&&window.__STAGING_AUDIO__&&!LIVE_MEDIA_UPLOAD_HOST){
   const details=n('details','audio-import-section'),summary=n('summary','','Importer MP3 / WAV');
