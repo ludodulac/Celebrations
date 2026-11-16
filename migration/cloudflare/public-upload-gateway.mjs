@@ -51,7 +51,7 @@ function publicRelease(state,src){
  // not membership grants. A marked/private file can never be promoted.
  return entry?.general===true&&entry.source==='uploaded';
 }
-const secure=(response,publicFile)=>{
+const secure=(response,publicFile,downloadRequested=false,fileName='')=>{
  const headers=new Headers(response.headers);
  headers.set('cache-control','private, no-store, max-age=0');
  headers.set('cdn-cache-control','no-store');
@@ -65,7 +65,15 @@ const secure=(response,publicFile)=>{
  // remain attachments; the user's original same-origin URL is unchanged.
  const mime=(headers.get('content-type')||'').toLowerCase().split(';')[0].trim();
  const inline=['image/jpeg','image/png','image/webp','application/pdf'].includes(mime);
- headers.set('content-disposition',inline?'inline':'attachment');
+ if(downloadRequested&&response.ok){
+  // The same authorization gates still run before any byte reaches the caller.
+  // "download=1" only changes content disposition, not access permissions.
+  const base=String(fileName||'Document').split(/[\\/]/).pop()
+   .replace(/[\u0000-\u001f\u007f]/g,'').trim().slice(0,120)||'Document';
+  const safe=base.replace(/[^\x20-\x7e]/g,'_').replace(/[";\\]/g,'_');
+  headers.set('content-disposition','attachment; filename="'+safe+
+   '"; filename*=UTF-8\'\''+encodeURIComponent(base));
+ }else headers.set('content-disposition',inline?'inline':'attachment');
  return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
 };
 export async function handlePublicEditorUpload(request,env){
@@ -83,6 +91,11 @@ export async function handlePublicEditorUpload(request,env){
   const editor=visible?false:await hasEditorAccess(request,env);
   if(!visible&&!editor)return privateNotFound();
   const response=await handleEditorMediaFile(request,env);
-  return secure(response,visible);
+  const downloadRequested=new URL(request.url).searchParams.get('download')==='1';
+  const extension=path.split('.').at(-1)||'pdf';
+  const original=String(entry?.name||'Document').trim().slice(0,110)||'Document';
+  const displayName=original.toLowerCase().endsWith('.'+extension)?
+   original:original+'.'+extension;
+  return secure(response,visible,downloadRequested,displayName);
  }catch{return secure(new Response('Stockage indisponible',{status:503}),false)}
 }
