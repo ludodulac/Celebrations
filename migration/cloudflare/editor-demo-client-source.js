@@ -452,7 +452,7 @@ const DEFAULT_VIDEO_TYPES=['Conférences','Rituels','Exercices et explications']
 let selectedVideoType='Exercices et explications',videoTypes=[...DEFAULT_VIDEO_TYPES];
 const videoTypeForMedia=record=>{
  const name=String(record?.name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
- const isConference=/(?:comprendre le symbolisme de la ronde des archanges|comprendre le travail alchimique du rite du pardon des offenses|cernunnos.*autre visage|secrets de la menora|^voir\s*:\s*(?:vimeo|youtube)\s*$|conference|enseignement|causerie|intervention|comprendre)/.test(name);
+ const isConference=/(?:comprendre le symbolisme de la ronde des archanges|comprendre le travail alchimique du rite du pardon des offenses|cernunnos.*autre visage|secrets de la menora|^(?:voir\s*:\s*)?(?:vimeo|youtube)\s*$|conference|enseignement|causerie|intervention|comprendre)/.test(name);
  if(record?.videoType==='Explications'&&isConference)return 'Conférences';
  if(['Explications','Exercices'].includes(record?.videoType))return 'Exercices et explications';
  if(DEFAULT_VIDEO_TYPES.includes(record?.videoType))return record.videoType;
