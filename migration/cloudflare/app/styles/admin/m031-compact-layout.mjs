@@ -262,7 +262,11 @@ export const M031_COMPACT_LAYOUT_CSS = `
 }
 
 .stage-editor.m031-compact .m035-entry-settings{
- margin:12px 0 16px;box-shadow:0 2px 9px #0b2a1c12
+ margin:12px 0 16px;box-shadow:0 2px 9px #0b2a1c12;
+ scroll-margin-top:100px
+}
+.stage-editor.m031-compact .m035-entry-settings>summary{
+ scroll-margin-top:100px
 }
 .stage-editor.m031-compact .m035-entry-field input[type=number]{
  min-height:42px;width:100%;max-width:100%;box-sizing:border-box
