@@ -120,3 +120,5 @@ jobs:
             npx wrangler versions deploy 73ebc774-d42f-4b68-8f88-d50f4b85f0f3@100% --yes --config wrangler.m018.official.toml --message "M046 rollback vers M045 si verification echoue"
           fi
 # M046_OFFICIAL release requested after successful collaborative regression pipeline.
+
+# [M046_OFFICIAL] Published after green M046 test suite; M045 production version guard.
