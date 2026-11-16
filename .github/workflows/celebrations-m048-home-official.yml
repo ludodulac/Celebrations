@@ -102,9 +102,18 @@ jobs:
           assert.equal(admin.status,200);
           assert.equal(privateRoute.status,401);
           assert.equal(unknown.status,404);
+          // Static assets can propagate later than the Worker code version.
+          // Verify both image bytes, not merely a successful code deployment.
           for(const [name,ratio] of [['ordinateur','16:9'],['telephone','9:16']]){
-            const image=await fetch(site+'/assets/home/automne-'+name+'.webp');
-            assert.equal(image.status,200,'Missing '+ratio+' homepage picture');
+            let image;
+            for(let attempt=0;attempt<12;attempt++){
+              image=await fetch(site+'/assets/home/automne-'+name+'.webp?m048='+attempt,
+                {cache:'no-store'});
+              if(image.status===200)break;
+              console.log('M048_ASSET_PROPAGATION_RETRY '+name+' '+attempt+' HTTP '+image.status);
+              await new Promise(resolve=>setTimeout(resolve,3500));
+            }
+            assert.equal(image.status,200,'Missing '+ratio+' homepage picture after propagation');
             assert.match(image.headers.get('content-type')||'',/image\/webp/);
             const buf=new Uint8Array(await image.arrayBuffer());
             assert.ok(buf.length>25000,'Unusually small homepage file');
