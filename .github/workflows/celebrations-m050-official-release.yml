@@ -1,7 +1,7 @@
 name: "M050 — publier les brouillons partagés (officiel)"
 on:
   push:
-    branches: [fix/m050-online-shared-drafts-mobile-current-20261117]
+    branches: [main, fix/m050-online-shared-drafts-mobile-current-20261117]
   workflow_dispatch:
 permissions: {contents: read}
 concurrency:
