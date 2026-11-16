@@ -332,4 +332,20 @@ export const M031_COMPACT_LAYOUT_CSS = `
 .stage-editor.m031-compact .global-media-card .media-picture-link:focus-visible{
  outline:3px solid #187248;outline-offset:3px
 }
+
+/* M044 — The administrator must see the same natural image proportions as
+   visitors. Only standalone page images are affected; column thumbnails
+   and media-library cards retain their own compact layouts. */
+.stage-editor.m031-compact .canvas > .block[data-kind="image"] > .picture{
+ min-height:0;
+ max-width:100%;
+}
+.stage-editor.m031-compact .canvas > .block[data-kind="image"] > .picture > img{
+ display:block;
+ width:100%!important;
+ height:auto!important;
+ max-width:100%;
+ max-height:none!important;
+ object-fit:contain!important;
+}
 `;
