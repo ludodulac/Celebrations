@@ -35,8 +35,8 @@ test('reloading alone must never cause an automatic POST to the server',()=>{
  assert.match(entry,/await serverLoad\(\);\}/);
  assert.doesNotMatch(entry,/serverSave\(/);
  assert.doesNotMatch(source,/serverDiverged=false;await serverSave\(\)/);
- assert.match(source,/if\(pending\?\._serverPending===true/);
- assert.match(source,/recoverServerBase\(pending\)/);
+ assert.doesNotMatch(source,/if\(pending\?\._serverPending===true/);
+ assert.match(source,/The shared server draft is authoritative on every device/);
 });
 test('independent additions and a change to a third page are preserved',()=>{
  const base=snap(), x={id:'c-101',name:'Nouvelle Mac',blocks:[]},
