@@ -122,3 +122,5 @@ jobs:
             npx wrangler versions deploy cf2469e8-a8df-4489-978d-e1aea789ff07@100% --yes --config wrangler.m018.official.toml --message "M047 rollback vers M046 si verification echoue"
           fi
 # Official deployment is opt-in via the exact [M047_OFFICIAL] commit marker.
+
+# [M047_OFFICIAL] Release after successful focused download tests and M046 baseline guard.
