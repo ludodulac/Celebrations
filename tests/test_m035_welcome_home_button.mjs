@@ -118,7 +118,7 @@ test('M035: rendered source has a real CTA inside the clickable photo, settings 
  assert.doesNotThrow(()=>new Function(TRIAL_SITE_CLIENT));
  const admin=readFileSync(new URL('../migration/cloudflare/editor-demo-client-source.js',import.meta.url),'utf8');
  assert.match(admin,/function m035EntrySettings\(homePage\)/);
- assert.match(admin,/Appliquer le bouton sur le site/);
+ assert.match(admin,/Appliquer (?:le bouton|l’accueil) sur le site/);
  assert.match(admin,/kind:'home-entry-button'/);
  assert.match(admin,/Épaisseur du contour/);
  assert.match(admin,/Couleur du bouton/);
