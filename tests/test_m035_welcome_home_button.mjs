@@ -173,3 +173,17 @@ test('M043: Bienvenue is accepted; position is validated and published',async()=
  assert.match(DEMO_CLIENT,/setPointerCapture/);
  assert.ok(TRIAL_SITE_CLIENT.includes('welcomeButton.positionY'));
 });
+
+test('M044: bottom-image fade defaults on and can be disabled independently',async()=>{
+ assert.equal(DEFAULT_HOME_ENTRY_BUTTON.fadeBottom,true);
+ assert.equal(normalizeHomeEntryButton({...button}).fadeBottom,true);
+ assert.equal(validHomeEntryButton({...button,fadeBottom:false}),true);
+ assert.equal(validHomeEntryButton({...button,fadeBottom:'false'}),false);
+ const bucket=new Bucket(state()),cookie=await signedCookie();
+ const off=await apply(bucket,{...button,enabled:false,fadeBottom:false},{cookie});
+ assert.equal(off.status,200);
+ const saved=publicSnapshot(bucket.data,'101').shared.pages[0].homeEntryButton;
+ assert.equal(saved.enabled,false);assert.equal(saved.fadeBottom,false);
+ assert.match(DEMO_CLIENT,/Dégradé blanc en bas de l’image d’accueil/);
+ assert.match(TRIAL_SITE_CLIENT,/m044-bottom-fade/);
+});

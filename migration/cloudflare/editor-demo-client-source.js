@@ -2645,11 +2645,11 @@ function attachPagePublicationControls(list,group){
 // gear. Config is a display preference, never a membership/publication rule.
 function m035EntrySettings(homePage){
  const values={enabled:true,label:'Bienvenue',background:'#28483D',
-  color:'#FFFFFF',borderColor:'#F3E5C9',borderWidth:2,radius:16,width:0,height:0,positionY:0,
+  color:'#FFFFFF',borderColor:'#F3E5C9',borderWidth:2,radius:16,width:0,height:0,positionY:0,fadeBottom:true,
   ...(homePage.homeEntryButton||{})};
  const controls=n('details','m035-entry-settings');
  const summary=n('summary','','✏ Modifier le bouton « Bienvenue »');
- summary.title='Modifier le texte, les couleurs et la position du bouton';
+ summary.title='Modifier le bouton, sa position et le dégradé de l’image';
  controls.open=true;
  controls.append(summary);
  const body=n('div','m035-entry-fields');
@@ -2665,6 +2665,7 @@ function m035EntrySettings(homePage){
   preview.style.minHeight=values.height?values.height+'px':'';
   preview.style.top=(values.positionY||85)+'%';
   preview.hidden=!values.enabled;
+  preview.parentElement?.classList.toggle('m044-fade-preview',values.fadeBottom!==false);
  };
  const modify=()=>{homePage.homeEntryButton={...values};mark();paint()};
  const toggle=n('label','m035-entry-check');
@@ -2734,6 +2735,13 @@ function m035EntrySettings(homePage){
   values.positionY=0;slider.value='85';posValue.textContent='Position initiale';modify();
  },'sm');
  body.append(reset);
+ const fadeField=n('label','m035-entry-check m044-fade-field');
+ const fadeToggle=n('input');fadeToggle.type='checkbox';fadeToggle.checked=values.fadeBottom!==false;
+ fadeToggle.setAttribute('aria-label','Dégradé blanc en bas de l’image d’accueil');
+ fadeToggle.onchange=()=>{values.fadeBottom=fadeToggle.checked;modify()};
+ fadeField.append(fadeToggle,n('span','','Petit dégradé vers le blanc en bas de l’image'));
+ body.append(n('h3','m044-fade-title','Fondu de l’image d’accueil'),fadeField,
+  n('small','hint','Décochez pour retrouver l’image sans dégradé. Le bouton reste indépendant.'));
  const sample=n('div','m035-entry-preview-wrap');
  sample.setAttribute('role','group');sample.setAttribute('aria-label','Aperçu de l’emplacement du bouton');
  sample.append(preview);body.append(sample);

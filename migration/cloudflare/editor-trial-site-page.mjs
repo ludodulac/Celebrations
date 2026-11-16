@@ -151,6 +151,12 @@ body.is-splash-home .m033-splash-image{
  margin:0!important;padding:0!important;
  border:0!important;border-radius:0!important
 }
+/* M044: discreet reversible white fade, non-interactive. */
+body.is-splash-home .m044-bottom-fade{
+ position:absolute;bottom:0;left:0;right:0;height:8%;
+ z-index:1;pointer-events:none;
+ background:linear-gradient(to bottom,rgba(255,255,255,0) 0%,rgba(255,255,255,.22) 40%,#fff 100%)
+}
 body.is-splash-home .m033-splash-enter:focus-visible{
  outline:4px solid #ffe37b;outline-offset:-4px;z-index:1
 }

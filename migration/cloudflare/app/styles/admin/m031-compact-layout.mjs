@@ -271,6 +271,14 @@ export const M031_COMPACT_LAYOUT_CSS = `
 .stage-editor.m031-compact .m035-entry-field input[type=number]{
  min-height:42px;width:100%;max-width:100%;box-sizing:border-box
 }
+/* M044: reversible fade setting and image preview. */
+.stage-editor.m031-compact .m044-fade-title{margin:14px 0 6px;font:bold 15px/1.3 system-ui,sans-serif}
+.stage-editor.m031-compact .m044-fade-field{min-height:44px}
+.stage-editor.m031-compact .m035-entry-preview-wrap.m044-fade-preview::after{
+ content:"";position:absolute;z-index:1;bottom:0;left:0;right:0;height:9%;
+ pointer-events:none;background:linear-gradient(to bottom,#fff0,#fff)
+}
+.stage-editor.m031-compact .m035-entry-preview{z-index:2}
 /* M043 — preview the image placement; drag with mouse or touch. */
 .stage-editor.m031-compact .m035-entry-preview-wrap{
  position:relative;display:block;height:205px;min-height:205px;overflow:hidden;
