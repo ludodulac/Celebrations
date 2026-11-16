@@ -149,3 +149,26 @@ test('M042: welcome button dimensions are optional, bounded and safely published
  assert.match(TRIAL_SITE_CLIENT,/welcomeButton\.width/);
  assert.match(TRIAL_SITE_CLIENT,/welcomeButton\.height/);
 });
+
+test('M043: Bienvenue is accepted; position is validated and published',async()=>{
+ const source=readFileSync(new URL('../migration/cloudflare/editor-demo-client-source.js',import.meta.url),'utf8');
+ const expression=source.match(/if\\(!label\\|\\|label\\.length>64\\|\\|(.+?)\\.test\\(label\\)\\)/);
+ assert.ok(expression,'Client validates the label');
+ const check=Function('return '+expression[1])();
+ assert.equal(check.test('Bienvenue'),false);
+ assert.equal(check.test('Entrer dans la ronde'),false);
+ assert.equal(check.test('<script>'),true);
+ assert.equal(validHomeEntryButton({...button,label:'Bienvenue',positionY:65}),true);
+ assert.equal(validHomeEntryButton({...button,positionY:0}),true);
+ for(const y of [-1,1,9,91,101,45.5,'70'])assert.equal(validHomeEntryButton({...button,positionY:y}),false);
+ const bucket=new Bucket(state()),cookie=await signedCookie();
+ const res=await apply(bucket,{...button,label:'Bienvenue',width:300,height:90,positionY:65},{cookie});
+ assert.equal(res.status,200);
+ const published=publicSnapshot(bucket.data,'101').shared.pages[0];
+ assert.equal(published.homeEntryButton.positionY,65);
+ assert.equal(published.homeEntryButton.label,'Bienvenue');
+ assert.equal(normalizeHomeEntryButton({...button}).positionY,0);
+ assert.match(DEMO_CLIENT,/Position verticale du bouton sur l’image/);
+ assert.match(DEMO_CLIENT,/setPointerCapture/);
+ assert.match(TRIAL_SITE_CLIENT,/welcomeButton\\.positionY/);
+});

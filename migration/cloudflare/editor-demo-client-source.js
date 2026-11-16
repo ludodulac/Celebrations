@@ -2645,11 +2645,11 @@ function attachPagePublicationControls(list,group){
 // gear. Config is a display preference, never a membership/publication rule.
 function m035EntrySettings(homePage){
  const values={enabled:true,label:'Bienvenue',background:'#28483D',
-  color:'#FFFFFF',borderColor:'#F3E5C9',borderWidth:2,radius:16,width:0,height:0,
+  color:'#FFFFFF',borderColor:'#F3E5C9',borderWidth:2,radius:16,width:0,height:0,positionY:0,
   ...(homePage.homeEntryButton||{})};
  const controls=n('details','m035-entry-settings');
  const summary=n('summary','','✏ Modifier le bouton « Bienvenue »');
- summary.title='Modifier le texte, les couleurs et les dimensions du bouton';
+ summary.title='Modifier le texte, les couleurs et la position du bouton';
  controls.open=true;
  controls.append(summary);
  const body=n('div','m035-entry-fields');
@@ -2663,6 +2663,7 @@ function m035EntrySettings(homePage){
   preview.style.borderRadius=values.radius+'px';
   preview.style.width=values.width?values.width+'px':'';
   preview.style.minHeight=values.height?values.height+'px':'';
+  preview.style.top=(values.positionY||85)+'%';
   preview.hidden=!values.enabled;
  };
  const modify=()=>{homePage.homeEntryButton={...values};mark();paint()};
@@ -2721,10 +2722,40 @@ function m035EntrySettings(homePage){
   field.append(input);sizes.append(field);
  }
  body.append(sizes,n('small','hint','Laissez un champ vide pour conserver la dimension automatique.'));
- const sample=n('div','m035-entry-preview-wrap');sample.append(preview);body.append(sample);paint();
+ const position=n('label','m035-entry-field m043-entry-position','↕ Déplacer le bouton de haut en bas sur l’image');
+ const slider=n('input');slider.type='range';slider.min='10';slider.max='90';slider.step='1';
+ slider.value=String(values.positionY||85);
+ slider.setAttribute('aria-label','Position verticale du bouton sur l’image');
+ const posHelp=n('small','hint','Glissez le curseur ou déplacez le bouton dans l’aperçu ci-dessous.');
+ const posValue=n('span','m043-entry-position-value',values.positionY?'Position : '+values.positionY+' %':'Position initiale');
+ slider.oninput=()=>{values.positionY=Number(slider.value);posValue.textContent='Position : '+values.positionY+' %';modify()};
+ position.append(slider,posValue);body.append(position,posHelp);
+ const reset=b('Revenir à la position initiale',()=>{
+  values.positionY=0;slider.value='85';posValue.textContent='Position initiale';modify();
+ },'sm');
+ body.append(reset);
+ const sample=n('div','m035-entry-preview-wrap');
+ sample.setAttribute('role','group');sample.setAttribute('aria-label','Aperçu de l’emplacement du bouton');
+ sample.append(preview);body.append(sample);
+ const movePreview=e=>{
+  const rect=sample.getBoundingClientRect();if(!rect.height)return;
+  values.positionY=Math.max(10,Math.min(90,Math.round((e.clientY-rect.top)*100/rect.height)));
+  slider.value=String(values.positionY);posValue.textContent='Position : '+values.positionY+' %';
+  modify();
+ };
+ preview.style.touchAction='none';
+ preview.onpointerdown=e=>{
+  if(!e.isPrimary)return;
+  e.preventDefault();preview.setPointerCapture(e.pointerId);movePreview(e);
+ };
+ preview.onpointermove=e=>{if(preview.hasPointerCapture(e.pointerId))movePreview(e)};
+ preview.onpointerup=e=>{
+  if(preview.hasPointerCapture(e.pointerId))preview.releasePointerCapture(e.pointerId);
+ };
+ paint();
  const apply=b('Appliquer le bouton sur le site',async()=>{
   const label=String(values.label||'').trim();
-  if(!label||label.length>64||/[<>\\u0000-\\u001f]/.test(label)){
+  if(!label||label.length>64||/[<>\u0000-\u001f\u007f]/.test(label)){
    siteNotice('Écrivez un texte de 1 à 64 caractères pour le bouton.');return;
   }
   if(serverSaving){siteNotice('Un enregistrement est en cours.');return}

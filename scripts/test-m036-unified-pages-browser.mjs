@@ -214,6 +214,10 @@ try{
   await heightField.fill('90');await heightField.blur();
   assert.equal(await set.locator('.m035-entry-preview').evaluate(el=>el.style.width),'300px');
   assert.equal(await set.locator('.m035-entry-preview').evaluate(el=>el.style.minHeight),'90px');
+  const verticalSlider=set.getByRole('slider',{name:'Position verticale du bouton sur l’image'});
+  await verticalSlider.fill('35');
+  assert.equal(await set.locator('.m035-entry-preview').evaluate(el=>el.style.top),'35%');
+  assert.equal(await set.locator('.m043-entry-position-value').innerText(),'Position : 35 %');
   assert.ok(await set.getByRole('button',{name:'Appliquer le bouton sur le site'}).isVisible());
   await page.keyboard.press('Escape');
   assert.equal(await page.locator('.m031-settings-details[open]').count(),0,

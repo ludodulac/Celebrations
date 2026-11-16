@@ -271,6 +271,22 @@ export const M031_COMPACT_LAYOUT_CSS = `
 .stage-editor.m031-compact .m035-entry-field input[type=number]{
  min-height:42px;width:100%;max-width:100%;box-sizing:border-box
 }
+/* M043 — preview the image placement; drag with mouse or touch. */
+.stage-editor.m031-compact .m035-entry-preview-wrap{
+ position:relative;display:block;height:205px;min-height:205px;overflow:hidden;
+ background:linear-gradient(160deg,#dae7dd 0%,#edf2eb 55%,#bccfc1 100%);
+ border:1px solid #c9d8cd
+}
+.stage-editor.m031-compact .m035-entry-preview{
+ position:absolute;left:50%;top:85%;transform:translate(-50%,-50%);
+ min-width:145px;min-height:48px;max-width:calc(100% - 12px);
+ padding:10px 18px;cursor:ns-resize;user-select:none;touch-action:none
+}
+.stage-editor.m031-compact .m043-entry-position input[type=range]{
+ display:block;width:100%;height:36px;min-height:36px;
+ accent-color:#28483d
+}
+.stage-editor.m031-compact .m043-entry-position-value{font-size:12px;color:#304d3f}
 /* M036 — The original star is the only shortcut to the public site. */
 .stage-editor .rail .brand .m036-public-star{
  display:grid;place-items:center;flex:0 0 auto;
