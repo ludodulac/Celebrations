@@ -41,6 +41,20 @@ const cleanAudioType=value=>{
 };
 const uniqueAudioTypes=state=>[...new Map([...DEFAULT_AUDIO_TYPES,...(Array.isArray(state.audioTypes)?state.audioTypes:[])]
  .map(cleanAudioType).filter(Boolean).map(name=>[name.toLocaleLowerCase('fr'),name])).values()];
+const VIDEO_TYPES=['Conférences','Rituels','Explications','Exercices'];
+const videoTypeOf=(name)=>{
+ const n=String(name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+ if(/conference|enseignement|causerie|intervention/.test(n))return 'Conférences';
+ if(/rituel|ceremonie|celebration|office/.test(n))return 'Rituels';
+ if(/explication|comment|tutoriel|demonstration|allumer|bougie/.test(n))return 'Explications';
+ if(/exercice|mouvement|chant|danse|pratique|gestuelle/.test(n))return 'Exercices';
+ return 'Explications';
+};
+const cleanMediaName=value=>{
+ if(typeof value!=='string')return '';
+ const name=value.trim().replace(/\s+/g,' ');
+ return name.length>=1&&name.length<=120&&!/[<>\\\u0000-\u001f\u007f]/.test(name)?name:'';
+};
 const defaultState=()=>({version:0,drafts:{},plans:[],shared:{pages:[],homeId:''},mediaCatalogue:[]});
 export async function readEditorState(bucket){
  return readEditorSnapshot(bucket,{empty:defaultState,validate:validState});
@@ -567,7 +581,11 @@ export async function handleEditorMedia(request,env){
    // Never claim that such an object appears nowhere.
    usageUnknown:(!item.uses||item.uses.length===0)&&inSavedContent(state,item.src)
   }));
-  return json({ok:true,items,revision:state.version,audioTypes:uniqueAudioTypes(state)});
+  const hiddenMediaUrls=(state.mediaCatalogue||[]).filter(x=>x?.hiddenFromLibrary===true&&
+   typeof x.src==='string').map(x=>x.src).slice(0,2000);
+  return json({ok:true,items:items.filter(x=>x.hiddenFromLibrary!==true),
+   hiddenMediaUrls,revision:state.version,audioTypes:uniqueAudioTypes(state),
+   videoTypes:VIDEO_TYPES});
  }
  if(request.method!=='POST')return err('Méthode interdite',405);
  const denied=await protectedWrite(request,env);if(denied)return denied;
@@ -604,6 +622,46 @@ export async function handleEditorMedia(request,env){
   target.audioType=selected;
   if(!await writeEditorState(env.EDITOR_BUCKET,current,state))return err('Modification simultanée',409);
   return json({ok:true,revision:state.version,item:target,audioType:selected,audioTypes:uniqueAudioTypes(state)});
+ }
+ // M046: consistent media names and exactly four video categories, without
+ // changing URLs or automatically publishing any document or page.
+ if(action==='rename'||action==='set-video-type'||action==='archive'){
+  let input;try{input=await request.json()}catch{return err('JSON invalide',400)}
+  if(!input||typeof input.id!=='string'||input.id.length>720||
+     !Number.isSafeInteger(input.expectedRevision))
+   return err('Commande de médiathèque invalide',400);
+  const current=await readEditorState(env.EDITOR_BUCKET);
+  if(!expectedRevisionMatches(input.expectedRevision,current.state.version))
+   return err('La médiathèque a changé. Rechargez avant de réessayer.',409);
+  const state=copy(current.state);
+  let target=(state.mediaCatalogue||[]).find(x=>x?.id===input.id);
+  if(!target){
+   const found=discoverMedia(legacyEditorView(state)).find(x=>x.id===input.id);
+   if(!found)return err('Fichier non reconnu par le catalogue',404);
+   target={id:found.id,type:found.type,src:found.src,name:found.name,
+    source:found.source||'historical',general:false,publicLink:false};
+   state.mediaCatalogue||=[];state.mediaCatalogue.push(target);
+  }
+  if(action==='rename'){
+   const name=cleanMediaName(input.name);
+   if(!name)return err('Nom invalide (1 à 120 caractères)',400);
+   target.name=name;
+  }else if(action==='set-video-type'){
+   if(target.type!=='video'||!VIDEO_TYPES.includes(input.videoType))
+    return err('Choisissez Conférences, Rituels, Explications ou Exercices.',400);
+   target.videoType=input.videoType;
+  }else{
+   // A used file is removed from the ADMIN picker/library without deleting
+   // the R2 object or breaking published pages / D1 / private references.
+   // Physical deletion remains a separate strictly guarded operation.
+   if(target.type!=='image')return err('Retrait réservé aux images',400);
+   target.hiddenFromLibrary=true;
+  }
+  if(!await writeEditorState(env.EDITOR_BUCKET,current,state))
+   return err('Modification simultanée, veuillez recharger',409);
+  return json({ok:true,revision:state.version,item:target,
+   ...(action==='set-video-type'?{videoTypes:VIDEO_TYPES}:{}),
+   ...(action==='archive'?{archived:true,retainedOnPages:true}: {})});
  }
  // M032: independent media sharing is an EXPLICIT choice, unrelated to
  // publishing a page or a celebration. Never move/copy/rename the R2 object.
