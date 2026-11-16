@@ -439,6 +439,19 @@ function publicFiles(){return mediaCatalogue.publicFiles(window.__PREPARATION_SE
 const fileSeeds=new Map(),fileGroups=new Map();
 let globalFiles=null,globalFilesLoading=null,globalFilesComplete=false,hiddenFileIds=new Set();
 let globalMedia=[],remoteMediaLoading=false,globalMediaLoaded=false;
+let mediaRevision=null,hiddenMediaUrls=new Set();
+const DEFAULT_VIDEO_TYPES=['Conférences','Rituels','Explications','Exercices'];
+let selectedVideoType='Explications',videoTypes=[...DEFAULT_VIDEO_TYPES];
+const videoTypeForMedia=record=>{
+ if(DEFAULT_VIDEO_TYPES.includes(record?.videoType))return record.videoType;
+ const name=String(record?.name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+ if(/conference|enseignement|causerie|intervention/.test(name))return 'Conférences';
+ if(/rituel|ceremonie|celebration|office/.test(name))return 'Rituels';
+ if(/explication|comment|tutoriel|demonstration|allumer|bougie/.test(name))return 'Explications';
+ if(/exercice|mouvement|chant|danse|pratique|gestuelle/.test(name))return 'Exercices';
+ return 'Explications';
+};
+
 
 const DEFAULT_AUDIO_TYPES=['Invocations','Chants','Méditations','Enseignements','Guidances','Autres'];
 let audioTypes=[...DEFAULT_AUDIO_TYPES],selectedAudioType='Autres';
@@ -455,14 +468,14 @@ function inferredAudioType(name){
 async function saveAudioTypeForMedia(media,type,{quiet=false}={}){
  const response=await fetch('/api/editor-media?action=set-audio-type',{
   method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},
-  body:JSON.stringify({id:media.id,audioType:type,expectedRevision:serverRevision})
+  body:JSON.stringify({id:media.id,audioType:type,expectedRevision:mediaRevision})
  });
  const data=await response.json().catch(()=>({}));
  if(!response.ok||!data.ok){
-  if(response.status===409){serverRevision=null;void refreshGlobalMedia()}
+  if(response.status===409){mediaRevision=null;void refreshGlobalMedia()}
   throw Error(data.error||'Type audio non enregistré');
  }
- serverRevision=data.revision;
+ mediaRevision=data.revision;
  audioTypes=Array.isArray(data.audioTypes)?data.audioTypes:audioTypes;
  globalMedia=globalMedia.map(item=>item.id===media.id?{...item,audioType:data.audioType}:item);
  if(!quiet){status.textContent='✓ Type audio : '+data.audioType;render()}
@@ -473,14 +486,14 @@ async function createAudioType(){
  if(!name)return;
  const response=await fetch('/api/editor-media?action=audio-type-create',{
   method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},
-  body:JSON.stringify({name,expectedRevision:serverRevision})
+  body:JSON.stringify({name,expectedRevision:mediaRevision})
  });
  const data=await response.json().catch(()=>({}));
  if(!response.ok||!data.ok){
-  if(response.status===409){serverRevision=null;void refreshGlobalMedia()}
+  if(response.status===409){mediaRevision=null;void refreshGlobalMedia()}
   siteNotice(data.error||'Impossible de créer ce type audio');return;
  }
- serverRevision=data.revision;
+ mediaRevision=data.revision;
  audioTypes=Array.isArray(data.audioTypes)?data.audioTypes:audioTypes;
  selectedAudioType=data.audioType;status.textContent='✓ Nouveau type audio : '+data.audioType;render();
 }
@@ -495,7 +508,9 @@ async function refreshGlobalMedia(){
   const result=await response.json();
   globalMedia=Array.isArray(result.items)?result.items:[];
   if(Array.isArray(result.audioTypes))audioTypes=result.audioTypes;
-  if(Number.isSafeInteger(result.revision))serverRevision=result.revision;
+  if(Array.isArray(result.videoTypes))videoTypes=result.videoTypes;
+  hiddenMediaUrls=new Set(Array.isArray(result.hiddenMediaUrls)?result.hiddenMediaUrls:[]);
+  if(Number.isSafeInteger(result.revision))mediaRevision=result.revision;
   globalMediaLoaded=true;
   if(tab==='media')render();
  }catch{status.textContent='La médiathèque du serveur n’est pas accessible. Les fichiers existants sont conservés.'}
@@ -632,7 +647,7 @@ async function uploadToMediaServer(file,onProgress=null){
  if(mp3&&file.size>MP3_SINGLE_REQUEST){
   const result=await uploadLargeMp3(file,onProgress);
   globalMedia=globalMedia.filter(x=>x.id!==result.item.id).concat({...result.item,canDelete:false});
-  serverRevision=result.revision;
+  mediaRevision=result.revision;
   return result.item;
  }
  const form=new FormData();form.append('file',file);
@@ -663,7 +678,7 @@ async function uploadToMediaServer(file,onProgress=null){
   if(!response.ok||result.ok!==true||!result.item)throw Error(result.error||'Envoi vers le serveur impossible');
  }
  globalMedia=globalMedia.filter(x=>x.id!==result.item.id).concat(result.item);
- serverRevision=result.revision;
+ mediaRevision=result.revision;
  return result.item;
 }
 async function createExternalMedia(){
@@ -680,7 +695,7 @@ async function createExternalMedia(){
   headers:{'content-type':'application/json'},body:JSON.stringify({type,src:url.href,name:name||url.hostname})});
  const result=await response.json().catch(()=>({}));
  if(!response.ok){siteNotice(result.error||'Enregistrement impossible');return}
- serverRevision=result.revision;
+ mediaRevision=result.revision;
  globalMedia=globalMedia.filter(x=>x.id!==result.item.id).concat(result.item);
  status.textContent='✓ Lien conservé dans la médiathèque globale';render();
 }
@@ -698,7 +713,7 @@ async function copyPermanentMediaUrl(media){
 }
 async function setStandalonePublicLink(media,publicLink){
  if(!IS_STAGE||!LIVE_MEDIA_UPLOAD_HOST)return;
- if(serverRevision===null||!Number.isSafeInteger(serverRevision)){
+ if(mediaRevision===null||!Number.isSafeInteger(mediaRevision)){
   siteNotice('Rechargez l’administration pour retrouver la dernière version de la médiathèque.');return;
  }
  const accepted=await siteConfirm(publicLink?
@@ -707,17 +722,17 @@ async function setStandalonePublicLink(media,publicLink){
  if(!accepted)return;
  const response=await fetch('/api/editor-media?action=public-link',{
   method:'POST',cache:'no-store',headers:{'content-type':'application/json'},
-  body:JSON.stringify({id:media.id,publicLink,expectedRevision:serverRevision})
+  body:JSON.stringify({id:media.id,publicLink,expectedRevision:mediaRevision})
  });
  const result=await response.json().catch(()=>({}));
  if(!response.ok){
-  if(response.status===409)serverRevision=null;
+  if(response.status===409)mediaRevision=null;
   siteNotice(result.error||'Changement du lien impossible. Aucun fichier supprimé.');return;
  }
  if(result.publicLink!==publicLink||!Number.isSafeInteger(result.revision)){
   siteNotice('Confirmation du serveur manquante, rechargez la médiathèque.');return;
  }
- serverRevision=result.revision;db._serverRevision=serverRevision;
+ mediaRevision=result.revision;db._serverRevision=mediaRevision;
  globalMedia=globalMedia.map(item=>item.id===media.id?
   {...item,...result.item,publicLink,canDelete:false}:item);
  status.textContent=publicLink?
@@ -727,13 +742,79 @@ async function setStandalonePublicLink(media,publicLink){
  // Refresh the server's conservative unused/delete badge after the toggle.
  void refreshGlobalMedia();
 }
+async function saveVideoTypeForMedia(media,type,{quiet=false}={}){
+ if(!DEFAULT_VIDEO_TYPES.includes(type))throw Error('Type de vidéo inconnu.');
+ const response=await fetch('/api/editor-media?action=set-video-type',{
+  method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},
+  body:JSON.stringify({id:media.id,videoType:type,expectedRevision:mediaRevision})
+ });
+ const data=await response.json().catch(()=>({}));
+ if(!response.ok||!data.ok){
+  if(response.status===409)void refreshGlobalMedia();
+  throw Error(data.error||'Type vidéo non enregistré');
+ }
+ mediaRevision=data.revision;
+ globalMedia=globalMedia.map(item=>item.id===media.id?{...item,videoType:type}:item);
+ if(!quiet){status.textContent='✓ Vidéo classée : '+type;render()}
+ return type;
+}
+async function renameMedia(media,newName=null,{quiet=false}={}){
+ if(!media?.id)return false;
+ const name=String(newName===null?(await sitePrompt('Renommer ce fichier dans toute la médiathèque :',media.name||'')):newName||'').trim().replace(/\s+/g,' ');
+ if(!name||name===media.name)return false;
+ if(name.length>120||/[<>\\\u0000-\u001f\u007f]/.test(name)){siteNotice('Nom invalide : 120 caractères maximum.');return false}
+ const response=await fetch('/api/editor-media?action=rename',{
+  method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},
+  body:JSON.stringify({id:media.id,name,expectedRevision:mediaRevision})
+ });
+ const data=await response.json().catch(()=>({}));
+ if(!response.ok||!data.ok){
+  if(response.status===409)void refreshGlobalMedia();
+  siteNotice(data.error||'Nom non enregistré');return false;
+ }
+ mediaRevision=data.revision;
+ const existing=globalMedia.some(x=>x.id===media.id);
+ globalMedia=existing?globalMedia.map(x=>x.id===media.id?{...x,name}:x):
+  [...globalMedia,{...data.item,name}];
+ if(!quiet){status.textContent='✓ Fichier renommé dans la médiathèque (adresse inchangée).';render()}
+ return true;
+}
+async function renameMediaSource(src,defaultName='Image'){
+ const known=globalMedia.find(x=>x.src===src&&x.type==='image');
+ if(mediaRevision===null){await refreshGlobalMedia();}
+ return renameMedia(known||{id:'image|'+src,src,type:'image',name:defaultName});
+}
+async function removeMediaFromAdmin(media,refs=[]){
+ const used=refs.length>0||media.canDelete!==true;
+ const prompt=used?
+  'Voulez-vous vraiment retirer « '+media.name+' » de la médiathèque ? '+(refs.length?'Cette image figure sur '+refs.length+' page(s). ':'')+
+  'Pour ne pas casser le site, elle restera visible sur les pages qui l’utilisent. Vous pourrez la retirer des pages séparément.':
+  'Voulez-vous vraiment supprimer définitivement « '+media.name+' » ?';
+ if(!(await siteConfirm(prompt)))return;
+ const action=used?'archive':'delete';
+ const response=await fetch('/api/editor-media?action='+action,{
+  method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},
+  body:JSON.stringify({id:media.id,...(used?{expectedRevision:mediaRevision}:{})})
+ });
+ const result=await response.json().catch(()=>({}));
+ if(!response.ok||!result.ok){
+  if(response.status===409)void refreshGlobalMedia();
+  siteNotice(result.error||'Retrait impossible');return;
+ }
+ mediaRevision=result.revision;
+ globalMedia=globalMedia.filter(x=>x.id!==media.id);
+ hiddenMediaUrls.add(media.src);
+ status.textContent=used?'✓ Image retirée de la médiathèque. Les pages existantes sont conservées.':
+  '✓ Fichier définitivement supprimé.';
+ render();
+}
 async function deleteGlobalMedia(media){
  if(!(await siteConfirm('Êtes-vous sûr de vouloir supprimer « '+media.name+' » ?')))return;
  const response=await fetch('/api/editor-media?action=delete',{method:'POST',
   headers:{'content-type':'application/json'},body:JSON.stringify({id:media.id})});
  const result=await response.json().catch(()=>({}));
  if(!response.ok){siteNotice(result.error||'Suppression non autorisée');return}
- serverRevision=result.revision;globalMedia=globalMedia.filter(x=>x.id!==media.id);
+ mediaRevision=result.revision;globalMedia=globalMedia.filter(x=>x.id!==media.id);
  status.textContent='✓ Média inutilisé supprimé du catalogue';render();
 }
 
