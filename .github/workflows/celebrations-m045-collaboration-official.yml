@@ -111,3 +111,4 @@ jobs:
           if test -f /tmp/m045-promoted; then
             npx wrangler versions deploy 9a0f8ed1-be2d-41f2-9c4b-d7634ae60a60@100% --yes --config wrangler.m018.official.toml --message "M045 rollback si échec des vérifications de sécurité"
           fi
+# M045_OFFICIAL release requested after successful collaborative regression pipeline.
