@@ -81,7 +81,10 @@ test('confirm the whole result, not only currently selected page',()=>{
 // M050: stale phone-only pending data must not lock a shared online draft.
 test('shared draft loading does not return early for an obsolete local pending copy',()=>{
  const source=readFileSync(new URL('../migration/cloudflare/editor-demo-client-source.js',import.meta.url),'utf8');
- const load=source.slice(source.indexOf('async function serverLoad(){'),source.indexOf('async function serverPublish(',source.indexOf('async function serverLoad(){'));
+ const start=source.indexOf('async function serverLoad(){');
+ const end=source.indexOf('async function serverPublish(',start);
+ assert.ok(start>=0&&end>start,'serverLoad and serverPublish must exist in source');
+ const load=source.slice(start,end);
  assert.ok(load.includes('serverRevision=serverBaseRevision=payload.revision;'));
  assert.ok(load.includes('rememberServerBase(payload.revision'));
  assert.ok(!load.includes('if(pending?._serverPending===true'));
