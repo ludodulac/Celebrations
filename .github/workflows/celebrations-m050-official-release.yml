@@ -1,6 +1,13 @@
 name: "M050 — publier les brouillons partagés (officiel)"
 on:
-  # Historical M050 deployment is pinned to an old version; never deploy on every cleanup commit.
+  # Release only when the responsive homepage editor or this guarded workflow changes.
+  push:
+    branches: [fix/m050-online-shared-drafts-mobile-current-20261117]
+    paths:
+      - "migration/cloudflare/editor-demo-client-source.js"
+      - "migration/cloudflare/app/styles/admin/style.mjs"
+      - "tests/test_m048_responsive_home.mjs"
+      - ".github/workflows/celebrations-m050-official-release.yml"
   workflow_dispatch:
 permissions: {contents: read}
 concurrency:
