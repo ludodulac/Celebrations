@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "migration/cloudflare/wrangler.m018.official.toml"
 
 def identifier(value, label):
-    if not re.fullmatch(r"[a-fA-F0-9]{8}-[a-fA-F0-9-]{28,40}", value):
+    if not re.fullmatch(r"[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}", value):
         raise ValueError(f"{label}: expected a D1 UUID")
     return value
 
@@ -35,10 +35,9 @@ def render(source, worker, database, database_id, bucket):
             raise ValueError(f"Unexpected Wrangler source: {old} count != {count}")
         text = text.replace(old, new)
     # A portable build must never accidentally enable a public workers.dev host.
-    text = text.replace("workers_dev = true", "workers_dev = false")
-    text = text.replace("keep_vars = true", "keep_vars = true")
+    if text.count("workers_dev = true") != 1:\n        raise ValueError("Unexpected workers_dev source setting")\n    text = text.replace("workers_dev = true", "workers_dev = false")
     # The old account's official domain is not valid as an API host in a new account.
-    text = text.replace('MEMBER_DIRECTORY_API_HOST = "ronde-des-archanges-universelle.eu"',
+    if text.count('MEMBER_DIRECTORY_API_HOST = "ronde-des-archanges-universelle.eu"') != 1:\n        raise ValueError("Unexpected official host setting")\n    text = text.replace('MEMBER_DIRECTORY_API_HOST = "ronde-des-archanges-universelle.eu"',
                         'MEMBER_DIRECTORY_API_HOST = "__SET_OFFICIAL_HOST__"')
     return text
 
