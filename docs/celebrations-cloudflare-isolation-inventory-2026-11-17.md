@@ -38,3 +38,11 @@ Les projets **Espace Jeunesse**, **Ludodio**, **La Forêt enchantée**, **in-sec
 7. Préparer la migration future vers un **autre compte Cloudflare** : inventaire des DNS, domaines personnalisés, secrets (valeurs non exportables), identifiants D1/R2, URLs médias, sauvegardes et procédures de bascule.
 
 **Ne pas confondre :** les bindings du Worker officiel sont propres, mais cela ne démontre pas encore l'absence de références externes dans le code, les pages, les fichiers ou les URL publiques. Aucune suppression irréversible n'est autorisée sur la base de cet inventaire seul.
+
+## Contrôles du 17 novembre — redirection et stockage
+- Le staging a reçu une nouvelle version de code `redirect.js` via l'API Cloudflare, déploiement `bd9838cdeb904fce82043f37f0611e91` ; l'utilisateur a confirmé que la racine de l'ancienne adresse mène au domaine officiel. Vérification des chemins profonds encore nécessaire. Les assets statiques sont encore configurés ; ne pas considérer les routes API comme vérifiées sans test.
+- Les domaines personnalisés `ronde-des-archanges-universelle.eu` et `www.ronde-des-archanges-universelle.eu` pointent tous deux vers `celebrations-exit-production`.
+- Inventaire R2 (liste retournée par API) : `celebrations-exit-production` 133 objets (48 PDF, 39 MP3, 38 JPG, 3 WebP, 4 PNG, 1 JSON) ; `celebrations-exit-staging` 206 objets ; `celebrations-media` 159 objets.
+- Comparaison par clé : 73 objets staging sans clé identique en production (23 `editor-trials`, 31 `media`, 12 `private-backups`, 7 `tests`) ; 38 objets `celebrations-media` sans clé identique en production. Une différence de clé ne prouve ni perte ni nécessité de migration. Vérifier les références et les contenus avant copie ou suppression.
+- Les schémas D1 production et staging sont différents : staging contient notamment `editor_b_*` et `editor_c_*`, production possède des tables récentes de répertoire et d'identités. Ne jamais remplacer D1 production par D1 staging.
+- **Blocage de suppression :** pas de suppression de R2 staging, `celebrations-media` ni D1 staging avant vérification de tous les objets utiles et sauvegarde exportée.
