@@ -6,21 +6,15 @@ enables the same Cloudflare bridge on the production-candidate pages WITHOUT
 forcing the public URL to include '?staging=1'. No production resources used.
 """
 from pathlib import Path
-import shutil
 from build_staging_assets import main as build_staging
 
 ROOT=Path(__file__).resolve().parents[1]
-STAGING=ROOT/"staging-public"
 PRODUCTION=ROOT/"production-public"
 OLD='if(new URLSearchParams(location.search).get("staging")==="1")window.CELEBRATIONS_STAGING_BACKEND=location.origin;'
 NEW='window.CELEBRATIONS_STAGING_BACKEND=location.origin;'
 
 def main():
-    build_staging()
-    if PRODUCTION.exists():
-        shutil.rmtree(PRODUCTION)
-    shutil.copytree(STAGING,PRODUCTION)
-    # The staging build substitutes the original homepage illustration with
+    # Generate directly into the official output, with no staging artifact or copy.\n    build_staging(output_dir=PRODUCTION)\n    # The staging build substitutes the original homepage illustration with
     # a staging-only R2 key. That file is NOT in the isolated production R2,
     # so using this staging placeholder silently breaks the first image.
     # The original JPG is already included in the 121 published production
