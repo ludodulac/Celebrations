@@ -2130,7 +2130,7 @@ if(x.kind==='image'){
   pic.style.minHeight='0';pic.style.background='none';pic.style.marginInline='auto';
   if(src){
    const img=n('img');img.src=src;img.alt=x.text||'Image';img.loading='eager';
-   img.style.width='100%';img.style.height='auto';img.style.objectFit='contain';
+   img.style.width='100%';img.style.height='auto';img.style.maxHeight='none';img.style.objectFit='contain';
    img.onerror=()=>{
     // Retry the durable server image when a device-only blob is stale.
     if(localUrl&&hostedUrl&&img.src!==new URL(hostedUrl,location.href).href){
