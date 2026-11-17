@@ -2840,17 +2840,29 @@ function m035EntrySettings(homePage){
  ]){
   const group=n('div','m048-image-field');
   group.append(n('strong','',title),n('small','hint','Proportion conseillée : '+ratio));
+  // Match the actual published viewport: 1440×900 desktop or 390×844
+  // phone, minus the corresponding 76px/62px site header. The public hero
+  // uses object-fit:cover and object-position:center top, not a 16:9/9:16
+  // thumbnail. This preview deliberately uses the same crop.
+  const desktop=key==='desktopImage';
+  const frame=n('div','m049-home-viewport '+(desktop?'is-desktop':'is-mobile'));
+  frame.setAttribute('role','img');
+  frame.setAttribute('aria-label','Aperçu du cadrage réel : '+title);
   const thumb=n('img','m048-image-preview');
-  thumb.alt='Aperçu : '+title;
-  thumb.src=values[key]||homePage.blocks?.find(x=>x.kind==='image')?.src||'';
+  thumb.alt='';
   thumb.loading='lazy';
-  thumb.style.aspectRatio=key==='desktopImage'?'16 / 9':'9 / 16';
-  group.append(thumb);
+  const fallback=homePage.blocks?.find(x=>x.kind==='image')?.src||'';
+  const updateImage=()=>{thumb.src=values[key]||fallback;};
+  updateImage();
+  frame.append(thumb);
+  group.append(frame,n('small','hint',desktop?
+   'Simulation ordinateur : écran 1440 × 900, en-tête 76 px. Image recadrée comme sur le site.':
+   'Simulation téléphone : écran 390 × 844, en-tête 62 px. Image recadrée comme sur le site.'));
   const actions=n('div','file-actions');
   actions.append(b('Choisir / Remplacer',()=>{
    const imageTarget={
     get src(){return values[key]},
-    set src(url){values[key]=url;modify()},
+    set src(url){values[key]=url;updateImage();modify()},
     kind:'image'
    };
    showImagePicker(imageTarget);
