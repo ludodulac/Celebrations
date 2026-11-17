@@ -69,3 +69,9 @@ Les projets **Espace Jeunesse**, **Ludodio**, **La Forêt enchantée**, **in-sec
 - Nouveau workflow `.github/workflows/celebrations-isolation-check.yml` : compilation des assets, vérification du générateur portable et contrôle des scripts SDK Supabase dans les HTML produits ; aucun secret ni commande de déploiement. Son exécution verte reste à confirmer avant tout déploiement.
 - Le workflow officiel M050 et ses anciens noms de secrets n'ont pas été modifiés ; aucune migration de secrets ni de DNS n'a été effectuée.
 - Aucun déploiement de ces changements n'a été effectué et les anciennes ressources Cloudflare sont conservées.
+
+## Sécurité des déploiements pendant le nettoyage
+- Le workflow historique `.github/workflows/celebrations-m050-official-release.yml` est désormais **manuel uniquement** (`workflow_dispatch`) : les commits de nettoyage ne déclenchent plus automatiquement son déploiement de production. Ne pas le lancer pour une future publication sans remplacer son garde de version figé et revoir les secrets.
+- Le générateur portable valide maintenant la forme UUID complète, vérifie explicitement le paramètre `workers_dev` et l'hôte officiel dans la source.
+- Contrôle Cloudflare après ces changements : Worker officiel version `ac339926-31a0-454f-87f2-8f3b90f000e8` à 100 %, D1 `28736d2a-479b-472b-bf82-703ad0affe10`, bindings R2 `EDITOR_BUCKET` et `MEDIA_BUCKET` sur `celebrations-exit-production`. **Aucun déploiement des modifications de nettoyage en production.**
+- Le workflow de vérification du build existe, mais son résultat d'exécution n'a pas encore été obtenu. Ne pas déclarer les tests verts ni la migration terminée.
