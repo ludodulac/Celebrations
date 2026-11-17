@@ -36,9 +36,13 @@ def render(source, worker, database, database_id, bucket):
             raise ValueError(f"Unexpected Wrangler source: {old} count != {count}")
         text = text.replace(old, new)
     # A portable build must never accidentally enable a public workers.dev host.
-    if text.count("workers_dev = true") != 1:\n        raise ValueError("Unexpected workers_dev source setting")\n    text = text.replace("workers_dev = true", "workers_dev = false")
+    if text.count("workers_dev = true") != 1:
+        raise ValueError("Unexpected workers_dev source setting")
+    text = text.replace("workers_dev = true", "workers_dev = false")
     # The old account's official domain is not valid as an API host in a new account.
-    if text.count('MEMBER_DIRECTORY_API_HOST = "ronde-des-archanges-universelle.eu"') != 1:\n        raise ValueError("Unexpected official host setting")\n    text = text.replace('MEMBER_DIRECTORY_API_HOST = "ronde-des-archanges-universelle.eu"',
+    if text.count('MEMBER_DIRECTORY_API_HOST = "ronde-des-archanges-universelle.eu"') != 1:
+        raise ValueError("Unexpected official host setting")
+    text = text.replace('MEMBER_DIRECTORY_API_HOST = "ronde-des-archanges-universelle.eu"',
                         'MEMBER_DIRECTORY_API_HOST = "__SET_OFFICIAL_HOST__"')
     return text
 
