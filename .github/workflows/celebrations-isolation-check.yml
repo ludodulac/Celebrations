@@ -3,6 +3,9 @@ on:
   push:
     branches: [fix/m050-online-shared-drafts-mobile-current-20261117]
     paths:
+      - "migration/cloudflare/editor-demo-client-source.js"
+      - "migration/cloudflare/app/styles/admin/style.mjs"
+      - "tests/test_m048_responsive_home.mjs"
       - "scripts/build_staging_assets.py"
       - "scripts/build_production_assets.py"
       - "migration/cloudflare/generate-portable-config.py"
@@ -34,7 +37,7 @@ jobs:
           test -s production-public/preparation/index.html
           test -s production-public/migration/cloudflare/preview-client.js
           test ! -d staging-public
-          node --test tests/test_m045_admin_collaboration.mjs
+          node --test tests/test_m048_responsive_home.mjs
       - name: Test portable Cloudflare configuration
         run: |
           set -euo pipefail
