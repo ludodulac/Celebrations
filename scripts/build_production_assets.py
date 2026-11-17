@@ -14,7 +14,9 @@ OLD='if(new URLSearchParams(location.search).get("staging")==="1")window.CELEBRA
 NEW='window.CELEBRATIONS_STAGING_BACKEND=location.origin;'
 
 def main():
-    # Generate directly into the official output, with no staging artifact or copy.\n    build_staging(output_dir=PRODUCTION)\n    # The staging build substitutes the original homepage illustration with
+    # Generate directly into the official output, with no staging artifact or copy.
+    build_staging(output_dir=PRODUCTION)
+    # The staging build substitutes the original homepage illustration with
     # a staging-only R2 key. That file is NOT in the isolated production R2,
     # so using this staging placeholder silently breaks the first image.
     # The original JPG is already included in the 121 published production
