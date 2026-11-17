@@ -81,3 +81,8 @@ Les projets **Espace Jeunesse**, **Ludodio**, **La Forêt enchantée**, **in-sec
 - `generate-portable-config.py` adapte maintenant les chemins `main` et `assets.directory` à l'emplacement réel du fichier généré, plutôt que de supposer une génération dans `migration/cloudflare`.
 - Le workflow d'isolation compile les trois scripts Python et vérifie l'existence des chemins résolus depuis le TOML de sortie.
 - **Important :** le résultat effectif de l'exécution GitHub Actions n'est pas disponible dans cette intervention. Les tests sont définis mais pas attestés verts. Aucun déploiement de ces commits.
+
+## Poursuite du nettoyage — correctifs de validation
+- Correction d'une seconde séquence de sauts de ligne littéraux dans `migration/cloudflare/generate-portable-config.py` : les deux gardes de paramètres (`workers_dev`, `MEMBER_DIRECTORY_API_HOST`) sont maintenant du Python syntaxiquement valide.
+- Le contrôle `.github/workflows/celebrations-isolation-check.yml` lance également `node --test tests/test_m045_admin_collaboration.mjs` pour détecter une régression de l'administration, et vérifie l'absence de noms staging et d'URL Supabase dans le TOML portable généré.
+- Ces contrôles sont enregistrés dans GitHub mais leur exécution réussie n'a pas encore été confirmée. Ne pas déployer avant résultats verts et validation de l'absence de régression.
