@@ -75,3 +75,9 @@ Les projets **Espace Jeunesse**, **Ludodio**, **La Forêt enchantée**, **in-sec
 - Le générateur portable valide maintenant la forme UUID complète, vérifie explicitement le paramètre `workers_dev` et l'hôte officiel dans la source.
 - Contrôle Cloudflare après ces changements : Worker officiel version `ac339926-31a0-454f-87f2-8f3b90f000e8` à 100 %, D1 `28736d2a-479b-472b-bf82-703ad0affe10`, bindings R2 `EDITOR_BUCKET` et `MEDIA_BUCKET` sur `celebrations-exit-production`. **Aucun déploiement des modifications de nettoyage en production.**
 - Le workflow de vérification du build existe, mais son résultat d'exécution n'a pas encore été obtenu. Ne pas déclarer les tests verts ni la migration terminée.
+
+## Corrections de robustesse du nettoyage
+- Correction de la syntaxe Python de `scripts/build_production_assets.py` (séquences de nouvelle ligne échappées accidentellement lors de l'édition initiale).
+- `generate-portable-config.py` adapte maintenant les chemins `main` et `assets.directory` à l'emplacement réel du fichier généré, plutôt que de supposer une génération dans `migration/cloudflare`.
+- Le workflow d'isolation compile les trois scripts Python et vérifie l'existence des chemins résolus depuis le TOML de sortie.
+- **Important :** le résultat effectif de l'exécution GitHub Actions n'est pas disponible dans cette intervention. Les tests sont définis mais pas attestés verts. Aucun déploiement de ces commits.
