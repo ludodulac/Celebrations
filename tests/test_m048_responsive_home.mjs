@@ -77,3 +77,5 @@ test('admin preview uses published viewport geometry and updates on image select
  assert.match(style,/object-fit:cover!important/);
  assert.match(style,/object-position:center top!important/);
 });
+
+// CI probe: verify the exact desktop/mobile preview tests on this branch.
