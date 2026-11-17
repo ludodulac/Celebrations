@@ -49,7 +49,7 @@ test('owner-approved public staging sync is same-origin write-only and shares re
  const openGet=new Request(origin+'/api/editor-open-draft?celebration=101');
  const first=await handleServerDraft(openGet,e);
  assert.equal(first.status,200);
- assert.equal((await first.json()).revision,2);
+ assert.equal((await first.json()).revision,1);
  const crossOrigin=new Request(origin+'/api/editor-open-draft',{method:'POST',
   headers:{origin:'https://example.org','content-type':'application/json'},body:JSON.stringify(seededBody())});
  assert.equal((await handleServerDraft(crossOrigin,e)).status,403);
@@ -60,7 +60,7 @@ test('owner-approved public staging sync is same-origin write-only and shares re
   headers:{origin,'content-type':'application/json'},body:JSON.stringify(seededBody())});
  const saved=await handleServerDraft(allowed,e);
  assert.equal(saved.status,200);
- assert.equal((await saved.json()).revision,1);
+ assert.equal((await saved.json()).revision,2);
  const reread=await handleServerDraft(openGet,e);
  assert.equal((await reread.json()).record.pages[0].blocks[1].widthPct,45);
 });
