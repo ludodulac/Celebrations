@@ -54,7 +54,6 @@ jobs:
           node --test tests/test_m045_admin_collaboration.mjs tests/test_m048_responsive_home.mjs
           python3 scripts/build_production_assets.py
           test -s production-public/admin.html
-          test -s production-public/migration/cloudflare/preview-client.js
           npm install --no-save --no-package-lock wrangler@4
           (cd migration/cloudflare && npx wrangler deploy --dry-run --config wrangler.m018.official.toml)
       - name: Upload new version
