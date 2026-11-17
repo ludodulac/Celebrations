@@ -197,3 +197,18 @@ test('M09: cacher un bloc entier conserve tous ses éléments après sauvegarde 
  const visitor=TRIAL_SITE_CLIENT.slice(TRIAL_SITE_CLIENT.indexOf('function appendPageBlock('));
  assert.match(visitor,/function appendPageBlock\(b,root\)\{\s*if\(!b\|\|b\.hideOnSite===true\)return/);
 });
+
+test('M030 safety: legacy draft API cannot create a new celebration implicitly',async()=>{
+ const e=env();
+ const before=await handleServerDraft(req('GET','/api/editor-server-draft?celebration=101'),e);
+ assert.equal(before.status,200);
+ assert.equal((await before.json()).record,null);
+ const rejected=await handleServerDraft(req('POST','/api/editor-server-draft',body),e);
+ assert.equal(rejected.status,409);
+ assert.match((await rejected.json()).error,/création libre de célébrations/);
+ const after=await handleServerDraft(req('GET','/api/editor-server-draft?celebration=101'),e);
+ assert.equal(after.status,200);
+ const result=await after.json();
+ assert.equal(result.revision,0,'Rejected creation must not advance revision');
+ assert.equal(result.record,null,'Rejected creation must not persist a draft');
+});
