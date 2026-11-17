@@ -25,6 +25,7 @@ jobs:
       - name: Check generated editor and static assets
         run: |
           set -euo pipefail
+          python3 -m py_compile scripts/build_staging_assets.py scripts/build_production_assets.py migration/cloudflare/generate-portable-config.py
           node scripts/build-m012b-member-spaces-inline.mjs --check
           node scripts/build-m019-editor-client.mjs --check
           python3 scripts/build_production_assets.py
@@ -48,6 +49,8 @@ jobs:
           import tomllib
           config = tomllib.loads(Path('/tmp/celebrations-association.toml').read_text())
           assert config['name'] == 'association-celebrations'
+          assert Path('/tmp', config['main']).resolve().is_file()
+          assert Path('/tmp', config['assets']['directory']).resolve().is_dir()
           assert config['workers_dev'] is False
           assert len(config['d1_databases']) == 2
           assert all(x['database_id'] == '11111111-2222-4333-8444-555555555555' for x in config['d1_databases'])
