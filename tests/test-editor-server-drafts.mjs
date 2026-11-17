@@ -12,8 +12,8 @@ const req=(method,path,body=null,authorized=true)=>new Request(origin+path,{
  method,headers:{...(authorized?{authorization:'Bearer '+token}:{}),...(body?{'content-type':'application/json'}:{})},
  ...(body?{body:JSON.stringify(body)}:{})
 });
-function bucket(){
- let data=null,version=0;
+function bucket(initial=null){
+ let data=initial===null?null:JSON.stringify(initial),version=initial===null?0:1;
  return {
   async get(){return data===null?null:{etag:String(version),body:true,text:async()=>data}},
   async put(_key,value,{onlyIf}){
@@ -30,25 +30,34 @@ const body={celebration:'101',expectedRevision:0,
  plans:[],shared:{pages:[],homeId:''}
 };
 
+// Seed an existing D1-backed celebration: M030 forbids implicit creation.
+const existingCelebration=()=>({
+ version:1,drafts:{'101':{pages:[{id:'mercredi-101',group:'celebration',name:'Mercredi',
+  visibility:'published',blocks:[]}],celebrationDates:{},celebrationTimes:{},siteHomeId:''}},
+ plans:[],shared:{pages:[],homeId:''}
+});
+const seededEnv=()=>({...env(),MEDIA_BUCKET:bucket(existingCelebration())});
+const seededBody=()=>({...body,expectedRevision:1});
+
 test('anonymous users cannot read or write protected server drafts',async()=>{
  const e=env();
  assert.equal((await handleServerDraft(req('GET','/api/editor-server-draft?celebration=101',null,false),e)).status,401);
  assert.equal((await handleServerDraft(req('POST','/api/editor-server-draft',body,false),e)).status,401);
 });
 test('owner-approved public staging sync is same-origin write-only and shares revisions',async()=>{
- const e=env();
+ const e=seededEnv();
  const openGet=new Request(origin+'/api/editor-open-draft?celebration=101');
  const first=await handleServerDraft(openGet,e);
  assert.equal(first.status,200);
- assert.equal((await first.json()).revision,0);
+ assert.equal((await first.json()).revision,2);
  const crossOrigin=new Request(origin+'/api/editor-open-draft',{method:'POST',
-  headers:{origin:'https://example.org','content-type':'application/json'},body:JSON.stringify(body)});
+  headers:{origin:'https://example.org','content-type':'application/json'},body:JSON.stringify(seededBody())});
  assert.equal((await handleServerDraft(crossOrigin,e)).status,403);
  const absentOrigin=new Request(origin+'/api/editor-open-draft',{method:'POST',
-  headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+  headers:{'content-type':'application/json'},body:JSON.stringify(seededBody())});
  assert.equal((await handleServerDraft(absentOrigin,e)).status,403);
  const allowed=new Request(origin+'/api/editor-open-draft',{method:'POST',
-  headers:{origin,'content-type':'application/json'},body:JSON.stringify(body)});
+  headers:{origin,'content-type':'application/json'},body:JSON.stringify(seededBody())});
  const saved=await handleServerDraft(allowed,e);
  assert.equal(saved.status,200);
  assert.equal((await saved.json()).revision,1);
@@ -56,21 +65,21 @@ test('owner-approved public staging sync is same-origin write-only and shares re
  assert.equal((await reread.json()).record.pages[0].blocks[1].widthPct,45);
 });
 test('server persistence round-trip, dates, and conflict protection',async()=>{
- const e=env();
+ const e=seededEnv();
  const initial=await handleServerDraft(req('GET','/api/editor-server-draft?celebration=101'),e);
- assert.deepEqual((await initial.json()).record,null);
- const saved=await handleServerDraft(req('POST','/api/editor-server-draft',body),e);
+ assert.equal((await initial.json()).record.pages[0].id,'mercredi-101');
+ const saved=await handleServerDraft(req('POST','/api/editor-server-draft',seededBody()),e);
  assert.equal(saved.status,200);
- const meta=await saved.json();assert.equal(meta.revision,1);
+ const meta=await saved.json();assert.equal(meta.revision,3);
  const reopened=await handleServerDraft(req('GET','/api/editor-server-draft?celebration=101'),e);
  const result=await reopened.json();
  assert.equal(result.record.pages[0].blocks[0].text,'16 h — Cérémonie');
  assert.equal(result.record.celebrationDates.wednesday,'2026-11-04');
  assert.equal(result.record.celebrationTimes.mercredi,'16:00');
  assert.equal(result.record.pages[0].blocks[1].widthPct,45,'image width is stored on server');
- const old=await handleServerDraft(req('POST','/api/editor-server-draft',body),e);
+ const old=await handleServerDraft(req('POST','/api/editor-server-draft',seededBody()),e);
  assert.equal(old.status,409,'no silent overwrite across devices');
- const again=await handleServerDraft(req('POST','/api/editor-server-draft',{...body,expectedRevision:1}),e);
+ const again=await handleServerDraft(req('POST','/api/editor-server-draft',{...body,expectedRevision:2}),e);
  assert.equal(again.status,200);
  assert.equal((await again.json()).revision,2);
 });
@@ -124,16 +133,16 @@ test('Auto-publication never exposes a hidden, draft or absent page',()=>{
 });
 
 test('Staging save never publishes even when a page is requested for publication',async()=>{
- const e=env();
+ const e=seededEnv();
  const request=new Request(origin+'/api/editor-open-draft',{method:'POST',
   headers:{origin,'content-type':'application/json'},
-  body:JSON.stringify({...body,publishPageId:'mercredi-101'})});
+  body:JSON.stringify({...seededBody(),publishPageId:'mercredi-101'})});
  const saved=await handleServerDraft(request,e);
  assert.equal(saved.status,200);
  assert.equal((await saved.json()).publishedPageId,null);
  const invalid=new Request(origin+'/api/editor-open-draft',{method:'POST',
   headers:{origin,'content-type':'application/json'},
-  body:JSON.stringify({...body,expectedRevision:1,publishPageId:'mercredi-999'})});
+  body:JSON.stringify({...body,expectedRevision:2,publishPageId:'mercredi-999'})});
  assert.equal((await handleServerDraft(invalid,e)).status,400);
 });
 
@@ -175,13 +184,13 @@ test('M04: une seule confirmation visuelle pour une sauvegarde serveur vérifié
 });
 
 test('M09: cacher un bloc entier conserve tous ses éléments après sauvegarde serveur',async()=>{
- const e=env();
+ const e=seededEnv();
  const media={id:202,kind:'image',src:'/media/conserve.jpg',widthPct:65};
  const heading={id:203,kind:'heading',text:'Titre de la conférence'};
  const link={id:204,kind:'button',text:'Voir la conférence',href:'https://example.org/video'};
  const section={id:201,kind:'section',layout:'columns',hideOnSite:true,
   columns:[[media],[heading,link]],style:{border:'round',color:'#c0c0c0',shadow:false,width:1}};
- const payload={...body,record:{...body.record,pages:[
+ const payload={...seededBody(),record:{...body.record,pages:[
   {id:'mercredi-101',group:'celebration',name:'Mercredi',blocks:[section]}]}};
  const saved=await handleServerDraft(req('POST','/api/editor-server-draft',payload),e);
  assert.equal(saved.status,200);
