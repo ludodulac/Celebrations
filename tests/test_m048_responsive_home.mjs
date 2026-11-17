@@ -65,3 +65,15 @@ test('administration offers both image proportions and existing media picker',()
  assert.match(source,/showImagePicker\(imageTarget\)/);
  assert.match(source,/Appliquer l’accueil sur le site/);
 });
+
+test('admin preview uses published viewport geometry and updates on image selection',()=>{
+ assert.match(source,/m049-home-viewport/);
+ assert.match(source,/1440 × 900/);
+ assert.match(source,/390 × 844/);
+ assert.match(source,/updateImage\(\);modify\(\)/);
+ const style=readFileSync(new URL('../migration/cloudflare/app/styles/admin/style.mjs',import.meta.url),'utf8');
+ assert.match(style,/aspect-ratio:1440 \/ 824/);
+ assert.match(style,/aspect-ratio:390 \/ 782/);
+ assert.match(style,/object-fit:cover!important/);
+ assert.match(style,/object-position:center top!important/);
+});
