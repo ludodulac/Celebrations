@@ -79,3 +79,10 @@ test('admin preview uses published viewport geometry and updates on image select
 });
 
 // CI probe: verify the exact desktop/mobile preview tests on this branch.
+
+test('celebration page editor shows images at their natural height, matching the visitor proportions',()=>{
+ assert.match(source,/img\.style\.maxHeight='none'/);
+ assert.match(source,/img\.style\.height='auto'/);
+ assert.match(source,/img\.style\.width='100%'/);
+ assert.match(source,/input\.min='20';input\.max='100'/);
+});
