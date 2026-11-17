@@ -5,6 +5,7 @@ This tool does NOT deploy, create resources, or copy data. All identifiers
 must be supplied by the destination association's Cloudflare account.
 """
 import argparse
+import os
 from pathlib import Path
 import re
 
@@ -63,6 +64,13 @@ def main():
         p.error("output already exists; refusing to overwrite")
     result = render(SOURCE.read_text(encoding="utf-8"), worker, database, dbid, bucket)
     result = result.replace("__SET_OFFICIAL_HOST__", args.official_host)
+    # Wrangler resolves paths relative to the generated config location.
+    worker_entry = SOURCE.parent / "production-worker.mjs"
+    public_assets = ROOT / "production-public"
+    result = result.replace('main = "production-worker.mjs"',
+                            'main = "' + os.path.relpath(worker_entry, target.parent) + '"')
+    result = result.replace('directory = "../../production-public"',
+                            'directory = "' + os.path.relpath(public_assets, target.parent) + '"')
     if "celebrations-exit-staging" in result or "supabase.co" in result:
         p.error("legacy external resource detected")
     target.parent.mkdir(parents=True, exist_ok=True)
