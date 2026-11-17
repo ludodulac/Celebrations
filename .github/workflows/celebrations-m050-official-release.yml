@@ -1,14 +1,7 @@
 name: "Célébrations — publication officielle contrôlée"
 on:
-  # Release only when the responsive homepage editor or this guarded workflow changes.
-  push:
-    branches: [fix/m050-online-shared-drafts-mobile-current-20261117]
-    paths:
-      - "migration/cloudflare/editor-demo-client-source.js"
-      - "migration/cloudflare/editor-demo-client.mjs"
-      - "migration/cloudflare/app/styles/admin/style.mjs"
-      - "tests/test_m048_responsive_home.mjs"
-      - ".github/workflows/celebrations-m050-official-release.yml"
+  # Never publish production merely because a test or workflow file changed.
+  # Publishing requires an explicit GitHub Actions dispatch after checks.
   workflow_dispatch:
 permissions: {contents: read}
 concurrency:
