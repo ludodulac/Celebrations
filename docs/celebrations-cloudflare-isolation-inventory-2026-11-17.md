@@ -86,3 +86,10 @@ Les projets **Espace Jeunesse**, **Ludodio**, **La Forêt enchantée**, **in-sec
 - Correction d'une seconde séquence de sauts de ligne littéraux dans `migration/cloudflare/generate-portable-config.py` : les deux gardes de paramètres (`workers_dev`, `MEMBER_DIRECTORY_API_HOST`) sont maintenant du Python syntaxiquement valide.
 - Le contrôle `.github/workflows/celebrations-isolation-check.yml` lance également `node --test tests/test_m045_admin_collaboration.mjs` pour détecter une régression de l'administration, et vérifie l'absence de noms staging et d'URL Supabase dans le TOML portable généré.
 - Ces contrôles sont enregistrés dans GitHub mais leur exécution réussie n'a pas encore été confirmée. Ne pas déployer avant résultats verts et validation de l'absence de régression.
+
+## Aperçus images d'accueil ordinateur et téléphone
+- Emplacement exact : `m035EntrySettings` dans `migration/cloudflare/editor-demo-client-source.js` ; les deux champs sont `desktopImage` et `mobileImage`.
+- Correction enregistrée : remplace les miniatures avec ratio artificiel par une simulation de fenêtre visible du site public (ordinateur 1440×900 moins en-tête 76 px, téléphone 390×844 moins en-tête 62 px), avec `object-fit:cover` et `object-position:center top`, et mise à jour de l'aperçu lors du choix d'image.
+- CSS dans `migration/cloudflare/app/styles/admin/style.mjs`, test de régression dans `tests/test_m048_responsive_home.mjs`, déclencheur de contrôle d'isolation étendu à ces fichiers.
+- Contrôle CI : l'ancien workflow `CELEBRATIONS — correctifs médiathèque, nouvelles pages et titres vidéo` a échoué sur une série de tests d'éditeur (notamment l'ordre des liens permanents du menu visiteurs). Ce résultat **ne prouve pas** que la modification d'aperçu est en échec, mais interdit de déclarer la branche entièrement validée.
+- **Pas de publication officielle de cette correction** tant que les tests ciblés et la vérification visuelle n'ont pas été confirmés.
