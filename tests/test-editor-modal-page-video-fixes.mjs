@@ -117,7 +117,7 @@ test('creating a test page calls server save, starts as a draft and never publis
 });
 
 test('server accepts and rereads an independent new page without changing existing content',async()=>{
- let blob=null,revision=0;
+ let blob=JSON.stringify({version:1,drafts:{'101':{pages:[],celebrationDates:{},celebrationTimes:{}}},plans:[],shared:{pages:[],homeId:''}}),revision=1;
  const bucket={
   async get(){return blob?{etag:String(revision),body:true,text:async()=>blob}:null},
   async put(key,text,{onlyIf}={}){
@@ -131,7 +131,7 @@ test('server accepts and rereads an independent new page without changing existi
  const base='https://celebrations-exit-staging.rondes.workers.dev/api/editor-open-draft';
  const page={id:'extra-123e4567-e89b-12d3-a456-426614174000-101',group:'celebration',
   visibility:'draft',name:'Ma page de test',blocks:[{id:1,kind:'heading',text:'Titre'}]};
- const payload={celebration:'101',expectedRevision:0,record:{
+ const payload={celebration:'101',expectedRevision:1,record:{
   pages:[{id:'preparation-101',group:'celebration',visibility:'published',name:'Préparation',
    blocks:[{id:2,kind:'heading',text:'Original'}]},page],
   celebrationDates:{},celebrationTimes:{},siteHomeId:''},plans:[],
