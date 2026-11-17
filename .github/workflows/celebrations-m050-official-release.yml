@@ -41,7 +41,11 @@ jobs:
           assert.equal(d.status,200);assert.equal(s.status,200);
           const deployments=(await d.json()).result.deployments;
           const versions=deployments[0].versions;
-          assert.deepEqual(versions.map(x=>[x.version_id,x.percentage]),[['5a164335-75d6-422b-8ef2-5237aa65877c',100]]);
+          assert.equal(versions.length,1,'Production must have one active version');
+          assert.equal(versions[0].percentage,100,'Production must be fully on one version');
+          assert.match(versions[0].version_id,/^[a-f0-9-]{36}$/i);
+          const {writeFileSync}=await import('node:fs');
+          writeFileSync('/tmp/celebrations-previous-version',versions[0].version_id);
           const bindings=(await s.json()).result.bindings;
           for(const name of ['EDITOR_BUCKET','MEDIA_BUCKET'])
             assert.equal(bindings.find(x=>x.name===name)?.bucket_name,'celebrations-exit-production');
@@ -93,6 +97,7 @@ jobs:
         if: ${{ failure() }}
         working-directory: migration/cloudflare
         run: |
-          if test -f /tmp/m050-promoted; then
-            npx wrangler versions deploy 5a164335-75d6-422b-8ef2-5237aa65877c@100% --yes --config wrangler.m018.official.toml --message "M050 rollback code only"
+          if test -f /tmp/m050-promoted && test -s /tmp/celebrations-previous-version; then
+            previous="$(cat /tmp/celebrations-previous-version)"
+            npx wrangler versions deploy "${previous}@100%" --yes --config wrangler.m018.official.toml --message "Célébrations rollback code only"
           fi
