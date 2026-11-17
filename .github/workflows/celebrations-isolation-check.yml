@@ -34,6 +34,7 @@ jobs:
           test -s production-public/preparation/index.html
           test -s production-public/migration/cloudflare/preview-client.js
           test ! -d staging-public
+          node --test tests/test_m045_admin_collaboration.mjs
       - name: Test portable Cloudflare configuration
         run: |
           set -euo pipefail
@@ -56,6 +57,7 @@ jobs:
           assert all(x['database_id'] == '11111111-2222-4333-8444-555555555555' for x in config['d1_databases'])
           assert all(x['bucket_name'] == 'association-celebrations' for x in config['r2_buckets'])
           assert config['vars']['MEMBER_DIRECTORY_API_HOST'] == 'exemple.fr'
+          assert not any(s in Path('/tmp/celebrations-association.toml').read_text() for s in ('celebrations-exit-staging', 'supabase.co'))
           print('PORTABLE_CONFIG_PASS')
           PY
       - name: Verify generated pages do not boot Supabase SDK
