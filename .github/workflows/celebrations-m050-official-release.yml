@@ -33,7 +33,7 @@ jobs:
           assert.equal(d.status,200);assert.equal(s.status,200);
           const deployments=(await d.json()).result.deployments;
           const versions=deployments[0].versions;
-          assert.deepEqual(versions.map(x=>[x.version_id,x.percentage]),[['f5cda1d7-1064-4f96-8916-cbe127ea0a6b',100]]);
+          assert.deepEqual(versions.map(x=>[x.version_id,x.percentage]),[['ac339926-31a0-454f-87f2-8f3b90f000e8',100]]);
           const bindings=(await s.json()).result.bindings;
           for(const name of ['EDITOR_BUCKET','MEDIA_BUCKET'])
             assert.equal(bindings.find(x=>x.name===name)?.bucket_name,'celebrations-exit-production');
@@ -44,9 +44,10 @@ jobs:
           set -euo pipefail
           node scripts/build-m012b-member-spaces-inline.mjs --check
           node scripts/build-m019-editor-client.mjs --check
-          node --test tests/test_m045_admin_collaboration.mjs
+          node --test tests/test_m045_admin_collaboration.mjs tests/test_m048_responsive_home.mjs
           python3 scripts/build_production_assets.py
           test -s production-public/admin.html
+          test -s production-public/migration/cloudflare/preview-client.js
           npm install --no-save --no-package-lock wrangler@4
           (cd migration/cloudflare && npx wrangler deploy --dry-run --config wrangler.m018.official.toml)
       - name: Upload new version
@@ -86,5 +87,5 @@ jobs:
         working-directory: migration/cloudflare
         run: |
           if test -f /tmp/m050-promoted; then
-            npx wrangler versions deploy f5cda1d7-1064-4f96-8916-cbe127ea0a6b@100% --yes --config wrangler.m018.official.toml --message "M050 rollback code only"
+            npx wrangler versions deploy ac339926-31a0-454f-87f2-8f3b90f000e8@100% --yes --config wrangler.m018.official.toml --message "M050 rollback code only"
           fi
