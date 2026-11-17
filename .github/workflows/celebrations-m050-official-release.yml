@@ -1,7 +1,6 @@
 name: "M050 — publier les brouillons partagés (officiel)"
 on:
-  push:
-    branches: [fix/m050-online-shared-drafts-mobile-current-20261117]
+  # Historical M050 deployment is pinned to an old version; never deploy on every cleanup commit.
   workflow_dispatch:
 permissions: {contents: read}
 concurrency:
