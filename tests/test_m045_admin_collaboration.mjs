@@ -35,8 +35,8 @@ test('reloading alone must never cause an automatic POST to the server',()=>{
  assert.match(entry,/await serverLoad\(\);\}/);
  assert.doesNotMatch(entry,/serverSave\(/);
  assert.doesNotMatch(source,/serverDiverged=false;await serverSave\(\)/);
- assert.match(source,/if\(pending\?\._serverPending===true/);
- assert.match(source,/recoverServerBase\(pending\)/);
+ assert.doesNotMatch(source,/if\(pending\?\._serverPending===true/);
+ assert.match(source,/The shared server draft is authoritative on every device/);
 });
 test('independent additions and a change to a third page are preserved',()=>{
  const base=snap(), x={id:'c-101',name:'Nouvelle Mac',blocks:[]},
@@ -76,4 +76,17 @@ test('confirm the whole result, not only currently selected page',()=>{
  assert.equal(policy.readbackConfirmed(readback,3,'a-101',expected.record,expected.shared,expected.localization,expected.plans),false);
  readback.record.pages[1]=change(b,'Colleague');
  assert.equal(policy.readbackConfirmed(readback,3,'a-101',expected.record,expected.shared,expected.localization,expected.plans),true);
+});
+
+// M050: stale phone-only pending data must not lock a shared online draft.
+test('shared draft loading does not return early for an obsolete local pending copy',()=>{
+ const source=readFileSync(new URL('../migration/cloudflare/editor-demo-client-source.js',import.meta.url),'utf8');
+ const start=source.indexOf('async function serverLoad(){');
+ const end=source.indexOf('async function serverPublish(',start);
+ assert.ok(start>=0&&end>start,'serverLoad and serverPublish must exist in source');
+ const load=source.slice(start,end);
+ assert.ok(load.includes('serverRevision=serverBaseRevision=payload.revision;'));
+ assert.ok(load.includes('rememberServerBase(payload.revision'));
+ assert.ok(!load.includes('if(pending?._serverPending===true'));
+ assert.ok(load.includes('localStorage.setItem(KEY,JSON.stringify(db))'));
 });

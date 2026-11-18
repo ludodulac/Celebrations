@@ -30,7 +30,7 @@ bucket_name = "celebrations-exit-production"
 # Ne jamais le vider, recréer, réinitialiser, copier ou renommer.
 [[r2_buckets]]
 binding = "EDITOR_BUCKET"
-bucket_name = "celebrations-exit-staging"
+bucket_name = "celebrations-exit-production"
 
 # Les champs existants restent intacts (keep_vars), les secrets ne sont pas copiés.
 # Ces opt-ins n'auront d'effet QUE lorsque le Worker M018 sera autorisé/publié.

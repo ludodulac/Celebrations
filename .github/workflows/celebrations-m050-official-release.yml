@@ -1,0 +1,96 @@
+name: "Célébrations — publication officielle contrôlée"
+on:
+  # Never publish production merely because a test or workflow file changed.
+  # Publishing requires an explicit GitHub Actions dispatch after checks.
+  workflow_dispatch:
+permissions: {contents: read}
+concurrency:
+  group: celebrations-existing-official-production-release
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: celebrations-staging
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CELEBRATIONS_STAGING_CF_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CELEBRATIONS_STAGING_CF_API_TOKEN }}
+      WRANGLER_OUTPUT_FILE_PATH: /tmp/m050-version-output.ndjson
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Guard current production version and R2 bindings
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const base='https://api.cloudflare.com/client/v4/accounts/'+process.env.CLOUDFLARE_ACCOUNT_ID+'/workers/scripts/celebrations-exit-production';
+          const headers={authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN};
+          assert.ok(process.env.CLOUDFLARE_ACCOUNT_ID&&process.env.CLOUDFLARE_API_TOKEN);
+          const [d,s]=await Promise.all([fetch(base+'/deployments',{headers}),fetch(base+'/settings',{headers})]);
+          assert.equal(d.status,200);assert.equal(s.status,200);
+          const deployments=(await d.json()).result.deployments;
+          const versions=deployments[0].versions;
+          assert.equal(versions.length,1,'Production must have one active version');
+          assert.equal(versions[0].percentage,100,'Production must be fully on one version');
+          assert.match(versions[0].version_id,/^[a-f0-9-]{36}$/i);
+          const {writeFileSync}=await import('node:fs');
+          writeFileSync('/tmp/celebrations-previous-version',versions[0].version_id);
+          const bindings=(await s.json()).result.bindings;
+          for(const name of ['EDITOR_BUCKET','MEDIA_BUCKET'])
+            assert.equal(bindings.find(x=>x.name===name)?.bucket_name,'celebrations-exit-production');
+          console.log('M050_PRE_RELEASE_GUARD_PASS');
+          NODE
+      - name: Test and build without changing site data
+        run: |
+          set -euo pipefail
+          node scripts/build-m012b-member-spaces-inline.mjs --check
+          node scripts/build-m019-editor-client.mjs --check
+          node --test tests/test_m045_admin_collaboration.mjs tests/test_m048_responsive_home.mjs
+          python3 scripts/build_production_assets.py
+          test -s production-public/admin.html
+          npm install --no-save --no-package-lock wrangler@4
+          (cd migration/cloudflare && npx wrangler deploy --dry-run --config wrangler.m018.official.toml)
+      - name: Upload new version
+        working-directory: migration/cloudflare
+        run: npx wrangler versions upload --config wrangler.m018.official.toml --message "M050 brouillons partages, code seulement"
+      - name: Promote new version
+        working-directory: migration/cloudflare
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync,writeFileSync} from 'node:fs';
+          import {spawnSync} from 'node:child_process';
+          const items=readFileSync(process.env.WRANGLER_OUTPUT_FILE_PATH,'utf8').split('\n').filter(Boolean).map(JSON.parse);
+          const version=items.filter(x=>x.type==='version-upload'&&x.worker_name==='celebrations-exit-production').at(-1)?.version_id;
+          if(!/^[a-f0-9-]{36}$/i.test(version||''))throw Error('No version uploaded');
+          let done=false;
+          for(let i=0;i<8;i++){
+            const p=spawnSync('npx',['wrangler','versions','deploy',version+'@100%','--yes','--config','wrangler.m018.official.toml','--message','M050 online shared drafts'],{stdio:'inherit'});
+            if(p.status===0){done=true;break}
+            await new Promise(r=>setTimeout(r,3000*(i+1)));
+          }
+          if(!done)throw Error('Deploy failed');
+          writeFileSync('/tmp/m050-promoted','1');
+          NODE
+      - name: Check official site and protected draft route
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const base='https://ronde-des-archanges-universelle.eu';
+          const [home,admin,draft]=await Promise.all([fetch(base+'/'),fetch(base+'/admin'),fetch(base+'/api/editor-open-draft?celebration=101')]);
+          assert.equal(home.status,200);assert.equal(admin.status,200);assert.equal(draft.status,401);
+          const script=await admin.text();
+          assert.ok(script.includes('editor')||script.includes('Administration'));
+          console.log('M050_OFFICIAL_SMOKE_PASS');
+          NODE
+      - name: Restore previous code if live checks fail
+        if: ${{ failure() }}
+        working-directory: migration/cloudflare
+        run: |
+          if test -f /tmp/m050-promoted && test -s /tmp/celebrations-previous-version; then
+            previous="$(cat /tmp/celebrations-previous-version)"
+            npx wrangler versions deploy "${previous}@100%" --yes --config wrangler.m018.official.toml --message "Célébrations rollback code only"
+          fi

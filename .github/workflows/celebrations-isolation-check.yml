@@ -1,0 +1,73 @@
+name: "Célébrations — isolation du build (sans déploiement)"
+on:
+  push:
+    branches: [fix/m050-online-shared-drafts-mobile-current-20261117]
+    paths:
+      - "migration/cloudflare/editor-demo-client-source.js"
+      - "migration/cloudflare/app/styles/admin/style.mjs"
+      - "tests/test_m048_responsive_home.mjs"
+      - "scripts/build_staging_assets.py"
+      - "scripts/build_production_assets.py"
+      - "migration/cloudflare/generate-portable-config.py"
+      - ".github/workflows/celebrations-isolation-check.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  isolation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Check generated editor and static assets
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/build_staging_assets.py scripts/build_production_assets.py migration/cloudflare/generate-portable-config.py
+          node scripts/build-m012b-member-spaces-inline.mjs --check
+          node scripts/build-m019-editor-client.mjs --check
+          python3 scripts/build_production_assets.py
+          test -s production-public/index.html
+          test -s production-public/admin.html
+          test -s production-public/preparation/index.html
+          test -s production-public/migration/cloudflare/preview-client.js
+          test ! -d staging-public
+          node --test tests/test_m048_responsive_home.mjs
+      - name: Test portable Cloudflare configuration
+        run: |
+          set -euo pipefail
+          python3 migration/cloudflare/generate-portable-config.py \
+            --worker association-celebrations \
+            --database association-celebrations \
+            --database-id 11111111-2222-4333-8444-555555555555 \
+            --bucket association-celebrations \
+            --official-host exemple.fr \
+            --output /tmp/celebrations-association.toml
+          python3 - <<'PY'
+          from pathlib import Path
+          import tomllib
+          config = tomllib.loads(Path('/tmp/celebrations-association.toml').read_text())
+          assert config['name'] == 'association-celebrations'
+          assert Path('/tmp', config['main']).resolve().is_file()
+          assert Path('/tmp', config['assets']['directory']).resolve().is_dir()
+          assert config['workers_dev'] is False
+          assert len(config['d1_databases']) == 2
+          assert all(x['database_id'] == '11111111-2222-4333-8444-555555555555' for x in config['d1_databases'])
+          assert all(x['bucket_name'] == 'association-celebrations' for x in config['r2_buckets'])
+          assert config['vars']['MEMBER_DIRECTORY_API_HOST'] == 'exemple.fr'
+          assert not any(s in Path('/tmp/celebrations-association.toml').read_text() for s in ('celebrations-exit-staging', 'supabase.co'))
+          print('PORTABLE_CONFIG_PASS')
+          PY
+      - name: Verify generated pages do not boot Supabase SDK
+        run: |
+          set -euo pipefail
+          if grep -R -n -F 'cdn.jsdelivr.net/npm/@supabase/supabase-js' production-public --include='*.html'; then
+            echo "Legacy Supabase SDK found in generated HTML"
+            exit 1
+          fi
+          echo "NO_SUPABASE_SDK_IN_GENERATED_HTML"

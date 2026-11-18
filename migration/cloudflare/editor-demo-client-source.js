@@ -1140,26 +1140,9 @@ async function serverLoad(){
   serverPublishedCelebrationVisibility=publicStates&&typeof publicStates==='object'&&!Array.isArray(publicStates)?{...publicStates}:null;
   globalMedia=Array.isArray(payload.mediaCatalogue)?payload.mediaCatalogue:globalMedia;
   const remote=payload.record;
-  // NEVER upload a locally recovered copy on page load. It may be older than
-  // the colleague's work, even though the browser remembers it as "pending".
-  let pending=null;
-  try{pending=JSON.parse(localStorage.getItem(KEY)||'null')}catch{}
-  if(pending?._serverPending===true&&Array.isArray(pending.pages)){
-   const base=recoverServerBase(pending);
-   if(base){
-    serverRevision=serverBaseRevision=base.revision;
-    serverBaseRecord=clone(base.record);serverBaseShared=clone(base.shared);
-    serverBasePlans=clone(base.plans);serverBaseLocalization=clone(base.localization??null);
-    serverDiverged=false;
-    serverMessage('⚠️ Brouillon local non transmis : il est conservé. Cliquez sur Enregistrer pour vérifier les changements des autres avant de fusionner.');
-   }else{
-    serverRevision=serverBaseRevision=null;
-    serverDiverged=true;
-    serverMessage('⚠️ Brouillon local conservé, mais version initiale inconnue : aucun envoi ne sera autorisé. Copiez votre travail avant de recharger depuis le serveur.');
-   }
-   db._serverPending=true;
-   return;
-  }
+  // The shared server draft is authoritative on every device.
+  // Never auto-upload a pending local copy: the sync below backs it up
+  // before loading the latest shared draft from the server.
   serverRevision=serverBaseRevision=payload.revision;
   serverBaseRecord=clone(remote);serverBaseShared=clone(payload.shared);
   serverBasePlans=clone(payload.plans||[]);
@@ -2147,7 +2130,7 @@ if(x.kind==='image'){
   pic.style.minHeight='0';pic.style.background='none';pic.style.marginInline='auto';
   if(src){
    const img=n('img');img.src=src;img.alt=x.text||'Image';img.loading='eager';
-   img.style.width='100%';img.style.height='auto';img.style.objectFit='contain';
+   img.style.width='100%';img.style.height='auto';img.style.maxHeight='none';img.style.objectFit='contain';
    img.onerror=()=>{
     // Retry the durable server image when a device-only blob is stale.
     if(localUrl&&hostedUrl&&img.src!==new URL(hostedUrl,location.href).href){
@@ -2857,17 +2840,29 @@ function m035EntrySettings(homePage){
  ]){
   const group=n('div','m048-image-field');
   group.append(n('strong','',title),n('small','hint','Proportion conseillée : '+ratio));
+  // Match the actual published viewport: 1440×900 desktop or 390×844
+  // phone, minus the corresponding 76px/62px site header. The public hero
+  // uses object-fit:cover and object-position:center top, not a 16:9/9:16
+  // thumbnail. This preview deliberately uses the same crop.
+  const desktop=key==='desktopImage';
+  const frame=n('div','m049-home-viewport '+(desktop?'is-desktop':'is-mobile'));
+  frame.setAttribute('role','img');
+  frame.setAttribute('aria-label','Aperçu du cadrage réel : '+title);
   const thumb=n('img','m048-image-preview');
-  thumb.alt='Aperçu : '+title;
-  thumb.src=values[key]||homePage.blocks?.find(x=>x.kind==='image')?.src||'';
+  thumb.alt='';
   thumb.loading='lazy';
-  thumb.style.aspectRatio=key==='desktopImage'?'16 / 9':'9 / 16';
-  group.append(thumb);
+  const fallback=homePage.blocks?.find(x=>x.kind==='image')?.src||'';
+  const updateImage=()=>{thumb.src=values[key]||fallback;};
+  updateImage();
+  frame.append(thumb);
+  group.append(frame,n('small','hint',desktop?
+   'Simulation ordinateur : écran 1440 × 900, en-tête 76 px. Image recadrée comme sur le site.':
+   'Simulation téléphone : écran 390 × 844, en-tête 62 px. Image recadrée comme sur le site.'));
   const actions=n('div','file-actions');
   actions.append(b('Choisir / Remplacer',()=>{
    const imageTarget={
     get src(){return values[key]},
-    set src(url){values[key]=url;modify()},
+    set src(url){values[key]=url;updateImage();modify()},
     kind:'image'
    };
    showImagePicker(imageTarget);
