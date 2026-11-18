@@ -70,7 +70,7 @@ test('server persistence round-trip, dates, and conflict protection',async()=>{
  assert.equal((await initial.json()).record.pages[0].id,'mercredi-101');
  const saved=await handleServerDraft(req('POST','/api/editor-server-draft',seededBody()),e);
  assert.equal(saved.status,200);
- const meta=await saved.json();assert.equal(meta.revision,3);
+ const meta=await saved.json();assert.equal(meta.revision,2);
  const reopened=await handleServerDraft(req('GET','/api/editor-server-draft?celebration=101'),e);
  const result=await reopened.json();
  assert.equal(result.record.pages[0].blocks[0].text,'16 h — Cérémonie');
@@ -81,7 +81,7 @@ test('server persistence round-trip, dates, and conflict protection',async()=>{
  assert.equal(old.status,409,'no silent overwrite across devices');
  const again=await handleServerDraft(req('POST','/api/editor-server-draft',{...body,expectedRevision:2}),e);
  assert.equal(again.status,200);
- assert.equal((await again.json()).revision,2);
+ assert.equal((await again.json()).revision,3);
 });
 test('rejects oversized, cross-celebration and malformed drafts without writing',async()=>{
  const e=env();
