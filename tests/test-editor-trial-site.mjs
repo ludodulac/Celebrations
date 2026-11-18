@@ -95,33 +95,19 @@ test('video thumbnails have small bold captions under them, not titles in boxed 
  assert.match(TRIAL_SITE_STYLE,/\.trial-video \.trial-site-link\{border:0;/);
 });
 
-test('Visitor dropdown always lists Accueil, Célébrations and Médiathèque générale before custom pages',()=>{
+test('Visitor menu keeps custom pages in author order without a global media library',()=>{
  const script=TRIAL_SITE_CLIENT;
  const start=script.indexOf("const general=el('general-navigation');general.replaceChildren();");
  const end=script.indexOf("const menu=el('menu-toggle')",start);
  assert.ok(start>=0&&end>start,'Visitor navigation builder is present');
  const nav=script.slice(start,end);
- const home=nav.indexOf("general.append(home)");
- const all=nav.indexOf("general.append(all)");
- const library=nav.indexOf("general.append(library)");
+ const home=nav.indexOf('general.append(home)');
  const extras=nav.indexOf("for(const p of pages.filter(p=>p.group==='page'");
- assert.ok(home>=0&&home<all&&all<library&&library<extras,
-  'Permanent links precede all added visitor pages');
- assert.ok(!nav.includes("general.prepend(home)"),
-  'Do not insert the homepage afterwards and leave custom pages before the media library');
- // Exercise the actual DOM builder on two synthetic added visitor pages.
- const general={children:[],replaceChildren(){this.children=[]},append(item){this.children.push(item)}};
- const make=(tag,cls,label)=>({tag,cls,label});
- const mockPages=[
-  {id:'neutral-accueil-general',name:'Accueil',group:'page'},
-  {id:'neutral-page-test-1',name:'Notre histoire',group:'page'},
-  {id:'neutral-page-test-2',name:'Équipe',group:'page'}
- ];
- const output=new Function('el','generalPages','pages','slugOf','active','listing','isGeneralGallery','make','go','t',
-  nav+';return general.children.map(item=>item.label);')(
-   id=>{assert.equal(id,'general-navigation');return general},
-   ()=>({homeId:'neutral-accueil-general'}),mockPages,
-   p=>p.id,'neutral-accueil-general',false,false,make,()=>{},key=>key
-  );
- assert.deepEqual(output,['⌂ Accueil','✧ Célébrations','▧ Médiathèque générale','Notre histoire','Équipe']);
+ const all=nav.indexOf('general.append(all)');
+ assert.ok(home>=0&&home<extras&&extras<all,
+  'Homepage, author-ordered pages, then celebrations');
+ assert.ok(!nav.includes('general.append(library)'),
+  'Global visitor media library must remain absent');
+ assert.ok(nav.includes("p.placement!=='footer'"),
+  'Footer pages must not be duplicated in main navigation');
 });
