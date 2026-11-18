@@ -23,6 +23,23 @@ const env={DB:{prepare(sql){sqls.push(sql);return {bind(...args){return {async a
  if(sql.includes('FROM celebrations_links'))return {results:data.links};
  throw Error('Unexpected read query '+sql);
  }}}}}}};
+// Public pages require an explicit R2 publication, not D1 presence alone.
+const publishedSnapshot={
+ version:1,drafts:{'101':{pages:[]}},plans:[],
+ shared:{pages:[],homeId:''},
+ published:{drafts:{'101':{pages:[]}},shared:{pages:[],homeId:''},plans:[],
+  celebrationVisibility:{'101':'published'}}
+};
+env.EDITOR_BUCKET={async get(){return {etag:'1',body:true,text:async()=>JSON.stringify(publishedSnapshot)}}};
+
+test('An unapproved D1 celebration remains invisible to anonymous visitors',async()=>{
+ const hidden={...env,EDITOR_BUCKET:{async get(){return {etag:'1',body:true,text:async()=>JSON.stringify({
+  ...publishedSnapshot,published:{...publishedSnapshot.published,celebrationVisibility:{}}
+ })}}}};
+ const response=await handleTrialSite(new Request(site+'?celebration=101&page=mercredi'),hidden);
+ assert.equal(response.status,404,'D1 alone must not publish a celebration');
+});
+
 test('Site trial response contains eight programme pages plus neutral home, a return button, no write queries',async()=>{
  const r=await handleTrialSite(new Request(site+'?celebration=101&page=mercredi'),env);
  assert.equal(r.status,200);
