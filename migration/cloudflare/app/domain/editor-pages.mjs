@@ -2,7 +2,7 @@
 // Existing IDs, order, legacy implicit-public visibility and unknown fields stay intact.
 export function createPageModel(){
  const visibilityLabels={draft:'Brouillon',published:'Publiée',hidden:'Masquée'};
- const fixedStages=['accueil-celebration','preparation','mercredi','jeudi','vendredi',
+ const fixedStages=['accueil-celebration','preparation','programme','mercredi','jeudi','vendredi',
   'samedi','dimanche','apres-celebration'];
  const plannedPattern=/^plan-(michael|gabriel|raphael|ouriel)-\d{4}-\d{2}-\d{2}$/;
  function pageSlug(page,celebrationId){
