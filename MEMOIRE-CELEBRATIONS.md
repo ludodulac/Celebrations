@@ -102,3 +102,8 @@
 - `public-v3.js` et `public-content-nav.js` : correction des dernières vérifications de bootstrap encore nommées `CELEBRATIONS_STAGING_BACKEND`, qui pouvaient déclencher le chargement de données de repli malgré la migration Cloudflare.
 - `public-library-simple.js` : les PDF sont désormais reconnus aussi par leur type MIME ou leur extension, même si le type de contenu est mal étiqueté. **Attention :** la liste reste limitée aux contenus liés aux événements/journées de la célébration ; vérifier les associations D1 de Michaël avant de déclarer F2 résolue.
 - Les missions F1, F3, F4 et F5 ne sont pas encore validées ; ne pas les cocher.
+
+### 19/11 — Contrôle avant publication
+- Comparaison GitHub `production/celebrations-live` → branche PR #185 : **1 355 commits d'avance**, sans commit en retard. Cette différence est trop importante pour publier sans contrôle de l'ensemble des fonctionnalités.
+- Workflow `.github/workflows/celebrations-exit-tests.yml` : assertions actualisées pour les neuf pages autonomes et les fichiers Cloudflare de l'accueil/admin. Exécution CI à vérifier après le commit `07fc982b`.
+- **Déploiement non autorisé par les seuls tests unitaires :** vérifier aussi le comportement réel de F1–F6, l'intégrité des données et la procédure de retour arrière.
