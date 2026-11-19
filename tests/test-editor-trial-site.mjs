@@ -159,3 +159,10 @@ test('Server PDF cards expose protected archive or delete controls',()=>{
  assert.ok(src.includes("if(remoteCopy)historicalActions.append(b('Supprimer',()=>void removeMediaFromAdmin(remoteCopy,refs),'sm'))"));
  assert.ok(src.includes("const action=used?'archive':'delete'"));
 });
+
+
+test('Two-column editor applies saved vertical alignment',()=>{
+ const src=readFileSync(new URL('../migration/cloudflare/app/styles/admin/04-section-composer.mjs',import.meta.url),'utf8');
+ assert.ok(src.includes('section-column[data-vertical-align=\\\"center\\\"]{align-content:center}'));
+ assert.ok(src.includes('section-column[data-vertical-align=\\\"bottom\\\"]{align-content:end}'));
+});
