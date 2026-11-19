@@ -94,7 +94,7 @@
   }
   return {data:{ok:false,error:"Staging operation not implemented"},error:null};
  };
- window.celebrationsSupabase={functions:{invoke},storage:{from(){return {uploadToSignedUrl:async()=>({error:new Error("Use R2 staging uploader")})}}}};
+ window.celebrationsCloudflare={functions:{invoke},storage:{from(){return {uploadToSignedUrl:async()=>({error:new Error("Use R2 staging uploader")})}}}};
  const hex=a=>[...a].map(x=>x.toString(16).padStart(2,"0")).join("");
  const random=()=>hex(crypto.getRandomValues(new Uint8Array(16)));
  window.celebrationsStagingUpload=async file=>{
