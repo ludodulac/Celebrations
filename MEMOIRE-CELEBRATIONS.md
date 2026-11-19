@@ -107,3 +107,8 @@
 - Comparaison GitHub `production/celebrations-live` → branche PR #185 : **1 355 commits d'avance**, sans commit en retard. Cette différence est trop importante pour publier sans contrôle de l'ensemble des fonctionnalités.
 - Workflow `.github/workflows/celebrations-exit-tests.yml` : assertions actualisées pour les neuf pages autonomes et les fichiers Cloudflare de l'accueil/admin. Exécution CI à vérifier après le commit `07fc982b`.
 - **Déploiement non autorisé par les seuls tests unitaires :** vérifier aussi le comportement réel de F1–F6, l'intégrité des données et la procédure de retour arrière.
+
+### Travail supplémentaire — réglage vidéo
+- Le code de l'éditeur et son module sérialisé ont reçu un curseur de largeur vidéo de 20 à 100 %, avec changement immédiat de la miniature dans l'administration et enregistrement dans `widthPct`. **À tester dans l'éditeur réel et à confirmer sur le rendu visiteur** ; F3 reste ouverte tant que le rendu des bandes noires et la cohérence visiteurs ne sont pas validés.
+- L'insertion audio possède déjà une action « Insérer dans le lecteur » dans le code de la médiathèque ; il faut rechercher pourquoi le parcours utilisateur n'atteint pas correctement cette action, plutôt que dupliquer une seconde interface.
+- Le réglage de taille des images existe aussi dans le code de l'éditeur ; le défaut signalé semble concerner la différence de rendu entre administration et visiteurs. À investiguer avant une réécriture.
