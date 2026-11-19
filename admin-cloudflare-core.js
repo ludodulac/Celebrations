@@ -1,5 +1,5 @@
 (function(){
-  const sb=window.celebrationsSupabase||null;
+  const sb=window.celebrationsCloudflare||null;
   const PREF_KEY='celebrations-admin-preferences';
   let coreReady=false,syncing=false,pending=null;
   const pendingMedia=new Map();
@@ -45,5 +45,5 @@
     if(cover){c.hasCover=false;c.coverStoragePath='';c.coverFileName=''}
     else{c.storagePath='';c.fileName='';c.mimeType=''}
   };
-  async function boot(){if(window.celebrationsAdminReady)await window.celebrationsAdminReady;if(typeof loadStateFromSupabase!=='function')return;try{const fresh=await loadStateFromSupabase();replaceLocal(fresh);coreReady=true;localStorage.removeItem('celebrations-state');try{indexedDB.deleteDatabase('celebrations-media-v1')}catch(e){}window.celebrationsCoreSyncStatus='saved';render();window.dispatchEvent(new CustomEvent('celebrations-core-ready'))}catch(e){console.error('Chargement Cloudflare administration',e);window.celebrationsCoreSyncStatus='error';const p=document.getElementById('panel');if(p)p.innerHTML='<div class="notice">Impossible de charger les données Cloudflare. Aucune modification locale ne sera utilisée comme source.</div>'}}boot();
+  async function boot(){if(window.celebrationsAdminReady)await window.celebrationsAdminReady;if(typeof loadStateFromCloudflare!=='function')return;try{const fresh=await loadStateFromCloudflare();replaceLocal(fresh);coreReady=true;localStorage.removeItem('celebrations-state');try{indexedDB.deleteDatabase('celebrations-media-v1')}catch(e){}window.celebrationsCoreSyncStatus='saved';render();window.dispatchEvent(new CustomEvent('celebrations-core-ready'))}catch(e){console.error('Chargement Cloudflare administration',e);window.celebrationsCoreSyncStatus='error';const p=document.getElementById('panel');if(p)p.innerHTML='<div class="notice">Impossible de charger les données Cloudflare. Aucune modification locale ne sera utilisée comme source.</div>'}}boot();
 })();
