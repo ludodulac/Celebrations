@@ -2046,7 +2046,7 @@ function block(x,p,items=p.blocks,section=null){
   const href=validHref(x.href)?x.href:'',v=videoInfo(href),cover=(x.coverAssetId?(assetUrls.get(x.coverAssetId)||''):x.cover)||v?.thumbnail||'';
   const visual=n('div','editor-video-preview');
   const videoSize=Number.isInteger(x.widthPct)&&x.widthPct>=20&&x.widthPct<=100?x.widthPct:100;
-  visual.style.width=videoSize+'%';visual.style.maxWidth='100%';visual.style.marginInline='auto';
+  if(visual.style){visual.style.width=videoSize+'%';visual.style.maxWidth='100%';visual.style.marginInline='auto'}
 
   if(cover){const img=n('img');img.src=cover;img.alt=x.text||'Vidéo';img.loading='lazy';visual.append(img)}
   else if(href)visual.append(websiteThumb(href,x.text||'Lien vidéo'));
@@ -2081,7 +2081,7 @@ function block(x,p,items=p.blocks,section=null){
    const sizeInput=n('input','video-size-slider');sizeInput.type='range';sizeInput.min='20';sizeInput.max='100';sizeInput.step='5';sizeInput.value=String(videoSize);
    const sizeValue=n('output','video-size-value',videoSize+' %');
    sizeInput.setAttribute('aria-label','Taille de la vidéo en pourcentage');
-   sizeInput.oninput=()=>{const width=Number(sizeInput.value);x.widthPct=width;visual.style.width=width+'%';sizeValue.textContent=width+' %';mark()};
+   sizeInput.oninput=()=>{const width=Number(sizeInput.value);x.widthPct=width;if(visual.style)visual.style.width=width+'%';sizeValue.textContent=width+' %';mark()};
    sizeRow.append(sizeInput,sizeValue);box.append(sizeRow);
    const actions=n('div','block-edit-actions');
    actions.append(b('Miniature',()=>showImagePicker(x,true),'sm'));box.append(actions);
