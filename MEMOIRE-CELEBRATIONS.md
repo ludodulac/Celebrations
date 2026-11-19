@@ -121,3 +121,8 @@
 - Ajout du stage `programme` au modèle de pages et au chargement des pages de célébration. Chaque célébration obtient un identifiant `programme-<celebrationId>` distinct de `preparation-<celebrationId>` ; le modèle de blocs permet l'édition comme les autres pages.
 - Navigation visiteurs : `/programme` pointe désormais vers `programme`, et le raccourci « Programme » n'ouvre plus `preparation`.
 - Deux tests de prévisualisation attendent désormais dix pages (neuf pages de célébration plus l'accueil neutre). **Ne pas considérer la fonctionnalité publiée avant vérification des tests et des droits de publication de la nouvelle page.**
+
+### 19/11 — PDF et sélection audio
+- Les deux catalogues publics d'une célébration reconnaissent désormais les PDF à partir du MIME `application/pdf` en plus du nom de fichier et du type déclaré. Les fichiers doivent toujours être associés à une étape/événement public de la célébration : aucune ouverture transversale aux contenus privés.
+- « Choisir un MP3 » ouvre maintenant la même boîte de sélection intégrée à la page que les autres fichiers, avec catégorie audio, sans quitter le brouillon ; le choix affecte `src` au lecteur et garde son titre. Tests utilisateur encore requis.
+- Dernier lot de la page Programme : les trois workflows GitHub ont réussi. Les modifications PDF/audio et leur lot de tests restent à confirmer.
