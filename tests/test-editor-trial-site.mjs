@@ -58,7 +58,7 @@ test('Site trial response contains eight programme pages plus neutral home, a re
  const s=html.match(/window\.__TRIAL_SITE_SEED__=([\s\S]*?);<\/script>/);
  assert.ok(s,'embedded public seed');
  const seed=JSON.parse(s[1]);
- assert.equal(seed.pages.length,9);
+ assert.equal(seed.pages.length,10);
  assert.ok(seed.pages.every(p=>p.blocks.length>0));
  assert.equal(seed.pages.find(p=>p.id==='apres-celebration-101').name,'Après célébration');
  assert.ok(html.includes('id="menu-toggle"'));
