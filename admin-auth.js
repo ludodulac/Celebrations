@@ -8,7 +8,9 @@
   window.celebrationsAccessInvoke=async function(action,payload={}){
     if(!sb)return {ok:false,error:'Connexion au serveur indisponible.'};
     const adminToken=window.getCelebrationsAdminToken();
-    const {data,error}=await sb.functions.invoke('celebrations-access',{body:{action,...payload,...(action.startsWith('admin_')&&action!=='admin_login'?{admin_token:adminToken}:{})}});
+    let data,error;
+    try{({data,error}=await sb.functions.invoke('celebrations-access',{body:{action,...payload,...(action.startsWith('admin_')&&action!=='admin_login'?{admin_token:adminToken}:{})}}));}
+    catch(e){return {ok:false,error:'Connexion au serveur impossible. Réessayez.'};}
     if(error)return {ok:false,error:data?.error||error.message||'Erreur serveur.'};
     return data||{ok:false,error:'Réponse serveur invalide.'};
   };
