@@ -4,7 +4,7 @@ let publicShellReady=false;
 
 function celebrationPublicLabel(c){return `Archange ${c.archangel} ${c.year}`}
 async function loadPublicCelebrationVisibility(){
-  const sb=window.celebrationsSupabase||null;
+  const sb=window.celebrationsCloudflare||null;
   if(!sb)return false;
   try{const {data,error}=await sb.functions.invoke('celebrations-visibility',{body:{action:'get'}});if(!error&&data?.ok)publicShowOtherCelebrations=!!data.show_other_celebrations}catch(e){}
   return publicShowOtherCelebrations;
@@ -15,7 +15,7 @@ function publicCelebrationChoices(){
   return `<div class="celebration-home"><div class="public-page-title"><div class="eyebrow">Bienvenue</div><p>Choisissez une célébration</p></div><div class="celebration-choice-grid">${list.map(c=>`<button class="celebration-choice" data-open-celebration="${c.id}" style="--celebration-color:${ARCHANGELS[c.archangel]||'#172033'}"><strong>${esc(celebrationPublicLabel(c))}</strong></button>`).join('')}</div></div>`;
 }
 function publicFlameContent(){return (state.contents||[]).find(c=>c.type==='Image'&&c.sourceType==='file'&&[c.name,c.fileName].some(v=>String(v||'').trim().toLowerCase()==='shin.png'))||null}
-function publicFlameUrl(c){if(!c?.storagePath)return '';return supabaseMediaUrl(c.storagePath)}
+function publicFlameUrl(c){if(!c?.storagePath)return '';return cloudflareMediaUrl(c.storagePath)}
 function showCelebrationHome(updateHistory=false){
   if(!publicShowOtherCelebrations){const c=current();if(c){openPublicCelebration(c.id,updateHistory);return}}
   publicCelebrationOpen=false;hero.innerHTML=publicCelebrationChoices();program.classList.add('hidden');library.classList.add('hidden');info.classList.add('hidden');document.querySelectorAll('[data-tab]').forEach(b=>b.classList.remove('active'));hero.querySelectorAll('[data-open-celebration]').forEach(b=>b.onclick=()=>openPublicCelebration(Number(b.dataset.openCelebration),true));if(updateHistory)history.pushState({screen:'home'},'',location.pathname+location.search)
