@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {Script} from 'node:vm';
 import {handleTrialSite} from '../migration/cloudflare/editor-trial-site-page.mjs';
 import {TRIAL_SITE_CLIENT,TRIAL_SITE_STYLE} from '../migration/cloudflare/editor-trial-site-client.mjs';
+import productionWorker from '../migration/cloudflare/production-worker.mjs';
 const site='https://celebrations-exit-staging.rondes.workers.dev/__editor/voir-le-site';
 const data={
  celebrations:[{id:101,archangel:'Michaël',year:'2026'}],
@@ -136,4 +137,9 @@ test('Visitor menu keeps custom pages in author order without a global media lib
   'Global visitor media library must remain absent');
  assert.ok(nav.includes("p.placement!=='footer'"),
   'Footer pages must not be duplicated in main navigation');
+});
+
+test('Production /programme does not alias to Préparation',async()=>{
+ const response=await productionWorker.fetch(new Request('https://www.ronde-des-archanges-universelle.eu/programme?celebration=101'),{});
+ assert.notEqual(response.status,301);
 });
