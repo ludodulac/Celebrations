@@ -112,3 +112,7 @@
 - Le code de l'éditeur et son module sérialisé ont reçu un curseur de largeur vidéo de 20 à 100 %, avec changement immédiat de la miniature dans l'administration et enregistrement dans `widthPct`. **À tester dans l'éditeur réel et à confirmer sur le rendu visiteur** ; F3 reste ouverte tant que le rendu des bandes noires et la cohérence visiteurs ne sont pas validés.
 - L'insertion audio possède déjà une action « Insérer dans le lecteur » dans le code de la médiathèque ; il faut rechercher pourquoi le parcours utilisateur n'atteint pas correctement cette action, plutôt que dupliquer une seconde interface.
 - Le réglage de taille des images existe aussi dans le code de l'éditeur ; le défaut signalé semble concerner la différence de rendu entre administration et visiteurs. À investiguer avant une réécriture.
+
+### 19/11 — Régressions et vidéo visiteurs
+- Deux tests de l'éditeur en échec étaient des assertions devenues obsolètes : le rendu public exclut aussi l'image d'accueil spéciale et l'aperçu effectue huit lectures SQL `SELECT` (au lieu de sept). Les assertions ont été alignées sur les comportements existants, sans changer ces comportements. Les workflows GitHub associés au commit `198ce968` sont réussis pour les deux premiers contrôles ; le troisième doit être vérifié.
+- Le rendu visiteur `editor-trial-site-client.mjs` applique maintenant `widthPct` à la vidéo, pour que le curseur ajouté à l'éditeur puisse se retrouver sur le site. Tests de rendu navigateur et publication toujours requis.
