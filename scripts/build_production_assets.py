@@ -16,13 +16,8 @@ def main():
     for slug in DAY_PAGES:
         page=PRODUCTION/slug/"index.html"
         html=page.read_text(encoding="utf-8")
-        if html.count(SDK)!=1:
-            raise RuntimeError(f"Unexpected legacy SDK in {slug}")
-        html=html.replace(SDK,"")
-        html=html.replace('<script src="supabase-client.js?v=1"></script>',
-                          BOOT+'<script src="cloudflare-client.js?v=1"></script>'+BRIDGE)
-        html=html.replace('supabase-data.js','cloudflare-data.js')
-        html=html.replace('public-supabase-boot.js','public-cloudflare-boot.js')
+        if SDK in html or "supabase-client.js" in html:
+            raise RuntimeError(f"Legacy bootstrap remains in {slug}")
         if html.count(BOOT)!=1 or html.count(BRIDGE)!=1:
             raise RuntimeError(f"Cloudflare bootstrap missing in {slug}")
         page.write_text(html,encoding="utf-8")
