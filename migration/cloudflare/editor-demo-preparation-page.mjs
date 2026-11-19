@@ -16,6 +16,7 @@ const HOST='celebrations-exit-staging.rondes.workers.dev';
 export const STAGES=[
  {label:'Accueil de la célébration',slug:'accueil-celebration'},
  {label:'Préparation',slug:'preparation'},
+ {label:'Programme',slug:'programme'},
  {label:'Mercredi',slug:'mercredi'},
  {label:'Jeudi',slug:'jeudi'},
  {label:'Vendredi',slug:'vendredi'},
