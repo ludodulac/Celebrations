@@ -6,8 +6,8 @@ function footerPageHtml(text){return String(text||'').split(/\n/).map(line=>{con
  const title=document.getElementById('legalTitle');if(title)title.textContent=def?.title||'Informations';
  const target=document.getElementById('legalContent');if(!target)return;
  try{
-  if(!window.CELEBRATIONS_STAGING_BACKEND)throw new Error('Cloudflare indisponible');
-  const base=String(window.CELEBRATIONS_STAGING_BACKEND).replace(/[/]$/,'');
+  if(!window.CELEBRATIONS_CLOUDFLARE_BACKEND)throw new Error('Cloudflare indisponible');
+  const base=String(window.CELEBRATIONS_CLOUDFLARE_BACKEND).replace(/[/]$/,'');
   const res=await fetch(base+'/api/public-data?table=celebrations_footer_page&slug='+encodeURIComponent(slug),{credentials:'omit'});
   if(!res.ok)throw new Error('Cloudflare D1 '+res.status);
   const rows=await res.json();
