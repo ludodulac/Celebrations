@@ -9,7 +9,7 @@ const data={
  steps:['Préparation','Mercredi','Jeudi','Vendredi','Samedi','Dimanche','Après célébration'].map((label,i)=>({id:i+1,celebration_id:101,step_key:['preparation','mercredi','jeudi','vendredi','samedi','dimanche','apres-celebration'][i]+'-101',label,start_date:null,end_date:null,body_text:'Texte public du '+label})),
  events:[],
  eventContents:[],
- stepContents:[],
+ stepContents:[{step_key:'preparation-101',sort_order:1,id:'pdf-1',name:'Document de célébration',content_type:'document',mime_type:'application/pdf',source_type:'file',storage_path:'media/programme-document',audience:'all'}],
  links:[]
 };
 const sqls=[];
@@ -64,6 +64,8 @@ test('Site trial response contains eight programme pages plus neutral home, a re
  assert.ok(programme,'Each celebration must have its own Programme page');
  assert.ok(preparation,'Preparation remains a separate page');
  assert.notEqual(programme.id,preparation.id);
+ assert.ok(seed.files.some(x=>x.category==='pdf'&&x.name==='Document de célébration'),'PDF MIME is visible in the celebration file catalogue');
+ assert.ok(seed.library.some(x=>x.type==='pdf'&&x.name==='Document de célébration'),'PDF MIME is visible in the celebration media library');
  assert.match(TRIAL_SITE_CLIENT,/\['programme',t\('Programme'\)\]/,'Programme shortcut must route to Programme');
  assert.ok(TRIAL_SITE_CLIENT.includes("'/programme':'programme'"),'Direct Programme URL must not route to Preparation');
  assert.ok(seed.pages.every(p=>p.blocks.length>0));
