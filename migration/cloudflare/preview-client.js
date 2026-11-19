@@ -1,6 +1,6 @@
 // Only loaded by explicitly isolated preview pages, never by production.
 (function(){
- const endpoint=window.CELEBRATIONS_STAGING_BACKEND;
+ const endpoint=window.CELEBRATIONS_CLOUDFLARE_BACKEND;
  if(!endpoint)return;
  const base=String(endpoint).replace(/\/$/,"");
  const adminToken=()=>localStorage.getItem("celebrations-admin-token")||"";
