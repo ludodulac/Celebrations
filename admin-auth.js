@@ -1,6 +1,6 @@
 (function(){
   const TOKEN_KEY='celebrations-admin-token';
-  const sb=window.celebrationsSupabase||null;
+  const sb=window.celebrationsCloudflare||null;
   let resolveReady;
   window.celebrationsAdminReady=new Promise(r=>resolveReady=r);
 
