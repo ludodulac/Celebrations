@@ -144,3 +144,10 @@ test('Production /programme does not alias to Préparation',async()=>{
  assert.ok(worker.includes('["/programme","programme"]'));
  assert.ok(!worker.includes('["/programme","preparation"]'));
 });
+
+
+test('Reader preview preserves the celebration frame color',()=>{
+ const css=readFileSync(new URL('../migration/cloudflare/app/styles/public/02-navigation-library.mjs',import.meta.url),'utf8');
+ assert.ok(css.includes('body.is-neutral-preview .site-paper{border:6px solid var(--frame-color);box-shadow:none}'));
+ assert.ok(!css.includes('body.is-neutral-preview .site-paper{border:2px solid #e7e9ec'));
+});
