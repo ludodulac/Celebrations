@@ -1,0 +1,49 @@
+(function(){
+  const sb=window.celebrationsSupabase||null;
+  const PREF_KEY='celebrations-admin-preferences';
+  let coreReady=false,syncing=false,pending=null;
+  const pendingMedia=new Map();
+  function preferences(){try{return JSON.parse(localStorage.getItem(PREF_KEY)||'{}')}catch(e){return {}}}
+  function savePreferences(s){localStorage.setItem(PREF_KEY,JSON.stringify({adminCelebrationId:s.adminCelebrationId||null}))}
+  function cloneData(v){return JSON.parse(JSON.stringify(v||[]))}
+  function uploadStatus(detail){window.dispatchEvent(new CustomEvent('celebrations-upload-status',{detail}))}
+  function applyPendingMedia(s){for(const [key,meta] of pendingMedia){const cover=key.startsWith('cover-'),id=cover?key.slice(6):key,c=(s.contents||[]).find(x=>String(x.id)===String(id));if(!c)continue;if(cover){c.hasCover=true;c.coverStoragePath=meta.path;c.coverFileName=meta.fileName}else{c.storagePath=meta.path;c.fileName=meta.fileName;c.mimeType=meta.mimeType||'';c.sourceType='file'}pendingMedia.delete(key)}}
+  function removeStepEventDuplicates(s){for(const celebration of s.celebrations||[])for(const day of celebration.days||[]){if(!Array.isArray(day.contentIds)||!day.contentIds.length)continue;const eventContentIds=new Set((s.events||[]).filter(e=>e.celebrationId===celebration.id&&e.dayKey===day.key).flatMap(e=>e.contentIds||[]).map(String));if(eventContentIds.size)day.contentIds=day.contentIds.filter(id=>!eventContentIds.has(String(id)))}}
+  function normalizeTimedEventOrder(s){for(const celebration of s.celebrations||[])for(const day of celebration.days||[]){const list=(s.events||[]).filter(e=>e.celebrationId===celebration.id&&e.dayKey===day.key);const timed=list.filter(e=>/^([01]\\d|2[0-3]):[0-5]\\d$/.test(String(e.time||''))).sort((a,b)=>String(a.time).localeCompare(String(b.time))||Number(a.sortOrder||0)-Number(b.sortOrder||0));if(!timed.length)continue;const slots=list.map(e=>Number(e.sortOrder||0)).sort((a,b)=>a-b).slice(0,timed.length);timed.forEach((e,i)=>e.sortOrder=slots[i]??i)}}function normalizeAudioKinds(s){for(const c of s.contents||[]){if(c.type!=='Audio')continue;const kind=window.canonicalAudioKind?.(c)||'';if(kind)window.applyAudioKind?.(c,kind)}}
+  function snapshot(s){applyPendingMedia(s);normalizeAudioKinds(s);removeStepEventDuplicates(s);normalizeTimedEventOrder(s);return {celebrations:cloneData(s.celebrations),events:cloneData(s.events),contents:cloneData(s.contents),groups:cloneData(s.groups)}}
+  function replaceLocal(fresh){const pref=preferences();removeStepEventDuplicates(fresh);if(pref.adminCelebrationId&&fresh.celebrations.some(c=>c.id===Number(pref.adminCelebrationId)))fresh.adminCelebrationId=Number(pref.adminCelebrationId);Object.keys(state).forEach(k=>delete state[k]);Object.assign(state,fresh);if(typeof ensureFixedSteps==='function')state.celebrations.forEach(ensureFixedSteps)}
+  async function invoke(payload,fn='celebrations-admin-data'){if(!sb)return {ok:false,error:'Connexion Cloudflare indisponible.'};const adminToken=window.getCelebrationsAdminToken?.()||'';const {data,error}=await sb.functions.invoke(fn,{body:{...payload,admin_token:adminToken}});if(error)return {ok:false,error:data?.error||error.message||'Enregistrement Cloudflare impossible.'};return data||{ok:false,error:'Réponse Cloudflare invalide.'}}
+  async function flush(){if(syncing)return;syncing=true;while(pending){const data=pending;pending=null;window.celebrationsCoreSyncStatus='saving';window.dispatchEvent(new CustomEvent('celebrations-core-saving'));const result=await invoke({action:'safe_merge',...data},'celebrations-admin-safe-save');if(!result.ok){window.celebrationsCoreSyncStatus='error';console.error('Synchronisation Cloudflare',result.error);try{toast(result.error||'Enregistrement Supabase impossible')}catch(e){}window.dispatchEvent(new CustomEvent('celebrations-core-error',{detail:{error:result.error||'Enregistrement Supabase impossible'}}));pending=data;break}window.celebrationsCoreSyncStatus='saved';window.dispatchEvent(new CustomEvent('celebrations-core-saved'))}syncing=false}
+  window.saveState=function(s){savePreferences(s);if(!coreReady)return;pending=snapshot(s);flush()};
+  window.celebrationsFlushCore=async()=>{pending=snapshot(state);await flush()};
+  window.celebrationsUnlinkEventContent=async(eventId,contentId)=>invoke({action:'unlink_event_content',event_id:String(eventId),content_id:String(contentId)},'celebrations-admin-safe-save');
+  // R2 is the sole media backend. Fail closed if the Cloudflare adapter is missing.
+  window.putMedia=async function(key,file){
+    if(!file)throw new Error('Fichier manquant');
+    const raw=String(key);
+    if(!window.CELEBRATIONS_STAGING_BACKEND||typeof window.celebrationsStagingUpload!=='function')
+      throw new Error('Téléversement Cloudflare indisponible.');
+    uploadStatus({status:'preparing',key:raw,fileName:file.name,size:file.size||0});
+    try{
+      const path=await window.celebrationsStagingUpload(file);
+      pendingMedia.set(raw,{path,fileName:file.name,mimeType:file.type||''});
+      uploadStatus({status:'uploaded',key:raw,fileName:file.name,size:file.size||0,uploaded:file.size||0,path,percent:100});
+      return path;
+    }catch(error){
+      uploadStatus({status:'error',key:raw,fileName:file.name,size:file.size||0,error:error?.message||String(error)});
+      throw error;
+    }
+  };
+  window.deleteMedia=async function(key){
+    const raw=String(key),cover=raw.startsWith('cover-'),id=cover?raw.slice(6):raw;
+    const c=(state.contents||[]).find(x=>String(x.id)===String(id));
+    const path=cover?c?.coverStoragePath:c?.storagePath;
+    if(!path)return;
+    if(!window.CELEBRATIONS_STAGING_BACKEND||typeof window.celebrationsStagingDelete!=='function')
+      throw new Error('Suppression Cloudflare indisponible.');
+    await window.celebrationsStagingDelete(path);
+    if(cover){c.hasCover=false;c.coverStoragePath='';c.coverFileName=''}
+    else{c.storagePath='';c.fileName='';c.mimeType=''}
+  };
+  async function boot(){if(window.celebrationsAdminReady)await window.celebrationsAdminReady;if(typeof loadStateFromSupabase!=='function')return;try{const fresh=await loadStateFromSupabase();replaceLocal(fresh);coreReady=true;localStorage.removeItem('celebrations-state');try{indexedDB.deleteDatabase('celebrations-media-v1')}catch(e){}window.celebrationsCoreSyncStatus='saved';render();window.dispatchEvent(new CustomEvent('celebrations-core-ready'))}catch(e){console.error('Chargement Cloudflare administration',e);window.celebrationsCoreSyncStatus='error';const p=document.getElementById('panel');if(p)p.innerHTML='<div class="notice">Impossible de charger les données Cloudflare. Aucune modification locale ne sera utilisée comme source.</div>'}}boot();
+})();
