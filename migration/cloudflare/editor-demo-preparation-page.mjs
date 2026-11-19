@@ -91,17 +91,17 @@ function publicFileCatalogue(steps,events,eventContents,stepContents){
   if(prev){if(!prev.pages.includes(page))prev.pages.push(page);return}
   entries.set(entry.id,{...entry,pages:[page]});
  };
- const kind=(path,type)=>{
+ const kind=(path,type,mime='')=>{
   const lower=String(path||'').toLowerCase().split('?')[0];
   const t=clean(type);
   if(/\.(?:png|jpe?g|gif|webp|svg|avif|bmp)$/.test(lower)||t==='image')return 'images';
-  if(/\.pdf$/.test(lower)||t==='pdf')return 'pdf';
+  if(/\.pdf$/.test(lower)||t==='pdf'||String(mime).toLowerCase().split(';')[0].trim()==='application/pdf')return 'pdf';
   if(/\.(?:mp3|wav|ogg|m4a|aac|flac|opus|wma)$/.test(lower)||t==='audio')return 'audios';
   return 'autres';
  };
- const addFile=(path,type,name,page)=>{
+ const addFile=(path,type,name,page,mime='')=>{
   const src=asset(path);if(!src)return;
-  const category=kind(path,type);
+  const category=kind(path,type,mime);
   add({id:'file:'+path,category,name:String(name||path.split('/').at(-1)||'Fichier').slice(0,300),src},page);
  };
  // Page paragraphs and event descriptions remain on their pages, not in the file catalogue.
@@ -109,7 +109,7 @@ function publicFileCatalogue(steps,events,eventContents,stepContents){
  for(const c of [...eventContents,...stepContents]){
   const page=c.event_id!=null?eventPage.get(String(c.event_id)):byKey.get(String(c.step_key));
   if(!page)continue; // not in any public page of this celebration
-  if(clean(c.source_type)==='file')addFile(c.storage_path,c.content_type,c.name||c.file_name,page);
+  if(clean(c.source_type)==='file')addFile(c.storage_path,c.content_type,c.name||c.file_name,page,c.mime_type);
   // A public file can have a separate public cover; it is a reusable image.
   if(c.has_cover&&c.cover_storage_path)addFile(c.cover_storage_path,'image',c.cover_file_name||c.name||'Couverture',page);
   // Only actual stored files and their covers enter the media catalogue.
@@ -165,7 +165,7 @@ function celebrationLibrary(events,eventContents,stepContents,steps){
   if(t.includes('video')||/\.(?:mp4|webm|mov)$/i.test(path))type='video';
   else if(t==='audio'||/\.(?:mp3|wav|m4a|ogg|opus|flac)$/i.test(path))type='audio';
   else if(t==='image'||/\.(?:png|jpe?g|webp|gif|svg)$/i.test(path))type='image';
-  else if(t==='pdf'||/\.pdf$/i.test(path))type='pdf';
+  else if(t==='pdf'||/\.pdf$/i.test(path)||String(c.mime_type||'').toLowerCase().split(';')[0].trim()==='application/pdf')type='pdf';
   // Inline page text and event descriptions are never media-library entries.
   if(!type)return;
   const id=String(c.id);
