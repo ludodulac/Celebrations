@@ -81,3 +81,17 @@
 | 19/11/2026 | Tests navigateurs / Worker de production / fusion | **Non validés** |
 
 **Règle :** modifier cette page au fur et à mesure des interventions, en remplaçant les points « à vérifier » uniquement après contrôle réel.
+
+## 8. DEMANDES FONCTIONNELLES PRIORITAIRES — rappel explicite du propriétaire (19/11/2026)
+
+**Ces six corrections sont la raison initiale de l'intervention. Ne pas les remplacer par le seul nettoyage Supabase.** Les réaliser et les tester sur la branche de travail, puis en préproduction avant livraison :
+
+- [ ] **F1 — Page Programme indépendante par célébration.** Dans une célébration, le bouton « Programme » doit ouvrir une vraie page « Programme » de **cette célébration**, éditable comme les autres pages avec blocs, textes et liens. Il ne doit plus rediriger vers « Préparation ». Conserver « Préparation » comme page distincte.
+- [ ] **F2 — PDF dans la médiathèque visiteurs de chaque célébration.** Les documents PDF associés à Michaël doivent apparaître dans la médiathèque visiteurs de Michaël (et de même pour chaque célébration). Respecter visibilité et droits ; ne pas recréer de médiathèque globale.
+- [ ] **F3 — Vidéo YouTube dans l'aperçu admin.** Éliminer les grosses bandes noires inutiles et aligner le rendu de l'aperçu sur le site visiteurs. Permettre de régler la largeur/taille de la vidéo avec **retour visuel immédiat**.
+- [ ] **F4 — Taille des images en aperçu admin.** Lorsque la largeur est modifiée (ex. 50 %), l'image doit effectivement se réduire dans l'éditeur/aperçu immédiatement ; même comportement et proportions que chez les visiteurs.
+- [ ] **F5 — Insérer un audio depuis la médiathèque dans une page.** Le bouton d'insertion doit ouvrir un sélecteur d'audios utilisable, sur le modèle du sélecteur d'images, puis insérer le média dans le bloc/la page ; ne pas naviguer simplement vers la page de médiathèque.
+- [ ] **F6 — Bordure de couleur des célébrations côté visiteurs.** Rétablir le contour selon la couleur déjà configurée dans le code (Michaël rouge, Gabriel bleu, autres selon leur configuration), sans modifier arbitrairement la palette.
+
+**Critères transversaux :** aucune perte de contenus, conservation des droits d'accès, cohérence desktop/mobile, contrôle du rendu visiteur ET de l'administration. Marquer une case terminée seulement après vérification concrète. Les missions techniques 1–7 de la section 5 sont complémentaires, pas substitutives.
+
