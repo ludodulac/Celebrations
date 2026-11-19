@@ -49,7 +49,7 @@ function libraryMatches(c){
     return true;
   }
   if(libraryFamily==='video')return c.type==='Vidéo';
-  if(libraryFamily==='text')return c.type==='Texte'||c.type==='PDF';
+  if(libraryFamily==='text')return c.type==='Texte'||c.type==='PDF'||String(c.mimeType||'').toLowerCase()==='application/pdf'||/\.pdf(?:$|[?#])/i.test(String(c.fileName||c.storagePath||''));
   return false;
 }
 function simpleLibraryCard(c){
