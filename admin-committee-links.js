@@ -1,8 +1,8 @@
 (function(){
   const previousRender = render;
   const PUBLIC_SITE='https://celebrations.rondes.workers.dev';
-  const sb=window.celebrationsSupabase||null;
-  async function committeeInvoke(payload){if(!sb)throw new Error('Connexion Supabase indisponible.');const adminToken=window.getCelebrationsAdminToken?.()||'';const {data,error}=await sb.functions.invoke('celebrations-admin-data',{body:{...payload,admin_token:adminToken}});if(error||!data?.ok)throw new Error(data?.error||error?.message||'Opération impossible.');return data}
+  const sb=window.celebrationsCloudflare||null;
+  async function committeeInvoke(payload){if(!sb)throw new Error('Connexion Cloudflare indisponible.');const adminToken=window.getCelebrationsAdminToken?.()||'';const {data,error}=await sb.functions.invoke('celebrations-admin-data',{body:{...payload,admin_token:adminToken}});if(error||!data?.ok)throw new Error(data?.error||error?.message||'Opération impossible.');return data}
   function slugify(v){return String(v||'document').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')||'document'}
   function publicUrl(item){return window.CELEBRATIONS_STAGING_BACKEND?`${location.origin}/letter/${encodeURIComponent(item.slug||slugify(item.title||item.file_name))}`:`${PUBLIC_SITE}/?lettre=${encodeURIComponent(item.slug||slugify(item.title||item.file_name))}`}
   function committeeLinkRow(item){const title=esc(item.title||item.file_name||'Document'),url=publicUrl(item);return `<div class="admin-row"><div style="min-width:0"><strong>📄 ${title}</strong><div class="meta">PDF · ${esc(item.file_name||'')}</div><div class="meta" style="word-break:break-all;margin-top:4px">${esc(url)}</div></div><div class="row-actions"><a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Ouvrir</a><button class="btn primary" type="button" data-copy-committee-link="${esc(url)}">Copier le lien</button><button class="btn danger" type="button" data-delete-committee="${esc(item.id)}">${window.CELEBRATIONS_STAGING_BACKEND?"Révoquer le lien":"Supprimer"}</button></div></div>`}
