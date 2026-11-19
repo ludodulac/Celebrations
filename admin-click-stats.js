@@ -2,7 +2,7 @@
   function escStats(v){return String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[ch]))}
   async function loadStats(){
     const box=document.getElementById('clickStatsBox');if(!box)return;box.innerHTML='<div class="muted">Chargement des statistiques…</div>';
-    const sb=window.celebrationsSupabase,token=window.getCelebrationsAdminToken?.()||'';if(!sb)return;
+    const sb=window.celebrationsCloudflare,token=window.getCelebrationsAdminToken?.()||'';if(!sb)return;
     let list=[],v={};
     if(window.CELEBRATIONS_STAGING_BACKEND){
       try{
