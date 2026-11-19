@@ -204,7 +204,7 @@ test('M09: cacher un bloc entier conserve tous ses éléments après sauvegarde 
  assert.equal(first.columns[1][1].href,'https://example.org/video');
  assert.equal(first.style.border,'round');
  const visitor=TRIAL_SITE_CLIENT.slice(TRIAL_SITE_CLIENT.indexOf('function appendPageBlock('));
- assert.match(visitor,/function appendPageBlock\(b,root\)\{\s*if\(!b\|\|b\.hideOnSite===true\)return/);
+ assert.match(visitor,/function appendPageBlock\(b,root\)\{\s*if\(!b\|\|b\.hideOnSite===true(?:\|\|isSplashHome&&b===splashImage)?\)return/);
 });
 
 test('M030 safety: legacy draft API cannot create a new celebration implicitly',async()=>{
