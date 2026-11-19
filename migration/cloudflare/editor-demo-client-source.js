@@ -269,9 +269,10 @@ async function importFiles(files){
 // Open the complete site media library in a modal; do not navigate away.
 function chooseFile(x){
  const choosingVideo=x.kind==='video';
+ const choosingAudio=x.kind==='audio';
  const dialog=n('dialog','image-picker-dialog file-picker-dialog');
  const head=n('div','image-picker-header');
- const title=n('h3','image-picker-title',choosingVideo?'Choisir une vidéo de la médiathèque':'Choisir un fichier du site');
+ const title=n('h3','image-picker-title',choosingAudio?'Choisir un MP3 de la médiathèque':choosingVideo?'Choisir une vidéo de la médiathèque':'Choisir un fichier du site');
  title.id='file-picker-heading';dialog.setAttribute('aria-labelledby',title.id);
  const close=b('×',()=>dialog.close(),'image-picker-close');
  close.setAttribute('aria-label','Fermer');head.append(title,close);dialog.append(head);
@@ -284,10 +285,11 @@ function chooseFile(x){
  dialog.append(tabs,grid);
  const hint=n('p','file-picker-hint','Sélectionnez un fichier. Votre page reste ouverte derrière cette fenêtre.');
  dialog.append(hint);
- const categories=choosingVideo?[['videos','Vidéos']]:
+ const categories=choosingAudio?[['audios','Audios']]:
+  choosingVideo?[['videos','Vidéos']]:
   x.download===true?[['pdf','PDF'],['autres','Autres documents'],['all','Tous les fichiers']]:
   [['all','Tous'],...FILE_CATEGORIES];
- let filter=choosingVideo?'videos':x.download===true?'pdf':'all';
+ let filter=choosingAudio?'audios':choosingVideo?'videos':x.download===true?'pdf':'all';
  const inventory=()=>mediaCatalogue.pickerItems(
   [...(globalFiles||[]),...publicFiles()],globalMedia
  );
@@ -296,7 +298,12 @@ function chooseFile(x){
    if(file.category!=='images'){siteNotice('Choisissez une image.');return}
    x.onSelect(file);dialog.close();return;
   }
-  if(!editorMediaCommands.chooseFile(x,file,choosingVideo))return;
+  if(choosingAudio){
+   const src=String(file.src||'');
+   if(!/^\/media\/(?!.*\.\.)[^?#]+\.(?:mp3|wav)$/i.test(src)){siteNotice('Choisissez un MP3 ou WAV du site.');return}
+   x.src=src;delete x.remoteKey;
+   if(!x.text||x.text==='MP3 à choisir')x.text=String(file.name||'Enregistrement audio').slice(0,180);
+  }else if(!editorMediaCommands.chooseFile(x,file,choosingVideo))return;
   mark();dialog.close();render();
  };
  const draw=()=>{
@@ -2036,8 +2043,7 @@ function block(x,p,items=p.blocks,section=null){
    title.append(input);box.append(title);
    const actions=n('div','block-edit-actions');
    actions.append(b('Choisir un MP3',e=>{
-    e.stopPropagation();mediaReturnTab=tab;mediaCategory='audios';
-    chosenBlock=x;tab='media';render();
+    e.stopPropagation();chooseFile(x);
    },'sm'));
    box.append(actions);
   }
