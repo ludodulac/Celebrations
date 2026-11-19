@@ -35,7 +35,7 @@ const req = (token = TOKEN, path = '/private/page:privee', method = 'GET', heade
 function scenario(overrides = {}) {
   const state = {
     sessionToken: TOKEN, email: EMAIL, sessionExpiry: '2099-01-01T00:00:00.000Z',
-    personId: PERSON, registered: true, approvedLink: true,
+    personId: PERSON, registered: true, approvedLink: true, invitationBinding: null,
     linkedEmail: EMAIL, claimApproved: true, claimReviewed: true,
     disabled: 0, types: [TYPE], celebrationEnrolled: true, enrolled: true,
     dbError: false, ...overrides
@@ -55,6 +55,8 @@ function scenario(overrides = {}) {
               return state.registered && state.approvedLink && state.claimApproved &&
                 state.claimReviewed && state.linkedEmail === args[0] ?
                 {id: state.personId} : null;
+            if (sql.includes('FROM celebrations_member_invitation_bindings'))
+              return state.invitationBinding ? {status: state.invitationBinding} : null;
             if (sql.includes('FROM celebrations_directory_person_celebrations'))
               return state.celebrationEnrolled && args[0] === PERSON &&
                 args[1] === 43 ? {enrolled: 1} : null;
