@@ -116,3 +116,8 @@
 ### 19/11 — Régressions et vidéo visiteurs
 - Deux tests de l'éditeur en échec étaient des assertions devenues obsolètes : le rendu public exclut aussi l'image d'accueil spéciale et l'aperçu effectue huit lectures SQL `SELECT` (au lieu de sept). Les assertions ont été alignées sur les comportements existants, sans changer ces comportements. Les workflows GitHub associés au commit `198ce968` sont réussis pour les deux premiers contrôles ; le troisième doit être vérifié.
 - Le rendu visiteur `editor-trial-site-client.mjs` applique maintenant `widthPct` à la vidéo, pour que le curseur ajouté à l'éditeur puisse se retrouver sur le site. Tests de rendu navigateur et publication toujours requis.
+
+### 19/11 — Page Programme distincte
+- Ajout du stage `programme` au modèle de pages et au chargement des pages de célébration. Chaque célébration obtient un identifiant `programme-<celebrationId>` distinct de `preparation-<celebrationId>` ; le modèle de blocs permet l'édition comme les autres pages.
+- Navigation visiteurs : `/programme` pointe désormais vers `programme`, et le raccourci « Programme » n'ouvre plus `preparation`.
+- Deux tests de prévisualisation attendent désormais dix pages (neuf pages de célébration plus l'accueil neutre). **Ne pas considérer la fonctionnalité publiée avant vérification des tests et des droits de publication de la nouvelle page.**
