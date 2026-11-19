@@ -14,7 +14,7 @@
    return {data,error:null};
   }catch{return {data:{ok:false,error:"Connexion au serveur de test indisponible."},error:null}}
  };
- // Original Supabase passwords use 180,000 PBKDF2 iterations, exceeding
+ // Existing password hashes use 180,000 PBKDF2 iterations, exceeding
  // Cloudflare Workers Free's 100,000-iteration limit. The browser performs
  // the full original derivation and transmits only a derived proof over TLS.
  // The Worker stores an additional SHA-256 verifier, not this replayable proof.
