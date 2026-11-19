@@ -5,7 +5,7 @@ import {readFile} from "node:fs/promises";
 const source=await readFile(new URL("../migration/cloudflare/preview-client.js",import.meta.url),"utf8");
 function client({rows=[{show_other_celebrations:1}],status=200}={}){
  const calls=[];
- const window={CELEBRATIONS_STAGING_BACKEND:"https://isolated-staging.invalid"};
+ const window={CELEBRATIONS_CLOUDFLARE_BACKEND:"https://isolated-staging.invalid"};
  const fetch=async(url,options={})=>{
   calls.push({url,options});
   return new Response(JSON.stringify(rows),{status,headers:{"content-type":"application/json"}});
@@ -15,7 +15,7 @@ function client({rows=[{show_other_celebrations:1}],status=200}={}){
 }
 test("visibility uses public staging D1 API, never legacy Supabase function",async()=>{
  const {window,calls}=client();
- const {data,error}=await window.celebrationsSupabase.functions.invoke("celebrations-visibility",{body:{action:"get"}});
+ const {data,error}=await window.celebrationsCloudflare.functions.invoke("celebrations-visibility",{body:{action:"get"}});
  assert.equal(error,null);assert.equal(data.ok,true);
  assert.equal(data.show_other_celebrations,true);
  assert.equal(calls.length,1);
@@ -25,13 +25,13 @@ test("visibility uses public staging D1 API, never legacy Supabase function",asy
 test("visibility is false for absent or disabled public settings",async()=>{
  for(const rows of [[],[{show_other_celebrations:0}]]){
   const {window}=client({rows});
-  const {data}=await window.celebrationsSupabase.functions.invoke("celebrations-visibility",{body:{action:"get"}});
+  const {data}=await window.celebrationsCloudflare.functions.invoke("celebrations-visibility",{body:{action:"get"}});
   assert.equal(data.ok,true);assert.equal(data.show_other_celebrations,false);
  }
 });
 test("unavailable visibility settings fail closed",async()=>{
  const {window}=client({status:503});
- const {data}=await window.celebrationsSupabase.functions.invoke("celebrations-visibility",{body:{action:"get"}});
+ const {data}=await window.celebrationsCloudflare.functions.invoke("celebrations-visibility",{body:{action:"get"}});
  assert.equal(data.ok,false);
 });
 test("media URLs on staging do not rewrite public external links",()=>{
@@ -45,10 +45,10 @@ test("legacy footer administration actions route only to authenticated staging D
  for(const action of actions){
   const calls=[];
   const token="isolated-admin-token";
-  const window={CELEBRATIONS_STAGING_BACKEND:"https://isolated-staging.invalid"};
+  const window={CELEBRATIONS_CLOUDFLARE_BACKEND:"https://isolated-staging.invalid"};
   const fetch=async(url,options)=>{calls.push({url,options});return new Response(JSON.stringify({ok:true}),{status:200})};
   vm.runInNewContext(source,{window,fetch,localStorage:{getItem:()=>token}});
-  const {data}=await window.celebrationsSupabase.functions.invoke("celebrations-access",{body:{action}});
+  const {data}=await window.celebrationsCloudflare.functions.invoke("celebrations-access",{body:{action}});
   assert.equal(data.ok,true);
   assert.equal(calls.length,1);
   assert.equal(calls[0].url,"https://isolated-staging.invalid/api/footer-admin");
@@ -65,10 +65,10 @@ test("participant management actions use isolated authenticated D1 API",async()=
   ["celebrations-audience","admin_set"]
  ]){
   const calls=[];
-  const window={CELEBRATIONS_STAGING_BACKEND:"https://staging.invalid"};
+  const window={CELEBRATIONS_CLOUDFLARE_BACKEND:"https://staging.invalid"};
   const fetch=async(url,options)=>{calls.push({url,options});return new Response(JSON.stringify({ok:true}),{status:200})};
   vm.runInNewContext(source,{window,fetch,localStorage:{getItem:()=>"admin-test-token"}});
-  const {data}=await window.celebrationsSupabase.functions.invoke(name,{body:{action,email:"test@staging.invalid",audience:"angel"}});
+  const {data}=await window.celebrationsCloudflare.functions.invoke(name,{body:{action,email:"test@staging.invalid",audience:"angel"}});
   assert.equal(data.ok,true);
   assert.equal(calls.length,1);
   assert.equal(calls[0].url,"https://staging.invalid/api/participants-admin");
@@ -77,7 +77,7 @@ test("participant management actions use isolated authenticated D1 API",async()=
 });
 
 test("staging admin loads protected programme rows via bearer-authenticated D1 list",async()=>{
- const calls=[],window={CELEBRATIONS_STAGING_BACKEND:"https://isolated-staging.invalid"};
+ const calls=[],window={CELEBRATIONS_CLOUDFLARE_BACKEND:"https://isolated-staging.invalid"};
  const document={body:{classList:{contains:name=>name==="admin-app"}}};
  const fetch=async(url,options={})=>{
   calls.push({url,options});
@@ -92,7 +92,7 @@ test("staging admin loads protected programme rows via bearer-authenticated D1 l
  assert.equal(JSON.parse(calls[0].options.body).table,"celebrations_contents");
 });
 test("staging public visitor never calls administrator D1 API",async()=>{
- const calls=[],window={CELEBRATIONS_STAGING_BACKEND:"https://isolated-staging.invalid"};
+ const calls=[],window={CELEBRATIONS_CLOUDFLARE_BACKEND:"https://isolated-staging.invalid"};
  const document={body:{classList:{contains:()=>false}}};
  const fetch=async(url,options={})=>{
   calls.push({url,options});return new Response(JSON.stringify([{id:"public-id",audience:"all"}]),{status:200});
