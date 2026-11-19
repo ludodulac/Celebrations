@@ -5,12 +5,12 @@ import {readFile} from "node:fs/promises";
 const src=async path=>readFile(new URL("../"+path,import.meta.url),"utf8");
 
 test("Cloudflare frontend never instantiates a Supabase client and fails closed without bootstrap",async()=>{
- const code=await src("supabase-client.js");
+ const code=await src("cloudflare-client.js");
  let called=false;
- const window={CELEBRATIONS_STAGING_BACKEND:"https://site.invalid",supabase:{createClient(){called=true;throw Error("Forbidden legacy call")}}};
+ const window={CELEBRATIONS_CLOUDFLARE_BACKEND:"https://site.invalid",supabase:{createClient(){called=true;throw Error("Forbidden legacy call")}}};
  vm.runInNewContext(code,{window});
  assert.equal(called,false);
- assert.equal(window.celebrationsSupabase,undefined);
+ assert.equal(window.celebrationsCloudflare,undefined);
  assert.throws(()=>vm.runInNewContext(code,{window:{supabase:{createClient(){called=true}}}}),/Cloudflare backend bootstrap is missing/);
  assert.equal(called,false);
 });
@@ -18,7 +18,7 @@ test("Cloudflare frontend never instantiates a Supabase client and fails closed 
 test("staging page views are written only to same-origin Cloudflare D1 statistics",async()=>{
  const code=await src("public-click-tracking.js");
  const calls=[];
- const window={CELEBRATIONS_STAGING_BACKEND:"https://isolated-staging.invalid",addEventListener(){}};
+ const window={CELEBRATIONS_CLOUDFLARE_BACKEND:"https://isolated-staging.invalid",addEventListener(){}};
  const document={title:"Test",addEventListener(){}};
  const location={pathname:"/",search:"?staging=1",hash:""};
  const localStorage={getItem(){return "randombrowservisitor123"},setItem(){}};
@@ -55,7 +55,7 @@ test("legal page renderer fetches only isolated D1 URL on staging hostname",asyn
  const title={textContent:""};
  const document={title:"",body:{dataset:{legalPage:"mentions-legales"}},getElementById(id){return id==="legalContent"?content:title}};
  const location={hostname:"celebrations-exit-staging.rondes.workers.dev",origin:"https://celebrations-exit-staging.rondes.workers.dev"};
- const window={CELEBRATIONS_STAGING_BACKEND:location.origin};
+ const window={CELEBRATIONS_CLOUDFLARE_BACKEND:location.origin};
  let url=null;
  const fetch=async function(u){
    url=u;
@@ -72,7 +72,7 @@ test("staging statistics dashboard calls only authenticated Cloudflare summary, 
  const button={dataset:{},className:"",textContent:"",onclick:null};
  const nav={querySelector(){return null},appendChild(){}};
  const document={getElementById(id){return id==="clickStatsBox"?box:null},querySelector(s){if(s===".admin-nav")return nav;return null},querySelectorAll(){return []},createElement(){return button}};
- const window={CELEBRATIONS_STAGING_BACKEND:"https://isolated-staging.invalid",celebrationsSupabase:{rpc(){throw Error("Production RPC is forbidden")}}};
+ const window={CELEBRATIONS_CLOUDFLARE_BACKEND:"https://isolated-staging.invalid",celebrationsCloudflare:{rpc(){throw Error("Production RPC is forbidden")}}};
  const localStorage={getItem(){return "synthetic-admin-test"}};
  const calls=[];
  const fetch=async(url,opts)=>{calls.push({url,opts});return {ok:true,json:async()=>({ok:true,visits:{visitors:17,visits:29,pages:[]},clicks:[]})}};
