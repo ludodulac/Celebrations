@@ -19,12 +19,12 @@ function cloudflareMediaUrl(path){
  return typeof window.celebrationsStagingMedia==='function'
   ?window.celebrationsStagingMedia(value):'';
 }
-async function getMedia(key){const s=typeof state!=='undefined'?state:null;const c=s?.contents?.find(x=>String(x.id)===String(key).replace(/^cover-/,''));if(!c)return null;const path=String(key).startsWith('cover-')?c.coverStoragePath:c.storagePath;if(!path)return null;const isStagingAdmin=!!window.CELEBRATIONS_STAGING_BACKEND&&document.body?.classList.contains('admin-app');const headers=isStagingAdmin?{authorization:'Bearer '+(localStorage.getItem('celebrations-admin-token')||'')}:{};const r=await fetch(cloudflareMediaUrl(path),{headers});return r.ok?await r.blob():null}
+async function getMedia(key){const s=typeof state!=='undefined'?state:null;const c=s?.contents?.find(x=>String(x.id)===String(key).replace(/^cover-/,''));if(!c)return null;const path=String(key).startsWith('cover-')?c.coverStoragePath:c.storagePath;if(!path)return null;const isStagingAdmin=!!window.CELEBRATIONS_CLOUDFLARE_BACKEND&&document.body?.classList.contains('admin-app');const headers=isStagingAdmin?{authorization:'Bearer '+(localStorage.getItem('celebrations-admin-token')||'')}:{};const r=await fetch(cloudflareMediaUrl(path),{headers});return r.ok?await r.blob():null}
 function escPreviewText(v){return String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
 async function openStoredFile(content){
  const path=content?.storagePath;if(!path)return alert('Fichier indisponible.');
  const directUrl=cloudflareMediaUrl(path),declaredMime=String(content?.mimeType||'').toLowerCase(),isPdf=content?.type==='PDF'||declaredMime==='application/pdf'||/\.pdf(?:$|[?#])/i.test(String(content?.fileName||path));
- const stagingAdmin=!!window.CELEBRATIONS_STAGING_BACKEND&&document.body?.classList.contains('admin-app');
+ const stagingAdmin=!!window.CELEBRATIONS_CLOUDFLARE_BACKEND&&document.body?.classList.contains('admin-app');
  if(isPdf&&!stagingAdmin){window.open(directUrl,'_blank','noopener');return}
  const popup=window.open('about:blank','_blank');
  try{const headers=stagingAdmin?{authorization:'Bearer '+(localStorage.getItem('celebrations-admin-token')||'')}:{};
