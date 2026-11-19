@@ -86,5 +86,5 @@ test("staging statistics dashboard calls only authenticated Cloudflare summary, 
 });
 test("decorative flame media URL uses staging-aware helper",async()=>{
  const code=await src("public-celebration-shell.js");
- assert.match(code,/function publicFlameUrl\(c\)\{[^}]*supabaseMediaUrl\(c\.storagePath\)/);
+ assert.match(code,/function publicFlameUrl\(c\)\{[^}]*cloudflareMediaUrl\(c\.storagePath\)/);
 });
