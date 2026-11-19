@@ -93,5 +93,7 @@
 - [ ] **F5 — Insérer un audio depuis la médiathèque dans une page.** Le bouton d'insertion doit ouvrir un sélecteur d'audios utilisable, sur le modèle du sélecteur d'images, puis insérer le média dans le bloc/la page ; ne pas naviguer simplement vers la page de médiathèque.
 - [ ] **F6 — Bordure de couleur des célébrations côté visiteurs.** Rétablir le contour selon la couleur déjà configurée dans le code (Michaël rouge, Gabriel bleu, autres selon leur configuration), sans modifier arbitrairement la palette.
 
+**Avancement F6 (19/11) :** `styles.css` a été modifié pour afficher une bordure complète utilisant `var(--accent)` (déjà défini par `setAccent()` selon la célébration). Contrôle navigateur et déploiement encore nécessaires avant de cocher F6.
+
 **Critères transversaux :** aucune perte de contenus, conservation des droits d'accès, cohérence desktop/mobile, contrôle du rendu visiteur ET de l'administration. Marquer une case terminée seulement après vérification concrète. Les missions techniques 1–7 de la section 5 sont complémentaires, pas substitutives.
 
