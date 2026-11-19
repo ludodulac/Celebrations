@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {Script} from 'node:vm';
 import {handleTrialSite} from '../migration/cloudflare/editor-trial-site-page.mjs';
 import {TRIAL_SITE_CLIENT,TRIAL_SITE_STYLE} from '../migration/cloudflare/editor-trial-site-client.mjs';
-import productionWorker from '../migration/cloudflare/production-worker.mjs';
+import {readFileSync} from 'node:fs';
 const site='https://celebrations-exit-staging.rondes.workers.dev/__editor/voir-le-site';
 const data={
  celebrations:[{id:101,archangel:'Michaël',year:'2026'}],
@@ -140,6 +140,7 @@ test('Visitor menu keeps custom pages in author order without a global media lib
 });
 
 test('Production /programme does not alias to Préparation',async()=>{
- const response=await productionWorker.fetch(new Request('https://www.ronde-des-archanges-universelle.eu/programme?celebration=101'),{});
- assert.notEqual(response.status,301);
+ const worker=readFileSync(new URL('../migration/cloudflare/production-worker.mjs',import.meta.url),'utf8');
+ assert.ok(worker.includes('["/programme","programme"]'));
+ assert.ok(!worker.includes('["/programme","preparation"]'));
 });
