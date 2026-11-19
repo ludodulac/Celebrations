@@ -97,3 +97,8 @@
 
 **Critères transversaux :** aucune perte de contenus, conservation des droits d'accès, cohérence desktop/mobile, contrôle du rendu visiteur ET de l'administration. Marquer une case terminée seulement après vérification concrète. Les missions techniques 1–7 de la section 5 sont complémentaires, pas substitutives.
 
+
+### Journal de travail complémentaire (19/11/2026)
+- `public-v3.js` et `public-content-nav.js` : correction des dernières vérifications de bootstrap encore nommées `CELEBRATIONS_STAGING_BACKEND`, qui pouvaient déclencher le chargement de données de repli malgré la migration Cloudflare.
+- `public-library-simple.js` : les PDF sont désormais reconnus aussi par leur type MIME ou leur extension, même si le type de contenu est mal étiqueté. **Attention :** la liste reste limitée aux contenus liés aux événements/journées de la célébration ; vérifier les associations D1 de Michaël avant de déclarer F2 résolue.
+- Les missions F1, F3, F4 et F5 ne sont pas encore validées ; ne pas les cocher.
