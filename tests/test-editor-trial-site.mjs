@@ -151,3 +151,11 @@ test('Reader preview preserves the celebration frame color',()=>{
  assert.ok(css.includes('body.is-neutral-preview .site-paper{border:6px solid var(--frame-color);box-shadow:none}'));
  assert.ok(!css.includes('body.is-neutral-preview .site-paper{border:2px solid #e7e9ec'));
 });
+
+
+test('Server PDF cards expose protected archive or delete controls',()=>{
+ const src=readFileSync(new URL('../migration/cloudflare/editor-demo-client.mjs',import.meta.url),'utf8');
+ assert.ok(src.includes("controls.append(b('Supprimer',()=>void removeMediaFromAdmin(record,refs),'sm'))"));
+ assert.ok(src.includes("if(remoteCopy)historicalActions.append(b('Supprimer',()=>void removeMediaFromAdmin(remoteCopy,refs),'sm'))"));
+ assert.ok(src.includes("const action=used?'archive':'delete'"));
+});
