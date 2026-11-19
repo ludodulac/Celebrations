@@ -63,7 +63,7 @@ test('Site trial response contains eight programme pages plus neutral home, a re
  assert.equal(seed.pages.find(p=>p.id==='apres-celebration-101').name,'Après célébration');
  assert.ok(html.includes('id="menu-toggle"'));
  assert.equal(seed.pages.find(p=>p.group==='page').name,'Accueil général');
- assert.equal(sqls.length,7);
+ assert.equal(sqls.length,8);
  assert.ok(sqls.every(q=>q.startsWith('SELECT ')),'read only');
  assert.match(r.headers.get('content-security-policy'),/connect-src 'self'/);
  const scripts=[...html.matchAll(/<script nonce="[0-9a-f]+">([\s\S]*?)<\/script>/g)];
