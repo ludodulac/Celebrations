@@ -65,7 +65,7 @@ test('Site trial response contains eight programme pages plus neutral home, a re
  assert.ok(preparation,'Preparation remains a separate page');
  assert.notEqual(programme.id,preparation.id);
  assert.match(TRIAL_SITE_CLIENT,/\['programme',t\('Programme'\)\]/,'Programme shortcut must route to Programme');
- assert.match(TRIAL_SITE_CLIENT,/'\\/programme':'programme'/,'Direct Programme URL must not route to Preparation');
+ assert.ok(TRIAL_SITE_CLIENT.includes("'/programme':'programme'"),'Direct Programme URL must not route to Preparation');
  assert.ok(seed.pages.every(p=>p.blocks.length>0));
  assert.equal(seed.pages.find(p=>p.id==='apres-celebration-101').name,'Après célébration');
  assert.ok(html.includes('id="menu-toggle"'));
