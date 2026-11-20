@@ -1,7 +1,7 @@
 name: "Célébrations — editor targeted release M051"
 on:
   push:
-    branches: [fix/m051-program-media-preview-colors-20261119]
+    branches: [disabled/m051-legacy-targeted-release]
 permissions:
   contents: read
 concurrency:
