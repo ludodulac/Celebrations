@@ -1,4 +1,4 @@
-name: "Célébrations — M051 current publication baseline"
+name: "Célébrations — M051 public red frame release"
 on:
   push:
     branches: [main]
@@ -23,7 +23,7 @@ jobs:
       PROD_D1_ID: 28736d2a-479b-472b-bf82-703ad0affe10
     steps:
       - uses: actions/checkout@v4
-        with: {fetch-depth: 0, persist-credentials: false, ref: 'e995b014ec51d328c056bf4ae59539b235a56b8b'}
+        with: {fetch-depth: 0, persist-credentials: false, ref: 'e63f0ba9c1b472f606c674830df0d2f22e1f6500'}
       - uses: actions/setup-node@v4
         with: {node-version: '22'}
       - uses: actions/setup-python@v5
