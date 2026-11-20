@@ -90,7 +90,7 @@ test('M09: existing public renderer ignores whole hidden sections and hidden chi
  const start=TRIAL_SITE_CLIENT.indexOf('function appendPageBlock(');
  const rest=TRIAL_SITE_CLIENT.indexOf("if(b.kind==='section')",start);
  assert.ok(start>0&&rest>start);
- const excerpt=TRIAL_SITE_CLIENT.slice(start,rest)+
+ const excerpt='const isSplashHome=false; const splashImage=null;\n'+TRIAL_SITE_CLIENT.slice(start,rest)+
    "\n return 'visible';\n}\n this.fn=appendPageBlock;";
  const env={};
  vm.runInNewContext(excerpt,env);
