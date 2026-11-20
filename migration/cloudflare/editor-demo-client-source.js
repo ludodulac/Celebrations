@@ -996,9 +996,11 @@ function htmlSafe(source){
    const underline=/(?:^|;)\s*text-decoration(?:-line)?\s*:\s*underline(?:\s*;|$)/i.test(raw);
    const weight=/(?:^|;)\s*font-weight\s*:\s*(?:bold|[6-9]00)(?:\s*;|$)/i.test(raw);
    const italic=/(?:^|;)\s*font-style\s*:\s*italic(?:\s*;|$)/i.test(raw);
-   const wrap=colour||size||weight||italic||underline;
+   const align=ALIGNMENTS.includes(node.style.textAlign)?node.style.textAlign:'';
+   const aligned=align&&node.style.display==='inline-block'&&node.style.width==='100%';
+   const wrap=colour||size||weight||italic||underline||aligned;
    let target=to;
-   if(wrap){const span=document.createElement('span');if(colour)span.style.color=colour;if(size)span.style.fontSize=size+'px';to.append(span);target=span}
+   if(wrap){const span=document.createElement('span');if(colour)span.style.color=colour;if(size)span.style.fontSize=size+'px';if(aligned){span.style.display='inline-block';span.style.width='100%';span.style.textAlign=align}to.append(span);target=span}
    if(weight){const strong=document.createElement('strong');target.append(strong);target=strong}
    if(italic){const em=document.createElement('em');target.append(em);target=em}
    if(underline){const u=document.createElement('u');target.append(u);target=u}
@@ -1014,8 +1016,11 @@ function restoreInlineColours(z){
   const m=raw.match(/(?:^|;)\s*color\s*:\s*([^;]+)(?:;|$)/i);
   const value=inlineColor(m?.[1]);
   const sizeMatch=raw.match(/(?:^|;)\s*font-size\s*:\s*(14|16|18|20|24|28|32|40)px(?:\s*;|$)/i);
+  const align=ALIGNMENTS.includes(span.style.textAlign)?span.style.textAlign:'';
+  const aligned=align&&span.style.display==='inline-block'&&span.style.width==='100%';
   span.removeAttribute('style');
   if(value)span.style.color=value;
+  if(aligned){span.style.display='inline-block';span.style.width='100%';span.style.textAlign=align}
   if(sizeMatch)span.style.fontSize=sizeMatch[1]+'px';
  }
 }
@@ -1047,7 +1052,7 @@ function rangeInEditor(z){
  const sel=window.getSelection();
  if(sel&&sel.rangeCount&&!sel.isCollapsed&&z.contains(sel.anchorNode)&&z.contains(sel.focusNode))
   return sel.getRangeAt(0).cloneRange();
- if(rememberedSelection?.host===z&&z.isConnected&&z.contains(rememberedSelection.range.commonAncestorContainer))
+ if(rememberedSelection?.host===z&&z.isConnected&&!rememberedSelection.range.collapsed&&z.contains(rememberedSelection.range.startContainer)&&z.contains(rememberedSelection.range.endContainer))
   return rememberedSelection.range.cloneRange();
  return null;
 }
@@ -1062,6 +1067,7 @@ document.addEventListener('selectionchange',()=>{
 });
 function editorFormatToolbar(x,z,box){
  const bar=n('div','formatbar');
+ const popups=new Set();
  bar.style.cssText='display:none;position:fixed;z-index:99999;max-width:calc(100vw - 20px);overflow-x:auto;white-space:nowrap;padding:8px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 6px 24px #0003';
  let controlActive=false;
  const show=()=>{if(controlActive)return;const range=rangeInEditor(z);if(!range||range.collapsed){bar.style.display='none';return}const rect=range.getBoundingClientRect();bar.style.display='flex';bar.style.gap='5px';bar.style.left=Math.max(8,Math.min(rect.left,window.innerWidth-bar.offsetWidth-8))+'px';bar.style.top=Math.max(8,rect.top-bar.offsetHeight-10)+'px'};
@@ -1070,7 +1076,7 @@ function editorFormatToolbar(x,z,box){
  z.addEventListener('touchend',()=>setTimeout(show,180));
  // Keep controls outside the editable block's pointer/selection handlers and stacking contexts.
  document.body.append(bar);
- const onSelection=()=>{if(controlActive)return;if(!z.isConnected){bar.remove();document.removeEventListener('selectionchange',onSelection);return}if(document.activeElement===z)setTimeout(show,0)};
+ const onSelection=()=>{if(controlActive)return;if(!z.isConnected){bar.remove();for(const popup of popups)popup.remove();popups.clear();document.removeEventListener('selectionchange',onSelection);return}if(document.activeElement===z)setTimeout(show,0)};
  document.addEventListener('selectionchange',onSelection);
  bar.addEventListener('pointerdown',e=>{e.stopPropagation();const range=rangeInEditor(z);if(range)rememberedSelection={host:z,range:range.cloneRange()}});
  bar.addEventListener('click',e=>e.stopPropagation());
@@ -1085,7 +1091,7 @@ function editorFormatToolbar(x,z,box){
   const trigger=n('button','sm format-button',select.options[select.selectedIndex]?.text||'Choisir');trigger.type='button';
   trigger.setAttribute('aria-label',select.getAttribute('aria-label')||'Choisir');
   const popup=n('div','format-menu-popup');popup.style.cssText='display:none;position:fixed;z-index:100001;min-width:130px;max-height:55vh;overflow-y:auto;background:white;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 8px 24px #0004;padding:4px';
-  document.body.append(popup);
+  document.body.append(popup);popups.add(popup);
   const close=()=>{popup.style.display='none';controlActive=false};
   trigger.onclick=e=>{e.preventDefault();e.stopPropagation();controlActive=true;
    if(popup.style.display==='block'){close();return}
@@ -1156,8 +1162,6 @@ function editorFormatToolbar(x,z,box){
    const selected=document.createRange();selected.selectNodeContents(span);
    rememberedSelection={host:z,range:selected};
    saveRich(x,z);
-  }else{
-   x.color=color.value;z.style.color=color.value;mark();
   }
  };
  color.addEventListener('change',()=>{colourRange=null;colourSpan=null});
@@ -1166,7 +1170,7 @@ function editorFormatToolbar(x,z,box){
  for(const [value,name] of [['left','Gauche'],['center','Centré'],['right','Droite']]){const opt=n('option','',name);opt.value=value;if((x.align||'left')===value)opt.selected=true;align.append(opt)}
  align.onchange=()=>{
   const range=rangeInEditor(z);if(!range||range.collapsed)return;
-  const wrapper=document.createElement('span');wrapper.style.cssText='display:inline-block;width:100%;text-align:'+align.value;
+  const wrapper=document.createElement('span');wrapper.style.display='inline-block';wrapper.style.width='100%';wrapper.style.textAlign=align.value;
   wrapper.append(range.extractContents());range.insertNode(wrapper);
   const selected=document.createRange();selected.selectNodeContents(wrapper);
   rememberedSelection={host:z,range:selected};saveRich(x,z);
