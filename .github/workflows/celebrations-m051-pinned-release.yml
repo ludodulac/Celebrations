@@ -23,7 +23,7 @@ jobs:
       PROD_D1_ID: 28736d2a-479b-472b-bf82-703ad0affe10
     steps:
       - uses: actions/checkout@v4
-        with: {fetch-depth: 0, persist-credentials: false, ref: '9fb7e009581716f577cf475af022aa4821aef562'}
+        with: {fetch-depth: 0, persist-credentials: false, ref: 'd373355a1de624aaede5cc411b16e2a3a059f6b2'}
       - uses: actions/setup-node@v4
         with: {node-version: '22'}
       - uses: actions/setup-python@v5
@@ -45,7 +45,7 @@ jobs:
           node --check migration/cloudflare/app/styles/admin/07-drag-resources.mjs
           node --check migration/cloudflare/editor-demo-client.mjs
           node --check migration/cloudflare/editor-server-sync-client.mjs
-          node --test tests/test-editor-trial-site.mjs
+          node --test tests/test-editor-trial-site.mjs tests/test-editor-server-drafts.mjs
           python scripts/build_production_assets.py
           python scripts/audit_production_supabase_paths.py
       - name: Reuse the already-proven exact-version release gate with the CURRENT baseline
@@ -59,8 +59,8 @@ jobs:
           let body=fs.readFileSync(src,'utf8');
           const replacements=[
             ['refs/heads/release/celebrations-cleanup-06-20261110','refs/heads/main'],
-            ["const original='eccb1274-2ed8-491f-8557-c4330342e4bf';","const original='9d4c7855-fa6f-4399-9b4f-78c4ca058ae6';"],
-            ["const originalDeployment='ffdc7b2b-a443-45cf-843d-0419fe71cb8d';","const originalDeployment='59021475-5861-4730-adca-6ff47ef120df';"],
+            ["const original='eccb1274-2ed8-491f-8557-c4330342e4bf';","const original='feed74ea-556a-460c-af91-9ea8b9fd621f';"],
+            ["const originalDeployment='ffdc7b2b-a443-45cf-843d-0419fe71cb8d';","const originalDeployment='cda10084-a6da-45c9-80b1-7bc89888234a';"],
             ["if(name==='EDITOR_BUCKET')assert.equal(b.bucket_name,'celebrations-exit-staging');","if(name==='EDITOR_BUCKET')assert.equal(b.bucket_name,'celebrations-exit-production');"],
             ["assert.ok(pub.record?.pages?.length>=8,'Published celebration lost pages');","assert.ok(pub.record?.pages?.length>=1,'Published celebration has no pages');"]
           ];
