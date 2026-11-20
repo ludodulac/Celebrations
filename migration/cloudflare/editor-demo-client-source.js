@@ -1080,6 +1080,22 @@ function editorFormatToolbar(x,z,box){
  bar.addEventListener('focusin',e=>{if(e.target.matches('select,input[type="color"]'))controlActive=true});
  bar.addEventListener('focusout',()=>{setTimeout(()=>{if(!bar.contains(document.activeElement)){controlActive=false;show()}},120)});
  for(const eventName of ['change','input'])bar.addEventListener(eventName,e=>{if(e.target.matches('select,input[type="color"]'))setTimeout(()=>{controlActive=false;show()},180)});
+ const menu=(select)=>{
+  const holder=n('div','format-menu-holder');holder.style.cssText='position:relative;display:inline-flex;flex-shrink:0';
+  const trigger=n('button','sm format-button',select.options[select.selectedIndex]?.text||'Choisir');trigger.type='button';
+  trigger.setAttribute('aria-label',select.getAttribute('aria-label')||'Choisir');
+  const popup=n('div','format-menu-popup');popup.style.cssText='display:none;position:fixed;z-index:100001;min-width:130px;max-height:55vh;overflow-y:auto;background:white;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 8px 24px #0004;padding:4px';
+  document.body.append(popup);
+  const close=()=>{popup.style.display='none';controlActive=false};
+  trigger.onclick=e=>{e.preventDefault();e.stopPropagation();controlActive=true;
+   if(popup.style.display==='block'){close();return}
+   popup.replaceChildren();
+   for(const opt of select.options){const item=n('button','',opt.text);item.type='button';item.style.cssText='display:block;width:100%;padding:9px;text-align:left;background:white;border:0;color:#222';
+    item.onclick=ev=>{ev.preventDefault();ev.stopPropagation();select.value=opt.value;trigger.textContent=opt.text;select.dispatchEvent(new Event('change',{bubbles:false}));close()};popup.append(item)}
+   const rect=trigger.getBoundingClientRect();popup.style.left=Math.max(8,Math.min(rect.left,window.innerWidth-155))+'px';popup.style.top=Math.min(window.innerHeight-150,rect.bottom+4)+'px';popup.style.display='block';
+  };
+  holder.append(trigger);return holder;
+ };
  const make=(label,title,fn)=>{
   const bt=b(label,fn,'sm format-button');bt.title=title;bt.setAttribute('aria-label',title);
   bt.addEventListener('mousedown',e=>e.preventDefault());
@@ -1126,11 +1142,11 @@ function editorFormatToolbar(x,z,box){
    rememberedSelection={host:z,range:selected};saveRich(x,z);
    levels.value='p';show();
   };
-  bar.append(levels);
+  bar.append(menu(levels));
  }
  const sizes=n('select','format-select');sizes.setAttribute('aria-label','Taille du texte');sizes.title='Taille du paragraphe entier';
  for(const num of BLOCK_SIZES){const opt=n('option','',num+' px');opt.value=String(num);if(num===(Number.parseInt(z.style.fontSize,10)||sizeOf(x)))opt.selected=true;sizes.append(opt)}
- sizes.onchange=()=>{const range=rangeInEditor(z);if(!range)return;const span=document.createElement('span');span.style.fontSize=sizes.value+'px';span.append(range.extractContents());range.insertNode(span);rememberedSelection={host:z,range:(()=>{const r=document.createRange();r.selectNodeContents(span);return r})()};saveRich(x,z)};bar.append(sizes);
+ sizes.onchange=()=>{const range=rangeInEditor(z);if(!range)return;const span=document.createElement('span');span.style.fontSize=sizes.value+'px';span.append(range.extractContents());range.insertNode(span);rememberedSelection={host:z,range:(()=>{const r=document.createRange();r.selectNodeContents(span);return r})()};saveRich(x,z)};bar.append(menu(sizes));
  const label=n('label','color-picker');label.title='Couleur de la sélection ou de tout le paragraphe';label.append(n('span','','Couleur '));
  const color=n('input');color.type='color';color.setAttribute('aria-label','Couleur du texte');color.value=validColor(x.color)?x.color:'#323744';
  let colourRange=null,colourSpan=null;
@@ -1155,7 +1171,7 @@ function editorFormatToolbar(x,z,box){
  label.append(color);bar.append(label);
  const align=n('select','format-select');align.setAttribute('aria-label','Alignement');
  for(const [value,name] of [['left','Gauche'],['center','Centré'],['right','Droite']]){const opt=n('option','',name);opt.value=value;if((x.align||'left')===value)opt.selected=true;align.append(opt)}
- align.onchange=()=>{x.align=align.value;box.style.textAlign=align.value;mark()};bar.append(align);
+ align.onchange=()=>{x.align=align.value;box.style.textAlign=align.value;mark()};bar.append(menu(align));
  return bar;
 }
 
