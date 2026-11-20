@@ -146,9 +146,9 @@ test('Production /programme does not alias to Préparation',async()=>{
 });
 
 
-test('Reader preview preserves the celebration frame color',()=>{
+test('Reader preview scopes archangel frame to celebration pages only',()=>{
  const css=readFileSync(new URL('../migration/cloudflare/app/styles/public/02-navigation-library.mjs',import.meta.url),'utf8');
- assert.ok(css.includes('body.is-neutral-preview .site-paper{border:6px solid var(--frame-color);box-shadow:none}'));
+ assert.ok(css.includes('body.is-celebration-page .site-paper{border:6px solid var(--frame-color)}'));\n assert.ok(css.includes('body.is-neutral-preview .site-paper{border:1px solid var(--tone-soft);box-shadow:none}'));\n assert.ok(TRIAL_SITE_CLIENT.includes("document.body.classList.toggle('is-celebration-page',!neutral&&!isGallery)"));
  assert.ok(!css.includes('body.is-neutral-preview .site-paper{border:2px solid #e7e9ec'));
 });
 
