@@ -68,6 +68,6 @@ test('M09: eye icon uses real accessible SVG; section visibility hides all desce
  assert.match(CSS_04_SECTION_COMPOSER,/\.section-settings-fields>\.section-visibility-toggle\{/);
  assert.match(CSS_07_DRAG_RESOURCES,/\.content-section\.hidden-on-public\{/);
  assert.match(CSS_07_DRAG_RESOURCES,/\.block\.hidden-on-public\{/);
- assert.ok(TRIAL_SITE_CLIENT.includes('if(!b||b.hideOnSite===true)return;'),
+ assert.ok(TRIAL_SITE_CLIENT.includes('if(!b||b.hideOnSite===true||isSplashHome&&b===splashImage)return;'),
   'The existing visitor renderer must omit whole hidden sections and single elements');
 });
