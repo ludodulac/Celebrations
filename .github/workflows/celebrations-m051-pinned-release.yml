@@ -44,6 +44,7 @@ jobs:
           node --check migration/cloudflare/app/styles/admin/06-library-dialogs.mjs
           node --check migration/cloudflare/app/styles/admin/07-drag-resources.mjs
           node --check migration/cloudflare/editor-demo-client.mjs
+          node --check migration/cloudflare/editor-demo-client-source.js
           node --check migration/cloudflare/editor-server-sync-client.mjs
           node --test tests/test-editor-trial-site.mjs tests/test-editor-server-drafts.mjs
           python scripts/build_production_assets.py
@@ -60,7 +61,7 @@ jobs:
           const replacements=[
             ['refs/heads/release/celebrations-cleanup-06-20261110','refs/heads/main'],
             ["const original='eccb1274-2ed8-491f-8557-c4330342e4bf';","const original='1a3eeefe-1104-49de-8143-023fbea5ff68';"],
-            ["const originalDeployment='ffdc7b2b-a443-45cf-843d-0419fe71cb8d';","const originalDeployment='5199ea02-d983-4db7-968d-61a2cf58193a';"],
+            ["const originalDeployment='ffdc7b2b-a443-45cf-843d-0419fe71cb8d';","const originalDeployment='c7235a96-3f51-45e2-b747-815173423182';"],
             ["if(name==='EDITOR_BUCKET')assert.equal(b.bucket_name,'celebrations-exit-staging');","if(name==='EDITOR_BUCKET')assert.equal(b.bucket_name,'celebrations-exit-production');"],
             ["assert.ok(pub.record?.pages?.length>=8,'Published celebration lost pages');","assert.ok(pub.record?.pages?.length>=1,'Published celebration has no pages');"]
           ];
