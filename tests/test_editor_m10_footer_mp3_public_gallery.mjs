@@ -64,7 +64,7 @@ test('M10: no general gallery navigation; celebration documents only, with hidde
  const end=TRIAL_SITE_CLIENT.indexOf('function youtubeEmbed(',start);
  assert.ok(start>0&&end>start);
  const source=TRIAL_SITE_CLIENT.slice(start,end);
- assert.match(source,/if\\(!block\\|\\|block\\.hideOnSite===true\\)continue/);
+ assert.ok(source.includes('if(!block||block.hideOnSite===true)continue;'));
  const env={
   window:{__PUBLIC_CELEBRATION_VISIBLE__:true},
   seed:{library:[
