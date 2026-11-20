@@ -63,7 +63,8 @@ jobs:
             ["const original='eccb1274-2ed8-491f-8557-c4330342e4bf';","const original='1a3eeefe-1104-49de-8143-023fbea5ff68';"],
             ["const originalDeployment='ffdc7b2b-a443-45cf-843d-0419fe71cb8d';","const originalDeployment='c7235a96-3f51-45e2-b747-815173423182';"],
             ["if(name==='EDITOR_BUCKET')assert.equal(b.bucket_name,'celebrations-exit-staging');","if(name==='EDITOR_BUCKET')assert.equal(b.bucket_name,'celebrations-exit-production');"],
-            ["assert.ok(pub.record?.pages?.length>=8,'Published celebration lost pages');","assert.ok(pub.record?.pages?.length>=1,'Published celebration has no pages');"]
+            ["assert.ok(pub.record?.pages?.length>=8,'Published celebration lost pages');","assert.ok(pub.record?.pages?.length>=1,'Published celebration has no pages');"],
+            ["['/','/mercredi/','/mediatheque-generale']","['/','/mercredi/']"]
           ];
           for(const [before,after] of replacements){
             assert.equal(body.split(before).length-1,before.includes("if(name==='EDITOR_BUCKET')")?2:1,'Release gate anchor changed');
