@@ -3,6 +3,7 @@ import {validHomeEntryButton,normalizeHomeEntryButton} from './app/domain/editor
 // MEDIA_BUCKET or historic URLs. Both snapshots live in the existing editor R2.
 import {legacyEditorView,legacyRecord,managedPage,managedPageId,managedCelebration} from './app/security/private-editor-boundary.mjs';
 import {editorUploadFormat,editorUploadFilename,editorUploadPath,editorUploadResponseFormat} from './app/domain/editor-upload-formats.mjs';
+import {readableMediaPath} from './app/domain/editor-readable-media-path.mjs';
 import {hasEditorAccess} from './editor-site-access.mjs';
 import {EDITOR_SNAPSHOT_LIMIT,expectedRevisionMatches} from './app/ports/editor-snapshot-contract.mjs';
 import {readEditorSnapshot,putEditorSnapshot} from './app/adapters/editor-r2-repository.mjs';
@@ -738,9 +739,14 @@ export async function handleEditorMedia(request,env){
   const mime=String(file.type||'').toLowerCase(),format=editorUploadFormat(mime);
   if(!format||file.size<1||file.size>format.max)return err('Format ou taille non pris en charge (vidéos : lien externe)',415);
   const id=crypto.randomUUID()+format.extension;
-  const path='/media/new/'+id,record={id:format.type+'|'+path,type:format.type,
-   src:path,name:String(file.name||id).slice(0,120),source:'uploaded',general:false,createdAt:new Date().toISOString()};
+  const storageSrc='/media/new/'+id;
   const current=await readEditorState(env.EDITOR_BUCKET),state=copy(current.state);
+  const path=readableMediaPath(file.name,format.type,
+   (state.mediaCatalogue||[]).map(item=>item?.src).filter(Boolean));
+  if(!path)return err('Type de fichier non pris en charge',415);
+  const record={id:format.type+'|'+path,type:format.type,
+   src:path,storageSrc,name:String(file.name||id).slice(0,120),
+   source:'uploaded',general:false,createdAt:new Date().toISOString()};
   await env.EDITOR_BUCKET.put(PREFIX+id,await file.arrayBuffer(),{httpMetadata:{contentType:mime}});
   try{
    state.mediaCatalogue=discoverMedia(state).concat(record);
