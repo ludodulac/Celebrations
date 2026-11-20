@@ -1011,7 +1011,10 @@ function restoreInlineColours(z){
   const raw=span.getAttribute('style')||'';
   const m=raw.match(/(?:^|;)\s*color\s*:\s*([^;]+)(?:;|$)/i);
   const value=inlineColor(m?.[1]);
-  if(value){span.removeAttribute('style');span.style.color=value}
+  const sizeMatch=raw.match(/(?:^|;)\s*font-size\s*:\s*(14|16|18|20|24|28|32|40)px(?:\s*;|$)/i);
+  span.removeAttribute('style');
+  if(value)span.style.color=value;
+  if(sizeMatch)span.style.fontSize=sizeMatch[1]+'px';
  }
 }
 function saveRich(x,z){if(x.kind==='button'){x.text=z.innerText.slice(0,IS_STAGE?50000:5000)}else{
