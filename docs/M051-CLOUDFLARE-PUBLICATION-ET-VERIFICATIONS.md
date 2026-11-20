@@ -42,3 +42,5 @@ Date : 20 novembre 2026. Document de continuité technique, sans secret.
 - Workflow principal épinglé au code testé `9fb7e009581716f577cf475af022aa4821aef562`.
 - Version de référence vérifiée sur Cloudflare : `9d4c7855-fa6f-4399-9b4f-78c4ca058ae6` ; déploiement `59021475-5861-4730-adca-6ff47ef120df`.
 - La publication est conditionnée aux vérifications automatiques du workflow, avec retour arrière prévu en cas d'échec après activation.
+
+- Correctif Programme : la validation serveur accepte désormais `programme-101`, avec test de sauvegarde et relecture. Code épinglé `d373355a1de624aaede5cc411b16e2a3a059f6b2`. Baseline Cloudflare `feed74ea-556a-460c-af91-9ea8b9fd621f`.
