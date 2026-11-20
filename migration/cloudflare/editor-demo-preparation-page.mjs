@@ -286,7 +286,7 @@ export async function loadSevenStageContent(env,selectedId,{publicOnly=false,pub
    (!item.cover||allowedPublicLink(item.cover,blocked))&&
    (!item.external||allowedPublicLink(item.external,blocked))):library;
   const seed={celebrationId:celebration.id,archangel:celebration.archangel,year:celebration.year||'',
-   palettes:fiveColourways(celebration.archangel),pages:publicPages,media:publicAudio,files,library:publicLibrary,celebrations};
+   palettes:fiveColourways(celebration.archangel),pages:publicPages,media:publicAudio,files:publicOnly?files.filter(file=>allowedPublicLink(file.src,blocked)):files,library:publicLibrary,celebrations};
   return {celebrations,celebration,seed};
 }
 export async function handlePreparationDemo(request,env){
