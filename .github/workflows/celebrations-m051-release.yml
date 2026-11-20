@@ -60,7 +60,8 @@ jobs:
           const replacements=[
             ['refs/heads/release/celebrations-cleanup-06-20261110','refs/heads/fix/m051-program-media-preview-colors-20261119'],
             ["const original='eccb1274-2ed8-491f-8557-c4330342e4bf';","const original='9d4c7855-fa6f-4399-9b4f-78c4ca058ae6';"],
-            ["const originalDeployment='ffdc7b2b-a443-45cf-843d-0419fe71cb8d';","const originalDeployment='59021475-5861-4730-adca-6ff47ef120df';"]
+            ["const originalDeployment='ffdc7b2b-a443-45cf-843d-0419fe71cb8d';","const originalDeployment='59021475-5861-4730-adca-6ff47ef120df';"],
+            ["assert.equal(b.bucket_name,'celebrations-exit-staging');","assert.equal(b.bucket_name,'celebrations-exit-production');"]
           ];
           for(const [before,after] of replacements){
             assert.equal(body.split(before).length-1,1,'Release gate anchor changed');
