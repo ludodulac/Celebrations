@@ -34,13 +34,13 @@ try{
   const bold=page.getByRole('button',{name:/Gras/});
   await bold.click();
   const first=await page.locator('#editor').innerHTML();
-  assert.match(first,/<(?:b|strong)>Bonjour<\\/(?:b|strong)>/i);
+  assert.match(first,new RegExp('<(?:b|strong)>Bonjour</(?:b|strong)>','i'));
   assert.match(first,/monde et amis/);
   await page.evaluate(()=>{const z=document.querySelector('#editor');const t=z.querySelector('b,strong').firstChild;const r=document.createRange();r.selectNodeContents(t);const sel=window.getSelection();sel.removeAllRanges();sel.addRange(r);z.dispatchEvent(new MouseEvent('mouseup',{bubbles:true}))});
   await page.waitForTimeout(100);
   await bold.click();
   const second=await page.locator('#editor').innerHTML();
-  assert.doesNotMatch(second,/<(?:b|strong)>Bonjour<\\/(?:b|strong)>/i,'Second bold click should toggle off');
+  assert.doesNotMatch(second,new RegExp('<(?:b|strong)>Bonjour</(?:b|strong)>','i'),'Second bold click should toggle off');
   assert.match(second,/monde et amis/);
   console.log('FORMAT_BROWSER_PASS '+JSON.stringify({width,first,second}));
   await page.close();
