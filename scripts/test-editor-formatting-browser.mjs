@@ -52,6 +52,18 @@ try{
    assert.match(applied,/monde et amis/);
    console.log('FORMAT_EXTRA_PASS '+JSON.stringify({width,name,applied}));
   }
+  // Verify combining formats on exactly the same selected word.
+  await page.evaluate(()=>{const z=document.querySelector('#editor');z.textContent='Bonjour monde et amis';window.__select(0,7)});
+  await page.waitForTimeout(70);
+  await page.getByRole('button',{name:/Gras/}).click();
+  await page.evaluate(()=>{const z=document.querySelector('#editor');const t=z.querySelector('b,strong').firstChild;const r=document.createRange();r.selectNodeContents(t);const sel=window.getSelection();sel.removeAllRanges();sel.addRange(r);z.dispatchEvent(new MouseEvent('mouseup',{bubbles:true}))});
+  await page.waitForTimeout(70);
+  await page.getByRole('button',{name:/Italique/}).click();
+  const combined=await page.locator('#editor').innerHTML();
+  assert.match(combined,/<(?:b|strong|i|em)>/i,'Combination must contain formatting markup');
+  assert.match(combined,/monde et amis/,'Combination must preserve unselected text');
+  assert.equal(await page.locator('#editor').innerText(),'Bonjour monde et amis');
+  console.log('FORMAT_COMBINED_PASS '+JSON.stringify({width,combined}));
   console.log('FORMAT_BROWSER_PASS '+JSON.stringify({width,first,second}));
   await page.close();
  }
