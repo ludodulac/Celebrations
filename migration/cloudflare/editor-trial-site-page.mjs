@@ -215,12 +215,12 @@ body.is-splash-home.is-neutral-preview .site-paper{
  overflow:visible!important
 }
 /* Preserve the archangel-coloured frame on celebration pages, but not on the splash homepage. */
-body:not(.is-splash-home) .site-paper{
+body.is-celebration-page:not(.is-splash-home) .site-paper{
  border:6px solid var(--frame-color,#ea342f)!important;
  border-radius:14px!important;
  padding:var(--m036-paper-gutter)!important
 }
-@media(max-width:600px){body:not(.is-splash-home) .site-paper{border-width:4px!important}}
+@media(max-width:600px){body.is-celebration-page:not(.is-splash-home) .site-paper{border-width:4px!important}}
 body.is-splash-home .site-paper{padding:0!important}
 .site-paper #stage-main>.site-block.m036-image-edge-to-edge{
  width:calc(100% + var(--m036-paper-gutter)*2)!important;
