@@ -4,7 +4,6 @@
 // so every request rechecks private-page/space/category ownership before R2 reads.
 // No automatic promotion of "unused" files or hidden celebration assets.
 import {editorUploadPath} from './editor-upload-formats.mjs';
-import {isReadableMediaPath} from './editor-readable-media-path.mjs';
 import {canAccessPolicy,ACCESS_MODES} from './member-access.mjs';
 import {isPrivateMediaRecord,isPrivateMediaReference} from '../security/public-media-boundary.mjs';
 
@@ -79,7 +78,7 @@ export function referencedByRestrictedOwner(state,src){
 export function standalonePublicLinkAllowed(state,entry){
  if(!object(entry)||entry.source!=='uploaded'||entry.publicLink!==true||
     !['image','pdf','audio','file'].includes(entry.type)||
-    !(editorUploadPath(entry.src)||isReadableMediaPath(entry.src))||isPrivateMediaReference(entry.src)||
+    !editorUploadPath(entry.src)||isPrivateMediaReference(entry.src)||
     isPrivateMediaRecord(entry)||restrictedAudience(entry)||
     referencedByRestrictedOwner(state,entry.src))return false;
  return true;
