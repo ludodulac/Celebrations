@@ -37,3 +37,8 @@ Date : 20 novembre 2026. Document de continuité technique, sans secret.
 4. Épingler le nouveau commit de code dans le workflow main, déclencher `[M051_PUBLISH]`.
 5. Confirmer **la nouvelle version active** via Cloudflare, puis vérifier le rendu public et l'administration.
 6. Préserver D1, R2, DNS, secrets et une version de rollback. Ne pas annoncer « terminé » avant vérification effective.
+
+## Tentative de publication M051 du 20 novembre
+- Workflow principal épinglé au code testé `9fb7e009581716f577cf475af022aa4821aef562`.
+- Version de référence vérifiée sur Cloudflare : `9d4c7855-fa6f-4399-9b4f-78c4ca058ae6` ; déploiement `59021475-5861-4730-adca-6ff47ef120df`.
+- La publication est conditionnée aux vérifications automatiques du workflow, avec retour arrière prévu en cas d'échec après activation.
