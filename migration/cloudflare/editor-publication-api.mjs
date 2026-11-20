@@ -402,7 +402,7 @@ async function protectedWrite(request,env){
  return null;
 }
 const pageIdOk=id=>typeof id==='string'&&id.length<=110&&
- /^(?:neutral-(?:accueil-general|[0-9a-f-]{30,45})|(?:accueil-celebration|preparation|mercredi|jeudi|vendredi|samedi|dimanche|apres-celebration|extra-[0-9a-f-]{30,45})-(?:[1-9][0-9]{0,7}|plan-(?:michael|gabriel|raphael|ouriel)-20[0-9]{2}-[0-9]{2}-[0-9]{2}))$/.test(id);
+ /^(?:neutral-(?:accueil-general|[0-9a-f-]{30,45})|(?:accueil-celebration|preparation|programme|mercredi|jeudi|vendredi|samedi|dimanche|apres-celebration|extra-[0-9a-f-]{30,45})-(?:[1-9][0-9]{0,7}|plan-(?:michael|gabriel|raphael|ouriel)-20[0-9]{2}-[0-9]{2}-[0-9]{2}))$/.test(id);
 const celebrationIdOk=id=>typeof id==='string'&&/^(?:[1-9][0-9]{0,7}|plan-(?:michael|gabriel|raphael|ouriel)-20[0-9]{2}-[0-9]{2}-[0-9]{2})$/.test(id);
 export async function handleEditorPublication(request,env){
  if(!hostCheck(request,env))return err('Introuvable',404);
