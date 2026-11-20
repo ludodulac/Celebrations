@@ -82,7 +82,8 @@ test('M10: no general gallery navigation; celebration documents only, with hidde
      {kind:'section',hideOnSite:true,columns:[[{kind:'button',href:'/media/invisible-section.pdf'}],[]]}
    ]}
   ],
-  urlOk:x=>x
+  urlOk:x=>x,
+  t:x=>x
  };
  vm.runInNewContext(source+'\nthis.entries=galleryEntries;',env);
  const urls=env.entries().map(x=>x.src||x.external);
