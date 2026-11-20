@@ -3,7 +3,6 @@ import {validHomeEntryButton,normalizeHomeEntryButton} from './app/domain/editor
 // MEDIA_BUCKET or historic URLs. Both snapshots live in the existing editor R2.
 import {legacyEditorView,legacyRecord,managedPage,managedPageId,managedCelebration} from './app/security/private-editor-boundary.mjs';
 import {editorUploadFormat,editorUploadFilename,editorUploadPath,editorUploadResponseFormat} from './app/domain/editor-upload-formats.mjs';
-import {readableMediaPath,isReadableMediaPath} from './app/domain/editor-readable-media-path.mjs';
 import {hasEditorAccess} from './editor-site-access.mjs';
 import {EDITOR_SNAPSHOT_LIMIT,expectedRevisionMatches} from './app/ports/editor-snapshot-contract.mjs';
 import {readEditorSnapshot,putEditorSnapshot} from './app/adapters/editor-r2-repository.mjs';
@@ -705,12 +704,12 @@ export async function handleEditorMedia(request,env){
    return err('La médiathèque a changé. Rechargez-la avant de réessayer.',409);
   const state=copy(current.state);
   const entry=(state.mediaCatalogue||[]).find(m=>m?.id===input.id);
-  if(!entry||entry.source!=='uploaded'||!(editorUploadPath(entry.src)||isReadableMediaPath(entry.src)))
+  if(!entry||entry.source!=='uploaded'||!editorUploadPath(entry.src))
    return err('Seuls les fichiers importés sur ce site peuvent recevoir un lien public autonome.',403);
   if(input.publicLink&&!canShareStandaloneMedia(state,entry))
    return err('Ce fichier est lié à un contenu privé ou à un accès réservé : partage public refusé.',403);
   // If the R2 object was removed out-of-band, do not advertise a broken URL.
-  if(input.publicLink&&!await env.EDITOR_BUCKET.head(PREFIX+(entry.storageSrc||entry.src).slice('/media/new/'.length)))
+  if(input.publicLink&&!await env.EDITOR_BUCKET.head(PREFIX+entry.src.slice('/media/new/'.length)))
    return err('Fichier introuvable dans le stockage.',404);
   entry.publicLink=input.publicLink;
   if(!await writeEditorState(env.EDITOR_BUCKET,current,state))
@@ -739,14 +738,9 @@ export async function handleEditorMedia(request,env){
   const mime=String(file.type||'').toLowerCase(),format=editorUploadFormat(mime);
   if(!format||file.size<1||file.size>format.max)return err('Format ou taille non pris en charge (vidéos : lien externe)',415);
   const id=crypto.randomUUID()+format.extension;
-  const storageSrc='/media/new/'+id;
+  const path='/media/new/'+id,record={id:format.type+'|'+path,type:format.type,
+   src:path,name:String(file.name||id).slice(0,120),source:'uploaded',general:false,createdAt:new Date().toISOString()};
   const current=await readEditorState(env.EDITOR_BUCKET),state=copy(current.state);
-  const path=readableMediaPath(file.name,format.type,
-   (state.mediaCatalogue||[]).map(item=>item?.src).filter(Boolean));
-  if(!path)return err('Type de fichier non pris en charge',415);
-  const record={id:format.type+'|'+path,type:format.type,
-   src:path,storageSrc,name:String(file.name||id).slice(0,120),
-   source:'uploaded',general:false,createdAt:new Date().toISOString()};
   await env.EDITOR_BUCKET.put(PREFIX+id,await file.arrayBuffer(),{httpMetadata:{contentType:mime}});
   try{
    state.mediaCatalogue=discoverMedia(state).concat(record);
@@ -804,7 +798,7 @@ export async function handleEditorMedia(request,env){
   // Use exactly the same reference policy as the media catalogue UI.
   // Refuse deletion whenever reference discovery is incomplete (D1, private
   // spaces, translations or site identity), rather than relying on a badge.
-  const newUpload=entry.source==='uploaded'&&(editorUploadPath(entry.src)||isReadableMediaPath(entry.src));
+  const newUpload=entry.source==='uploaded'&&editorUploadPath(entry.src);
   if(entry.source==='uploaded'&&!newUpload)return err('Ce fichier historique est protégé',403);
   if(entry.source!=='uploaded'&&entry.source!=='link')return err('Lien historique protégé',403);
   const legacyRefs=await readLegacyMediaReferences(env.DB);
