@@ -22,7 +22,7 @@ export const TRIAL_SITE_CLIENT = "\n(async()=>{'use strict';\nconst seed=window.
    download.href=downloadableDocumentHref(url);
    download.rel='noopener noreferrer';
    download.style.cssText='font-size:0.85rem;font-weight:400;text-decoration:underline;text-underline-offset:2px';
-   const sameOrigin=new URL(url,location.href).origin===location.origin;
+   const sameOrigin=new URL(url,window.location.href).origin===window.location.origin;
    if(sameOrigin)download.setAttribute('download',safeDocumentFilename(item));
    else download.target='_blank';
    download.setAttribute('aria-label',t('Télécharger le document')+' : '+item.name);
