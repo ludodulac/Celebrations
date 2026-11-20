@@ -1,4 +1,4 @@
-name: "Célébrations — M051 pinned production release"
+name: "Célébrations — M051 pinned production release (triggered)"
 on:
   push:
     branches: [main]
