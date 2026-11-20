@@ -3,7 +3,6 @@
 // whether the upload had ever been published. NOT a private member endpoint.
 import {readEditorState,handleEditorMediaFile} from './editor-publication-api.mjs';
 import {editorUploadPath} from './app/domain/editor-upload-formats.mjs';
-import {isReadableMediaPath} from './app/domain/editor-readable-media-path.mjs';
 import {hasEditorAccess} from './editor-site-access.mjs';
 import {canAccessPage} from './app/domain/member-access.mjs';
 import {privateNotFound} from './app/security/member-private-access.mjs';
@@ -86,7 +85,7 @@ const secure=(response,publicFile,downloadRequested=false,fileName='')=>{
 export async function handlePublicEditorUpload(request,env){
  if(request.method!=='GET'&&request.method!=='HEAD')return privateNotFound();
  const path=new URL(request.url).pathname;
- if(!(editorUploadPath(path)||isReadableMediaPath(path))||isPrivateMediaReference(path))return privateNotFound();
+ if(!editorUploadPath(path)||isPrivateMediaReference(path))return privateNotFound();
  if(!env?.EDITOR_BUCKET||!publicMediaBindingsSafe(env))
   return secure(new Response('Stockage indisponible',{status:503}),false);
  try{
@@ -97,13 +96,9 @@ export async function handlePublicEditorUpload(request,env){
   const visible=publicRelease(state,path);
   const editor=visible?false:await hasEditorAccess(request,env);
   if(!visible&&!editor)return privateNotFound();
-  const storageSrc=entry?.storageSrc||path;
-  if(!editorUploadPath(storageSrc))return privateNotFound();
-  const storageUrl=new URL(request.url);
-  storageUrl.pathname=storageSrc;
-  const response=await handleEditorMediaFile(new Request(storageUrl,request),env);
+  const response=await handleEditorMediaFile(request,env);
   const downloadRequested=new URL(request.url).searchParams.get('download')==='1';
-  const extension=storageSrc.split('.').at(-1)||'pdf';
+  const extension=path.split('.').at(-1)||'pdf';
   const original=String(entry?.name||'Document').trim().slice(0,110)||'Document';
   const displayName=original.toLowerCase().endsWith('.'+extension)?
    original:original+'.'+extension;
