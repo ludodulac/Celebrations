@@ -23,7 +23,7 @@ jobs:
       PROD_D1_ID: 28736d2a-479b-472b-bf82-703ad0affe10
     steps:
       - uses: actions/checkout@v4
-        with: {fetch-depth: 0, persist-credentials: false, ref: '2e6c55f412e51595a46b9ca1d8688276f438c65b'}
+        with: {fetch-depth: 0, persist-credentials: false, ref: '9fb7e009581716f577cf475af022aa4821aef562'}
       - uses: actions/setup-node@v4
         with: {node-version: '22'}
       - uses: actions/setup-python@v5
@@ -59,8 +59,8 @@ jobs:
           let body=fs.readFileSync(src,'utf8');
           const replacements=[
             ['refs/heads/release/celebrations-cleanup-06-20261110','refs/heads/main'],
-            ["const original='eccb1274-2ed8-491f-8557-c4330342e4bf';","const original='37ede333-3c43-4a95-af1b-f334cee557e9';"],
-            ["const originalDeployment='ffdc7b2b-a443-45cf-843d-0419fe71cb8d';","const originalDeployment='e76528fb-03b5-4aad-b35c-2d4b987acbc3';"],
+            ["const original='eccb1274-2ed8-491f-8557-c4330342e4bf';","const original='9d4c7855-fa6f-4399-9b4f-78c4ca058ae6';"],
+            ["const originalDeployment='ffdc7b2b-a443-45cf-843d-0419fe71cb8d';","const originalDeployment='59021475-5861-4730-adca-6ff47ef120df';"],
             ["if(name==='EDITOR_BUCKET')assert.equal(b.bucket_name,'celebrations-exit-staging');","if(name==='EDITOR_BUCKET')assert.equal(b.bucket_name,'celebrations-exit-production');"],
             ["assert.ok(pub.record?.pages?.length>=8,'Published celebration lost pages');","assert.ok(pub.record?.pages?.length>=1,'Published celebration has no pages');"]
           ];
