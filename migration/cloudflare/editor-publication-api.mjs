@@ -804,7 +804,7 @@ export async function handleEditorMedia(request,env){
   // Use exactly the same reference policy as the media catalogue UI.
   // Refuse deletion whenever reference discovery is incomplete (D1, private
   // spaces, translations or site identity), rather than relying on a badge.
-  const newUpload=entry.source==='uploaded'&&editorUploadPath(entry.src);
+  const newUpload=entry.source==='uploaded'&&(editorUploadPath(entry.src)||isReadableMediaPath(entry.src));
   if(entry.source==='uploaded'&&!newUpload)return err('Ce fichier historique est protégé',403);
   if(entry.source!=='uploaded'&&entry.source!=='link')return err('Lien historique protégé',403);
   const legacyRefs=await readLegacyMediaReferences(env.DB);
