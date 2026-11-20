@@ -1086,6 +1086,24 @@ function editorFormatToolbar(x,z,box){
  }
  make('G','Gras (sélection ou bloc)',()=>format('bold','bold'));
  make('I','Italique (sélection ou bloc)',()=>format('italic','italic'));
+ if(x.kind==='text'||x.kind==='heading'){
+  const levels=n('select','format-select');levels.setAttribute('aria-label','Style du paragraphe');levels.title='Transformer le bloc en titre ou texte normal';
+  for(const [value,name] of [['p','Texte normal'],['h1','Titre 1 (H1)'],['h2','Titre 2 (H2)'],['h3','Titre 3 (H3)']]){
+   const option=n('option','',name);option.value=value;
+   if(value===(x.kind==='heading'?(x.headingLevel||'h2'):'p'))option.selected=true;
+   levels.append(option);
+  }
+  levels.onchange=()=>{
+   const value=levels.value;
+   x.kind=value==='p'?'text':'heading';
+   if(value==='p')delete x.headingLevel;
+   else x.headingLevel=value;
+   x.size=value==='h1'?32:value==='h2'?24:value==='h3'?20:16;
+   selectedBlockId=String(x.id);
+   mark();render();
+  };
+  bar.append(levels);
+ }
  const sizes=n('select','format-select');sizes.setAttribute('aria-label','Taille du texte');sizes.title='Taille du paragraphe entier';
  for(const num of BLOCK_SIZES){const opt=n('option','',num+' px');opt.value=String(num);if(num===(Number.parseInt(z.style.fontSize,10)||sizeOf(x)))opt.selected=true;sizes.append(opt)}
  sizes.onchange=()=>{x.size=Number(sizes.value);z.style.fontSize=x.size+'px';mark()};bar.append(sizes);
