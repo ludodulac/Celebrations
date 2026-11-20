@@ -1063,16 +1063,23 @@ document.addEventListener('selectionchange',()=>{
 function editorFormatToolbar(x,z,box){
  const bar=n('div','formatbar');
  bar.style.cssText='display:none;position:fixed;z-index:99999;max-width:calc(100vw - 20px);overflow-x:auto;white-space:nowrap;padding:8px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 6px 24px #0003';
- const show=()=>{const range=rangeInEditor(z);if(!range||range.collapsed){bar.style.display='none';return}const rect=range.getBoundingClientRect();bar.style.display='flex';bar.style.gap='5px';bar.style.left=Math.max(8,Math.min(rect.left,window.innerWidth-bar.offsetWidth-8))+'px';bar.style.top=Math.max(8,rect.top-bar.offsetHeight-10)+'px'};
+ let controlActive=false;
+ const show=()=>{if(controlActive)return;const range=rangeInEditor(z);if(!range||range.collapsed){bar.style.display='none';return}const rect=range.getBoundingClientRect();bar.style.display='flex';bar.style.gap='5px';bar.style.left=Math.max(8,Math.min(rect.left,window.innerWidth-bar.offsetWidth-8))+'px';bar.style.top=Math.max(8,rect.top-bar.offsetHeight-10)+'px'};
  z.addEventListener('mouseup',()=>setTimeout(show,0));
  z.addEventListener('keyup',()=>setTimeout(show,0));
  z.addEventListener('touchend',()=>setTimeout(show,180));
  // Keep controls outside the editable block's pointer/selection handlers and stacking contexts.
  document.body.append(bar);
- const onSelection=()=>{if(!z.isConnected){bar.remove();document.removeEventListener('selectionchange',onSelection);return}if(document.activeElement===z)setTimeout(show,0)};
+ const onSelection=()=>{if(controlActive)return;if(!z.isConnected){bar.remove();document.removeEventListener('selectionchange',onSelection);return}if(document.activeElement===z)setTimeout(show,0)};
  document.addEventListener('selectionchange',onSelection);
  bar.addEventListener('pointerdown',e=>{e.stopPropagation();const range=rangeInEditor(z);if(range)rememberedSelection={host:z,range:range.cloneRange()}});
  bar.addEventListener('click',e=>e.stopPropagation());
+ // Native select and color popups must keep their focus and selection; do not
+ // reposition or hide the toolbar while a control is being opened.
+ bar.addEventListener('pointerdown',e=>{if(e.target.closest('select,input[type="color"]'))controlActive=true});
+ bar.addEventListener('focusin',e=>{if(e.target.matches('select,input[type="color"]'))controlActive=true});
+ bar.addEventListener('focusout',()=>{setTimeout(()=>{if(!bar.contains(document.activeElement)){controlActive=false;show()}},120)});
+ for(const eventName of ['change','input'])bar.addEventListener(eventName,e=>{if(e.target.matches('select,input[type="color"]'))setTimeout(()=>{controlActive=false;show()},180)});
  const make=(label,title,fn)=>{
   const bt=b(label,fn,'sm format-button');bt.title=title;bt.setAttribute('aria-label',title);
   bt.addEventListener('mousedown',e=>e.preventDefault());
