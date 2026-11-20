@@ -42,6 +42,16 @@ try{
   const second=await page.locator('#editor').innerHTML();
   assert.doesNotMatch(second,new RegExp('<(?:b|strong)>Bonjour</(?:b|strong)>','i'),'Second bold click should toggle off');
   assert.match(second,/monde et amis/);
+  // Repeat with italic and underline, preserving all neighbouring words.
+  for(const [name,tag] of [['Italique','i'],['Souligner','u']]){
+   await page.evaluate(()=>{const z=document.querySelector('#editor');z.textContent='Bonjour monde et amis';window.__select(0,7)});
+   await page.waitForTimeout(70);
+   await page.getByRole('button',{name:new RegExp(name)}).click();
+   const applied=await page.locator('#editor').innerHTML();
+   assert.match(applied,new RegExp('<(?:'+tag+'|'+(tag==='i'?'em':'u')+')>Bonjour</(?:'+tag+'|'+(tag==='i'?'em':'u')+')>','i'),name+' must format only selection');
+   assert.match(applied,/monde et amis/);
+   console.log('FORMAT_EXTRA_PASS '+JSON.stringify({width,name,applied}));
+  }
   console.log('FORMAT_BROWSER_PASS '+JSON.stringify({width,first,second}));
   await page.close();
  }
