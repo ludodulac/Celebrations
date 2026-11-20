@@ -165,7 +165,7 @@ function celebrationLibrary(events,eventContents,stepContents,steps){
   if(t.includes('video')||/\.(?:mp4|webm|mov)$/i.test(path))type='video';
   else if(t==='audio'||/\.(?:mp3|wav|m4a|ogg|opus|flac)$/i.test(path))type='audio';
   else if(t==='image'||/\.(?:png|jpe?g|webp|gif|svg)$/i.test(path))type='image';
-  else if(t==='pdf'||/\.pdf$/i.test(path)||String(c.mime_type||'').toLowerCase().split(';')[0].trim()==='application/pdf')type='pdf';
+  else if(t==='pdf'||/\.pdf$/i.test(path)||String(c.mime_type||'').toLowerCase().split(';')[0].trim()==='application/pdf')type='pdf';\n  else if(/^(?:document|file|attachment|fichier|texte|text|word|doc|docx|odt|rtf|txt|xls|xlsx|ods|ppt|pptx|odp|csv)$/.test(t)||\.(?:docx?|odt|rtf|txt|xlsx?|ods|pptx?|odp|csv)(?:[?#]|$)/i.test(path))type='pdf';
   // Inline page text and event descriptions are never media-library entries.
   if(!type)return;
   const id=String(c.id);
