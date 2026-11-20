@@ -166,3 +166,22 @@ test('Two-column editor applies saved vertical alignment',()=>{
  assert.ok(src.includes('section-column[data-vertical-align=\\\"center\\\"]{align-content:center}'));
  assert.ok(src.includes('section-column[data-vertical-align=\\\"bottom\\\"]{align-content:end}'));
 });
+
+// Editor-formatting contract: these tests deliberately expose the current
+// incompatibilities before a unified formatting engine is introduced.
+test('formatting: selection commands never fall back to whole-block mutations',()=>{
+ const source=readFileSync(new URL('../migration/cloudflare/editor-demo-client-source.js',import.meta.url),'utf8');
+ const toolbar=source.slice(source.indexOf('function editorFormatToolbar('),source.indexOf('// Bounded local editor history.'));
+ assert.doesNotMatch(toolbar,/else\s*\{\s*x\.color\s*=|else\s*\{\s*x\[prop\]\s*=/,'Formatting without a selection must not recolor or restyle a complete block');
+});
+test('formatting: sanitizer preserves all toolbar-generated inline properties',()=>{
+ const source=readFileSync(new URL('../migration/cloudflare/editor-demo-client-source.js',import.meta.url),'utf8');
+ const sanitizer=source.slice(source.indexOf('function htmlSafe('),source.indexOf('function saveRich('));
+ assert.match(sanitizer,/text-align/,'Text alignment must survive save/reopen');
+ assert.match(sanitizer,/inline-block/,'Selected text alignment must not silently disappear');
+});
+test('formatting: popup menus must be cleaned up with their editor',()=>{
+ const source=readFileSync(new URL('../migration/cloudflare/editor-demo-client-source.js',import.meta.url),'utf8');
+ const toolbar=source.slice(source.indexOf('function editorFormatToolbar('),source.indexOf('// Bounded local editor history.'));
+ assert.match(toolbar,/popup\.remove\(\)/,'Detached editor popup menus must be removed');
+});
