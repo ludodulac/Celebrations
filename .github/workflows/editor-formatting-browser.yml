@@ -1,0 +1,21 @@
+name: Editor formatting browser regression
+on:
+  pull_request:
+    paths:
+      - 'migration/cloudflare/editor-demo-client-source.js'
+      - 'scripts/test-editor-formatting-browser.mjs'
+      - '.github/workflows/editor-formatting-browser.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  formatting:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-save --no-package-lock playwright@1.58.2
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/test-editor-formatting-browser.mjs
