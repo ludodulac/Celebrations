@@ -156,7 +156,7 @@ test('Reader preview preserves the celebration frame color',()=>{
 test('Server PDF cards expose protected archive or delete controls',()=>{
  const src=readFileSync(new URL('../migration/cloudflare/editor-demo-client.mjs',import.meta.url),'utf8');
  assert.ok(src.includes("controls.append(b('Supprimer',()=>void removeMediaFromAdmin(record,refs),'sm'))"));
- assert.ok(src.includes("if(remoteCopy)historicalActions.append(b('Supprimer',()=>void removeMediaFromAdmin(remoteCopy,refs),'sm'))"));
+ assert.ok(src.includes("if(hasImage)historicalActions.append(b('Supprimer',()=>void removeMediaFromAdmin(known,refs),'sm'))"));
  assert.ok(src.includes("const action=used?'archive':'delete'"));
 });
 
