@@ -59,8 +59,8 @@ jobs:
           let body=fs.readFileSync(src,'utf8');
           const replacements=[
             ['refs/heads/release/celebrations-cleanup-06-20261110','refs/heads/fix/m051-program-media-preview-colors-20261119'],
-            ["const original='eccb1274-2ed8-491f-8557-c4330342e4bf';","const original='37ede333-3c43-4a95-af1b-f334cee557e9';"],
-            ["const originalDeployment='ffdc7b2b-a443-45cf-843d-0419fe71cb8d';","const originalDeployment='e76528fb-03b5-4aad-b35c-2d4b987acbc3';"]
+            ["const original='eccb1274-2ed8-491f-8557-c4330342e4bf';","const original='9d4c7855-fa6f-4399-9b4f-78c4ca058ae6';"],
+            ["const originalDeployment='ffdc7b2b-a443-45cf-843d-0419fe71cb8d';","const originalDeployment='59021475-5861-4730-adca-6ff47ef120df';"]
           ];
           for(const [before,after] of replacements){
             assert.equal(body.split(before).length-1,1,'Release gate anchor changed');
@@ -79,7 +79,7 @@ jobs:
           cat >> migration/cloudflare/wrangler.production.toml <<'TOML'
           [[r2_buckets]]
           binding = "EDITOR_BUCKET"
-          bucket_name = "celebrations-exit-staging"
+          bucket_name = "celebrations-exit-production"
           TOML
           sed -i 's/^workers_dev = true$/workers_dev = false/' migration/cloudflare/wrangler.production.toml
           grep -Fx 'workers_dev = false' migration/cloudflare/wrangler.production.toml
