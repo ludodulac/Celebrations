@@ -46,7 +46,10 @@ jobs:
           node --check migration/cloudflare/editor-demo-client.mjs
           node --check migration/cloudflare/editor-demo-client-source.js
           node --check migration/cloudflare/editor-server-sync-client.mjs
-          node --test tests/test-editor-trial-site.mjs tests/test-editor-server-drafts.mjs
+      - name: Run editor behavior regression tests
+        run: node --test tests/test-editor-trial-site.mjs tests/test-editor-server-drafts.mjs
+      - name: Build production assets and audit legacy paths
+        run: |
           python scripts/build_production_assets.py
           python scripts/audit_production_supabase_paths.py
       - name: Reuse the already-proven exact-version release gate with the CURRENT baseline
