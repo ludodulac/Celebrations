@@ -1067,8 +1067,12 @@ function editorFormatToolbar(x,z,box){
  z.addEventListener('mouseup',()=>setTimeout(show,0));
  z.addEventListener('keyup',()=>setTimeout(show,0));
  z.addEventListener('touchend',()=>setTimeout(show,180));
- document.addEventListener('selectionchange',()=>{if(z.isConnected&&document.activeElement===z)setTimeout(show,0)});
- bar.addEventListener('mousedown',e=>e.preventDefault());
+ // Keep controls outside the editable block's pointer/selection handlers and stacking contexts.
+ document.body.append(bar);
+ const onSelection=()=>{if(!z.isConnected){bar.remove();document.removeEventListener('selectionchange',onSelection);return}if(document.activeElement===z)setTimeout(show,0)};
+ document.addEventListener('selectionchange',onSelection);
+ bar.addEventListener('pointerdown',e=>{e.stopPropagation();const range=rangeInEditor(z);if(range)rememberedSelection={host:z,range:range.cloneRange()}});
+ bar.addEventListener('click',e=>e.stopPropagation());
  const make=(label,title,fn)=>{
   const bt=b(label,fn,'sm format-button');bt.title=title;bt.setAttribute('aria-label',title);
   bt.addEventListener('mousedown',e=>e.preventDefault());
@@ -2015,7 +2019,7 @@ function block(x,p,items=p.blocks,section=null){
     if(validTime(x.atTime))line.append(n('time','editor-event-hour',x.atTime+' — '));
     line.append(z);box.append(line);
    }else box.append(z);
-   if(x.kind!=='button'&&!preview)box.append(editorFormatToolbar(x,z,box));
+   if(x.kind!=='button'&&!preview)editorFormatToolbar(x,z,box);
    if(x.kind==='event'&&!preview){
     const timeRow=timeChooser(x.atTime,'Heure de l’événement',hour=>{
      x.atTime=hour;mark();
