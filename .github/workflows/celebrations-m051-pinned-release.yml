@@ -23,7 +23,7 @@ jobs:
       PROD_D1_ID: 28736d2a-479b-472b-bf82-703ad0affe10
     steps:
       - uses: actions/checkout@v4
-        with: {fetch-depth: 0, persist-credentials: false, ref: 'ed6c5b675f8f507d68b176373d0dd6f9f745f5cc'}
+        with: {fetch-depth: 0, persist-credentials: false, ref: '7417352b44b0f0bda9b785ed5276ea1c2b987da1'}
       - uses: actions/setup-node@v4
         with: {node-version: '22'}
       - uses: actions/setup-python@v5
