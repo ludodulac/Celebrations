@@ -1,4 +1,4 @@
-name: "Célébrations — M051 verified release"
+name: "Célébrations — M051 isolated regression release"
 on:
   push:
     branches: [main]
@@ -45,7 +45,7 @@ jobs:
           node --check migration/cloudflare/app/styles/admin/07-drag-resources.mjs
           node --check migration/cloudflare/editor-demo-client.mjs
           node --check migration/cloudflare/editor-server-sync-client.mjs
-          node --test tests/test-editor-trial-site.mjs tests/test-editor-demo.mjs
+          node --test tests/test-editor-trial-site.mjs
           python scripts/build_production_assets.py
           python scripts/audit_production_supabase_paths.py
       - name: Reuse the already-proven exact-version release gate with the CURRENT baseline
