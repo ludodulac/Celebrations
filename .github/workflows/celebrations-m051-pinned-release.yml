@@ -1,4 +1,4 @@
-name: "Célébrations — M051 production binding corrected"
+name: "Célébrations — M051 corrected release gate"
 on:
   push:
     branches: [main]
@@ -64,8 +64,8 @@ jobs:
             ["if(name==='EDITOR_BUCKET')assert.equal(b.bucket_name,'celebrations-exit-staging');","if(name==='EDITOR_BUCKET')assert.equal(b.bucket_name,'celebrations-exit-production');"]
           ];
           for(const [before,after] of replacements){
-            assert.equal(body.split(before).length-1,1,'Release gate anchor changed');
-            body=body.replace(before,after);
+            assert.equal(body.split(before).length-1,before.includes("if(name==='EDITOR_BUCKET')")?2:1,'Release gate anchor changed');
+            body=body.replaceAll(before,after);
           }
           fs.writeFileSync('scripts/.editor-m04-release-runtime.mjs',body);
           console.log('EDITOR_M11_REUSE_EXACT_VERSION_GATE');
