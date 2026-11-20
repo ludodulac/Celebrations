@@ -72,20 +72,20 @@ jobs:
           const oldPageGate="assert.ok(pub.record?.pages?.length>=8,'Published celebration lost pages');";
           assert.equal(body.split(oldPageGate).length-1,1,'Page safety gate anchor changed');
           body=body.replace(oldPageGate,`
-  assert.ok(Array.isArray(pub.record?.pages),'Published page inventory invalid');
-  assert.ok(Array.isArray(pub.shared?.pages),'Shared page inventory invalid');
-  const inventory={revision:pub.revision,
-    pages:pub.record.pages.map(p=>String(p.slug??p.id??p.key??'')),
-    shared:pub.shared.pages.map(p=>String(p.slug??p.id??p.key??''))};
-  const inventoryFile='scripts/.m051-published-inventory.json';
-  const all=fs.existsSync(inventoryFile)?JSON.parse(fs.readFileSync(inventoryFile,'utf8')):{};
-  if(MODE==='preflight'){
-    all[base]=inventory;
-    fs.writeFileSync(inventoryFile,JSON.stringify(all));
-  }else{
-    assert.deepEqual(inventory,all[base],
-      'Published page inventory changed since preflight: refuse deployment');
-  }`);
+            assert.ok(Array.isArray(pub.record?.pages),'Published page inventory invalid');
+            assert.ok(Array.isArray(pub.shared?.pages),'Shared page inventory invalid');
+            const inventory={revision:pub.revision,
+              pages:pub.record.pages.map(p=>String(p.slug??p.id??p.key??'')),
+              shared:pub.shared.pages.map(p=>String(p.slug??p.id??p.key??''))};
+            const inventoryFile='scripts/.m051-published-inventory.json';
+            const all=fs.existsSync(inventoryFile)?JSON.parse(fs.readFileSync(inventoryFile,'utf8')):{};
+            if(MODE==='preflight'){
+              all[base]=inventory;
+              fs.writeFileSync(inventoryFile,JSON.stringify(all));
+            }else{
+              assert.deepEqual(inventory,all[base],
+                'Published page inventory changed since preflight: refuse deployment');
+            }`);
           fs.writeFileSync('scripts/.editor-m04-release-runtime.mjs',body);
           console.log('EDITOR_M11_REUSE_EXACT_VERSION_GATE');
           NODE
