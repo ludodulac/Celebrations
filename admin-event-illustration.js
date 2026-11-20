@@ -9,7 +9,7 @@
   };
   const usableIllustrations=()=>state.contents.filter(x=>(x.type==='Image'&&x.sourceType==='file'&&x.storagePath)||x.hasCover);
   const imagePath=c=>c.type==='Image'&&c.sourceType==='file'?c.storagePath:c.coverStoragePath;
-  const imageUrl=c=>{const p=imagePath(c);return p&&typeof supabaseMediaUrl==='function'?supabaseMediaUrl(p):''};
+  const imageUrl=c=>{const p=imagePath(c);return p&&typeof cloudflareMediaUrl==='function'?cloudflareMediaUrl(p):''};
   const galleryHtml=(images,current)=>`<div id="evtIllustrationGallery" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:10px;margin-top:8px">
     <button type="button" data-illustration-id="" aria-label="Aucune illustration" style="min-height:92px;border:2px solid ${current?'#ddd':'var(--accent)'};border-radius:10px;background:#fff;cursor:pointer;padding:8px"><span style="font-size:28px;display:block">∅</span><span class="meta">Aucune</span></button>
     ${images.map(img=>{const id=String(img.id),url=imageUrl(img);return `<button type="button" data-illustration-id="${esc(id)}" title="${esc(img.name||'Illustration')}" aria-label="${esc(img.name||'Illustration')}" style="height:92px;border:3px solid ${id===current?'var(--accent)':'transparent'};border-radius:10px;background:#f4f4f4;cursor:pointer;padding:2px;overflow:hidden"><img src="${esc(url)}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:7px;display:block"></button>`}).join('')}

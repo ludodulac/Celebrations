@@ -24,7 +24,7 @@ import {hasEditorAccess,editorAccessAction,editorLoginPage,editorLogout} from ".
 import {isOfficialEditorHost,isReadonlyCandidateHost,isM016AdminPreprodHost,isPrivateEditorPath,sameOriginEditorWrite} from "./app/security/editor-route-policy.mjs";
 // Immutable public route aliases. Keep historical links unchanged.
 const DIRECT_PAGES=new Map([
- ["/programme","preparation"],["/preparation","preparation"],
+ ["/programme","programme"],["/preparation","preparation"],
  ["/mercredi","mercredi"],["/jeudi","jeudi"],["/vendredi","vendredi"],
  ["/samedi","samedi"],["/dimanche","dimanche"],
  ["/apres-celebration","apres-celebration"],

@@ -7,7 +7,7 @@
   function homeBlock(c){
     const text=String(c.text||c.description||'');
     const hasResource=(c.sourceType==='file'&&c.storagePath)||c.url;
-    const cover=c.coverStoragePath&&typeof supabaseMediaUrl==='function'?`<div class="home-cover"><img src="${supabaseMediaUrl(c.coverStoragePath)}" alt="${esc(c.name||'Illustration')}" loading="lazy"></div>`:'';
+    const cover=c.coverStoragePath&&typeof cloudflareMediaUrl==='function'?`<div class="home-cover"><img src="${cloudflareMediaUrl(c.coverStoragePath)}" alt="${esc(c.name||'Illustration')}" loading="lazy"></div>`:'';
     const resource=hasResource&&typeof contentTitle==='function'?`<div class="home-resource">${contentTitle(c)}</div>`:'';
     return `<article class="card home-editorial-block"><div><h2>${esc(c.name||'')}</h2>${text?`<div class="home-copy">${esc(text).replace(/\n/g,'<br>')}</div>`:''}${cover}${resource}</div></article>`;
   }

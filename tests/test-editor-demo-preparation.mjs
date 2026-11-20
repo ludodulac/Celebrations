@@ -40,7 +40,7 @@ test('Preparation demo includes every public step/event/content/link without dat
  const seedMatch=html.match(/window\.__PREPARATION_SEED__=([\s\S]*?);<\/script>/);
  assert.ok(seedMatch,'8 celebration pages plus neutral home embedded');
  const seed=JSON.parse(seedMatch[1]);
- assert.equal(seed.pages.length,9);
+ assert.equal(seed.pages.length,10);
  assert.deepEqual(seed.pages.filter(p=>p.group==='celebration').map(p=>p.name),STAGES.map(s=>s.label));
  for(const page of seed.pages)assert.ok(page.blocks.length>0,'Missing '+page.name);
  assert.ok(seed.pages.find(p=>p.name==='Mercredi').blocks.some(b=>b.text.includes('Rencontre mercredi')));

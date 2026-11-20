@@ -54,34 +54,40 @@ test('M10: footer links are generated only for published footer pages',()=>{
  assert.match(visitor,/saved\?\.pages\)?/); // Shared snapshot is the only source of visitor pages.
 });
 
-test('M10: there is no public general media gallery, and hidden/unrelated pages stay excluded',()=>{
- assert.ok(!TRIAL_SITE_CLIENT.includes('▧ Médiathèque générale'));
+test('M10: no general gallery navigation; celebration documents only, with hidden content excluded',()=>{
  assert.ok(!TRIAL_SITE_CLIENT.includes("active==='mediatheque'||isGeneralGallery"));
- assert.ok(TRIAL_SITE_CLIENT.includes("if(active==='mediatheque-generale')active=generalPages().homeId"));
+ assert.ok(TRIAL_SITE_CLIENT.includes("'/mediatheque-generale':'celebrations'"));
+ assert.ok(TRIAL_SITE_CLIENT.includes("if(active==='mediatheque-generale')active='celebrations'"));
+ // Translation catalogues may retain legacy strings; they must not be used as menu links.
+ assert.ok(!TRIAL_SITE_CLIENT.includes("navLink('mediatheque-generale'"));
  const start=TRIAL_SITE_CLIENT.indexOf('function collectMedia(');
  const end=TRIAL_SITE_CLIENT.indexOf('function youtubeEmbed(',start);
  assert.ok(start>0&&end>start);
  const source=TRIAL_SITE_CLIENT.slice(start,end);
- assert.match(source,/if\(!block\|\|block\.hideOnSite===true\)continue/);
+ assert.ok(source.includes('if(!block||block.hideOnSite===true)continue;'));
  const env={
   window:{__PUBLIC_CELEBRATION_VISIBLE__:true},
-  seed:{library:[{type:'image',src:'/media/historical-day.jpg',pages:['Mercredi'],name:'Illustration ancienne'},
-   {type:'image',src:'/media/general-only.jpg',pages:['Accueil'],name:'Photo générale'}]},
+  seed:{library:[
+   {type:'pdf',src:'/media/historical-day.pdf',pages:['Mercredi'],name:'Document ancien'},
+   {type:'pdf',src:'/media/general-only.pdf',pages:['Accueil'],name:'Document général'},
+   {type:'image',src:'/media/historical-image.jpg',pages:['Mercredi'],name:'Image exclue'}
+  ]},
   pages:[
-   {group:'page',name:'Accueil',blocks:[{kind:'image',src:'/media/general.jpg',text:'Acc'}]},
-   {group:'page',placement:'footer',name:'Mentions',blocks:[{kind:'image',src:'/media/footer.jpg',text:'Pied'}]},
+   {group:'page',name:'Accueil',blocks:[{kind:'button',href:'/media/general.pdf',text:'Acc'}]},
+   {group:'page',placement:'footer',name:'Mentions',blocks:[{kind:'button',href:'/media/footer.pdf',text:'Pied'}]},
    {group:'celebration',name:'Mercredi',blocks:[
-     {kind:'image',src:'/media/celebration.jpg',text:'Célébration'},
-     {kind:'image',hideOnSite:true,src:'/media/invisible.jpg'},
-     {kind:'section',hideOnSite:true,columns:[[{kind:'image',src:'/media/invisible-section.jpg'}],[]]}
+     {kind:'button',href:'/media/celebration.pdf',text:'Célébration'},
+     {kind:'image',src:'/media/published-image.jpg'},
+     {kind:'button',hideOnSite:true,href:'/media/invisible.pdf'},
+     {kind:'section',hideOnSite:true,columns:[[{kind:'button',href:'/media/invisible-section.pdf'}],[]]}
    ]}
   ],
-  urlOk:x=>x
+  urlOk:x=>x,
+  t:x=>x
  };
  vm.runInNewContext(source+'\nthis.entries=galleryEntries;',env);
- const urls=env.entries().map(x=>x.src);
- assert.equal(urls.length,2);
- assert.deepEqual([...urls].sort(),['/media/celebration.jpg','/media/historical-day.jpg'].sort());
+ const urls=env.entries().map(x=>x.src||x.external);
+ assert.deepEqual([...urls].sort(),['/media/celebration.pdf','/media/historical-day.pdf'].sort());
  env.window.__PUBLIC_CELEBRATION_VISIBLE__=false;
  assert.equal(env.entries().length,0);
 });

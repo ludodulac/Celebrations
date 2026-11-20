@@ -1,7 +1,7 @@
-name: "Célébrations — mission 11 : fenêtres d’ajout mobiles et suppression des pages de pied"
+name: "Célébrations — editor targeted release M051"
 on:
   push:
-    branches: [fix/editor-m11-mobile-insert-dialog-footer-delete-20261110]
+    branches: [disabled/m051-legacy-targeted-release]
 permissions:
   contents: read
 concurrency:
@@ -9,7 +9,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   publish-editor-mobile-insert-and-footer-delete:
-    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[EDITOR_M11_PUBLISH]') }}
+    if: ${{ github.run_attempt == 1 && contains(github.event.head_commit.message, '[M051_PUBLISH]') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     environment: celebrations-staging
@@ -28,16 +28,6 @@ jobs:
         with: {node-version: '22'}
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
-      - name: Reject changes outside the existing editor components
-        shell: bash
-        run: |
-          set -euo pipefail
-          test "$GITHUB_REF" = refs/heads/fix/editor-m11-mobile-insert-dialog-footer-delete-20261110
-          git merge-base --is-ancestor origin/release/celebrations-cleanup-06-20261110 HEAD
-          git diff --name-only origin/release/celebrations-cleanup-06-20261110 HEAD | grep -E '^(migration/cloudflare/|admin\.html$|index\.html$|public-|supabase-data\.js)' | sort > /tmp/editor-m04-runtime-delta
-          printf 'migration/cloudflare/app/admin/editor-render.mjs\nmigration/cloudflare/app/application/editor-page-commands.mjs\nmigration/cloudflare/app/domain/editor-drag-model.mjs\nmigration/cloudflare/app/domain/editor-pages.mjs\nmigration/cloudflare/app/styles/admin/02-block-controls.mjs\nmigration/cloudflare/app/styles/admin/04-section-composer.mjs\nmigration/cloudflare/app/styles/admin/05-guide-publication.mjs\nmigration/cloudflare/app/styles/admin/06-library-dialogs.mjs\nmigration/cloudflare/app/styles/admin/07-drag-resources.mjs\nmigration/cloudflare/app/styles/public/02-navigation-library.mjs\nmigration/cloudflare/editor-demo-client.mjs\nmigration/cloudflare/editor-demo-preparation-page.mjs\nmigration/cloudflare/editor-server-sync-client.mjs\nmigration/cloudflare/editor-trial-site-client.mjs\nmigration/cloudflare/editor-trial-site-page.mjs\n' > /tmp/editor-m04-expected-runtime-delta
-          diff -u /tmp/editor-m04-expected-runtime-delta /tmp/editor-m04-runtime-delta
-          echo EDITOR_M11_EXISTING_MODULES_ONLY
       - name: Targeted regression tests — no additions to the editor
         run: |
           node --check migration/cloudflare/app/admin/editor-render.mjs
@@ -55,7 +45,7 @@ jobs:
           node --check migration/cloudflare/app/styles/admin/07-drag-resources.mjs
           node --check migration/cloudflare/editor-demo-client.mjs
           node --check migration/cloudflare/editor-server-sync-client.mjs
-          node --test tests/test_editor_m01_select_only_move_grip.mjs tests/test_editor_m02_m03_visibility.mjs tests/test_mission13_styles.mjs tests/test_mission11_drag_undo.mjs tests/test-editor-server-drafts.mjs tests/test_mission10_safe_persistence.mjs tests/test_editor_m05_m07_block_controls.mjs tests/test_editor_m08_hover_and_longpress.mjs tests/test_editor_m09_visibility_controls.mjs tests/test_editor_m10_footer_mp3_public_gallery.mjs tests/test_editor_m11_mobile_insert_footer_delete.mjs tests/test-editor-demo.mjs
+          node --test tests/test-editor-trial-site.mjs tests/test_editor_m01_select_only_move_grip.mjs tests/test_editor_m02_m03_visibility.mjs tests/test_mission13_styles.mjs tests/test_mission11_drag_undo.mjs tests/test-editor-server-drafts.mjs tests/test_mission10_safe_persistence.mjs tests/test_editor_m05_m07_block_controls.mjs tests/test_editor_m08_hover_and_longpress.mjs tests/test_editor_m09_visibility_controls.mjs tests/test_editor_m10_footer_mp3_public_gallery.mjs tests/test_editor_m11_mobile_insert_footer_delete.mjs tests/test-editor-demo.mjs
           python scripts/build_production_assets.py
           python scripts/audit_production_supabase_paths.py
       - name: Reuse the already-proven exact-version release gate with the CURRENT baseline
@@ -68,9 +58,9 @@ jobs:
           const src='scripts/cleanup06_cloudflare_release.mjs';
           let body=fs.readFileSync(src,'utf8');
           const replacements=[
-            ['refs/heads/release/celebrations-cleanup-06-20261110','refs/heads/fix/editor-m11-mobile-insert-dialog-footer-delete-20261110'],
-            ["const original='eccb1274-2ed8-491f-8557-c4330342e4bf';","const original='ab8ff440-1f62-4c45-b37f-77fc671eaa99';"],
-            ["const originalDeployment='ffdc7b2b-a443-45cf-843d-0419fe71cb8d';","const originalDeployment='2a89a6f1-7b82-4fd3-bde8-4fb8538588af';"]
+            ['refs/heads/release/celebrations-cleanup-06-20261110','refs/heads/fix/m051-program-media-preview-colors-20261119'],
+            ["const original='eccb1274-2ed8-491f-8557-c4330342e4bf';","const original='37ede333-3c43-4a95-af1b-f334cee557e9';"],
+            ["const originalDeployment='ffdc7b2b-a443-45cf-843d-0419fe71cb8d';","const originalDeployment='e76528fb-03b5-4aad-b35c-2d4b987acbc3';"]
           ];
           for(const [before,after] of replacements){
             assert.equal(body.split(before).length-1,1,'Release gate anchor changed');
@@ -111,7 +101,7 @@ jobs:
           WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/editor-m02-m03-wrangler.jsonl
         run: |
           set -euo pipefail
-          npx wrangler versions upload --config wrangler.production.toml --keep-vars --strict --message "Célébrations editor M11: native mobile insert dialog and normal footer-page deletion: $GITHUB_SHA"
+          npx wrangler versions upload --config wrangler.production.toml --keep-vars --strict --message "Célébrations M051: programme, frame, columns and guarded PDF removal: $GITHUB_SHA"
           node --input-type=module <<'NODE'
           import assert from 'node:assert/strict';
           import fs from 'node:fs';
@@ -144,21 +134,7 @@ jobs:
         run: node scripts/.editor-m04-release-runtime.mjs rollback
       - name: Final report
         run: echo EDITOR_M11_PUBLISHED_SUCCESS_CLEAN_EDITOR_DISPLAY_NO_NEW_TOOLS
-# Owner-approved M11 only. No backend changes or automatic data deletion.
-# The editor CSS tests cover the current hover-only movement and contextual insertion controls.
-# All changes are limited to existing editor components; no new public data or services.
 
-# M09 release approved: contextual actions, accessibility and reversible whole-section hiding.
-# No stylesheet overlay: only targeted edits to the existing eight CSS layers.
+# M051: release current branch only, verify production baseline, immutable bindings and automatic rollback.
 
-# M09: apply only after full regression checks, exact-version validation and rollback protection.
-
-# M09 regression: hover-image callbacks retain stopPropagation, preventing editor selection.
-
-# M10 owner approval: footer pages, instruction guide, MP3 upload progress, visible celebration-only media and hover controls.
-
-# M10 browser JS guide text serialized correctly; run full existing preflight before upload.
-
-# Browser validation now checks correctly escaped MP3 literals and exact template attributes.
-
-# M11 owner-approved: use native centred mobile menus and preserve last-footer deletion without changing page storage.
+# Publication explicitement demandée par le propriétaire ; garde-fous et rollback activés.

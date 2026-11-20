@@ -7,7 +7,7 @@
   const host=document.createElement('section');host.id='celebrationVisibilityAdmin';host.className='footer-pages-admin';
   const participants=document.getElementById('participantsAdmin');
   (participants?.parentNode||document.body).insertBefore(host,participants?.nextSibling||null);
-  const sb=window.celebrationsSupabase||null;
+  const sb=window.celebrationsCloudflare||null;
   let showOthers=false,loading=true,message='';
   async function invoke(action,payload={}){
     if(!sb)return {ok:false,error:'Connexion au serveur indisponible.'};

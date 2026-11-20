@@ -19,7 +19,7 @@ const object=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
 const goodId=x=>typeof x==='string'&&ID.test(x)&&x.length<=46;
 const goodPage=(p,id)=>object(p)&&typeof p.id==='string'&&typeof p.name==='string'&&p.name.length<=180&&
  Array.isArray(p.blocks)&&p.blocks.length<=300&&p.blocks.every(b=>object(b)&&typeof b.kind==='string'&&b.kind.length<30)&&
- (p.group==='celebration'&&p.id.endsWith('-'+id)&&/^(?:accueil-celebration|preparation|mercredi|jeudi|vendredi|samedi|dimanche|apres-celebration|extra-[0-9a-f-]{30,45})-/.test(p.id)||
+ (p.group==='celebration'&&p.id.endsWith('-'+id)&&/^(?:accueil-celebration|preparation|programme|mercredi|jeudi|vendredi|samedi|dimanche|apres-celebration|extra-[0-9a-f-]{30,45})-/.test(p.id)||
   p.group==='page'&&(p.id==='neutral-accueil-general'||/^neutral-[0-9a-f-]{30,45}$/.test(p.id)));
 const goodPlans=x=>Array.isArray(x)&&x.length<=100&&x.every(p=>object(p)&&goodId(p.id)&&p.id.startsWith('plan-')&&
  typeof p.title==='string'&&p.title.length<=100&&typeof p.archangel==='string'&&p.archangel.length<=25&&

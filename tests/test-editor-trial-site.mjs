@@ -3,13 +3,14 @@ import assert from 'node:assert/strict';
 import {Script} from 'node:vm';
 import {handleTrialSite} from '../migration/cloudflare/editor-trial-site-page.mjs';
 import {TRIAL_SITE_CLIENT,TRIAL_SITE_STYLE} from '../migration/cloudflare/editor-trial-site-client.mjs';
+import {readFileSync} from 'node:fs';
 const site='https://celebrations-exit-staging.rondes.workers.dev/__editor/voir-le-site';
 const data={
  celebrations:[{id:101,archangel:'Michaël',year:'2026'}],
  steps:['Préparation','Mercredi','Jeudi','Vendredi','Samedi','Dimanche','Après célébration'].map((label,i)=>({id:i+1,celebration_id:101,step_key:['preparation','mercredi','jeudi','vendredi','samedi','dimanche','apres-celebration'][i]+'-101',label,start_date:null,end_date:null,body_text:'Texte public du '+label})),
  events:[],
  eventContents:[],
- stepContents:[],
+ stepContents:[{step_key:'preparation-101',sort_order:1,id:'pdf-1',name:'Document de célébration',content_type:'document',mime_type:'application/pdf',source_type:'file',storage_path:'media/programme-document',audience:'all'}],
  links:[]
 };
 const sqls=[];
@@ -58,12 +59,21 @@ test('Site trial response contains eight programme pages plus neutral home, a re
  const s=html.match(/window\.__TRIAL_SITE_SEED__=([\s\S]*?);<\/script>/);
  assert.ok(s,'embedded public seed');
  const seed=JSON.parse(s[1]);
- assert.equal(seed.pages.length,9);
+ assert.equal(seed.pages.length,10);
+ const programme=seed.pages.find(p=>p.id==='programme-101');
+ const preparation=seed.pages.find(p=>p.id==='preparation-101');
+ assert.ok(programme,'Each celebration must have its own Programme page');
+ assert.ok(preparation,'Preparation remains a separate page');
+ assert.notEqual(programme.id,preparation.id);
+ assert.ok(seed.files.some(x=>x.category==='pdf'&&x.name==='Document de célébration'),'PDF MIME is visible in the celebration file catalogue');
+ assert.ok(seed.library.some(x=>x.type==='pdf'&&x.name==='Document de célébration'),'PDF MIME is visible in the celebration media library');
+ assert.match(TRIAL_SITE_CLIENT,/\['programme',t\('Programme'\)\]/,'Programme shortcut must route to Programme');
+ assert.ok(TRIAL_SITE_CLIENT.includes("'/programme':'programme'"),'Direct Programme URL must not route to Preparation');
  assert.ok(seed.pages.every(p=>p.blocks.length>0));
  assert.equal(seed.pages.find(p=>p.id==='apres-celebration-101').name,'Après célébration');
  assert.ok(html.includes('id="menu-toggle"'));
  assert.equal(seed.pages.find(p=>p.group==='page').name,'Accueil général');
- assert.equal(sqls.length,7);
+ assert.equal(sqls.length,8);
  assert.ok(sqls.every(q=>q.startsWith('SELECT ')),'read only');
  assert.match(r.headers.get('content-security-policy'),/connect-src 'self'/);
  const scripts=[...html.matchAll(/<script nonce="[0-9a-f]+">([\s\S]*?)<\/script>/g)];
@@ -127,4 +137,64 @@ test('Visitor menu keeps custom pages in author order without a global media lib
   'Global visitor media library must remain absent');
  assert.ok(nav.includes("p.placement!=='footer'"),
   'Footer pages must not be duplicated in main navigation');
+});
+
+test('Production /programme does not alias to Préparation',async()=>{
+ const worker=readFileSync(new URL('../migration/cloudflare/production-worker.mjs',import.meta.url),'utf8');
+ assert.ok(worker.includes('["/programme","programme"]'));
+ assert.ok(!worker.includes('["/programme","preparation"]'));
+});
+
+
+test('Reader preview scopes archangel frame to celebration pages only',()=>{
+ const css=readFileSync(new URL('../migration/cloudflare/app/styles/public/02-navigation-library.mjs',import.meta.url),'utf8');
+ assert.ok(css.includes('body.is-celebration-page .site-paper{border:6px solid var(--frame-color)}'));
+ assert.ok(css.includes('body.is-neutral-preview .site-paper{border:1px solid var(--tone-soft);box-shadow:none}'));
+ assert.ok(TRIAL_SITE_CLIENT.includes("document.body.classList.toggle('is-celebration-page',!neutral&&!isGallery)"));
+ assert.ok(!css.includes('body.is-neutral-preview .site-paper{border:2px solid #e7e9ec'));
+});
+
+
+test('Server PDF cards expose protected archive or delete controls',()=>{
+ const src=readFileSync(new URL('../migration/cloudflare/editor-demo-client.mjs',import.meta.url),'utf8');
+ assert.ok(src.includes("controls.append(b('Supprimer',()=>void removeMediaFromAdmin(record,refs),'sm'))"));
+ assert.ok(src.includes("if(hasImage)historicalActions.append(b('Supprimer',()=>void removeMediaFromAdmin(known,refs),'sm'))"));
+ assert.ok(src.includes("const action=used?'archive':'delete'"));
+});
+
+
+test('Two-column editor applies saved vertical alignment',()=>{
+ const src=readFileSync(new URL('../migration/cloudflare/app/styles/admin/04-section-composer.mjs',import.meta.url),'utf8');
+ assert.ok(src.includes('section-column[data-vertical-align=\\\"center\\\"]{align-content:center}'));
+ assert.ok(src.includes('section-column[data-vertical-align=\\\"bottom\\\"]{align-content:end}'));
+});
+
+// Editor-formatting contract: guard selection scope, persistence, and cleanup.
+test('formatting: selection commands never fall back to whole-block mutations',()=>{
+ const source=readFileSync(new URL('../migration/cloudflare/editor-demo-client-source.js',import.meta.url),'utf8');
+ const toolbar=source.slice(source.indexOf('function editorFormatToolbar('),source.indexOf('// Bounded local editor history.'));
+ assert.doesNotMatch(toolbar,/else\s*\{\s*x\.color\s*=|else\s*\{\s*x\[prop\]\s*=/,'Formatting without a selection must not recolor or restyle a complete block');
+});
+test('formatting: sanitizer preserves all toolbar-generated inline properties',()=>{
+ const source=readFileSync(new URL('../migration/cloudflare/editor-demo-client-source.js',import.meta.url),'utf8');
+ const sanitizer=source.slice(source.indexOf('function htmlSafe('),source.indexOf('function saveRich('));
+ assert.match(sanitizer,/\.style\.textAlign/,'Text alignment must survive save/reopen');
+ assert.match(sanitizer,/inline-block/,'Selected text alignment must not silently disappear');
+});
+test('formatting: popup menus must be cleaned up with their editor',()=>{
+ const source=readFileSync(new URL('../migration/cloudflare/editor-demo-client-source.js',import.meta.url),'utf8');
+ const toolbar=source.slice(source.indexOf('function editorFormatToolbar('),source.indexOf('// Bounded local editor history.'));
+ assert.match(toolbar,/popup\.remove\(\)/,'Detached editor popup menus must be removed');
+});
+
+test('formatting: editor source parses in its actual async execution context',()=>{
+ const source=readFileSync(new URL('../migration/cloudflare/editor-demo-client-source.js',import.meta.url),'utf8');
+ assert.doesNotThrow(()=>new Function('(async()=>{'+source));
+});
+test('formatting: saved rich text retains a safe selection-specific alignment',()=>{
+ const source=readFileSync(new URL('../migration/cloudflare/editor-demo-client-source.js',import.meta.url),'utf8');
+ const sanitizer=source.slice(source.indexOf('function htmlSafe('),source.indexOf('function saveRich('));
+ assert.match(sanitizer,/ALIGNMENTS\.includes\(node\.style\.textAlign\)/);
+ assert.match(sanitizer,/span\.style\.textAlign=align/);
+ assert.match(sanitizer,/span\.style\.display='inline-block'/);
 });

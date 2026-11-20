@@ -1,6 +1,6 @@
 // Only loaded by explicitly isolated preview pages, never by production.
 (function(){
- const endpoint=window.CELEBRATIONS_STAGING_BACKEND;
+ const endpoint=window.CELEBRATIONS_CLOUDFLARE_BACKEND;
  if(!endpoint)return;
  const base=String(endpoint).replace(/\/$/,"");
  const adminToken=()=>localStorage.getItem("celebrations-admin-token")||"";
@@ -14,7 +14,7 @@
    return {data,error:null};
   }catch{return {data:{ok:false,error:"Connexion au serveur de test indisponible."},error:null}}
  };
- // Original Supabase passwords use 180,000 PBKDF2 iterations, exceeding
+ // Existing password hashes use 180,000 PBKDF2 iterations, exceeding
  // Cloudflare Workers Free's 100,000-iteration limit. The browser performs
  // the full original derivation and transmits only a derived proof over TLS.
  // The Worker stores an additional SHA-256 verifier, not this replayable proof.
@@ -94,7 +94,7 @@
   }
   return {data:{ok:false,error:"Staging operation not implemented"},error:null};
  };
- window.celebrationsSupabase={functions:{invoke},storage:{from(){return {uploadToSignedUrl:async()=>({error:new Error("Use R2 staging uploader")})}}}};
+ window.celebrationsCloudflare={functions:{invoke},storage:{from(){return {uploadToSignedUrl:async()=>({error:new Error("Use R2 staging uploader")})}}}};
  const hex=a=>[...a].map(x=>x.toString(16).padStart(2,"0")).join("");
  const random=()=>hex(crypto.getRandomValues(new Uint8Array(16)));
  window.celebrationsStagingUpload=async file=>{

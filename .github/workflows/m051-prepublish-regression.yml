@@ -1,0 +1,26 @@
+name: "M051 — prepublish regression (no deployment)"
+on:
+  push:
+    branches: [fix/m051-program-media-preview-colors-20261119]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Full targeted M051 regression without Cloudflare credentials
+        run: |
+          node --check migration/cloudflare/editor-demo-client.mjs
+          node --check migration/cloudflare/editor-trial-site-client.mjs
+          node --test tests/test-editor-trial-site.mjs tests/test_editor_m01_select_only_move_grip.mjs tests/test_editor_m02_m03_visibility.mjs tests/test_mission13_styles.mjs tests/test_mission11_drag_undo.mjs tests/test-editor-server-drafts.mjs tests/test_mission10_safe_persistence.mjs tests/test_editor_m05_m07_block_controls.mjs tests/test_editor_m08_hover_and_longpress.mjs tests/test_editor_m09_visibility_controls.mjs tests/test_editor_m10_footer_mp3_public_gallery.mjs tests/test_editor_m11_mobile_insert_footer_delete.mjs tests/test-editor-demo.mjs
+          python scripts/build_production_assets.py
+          python scripts/audit_production_supabase_paths.py

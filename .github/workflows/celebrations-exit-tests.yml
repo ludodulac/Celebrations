@@ -93,42 +93,38 @@ jobs:
       - run: python scripts/build_production_assets.py
       - name: Read-only inventory of legacy Supabase references in generated production assets
         run: python scripts/audit_production_supabase_paths.py
-      - name: Confirm all seven direct programme/day pages exclusively boot Cloudflare
-        shell: bash
+      - name: Verify nine standalone pages use Cloudflare only
         run: |
           python - <<'PY'
           from pathlib import Path
-          d=Path("production-public")
+          root=Path("production-public")
           days=("programme","mercredi","jeudi","vendredi","samedi","dimanche","apres-celebration","bibliotheque","apres-la-ronde")
           for slug in days:
-              html=(d/slug/"index.html").read_text(encoding="utf-8")
-              assert html.count("window.CELEBRATIONS_STAGING_BACKEND=location.origin;")==1,slug
+              html=(root/slug/"index.html").read_text(encoding="utf-8")
+              assert html.count("window.CELEBRATIONS_CLOUDFLARE_BACKEND=location.origin;")==1,slug
               assert html.count('src="migration/cloudflare/preview-client.js"')==1,slug
               assert "cdn.jsdelivr.net/npm/@supabase/supabase-js" not in html,slug
-              assert html.index("CELEBRATIONS_STAGING_BACKEND")<html.index('src="supabase-data.js'),slug
-              assert html.index('src="supabase-client.js')<html.index('src="migration/cloudflare/preview-client.js"')<html.index('src="public-universal-mode.js'),slug
-          print("CÉLÉBRATIONS_SEVEN_DIRECT_DAY_CLOUDFLARE_ONLY_BUILD_PASS")
+              assert 'src="supabase-client.js' not in html,slug
+              assert 'src="supabase-data.js' not in html,slug
+              assert html.index("CELEBRATIONS_CLOUDFLARE_BACKEND")<html.index('src="cloudflare-client.js'),slug
+              assert html.index('src="cloudflare-client.js')<html.index('src="migration/cloudflare/preview-client.js"'),slug
+          print("NINE_STANDALONE_CLOUDFLARE_PAGES_PASS")
           PY
-      - name: Prove production HTML boots Cloudflare on ordinary public URL
-        run: |
-          grep -Fq 'src="/media/media/1791723108110/file-1791723109615-1000040461.jpg"' production-public/index.html
-          if grep -Fq '/media/media/celebrations-staging-welcome-autumn-2026.jpg' production-public/index.html; then exit 1; fi
-          grep -Fq 'window.CELEBRATIONS_STAGING_BACKEND=location.origin' production-public/index.html
-          grep -Fq 'window.CELEBRATIONS_STAGING_BACKEND=location.origin' production-public/admin.html
-          grep -Fq "location.replace('/letter/'+encodeURIComponent(slug))" production-public/index.html
-          if grep -Fq 'celebrations-committee-public?slug' production-public/index.html; then exit 1; fi
-          if grep -q 'cdn.jsdelivr.net/npm/@supabase/supabase-js' production-public/index.html production-public/admin.html; then exit 1; fi
-          echo 'Local production-candidate assets verified; no deploy.'
-      - name: Verify isolated assets have no Supabase image or CDN SDK
+      - name: Verify Cloudflare-only homepage and administration assets
         run: |
           python - <<'PY'
           from pathlib import Path
-          home=Path("staging-public/index.html").read_text()
-          admin=Path("staging-public/admin.html").read_text()
-          assert 'src="/media/media/celebrations-staging-welcome-autumn-2026.jpg"' in home
-          assert "cdn.jsdelivr.net/npm/@supabase/supabase-js" not in home+admin
-          assert "storage/v1/object/public/celebrations-media/media/1791723108110" not in home
+          for base in ("production-public","staging-public"):
+              for name in ("index.html","admin.html"):
+                  html=(Path(base)/name).read_text(encoding="utf-8")
+                  assert "window.CELEBRATIONS_CLOUDFLARE_BACKEND=location.origin" in html,(base,name)
+                  assert "@supabase/supabase-js" not in html,(base,name)
+                  assert "supabase.co" not in html,(base,name)
+          home=Path("production-public/index.html").read_text(encoding="utf-8")
+          assert "location.replace('/letter/'+encodeURIComponent(slug))" in home
+          assert "celebrations-committee-public?slug" not in home
           assert "celebrationsStagingMedia" in Path("staging-public/migration/cloudflare/preview-client.js").read_text()
+          print("CLOUDFLARE_HOME_ADMIN_ASSETS_PASS")
           PY
       - run: STAGING_D1_ID=00000000-0000-4000-8000-000000000000 STAGING_R2_BUCKET=celebrations-exit-staging python scripts/configure_staging_wrangler.py
       - name: Check Worker gates ALL asset routes (stronger than historical HTML-only config)

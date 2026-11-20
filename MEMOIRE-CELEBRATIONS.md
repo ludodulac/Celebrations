@@ -1,0 +1,128 @@
+# MÉMOIRE — Célébrations des Archanges
+
+**Mise à jour : 19 novembre 2026.** Document de continuité pour les prochaines conversations et interventions. **À tenir à jour après chaque mission.** Il décrit les éléments identifiés et les points à vérifier ; il ne prétend pas être un inventaire exhaustif de tous les fichiers, objets R2, tables D1, secrets ou branches historiques.
+
+## 1. Site et objectif
+
+- Site officiel : https://www.ronde-des-archanges-universelle.eu
+- Dépôt GitHub : https://github.com/ludodulac/Celebrations
+- Hébergement officiel : Cloudflare Workers, base D1, stockage médias R2.
+- Worker de production identifié : `celebrations-exit-production`.
+- Objectif de maintenance : code simple, stable, sans dépendance active à Supabase ; préserver les contenus et les droits d'accès ; vérifier les fonctions visiteurs et administration avant tout déploiement.
+- **Attention : le site officiel et la branche de travail ne sont pas la même chose.** Une modification GitHub non déployée n'affecte pas nécessairement le Worker en ligne.
+
+## 2. Références GitHub
+
+- Source officielle historique du Worker : branche `production/celebrations-live`. Le README du dépôt indique une livraison M6 du 10 novembre 2026 au commit `4dda3de63066ea51e4c99f0ef21255dfb4d0fcb9`. **À revérifier pour déterminer le déploiement réellement actif aujourd'hui.**
+- Branche de maintenance recommandée par le README : `develop/celebrations-maintenance`.
+- Ancien `main` : historique GitHub Pages ; ne pas supposer qu'il représente le Worker en production.
+- Archive de l'ancien site : `archive/celebrations-old-main-20261110`.
+- Branche des corrections en cours : `fix/m051-program-media-preview-colors-20261119`.
+- PR de travail : https://github.com/ludodulac/Celebrations/pull/185 — **ne pas fusionner automatiquement** : branche très divergente de `production/celebrations-live`, avec de nombreux fichiers modifiés.
+- Documentation existante : `README.md`, `docs/operations/BRANCHES-ET-LIVRAISONS.md`, `docs/operations/TRANSFERT-CLOUDFLARE.md`, `docs/finalisation/CELEBRATIONS-NETTOYAGE-06-2026-11-10.md`.
+
+## 3. Architecture identifiée
+
+**Visiteurs :** pages d'accueil, programme, journées (mercredi, jeudi, vendredi, samedi, dimanche), après-célébration, bibliothèque, après-la-ronde, pages légales, contenus et médias selon visibilité et permissions.
+
+**Administration :** pages et blocs éditables, célébrations, publications, médiathèques, participants et identités, statistiques, documents et audio. Les sessions et autorisations administrateur/participant doivent rester séparées.
+
+**Cloudflare :**
+- Workers : interface/API de production, notamment `migration/cloudflare/production-worker.mjs` dans le dépôt ; comparer au code réellement déployé.
+- D1 : contenus, paramètres de publication, autorisations, participants, statistiques ; **schéma, identifiant de base et tables exactes à inventorier depuis Cloudflare, sans exposer de secrets**.
+- R2 : images, PDF, fichiers audio et autres médias ; **noms de buckets, clés et volumes à confirmer sur le compte actif**. Ne pas supprimer d'objets pendant le nettoyage.
+- Secrets et domaines : à contrôler via la configuration Cloudflare ; ne jamais copier leurs valeurs dans cette mémoire.
+
+**Fichiers de migration et contrôle :**
+- `cloudflare-client.js`, `cloudflare-data.js`, `public-cloudflare-boot.js`, `admin-cloudflare-core.js` : noms adoptés sur la branche de travail.
+- `migration/cloudflare/preview-client.js` : adaptateur API Cloudflare.
+- `scripts/build_staging_assets.py` et `scripts/build_production_assets.py` : assemblage statique hors ligne.
+- `scripts/audit_production_supabase_paths.py` : vérifie les références réseau Supabase et l'ancien SDK d'envoi dans les fichiers générés.
+- `tests/test-exit-*.mjs` : batterie de tests automatisés.
+
+## 4. Changements effectués sur la branche de travail (non déployés)
+
+1. Renommage de plusieurs modules et références de l'ancien client Supabase vers Cloudflare.
+2. Suppression de l'ancienne URL d'image Supabase dans `index.html` ; **contrôler l'image d'accueil et sa clé R2 avant publication**.
+3. Statistiques administrateur : suppression du repli RPC obsolète, requête vers l'API Cloudflare.
+4. Pages légales : correction du nom de variable `CELEBRATIONS_CLOUDFLARE_BACKEND`.
+5. Mise à jour des tests de migration avec les nouveaux noms du client.
+6. Neuf pages autonomes (`programme`, `mercredi`, `jeudi`, `vendredi`, `samedi`, `dimanche`, `apres-celebration`, `bibliotheque`, `apres-la-ronde`) : remplacement des chargements Supabase par Cloudflare.
+7. Révision des scripts de génération et suppression du script externe `tus-js-client` dans l'administration.
+
+**Dernière CI examinée :** 99 tests sur 99 réussis ; construction staging et production réussie ; audit des fichiers de production générés : 0 référence d'hôte Supabase, 0 SDK Supabase, 0 SDK tus. **Le workflow global est encore rouge** car une étape de contrôle des pages autonomes recherche les anciens noms `CELEBRATIONS_STAGING_BACKEND` et `supabase-*.js`. Il faut corriger cette étape sans affaiblir ses assertions. Ces réussites ne constituent pas un test navigateur réel ni une validation de production.
+
+## 5. Missions restantes — ordre de réalisation
+
+- [ ] **Mission 1 — Cartographie fiable :** inventorier les fichiers actifs, la branche réellement déployée, le Worker et les ressources Cloudflare ; distinguer code historique et code actif.
+- [ ] **Mission 2 — Nettoyage Supabase :** rechercher toutes les références encore actives, éliminer les dépendances inutiles, conserver les archives nécessaires et ne jamais supprimer les données.
+- [ ] **Mission 3 — Vérification Cloudflare :** contrôler Worker, routes, D1, R2, médias, paramètres et droits d'accès, sans divulguer les secrets.
+- [ ] **Mission 4 — Tests automatisés :** actualiser l'étape CI de contrôle des neuf pages autonomes ; exiger tous les tests et builds au vert.
+- [ ] **Mission 5 — Tests fonctionnels :** visiteurs et administration, enregistrement/publication, pages et blocs, liens, PDF, audio, images, ordinateur et mobile. Noter les contrôles réellement effectués.
+- [ ] **Mission 6 — Sécurité et consolidation :** permissions, séparation des sessions, sauvegardes/restauration, contrôle des contenus et suppression du code mort.
+- [ ] **Mission 7 — Livraison :** comparer proprement les différences à la branche de production, éviter la fusion massive de l'historique, préparer un déploiement contrôlé, vérifier le site après publication et mettre à jour ce document.
+
+## 6. Précautions impératives
+
+1. **Ne jamais fusionner PR #185 directement dans la branche de production sans revue de la divergence et des fichiers modifiés.**
+2. **Ne pas effacer de tables D1, d'objets R2, de secrets, ni de branches historiques sans inventaire, sauvegarde et accord explicite.**
+3. Ne pas confondre « tests Node réussis », « build réussi », « navigateur testé » et « site officiel déployé ».
+4. Préserver les pages, médias et publications créés par les administrateurs.
+5. Chaque mission doit aboutir à un résultat vérifié, documenté ici avec commit, tests et limites.
+
+## 7. Journal de validation
+
+| Date | Contrôle | Résultat |
+| --- | --- | --- |
+| 19/11/2026 | Tests Node de migration sur PR #185 | 99/99 réussis lors de la dernière CI examinée |
+| 19/11/2026 | Build statique staging + production | Réussis |
+| 19/11/2026 | Audit des références réseau Supabase dans les assets produits | 0 hôte, 0 SDK Supabase, 0 SDK tus |
+| 19/11/2026 | Vérification CI des pages autonomes | **Échec : assertions CI obsolètes** |
+| 19/11/2026 | Tests navigateurs / Worker de production / fusion | **Non validés** |
+
+**Règle :** modifier cette page au fur et à mesure des interventions, en remplaçant les points « à vérifier » uniquement après contrôle réel.
+
+## 8. DEMANDES FONCTIONNELLES PRIORITAIRES — rappel explicite du propriétaire (19/11/2026)
+
+**Ces six corrections sont la raison initiale de l'intervention. Ne pas les remplacer par le seul nettoyage Supabase.** Les réaliser et les tester sur la branche de travail, puis en préproduction avant livraison :
+
+- [ ] **F1 — Page Programme indépendante par célébration.** Dans une célébration, le bouton « Programme » doit ouvrir une vraie page « Programme » de **cette célébration**, éditable comme les autres pages avec blocs, textes et liens. Il ne doit plus rediriger vers « Préparation ». Conserver « Préparation » comme page distincte.
+- [ ] **F2 — PDF dans la médiathèque visiteurs de chaque célébration.** Les documents PDF associés à Michaël doivent apparaître dans la médiathèque visiteurs de Michaël (et de même pour chaque célébration). Respecter visibilité et droits ; ne pas recréer de médiathèque globale.
+- [ ] **F3 — Vidéo YouTube dans l'aperçu admin.** Éliminer les grosses bandes noires inutiles et aligner le rendu de l'aperçu sur le site visiteurs. Permettre de régler la largeur/taille de la vidéo avec **retour visuel immédiat**.
+- [ ] **F4 — Taille des images en aperçu admin.** Lorsque la largeur est modifiée (ex. 50 %), l'image doit effectivement se réduire dans l'éditeur/aperçu immédiatement ; même comportement et proportions que chez les visiteurs.
+- [ ] **F5 — Insérer un audio depuis la médiathèque dans une page.** Le bouton d'insertion doit ouvrir un sélecteur d'audios utilisable, sur le modèle du sélecteur d'images, puis insérer le média dans le bloc/la page ; ne pas naviguer simplement vers la page de médiathèque.
+- [ ] **F6 — Bordure de couleur des célébrations côté visiteurs.** Rétablir le contour selon la couleur déjà configurée dans le code (Michaël rouge, Gabriel bleu, autres selon leur configuration), sans modifier arbitrairement la palette.
+
+**Avancement F6 (19/11) :** `styles.css` a été modifié pour afficher une bordure complète utilisant `var(--accent)` (déjà défini par `setAccent()` selon la célébration). Contrôle navigateur et déploiement encore nécessaires avant de cocher F6.
+
+**Critères transversaux :** aucune perte de contenus, conservation des droits d'accès, cohérence desktop/mobile, contrôle du rendu visiteur ET de l'administration. Marquer une case terminée seulement après vérification concrète. Les missions techniques 1–7 de la section 5 sont complémentaires, pas substitutives.
+
+
+### Journal de travail complémentaire (19/11/2026)
+- `public-v3.js` et `public-content-nav.js` : correction des dernières vérifications de bootstrap encore nommées `CELEBRATIONS_STAGING_BACKEND`, qui pouvaient déclencher le chargement de données de repli malgré la migration Cloudflare.
+- `public-library-simple.js` : les PDF sont désormais reconnus aussi par leur type MIME ou leur extension, même si le type de contenu est mal étiqueté. **Attention :** la liste reste limitée aux contenus liés aux événements/journées de la célébration ; vérifier les associations D1 de Michaël avant de déclarer F2 résolue.
+- Les missions F1, F3, F4 et F5 ne sont pas encore validées ; ne pas les cocher.
+
+### 19/11 — Contrôle avant publication
+- Comparaison GitHub `production/celebrations-live` → branche PR #185 : **1 355 commits d'avance**, sans commit en retard. Cette différence est trop importante pour publier sans contrôle de l'ensemble des fonctionnalités.
+- Workflow `.github/workflows/celebrations-exit-tests.yml` : assertions actualisées pour les neuf pages autonomes et les fichiers Cloudflare de l'accueil/admin. Exécution CI à vérifier après le commit `07fc982b`.
+- **Déploiement non autorisé par les seuls tests unitaires :** vérifier aussi le comportement réel de F1–F6, l'intégrité des données et la procédure de retour arrière.
+
+### Travail supplémentaire — réglage vidéo
+- Le code de l'éditeur et son module sérialisé ont reçu un curseur de largeur vidéo de 20 à 100 %, avec changement immédiat de la miniature dans l'administration et enregistrement dans `widthPct`. **À tester dans l'éditeur réel et à confirmer sur le rendu visiteur** ; F3 reste ouverte tant que le rendu des bandes noires et la cohérence visiteurs ne sont pas validés.
+- L'insertion audio possède déjà une action « Insérer dans le lecteur » dans le code de la médiathèque ; il faut rechercher pourquoi le parcours utilisateur n'atteint pas correctement cette action, plutôt que dupliquer une seconde interface.
+- Le réglage de taille des images existe aussi dans le code de l'éditeur ; le défaut signalé semble concerner la différence de rendu entre administration et visiteurs. À investiguer avant une réécriture.
+
+### 19/11 — Régressions et vidéo visiteurs
+- Deux tests de l'éditeur en échec étaient des assertions devenues obsolètes : le rendu public exclut aussi l'image d'accueil spéciale et l'aperçu effectue huit lectures SQL `SELECT` (au lieu de sept). Les assertions ont été alignées sur les comportements existants, sans changer ces comportements. Les workflows GitHub associés au commit `198ce968` sont réussis pour les deux premiers contrôles ; le troisième doit être vérifié.
+- Le rendu visiteur `editor-trial-site-client.mjs` applique maintenant `widthPct` à la vidéo, pour que le curseur ajouté à l'éditeur puisse se retrouver sur le site. Tests de rendu navigateur et publication toujours requis.
+
+### 19/11 — Page Programme distincte
+- Ajout du stage `programme` au modèle de pages et au chargement des pages de célébration. Chaque célébration obtient un identifiant `programme-<celebrationId>` distinct de `preparation-<celebrationId>` ; le modèle de blocs permet l'édition comme les autres pages.
+- Navigation visiteurs : `/programme` pointe désormais vers `programme`, et le raccourci « Programme » n'ouvre plus `preparation`.
+- Deux tests de prévisualisation attendent désormais dix pages (neuf pages de célébration plus l'accueil neutre). **Ne pas considérer la fonctionnalité publiée avant vérification des tests et des droits de publication de la nouvelle page.**
+
+### 19/11 — PDF et sélection audio
+- Les deux catalogues publics d'une célébration reconnaissent désormais les PDF à partir du MIME `application/pdf` en plus du nom de fichier et du type déclaré. Les fichiers doivent toujours être associés à une étape/événement public de la célébration : aucune ouverture transversale aux contenus privés.
+- « Choisir un MP3 » ouvre maintenant la même boîte de sélection intégrée à la page que les autres fichiers, avec catégorie audio, sans quitter le brouillon ; le choix affecte `src` au lecteur et garde son titre. Tests utilisateur encore requis.
+- Dernier lot de la page Programme : les trois workflows GitHub ont réussi. Les modifications PDF/audio et leur lot de tests restent à confirmer.

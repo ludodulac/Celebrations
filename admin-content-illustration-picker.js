@@ -10,7 +10,7 @@
   }
 
   function thumbUrl(c){
-    try{return typeof supabaseMediaUrl==='function'?supabaseMediaUrl(c.storagePath):''}catch(e){return ''}
+    try{return typeof cloudflareMediaUrl==='function'?cloudflareMediaUrl(c.storagePath):''}catch(e){return ''}
   }
 
   function installPicker(c,returnTo){
