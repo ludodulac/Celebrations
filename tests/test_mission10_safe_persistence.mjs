@@ -143,7 +143,9 @@ test('M10: browser policy prevents stale readback success even with HTTP 200',()
  assert.equal(policy.readbackConfirmed(actual,5,selected,record,shared),false,
   'selected page missing on server must not count as a verified save');
  assert.equal(policy.readbackConfirmed(actual,5,'not-a-real-page',record,shared),false);
- assert.equal(policy.readbackConfirmed({revision:7},7,null,record,shared),false,\n  'a revision without verified document snapshots is not proof of a save');\n assert.equal(policy.readbackConfirmed({revision:7,record:clone(record),shared:clone(shared)},7,null,record,shared),true);
+ assert.equal(policy.readbackConfirmed({revision:7},7,null,record,shared),false,
+  'a revision without verified document snapshots is not proof of a save');
+ assert.equal(policy.readbackConfirmed({revision:7,record:clone(record),shared:clone(shared)},7,null,record,shared),true);
  assert.equal(policy.readbackConfirmed(null,1,null,record,shared),false);
  assert.equal(policy.readbackConfirmed({},1,null,record,shared),false,
   'a missing server revision is never proof of a save');
