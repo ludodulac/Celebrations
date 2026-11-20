@@ -710,7 +710,7 @@ export async function handleEditorMedia(request,env){
   if(input.publicLink&&!canShareStandaloneMedia(state,entry))
    return err('Ce fichier est lié à un contenu privé ou à un accès réservé : partage public refusé.',403);
   // If the R2 object was removed out-of-band, do not advertise a broken URL.
-  if(input.publicLink&&!await env.EDITOR_BUCKET.head(PREFIX+entry.src.slice('/media/new/'.length)))
+  if(input.publicLink&&!await env.EDITOR_BUCKET.head(PREFIX+(entry.storageSrc||entry.src).slice('/media/new/'.length)))
    return err('Fichier introuvable dans le stockage.',404);
   entry.publicLink=input.publicLink;
   if(!await writeEditorState(env.EDITOR_BUCKET,current,state))
