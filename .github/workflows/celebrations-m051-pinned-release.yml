@@ -44,7 +44,9 @@ jobs:
           node --check migration/cloudflare/app/styles/admin/06-library-dialogs.mjs
           node --check migration/cloudflare/app/styles/admin/07-drag-resources.mjs
           node --check migration/cloudflare/editor-demo-client.mjs
-          node --check migration/cloudflare/editor-demo-client-source.js
+          # The editor source is an async IIFE body, not a standalone script.
+          # Parse it in the same async wrapper used by the shipped client.
+          node --input-type=module -e "import fs from 'node:fs'; const src=fs.readFileSync('migration/cloudflare/editor-demo-client-source.js','utf8'); new Function('(async()=>{'+src); console.log('EDITOR_SOURCE_ASYNC_SYNTAX_OK')"
           node --check migration/cloudflare/editor-server-sync-client.mjs
       - name: Run editor behavior regression tests
         run: node --test tests/test-editor-trial-site.mjs tests/test-editor-server-drafts.mjs
