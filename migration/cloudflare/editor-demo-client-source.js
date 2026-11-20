@@ -1103,22 +1103,15 @@ function editorFormatToolbar(x,z,box){
  };
  function format(command,prop){
   const range=rangeInEditor(z);
-  if(range){
-   const tag=prop==='bold'?'strong':prop==='underline'?'u':'em';
-   const element=range.commonAncestorContainer.nodeType===1?range.commonAncestorContainer:range.commonAncestorContainer.parentElement;
-   const existing=element?.closest?.(tag);
-   if(existing&&z.contains(existing)&&range.toString()===existing.textContent){
-    existing.replaceWith(...existing.childNodes);
-    rememberedSelection=null;
-   }else{
-    const wrapper=document.createElement(tag);
-    wrapper.append(range.extractContents());
-    range.insertNode(wrapper);
-    const selected=document.createRange();selected.selectNodeContents(wrapper);
-    rememberedSelection={host:z,range:selected};
-   }
-   saveRich(x,z);
-  }else{x[prop]=!x[prop];z.style[prop==='bold'?'fontWeight':'fontStyle']=x[prop]?(prop==='bold'?'700':'italic'):'normal';mark()}
+  if(!range||range.collapsed)return;
+  z.focus({preventScroll:true});
+  const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);
+  // Native editing commands handle mixed/nested formatting and toggling,
+  // unlike extractContents() which repeatedly nests conflicting wrappers.
+  document.execCommand(command,false,null);
+  const updated=window.getSelection();
+  if(updated?.rangeCount&&!updated.isCollapsed)rememberedSelection={host:z,range:updated.getRangeAt(0).cloneRange()};
+  saveRich(x,z);
  }
  make('G','Gras (sélection ou bloc)',()=>format('bold','bold'));
  make('I','Italique (sélection ou bloc)',()=>format('italic','italic'));
@@ -1132,7 +1125,7 @@ function editorFormatToolbar(x,z,box){
   }
   levels.onchange=()=>{
    const range=rangeInEditor(z);
-   if(!range){levels.value=x.kind==='heading'?(x.headingLevel||'h2'):'p';return}
+   if(!range||range.collapsed)return;
    const value=levels.value;
    const span=document.createElement('span');
    span.style.fontSize=(value==='h1'?32:value==='h2'?24:value==='h3'?20:16)+'px';
@@ -1140,13 +1133,13 @@ function editorFormatToolbar(x,z,box){
    span.append(range.extractContents());range.insertNode(span);
    const selected=document.createRange();selected.selectNodeContents(span);
    rememberedSelection={host:z,range:selected};saveRich(x,z);
-   levels.value='p';show();
+   show();
   };
   bar.append(menu(levels));
  }
  const sizes=n('select','format-select');sizes.setAttribute('aria-label','Taille du texte');sizes.title='Taille du paragraphe entier';
  for(const num of BLOCK_SIZES){const opt=n('option','',num+' px');opt.value=String(num);if(num===(Number.parseInt(z.style.fontSize,10)||sizeOf(x)))opt.selected=true;sizes.append(opt)}
- sizes.onchange=()=>{const range=rangeInEditor(z);if(!range)return;const span=document.createElement('span');span.style.fontSize=sizes.value+'px';span.append(range.extractContents());range.insertNode(span);rememberedSelection={host:z,range:(()=>{const r=document.createRange();r.selectNodeContents(span);return r})()};saveRich(x,z)};bar.append(menu(sizes));
+ sizes.onchange=()=>{const range=rangeInEditor(z);if(!range||range.collapsed)return;const span=document.createElement('span');span.style.fontSize=sizes.value+'px';span.append(range.extractContents());range.insertNode(span);rememberedSelection={host:z,range:(()=>{const r=document.createRange();r.selectNodeContents(span);return r})()};saveRich(x,z)};bar.append(menu(sizes));
  const label=n('label','color-picker');label.title='Couleur de la sélection ou de tout le paragraphe';label.append(n('span','','Couleur '));
  const color=n('input');color.type='color';color.setAttribute('aria-label','Couleur du texte');color.value=validColor(x.color)?x.color:'#323744';
  let colourRange=null,colourSpan=null;
@@ -1171,7 +1164,13 @@ function editorFormatToolbar(x,z,box){
  label.append(color);bar.append(label);
  const align=n('select','format-select');align.setAttribute('aria-label','Alignement');
  for(const [value,name] of [['left','Gauche'],['center','Centré'],['right','Droite']]){const opt=n('option','',name);opt.value=value;if((x.align||'left')===value)opt.selected=true;align.append(opt)}
- align.onchange=()=>{x.align=align.value;box.style.textAlign=align.value;mark()};bar.append(menu(align));
+ align.onchange=()=>{
+  const range=rangeInEditor(z);if(!range||range.collapsed)return;
+  const wrapper=document.createElement('span');wrapper.style.cssText='display:inline-block;width:100%;text-align:'+align.value;
+  wrapper.append(range.extractContents());range.insertNode(wrapper);
+  const selected=document.createRange();selected.selectNodeContents(wrapper);
+  rememberedSelection={host:z,range:selected};saveRich(x,z);
+ };bar.append(menu(align));
  return bar;
 }
 
