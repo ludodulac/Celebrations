@@ -131,3 +131,5 @@ test('M13: real admin and public pages emit the same nonce-protected CSS bytes',
  assert.ok(publicSite.headers.get('content-security-policy').includes("style-src 'nonce-"+styles[0][1]+"'"));
  assert.ok(html.includes('window.__PUBLIC_SITE_SNAPSHOT__'));
 });
+
+// M051 verification checkpoint: run existing branch CI before production promotion.
