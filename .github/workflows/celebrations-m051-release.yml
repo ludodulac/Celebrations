@@ -139,3 +139,5 @@ jobs:
 # M051: release current branch only, verify production baseline, immutable bindings and automatic rollback.
 
 # Publication explicitement demandée par le propriétaire ; garde-fous et rollback activés.
+
+# M051 publication authorized: exact live baseline verified; single release workflow.
