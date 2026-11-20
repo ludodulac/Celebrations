@@ -74,7 +74,9 @@ test('Partial formatting preserves a selected range and keeps whole paragraph fo
  assert.ok(DEMO_CLIENT.includes("sizes.title='Taille du paragraphe entier'"));
  assert.ok(DEMO_CLIENT.includes("make('G','Gras (sélection ou bloc)'"));
  assert.ok(DEMO_CLIENT.includes('function inlineColor('));
- assert.ok(DEMO_CLIENT.includes("tag==='span'||tag==='font'"));
+ assert.ok(DEMO_CLIENT.includes("tag==='font'?node.getAttribute('color')"));
+ assert.ok(DEMO_CLIENT.includes('function pastedFontSize('));
+ assert.ok(DEMO_CLIENT.includes("document.execCommand('insertHTML',false,safe)"));
  assert.ok(!DEMO_CLIENT.includes('eval('));
 });
 
@@ -95,7 +97,9 @@ test('RGB normalisation accepts browser variations and rejects unsafe inline col
 test('CSP-safe rich colour restoration uses DOM assignments after sanitising HTML',()=>{
  assert.ok(DEMO_CLIENT.includes('function restoreInlineColours('));
  assert.ok(DEMO_CLIENT.includes('restoreInlineColours(z)'));
- assert.ok(DEMO_CLIENT.includes("span.removeAttribute('style');span.style.color=value"));
+ assert.ok(DEMO_CLIENT.includes("span.removeAttribute('style');"));
+ assert.ok(DEMO_CLIENT.includes('if(value)span.style.color=value;'));
+ assert.ok(DEMO_CLIENT.includes("if(sizeMatch)span.style.fontSize=sizeMatch[1]+'px'"));
 });
 
 test('the selected element has an explicit draft-only Validate button',()=>{
