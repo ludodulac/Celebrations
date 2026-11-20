@@ -141,3 +141,5 @@ jobs:
 # Publication explicitement demandée par le propriétaire ; garde-fous et rollback activés.
 
 # M051 publication authorized: exact live baseline verified; single release workflow.
+
+# M051 release authorization: full 117/117 prepublish tests passed on f276279de7cddf4be3355026a92510aab87ca819.
