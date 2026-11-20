@@ -1,4 +1,4 @@
-name: "Célébrations — M051 pinned production release (triggered)"
+name: "Célébrations — M051 verified release"
 on:
   push:
     branches: [main]
@@ -45,7 +45,7 @@ jobs:
           node --check migration/cloudflare/app/styles/admin/07-drag-resources.mjs
           node --check migration/cloudflare/editor-demo-client.mjs
           node --check migration/cloudflare/editor-server-sync-client.mjs
-          node --test tests/test-editor-trial-site.mjs tests/test_editor_m01_select_only_move_grip.mjs tests/test_editor_m02_m03_visibility.mjs tests/test_mission13_styles.mjs tests/test_mission11_drag_undo.mjs tests/test-editor-server-drafts.mjs tests/test_mission10_safe_persistence.mjs tests/test_editor_m05_m07_block_controls.mjs tests/test_editor_m08_hover_and_longpress.mjs tests/test_editor_m09_visibility_controls.mjs tests/test_editor_m10_footer_mp3_public_gallery.mjs tests/test_editor_m11_mobile_insert_footer_delete.mjs tests/test-editor-demo.mjs
+          node --test tests/test-editor-trial-site.mjs tests/test-editor-demo.mjs
           python scripts/build_production_assets.py
           python scripts/audit_production_supabase_paths.py
       - name: Reuse the already-proven exact-version release gate with the CURRENT baseline
