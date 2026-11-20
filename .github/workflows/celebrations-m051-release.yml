@@ -136,3 +136,5 @@ jobs:
         run: echo EDITOR_M11_PUBLISHED_SUCCESS_CLEAN_EDITOR_DISPLAY_NO_NEW_TOOLS
 
 # M051: release current branch only, verify production baseline, immutable bindings and automatic rollback.
+
+# Publication explicitement demandée par le propriétaire ; garde-fous et rollback activés.
