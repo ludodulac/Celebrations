@@ -59,8 +59,8 @@ jobs:
           let body=fs.readFileSync(src,'utf8');
           const replacements=[
             ['refs/heads/release/celebrations-cleanup-06-20261110','refs/heads/fix/m051-program-media-preview-colors-20261119'],
-            ["const original='eccb1274-2ed8-491f-8557-c4330342e4bf';","const original='4cbdd733-69bb-46ac-9cbb-503c96b1c163';"],
-            ["const originalDeployment='ffdc7b2b-a443-45cf-843d-0419fe71cb8d';","const originalDeployment='2a3ab5bb-cc98-4245-afeb-68cfd64e0071';"],
+            ["const original='eccb1274-2ed8-491f-8557-c4330342e4bf';","const original='ff1f784c-c712-4438-beaa-593d85697a4d';"],
+            ["const originalDeployment='ffdc7b2b-a443-45cf-843d-0419fe71cb8d';","const originalDeployment='d84d0ad9-50f8-4e7f-bcdc-3d38876c82cd';"],
             ["assert.equal(b.bucket_name,'celebrations-exit-staging');","assert.equal(b.bucket_name,'celebrations-exit-production');"]
           ];
           for(const [before,after] of replacements){
