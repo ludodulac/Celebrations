@@ -124,7 +124,7 @@ export default {
   }
   // Application-owned new uploads live in EDITOR_BUCKET, never MEDIA_BUCKET.
   // Historic /media/ and /letter/ routes remain byte-for-byte untouched.
-  if(path.startsWith("/media/new/"))return handlePublicEditorUpload(request,env);
+  if(path.startsWith("/media/new/")||path.startsWith("/doc/")||path.startsWith("/audio/")||path.startsWith("/image/"))return handlePublicEditorUpload(request,env);
   if(path.startsWith("/media/")||path.startsWith("/letter/"))return handleMedia(request,env);
   // The two official domains now use the same visual visitor/editor interface.
   // All media, old emailed PDF, existing static assets and historic redirects
