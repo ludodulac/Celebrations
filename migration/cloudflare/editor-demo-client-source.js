@@ -984,8 +984,8 @@ function htmlSafe(source){
    const tag=node.tagName.toLowerCase();
    if(['script','style','iframe','svg','object','template'].includes(tag))continue;
    if(tag==='br'){to.append(document.createElement('br'));continue}
-   if(['strong','b','em','i'].includes(tag)){
-    const child=document.createElement(['strong','b'].includes(tag)?'strong':'em');
+   if(['strong','b','em','i','u'].includes(tag)){
+    const child=document.createElement(['strong','b'].includes(tag)?'strong':tag==='u'?'u':'em');
     copy(node,child);to.append(child);continue;
    }
    if(['div','p','h1','h2','h3','h4','h5','h6'].includes(tag)&&to.childNodes.length)to.append(document.createElement('br'));
@@ -993,13 +993,15 @@ function htmlSafe(source){
    const specified=raw.match(/(?:^|;)\s*color\s*:\s*([^;]+)(?:;|$)/i);
    const colour=inlineColor(tag==='font'?node.getAttribute('color')||node.style.color:(specified?.[1]||node.style.color));
    const size=pastedFontSize(node);
+   const underline=/(?:^|;)\s*text-decoration(?:-line)?\s*:\s*underline(?:\s*;|$)/i.test(raw);
    const weight=/(?:^|;)\s*font-weight\s*:\s*(?:bold|[6-9]00)(?:\s*;|$)/i.test(raw);
    const italic=/(?:^|;)\s*font-style\s*:\s*italic(?:\s*;|$)/i.test(raw);
-   const wrap=colour||size||weight||italic;
+   const wrap=colour||size||weight||italic||underline;
    let target=to;
    if(wrap){const span=document.createElement('span');if(colour)span.style.color=colour;if(size)span.style.fontSize=size+'px';to.append(span);target=span}
    if(weight){const strong=document.createElement('strong');target.append(strong);target=strong}
    if(italic){const em=document.createElement('em');target.append(em);target=em}
+   if(underline){const u=document.createElement('u');target.append(u);target=u}
    copy(node,target);
   }
  }
@@ -1060,6 +1062,13 @@ document.addEventListener('selectionchange',()=>{
 });
 function editorFormatToolbar(x,z,box){
  const bar=n('div','formatbar');
+ bar.style.cssText='display:none;position:fixed;z-index:99999;max-width:calc(100vw - 20px);overflow-x:auto;white-space:nowrap;padding:8px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 6px 24px #0003';
+ const show=()=>{const range=rangeInEditor(z);if(!range||range.collapsed){bar.style.display='none';return}const rect=range.getBoundingClientRect();bar.style.display='flex';bar.style.gap='5px';bar.style.left=Math.max(8,Math.min(rect.left,window.innerWidth-bar.offsetWidth-8))+'px';bar.style.top=Math.max(8,rect.top-bar.offsetHeight-10)+'px'};
+ z.addEventListener('mouseup',()=>setTimeout(show,0));
+ z.addEventListener('keyup',()=>setTimeout(show,0));
+ z.addEventListener('touchend',()=>setTimeout(show,180));
+ document.addEventListener('selectionchange',()=>{if(z.isConnected&&document.activeElement===z)setTimeout(show,0)});
+ bar.addEventListener('mousedown',e=>e.preventDefault());
  const make=(label,title,fn)=>{
   const bt=b(label,fn,'sm format-button');bt.title=title;bt.setAttribute('aria-label',title);
   bt.addEventListener('mousedown',e=>e.preventDefault());
@@ -1068,7 +1077,7 @@ function editorFormatToolbar(x,z,box){
  function format(command,prop){
   const range=rangeInEditor(z);
   if(range){
-   const tag=prop==='bold'?'strong':'em';
+   const tag=prop==='bold'?'strong':prop==='underline'?'u':'em';
    const element=range.commonAncestorContainer.nodeType===1?range.commonAncestorContainer:range.commonAncestorContainer.parentElement;
    const existing=element?.closest?.(tag);
    if(existing&&z.contains(existing)&&range.toString()===existing.textContent){
@@ -1086,6 +1095,7 @@ function editorFormatToolbar(x,z,box){
  }
  make('G','Gras (sélection ou bloc)',()=>format('bold','bold'));
  make('I','Italique (sélection ou bloc)',()=>format('italic','italic'));
+ make('S̲','Souligner la sélection',()=>format('underline','underline'));
  if(x.kind==='text'||x.kind==='heading'){
   const levels=n('select','format-select');levels.setAttribute('aria-label','Style du paragraphe');levels.title='Transformer le bloc en titre ou texte normal';
   for(const [value,name] of [['p','Texte normal'],['h1','Titre 1 (H1)'],['h2','Titre 2 (H2)'],['h3','Titre 3 (H3)']]){
@@ -1094,19 +1104,22 @@ function editorFormatToolbar(x,z,box){
    levels.append(option);
   }
   levels.onchange=()=>{
+   const range=rangeInEditor(z);
+   if(!range){levels.value=x.kind==='heading'?(x.headingLevel||'h2'):'p';return}
    const value=levels.value;
-   x.kind=value==='p'?'text':'heading';
-   if(value==='p')delete x.headingLevel;
-   else x.headingLevel=value;
-   x.size=value==='h1'?32:value==='h2'?24:value==='h3'?20:16;
-   selectedBlockId=String(x.id);
-   mark();render();
+   const span=document.createElement('span');
+   span.style.fontSize=(value==='h1'?32:value==='h2'?24:value==='h3'?20:16)+'px';
+   if(value!=='p')span.style.fontWeight='700';
+   span.append(range.extractContents());range.insertNode(span);
+   const selected=document.createRange();selected.selectNodeContents(span);
+   rememberedSelection={host:z,range:selected};saveRich(x,z);
+   levels.value='p';show();
   };
   bar.append(levels);
  }
  const sizes=n('select','format-select');sizes.setAttribute('aria-label','Taille du texte');sizes.title='Taille du paragraphe entier';
  for(const num of BLOCK_SIZES){const opt=n('option','',num+' px');opt.value=String(num);if(num===(Number.parseInt(z.style.fontSize,10)||sizeOf(x)))opt.selected=true;sizes.append(opt)}
- sizes.onchange=()=>{x.size=Number(sizes.value);z.style.fontSize=x.size+'px';mark()};bar.append(sizes);
+ sizes.onchange=()=>{const range=rangeInEditor(z);if(!range)return;const span=document.createElement('span');span.style.fontSize=sizes.value+'px';span.append(range.extractContents());range.insertNode(span);rememberedSelection={host:z,range:(()=>{const r=document.createRange();r.selectNodeContents(span);return r})()};saveRich(x,z)};bar.append(sizes);
  const label=n('label','color-picker');label.title='Couleur de la sélection ou de tout le paragraphe';label.append(n('span','','Couleur '));
  const color=n('input');color.type='color';color.setAttribute('aria-label','Couleur du texte');color.value=validColor(x.color)?x.color:'#323744';
  let colourRange=null,colourSpan=null;
