@@ -3,7 +3,7 @@ import {validHomeEntryButton,normalizeHomeEntryButton} from './app/domain/editor
 // MEDIA_BUCKET or historic URLs. Both snapshots live in the existing editor R2.
 import {legacyEditorView,legacyRecord,managedPage,managedPageId,managedCelebration} from './app/security/private-editor-boundary.mjs';
 import {editorUploadFormat,editorUploadFilename,editorUploadPath,editorUploadResponseFormat} from './app/domain/editor-upload-formats.mjs';
-import {readableMediaPath} from './app/domain/editor-readable-media-path.mjs';
+import {readableMediaPath,isReadableMediaPath} from './app/domain/editor-readable-media-path.mjs';
 import {hasEditorAccess} from './editor-site-access.mjs';
 import {EDITOR_SNAPSHOT_LIMIT,expectedRevisionMatches} from './app/ports/editor-snapshot-contract.mjs';
 import {readEditorSnapshot,putEditorSnapshot} from './app/adapters/editor-r2-repository.mjs';
@@ -705,7 +705,7 @@ export async function handleEditorMedia(request,env){
    return err('La médiathèque a changé. Rechargez-la avant de réessayer.',409);
   const state=copy(current.state);
   const entry=(state.mediaCatalogue||[]).find(m=>m?.id===input.id);
-  if(!entry||entry.source!=='uploaded'||!editorUploadPath(entry.src))
+  if(!entry||entry.source!=='uploaded'||!(editorUploadPath(entry.src)||isReadableMediaPath(entry.src)))
    return err('Seuls les fichiers importés sur ce site peuvent recevoir un lien public autonome.',403);
   if(input.publicLink&&!canShareStandaloneMedia(state,entry))
    return err('Ce fichier est lié à un contenu privé ou à un accès réservé : partage public refusé.',403);
