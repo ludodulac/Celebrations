@@ -167,8 +167,7 @@ test('Two-column editor applies saved vertical alignment',()=>{
  assert.ok(src.includes('section-column[data-vertical-align=\\\"bottom\\\"]{align-content:end}'));
 });
 
-// Editor-formatting contract: these tests deliberately expose the current
-// incompatibilities before a unified formatting engine is introduced.
+// Editor-formatting contract: guard selection scope, persistence, and cleanup.
 test('formatting: selection commands never fall back to whole-block mutations',()=>{
  const source=readFileSync(new URL('../migration/cloudflare/editor-demo-client-source.js',import.meta.url),'utf8');
  const toolbar=source.slice(source.indexOf('function editorFormatToolbar('),source.indexOf('// Bounded local editor history.'));
@@ -177,11 +176,23 @@ test('formatting: selection commands never fall back to whole-block mutations',(
 test('formatting: sanitizer preserves all toolbar-generated inline properties',()=>{
  const source=readFileSync(new URL('../migration/cloudflare/editor-demo-client-source.js',import.meta.url),'utf8');
  const sanitizer=source.slice(source.indexOf('function htmlSafe('),source.indexOf('function saveRich('));
- assert.match(sanitizer,/text-align/,'Text alignment must survive save/reopen');
+ assert.match(sanitizer,/\.style\.textAlign/,'Text alignment must survive save/reopen');
  assert.match(sanitizer,/inline-block/,'Selected text alignment must not silently disappear');
 });
 test('formatting: popup menus must be cleaned up with their editor',()=>{
  const source=readFileSync(new URL('../migration/cloudflare/editor-demo-client-source.js',import.meta.url),'utf8');
  const toolbar=source.slice(source.indexOf('function editorFormatToolbar('),source.indexOf('// Bounded local editor history.'));
  assert.match(toolbar,/popup\.remove\(\)/,'Detached editor popup menus must be removed');
+});
+
+test('formatting: editor source parses in its actual async execution context',()=>{
+ const source=readFileSync(new URL('../migration/cloudflare/editor-demo-client-source.js',import.meta.url),'utf8');
+ assert.doesNotThrow(()=>new Function('(async()=>{'+source));
+});
+test('formatting: saved rich text retains a safe selection-specific alignment',()=>{
+ const source=readFileSync(new URL('../migration/cloudflare/editor-demo-client-source.js',import.meta.url),'utf8');
+ const sanitizer=source.slice(source.indexOf('function htmlSafe('),source.indexOf('function saveRich('));
+ assert.match(sanitizer,/ALIGNMENTS\.includes\(node\.style\.textAlign\)/);
+ assert.match(sanitizer,/span\.style\.textAlign=align/);
+ assert.match(sanitizer,/span\.style\.display='inline-block'/);
 });
