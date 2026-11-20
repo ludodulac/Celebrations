@@ -83,6 +83,15 @@ test('server persistence round-trip, dates, and conflict protection',async()=>{
  assert.equal(again.status,200);
  assert.equal((await again.json()).revision,3);
 });
+test('Programme page can be saved to the server without Pages invalides',async()=>{
+ const e=seededEnv();
+ const input=seededBody();
+ input.record={...input.record,pages:[...input.record.pages,{id:'programme-101',group:'celebration',name:'Programme',visibility:'draft',blocks:[{id:3,kind:'text',text:'Programme du dimanche'}]}]};
+ const response=await handleServerDraft(req('POST','/api/editor-server-draft',input),e);
+ assert.equal(response.status,200,await response.text());
+ const readback=await handleServerDraft(req('GET','/api/editor-server-draft?celebration=101'),e);
+ assert.equal((await readback.json()).record.pages.find(p=>p.id==='programme-101')?.blocks[0].text,'Programme du dimanche');
+});
 test('rejects oversized, cross-celebration and malformed drafts without writing',async()=>{
  const e=env();
  const cross={...body,record:{pages:[{...body.record.pages[0],id:'mercredi-102'}]}};
