@@ -1,0 +1,41 @@
+{
+  "source_commit": "ef99f1046298d0fff0da5c6b7138da5fc000ff0d",
+  "consolidation_merge": "ac7330ea0e5d0a8ee9b05808130027ad1c073e7a",
+  "main_preserved": "cd3805062b707b1eb352606ce4f172bdb66b30f8",
+  "targeted_tests": {
+    "passed": 30,
+    "failed": 0
+  },
+  "historical_M009_security_suite": {
+    "baseline_passed": 21,
+    "baseline_failed": 2,
+    "consolidated_passed": 21,
+    "consolidated_failed": 2,
+    "failures": [
+      "public seven-stage projection hides private D1 stages and celebration listings (404 vs 200)",
+      "public French page render preserves default menu and mobile stylesheet (404 vs 200)"
+    ]
+  },
+  "worker_normalized_comparison": "identical",
+  "worker_modules": 93,
+  "static_build_files": 96,
+  "supabase_network_references": 0,
+  "browser": {
+    "url": "https://www.ronde-des-archanges-universelle.eu/",
+    "title": "Accueil général — Célébrations des Archanges",
+    "external_scripts": 0,
+    "external_stylesheets": 0,
+    "inline_scripts": [
+      {
+        "length": 137180,
+        "checksum31": 423271869
+      },
+      {
+        "length": 98271,
+        "checksum31": -1656310465
+      }
+    ]
+  },
+  "cloudflare_mutations": 0,
+  "deleted_branches": 0
+}

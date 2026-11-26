@@ -1,0 +1,6 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+> build:reference
+> node scripts/build-reference.mjs ../production-extracted/production-worker.js
+
+{"result":"PRODUCTION_SOURCE_EQUIVALENCE_PASS","version":"b12d2bf3-5201-407f-b7a8-0affdb2e2d08","normalized_sha256":"2615576f877f7d295a6dd5cb23e06702b0a9b57dd307dfc8830c6b420bac86a4","modules":93,"deployment":false}

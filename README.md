@@ -1,3 +1,7 @@
+# Référence de production consolidée
+
+La source complète du Worker officiel est sur `reference/production-reconciled-20261126`. Lire [CELEBRATIONS-PRODUCTION-REFERENCE.md](CELEBRATIONS-PRODUCTION-REFERENCE.md) avant toute intervention. Les anciens workflows et les notes ci-dessous sont historiques.
+
 # Célébrations des Archanges
 
 Site public et administration pour préparer et diffuser les célébrations, les pages et les médias.

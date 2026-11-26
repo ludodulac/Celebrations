@@ -1,0 +1,7 @@
+Prepared 96 staging assets in /workspace/scratch/a1650e4ae41b/Celebrations/production-public
+PRODUCTION_STATIC_ASSETS_OFFLINE_READY backend=Cloudflare_only deployment=NO
+CLOUDFLARE_PRODUCTION_ASSETS_LEGACY_SOURCE_AUDIT
+supabase_host files 0 occurrences 0
+supabase_sdk files 0 occurrences 0
+tus_sdk files 0 occurrences 0
+CLOUDFLARE_PRODUCTION_NO_SUPABASE_NETWORK_REFERENCES_PASS no_network=1 no_deploy=1

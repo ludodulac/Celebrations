@@ -8,7 +8,7 @@ Site officiel : https://www.ronde-des-archanges-universelle.eu/ ; Worker : `cele
 
 Version active récupérée : `b12d2bf3-5201-407f-b7a8-0affdb2e2d08` (23 novembre 2026, 06:32:51 UTC), déploiement API `ba3bbae9-1d6c-492c-be08-37b93302b1f6`. La mission n'a effectué aucun déploiement, aucune suppression de branche et aucune écriture dans D1/R2 ou dans les contenus/comptes.
 
-Base source : `114358fd5eca5d1af5422efd19e92a754e6032c8`, branche `fix/production-documents-compact-20261120`. Réconciliation : commit `452735ed` (`Reconcile modular sources with active Cloudflare production version`). Le commit de consolidation suivant a pour parents cette réconciliation et `cd3805062b707b1eb352606ce4f172bdb66b30f8` (main historique). Il conserve ainsi les deux lignées sans remplacer les modules modernes par l'ancien main. Retrouver son identifiant avec `git log --merges -1 --format=%H` sur cette branche.
+Base source : `114358fd5eca5d1af5422efd19e92a754e6032c8`, branche `fix/production-documents-compact-20261120`. Réconciliation : commit `ef99f104` (`Reconcile modular sources with active Cloudflare production version`). Consolidation et préservation de l’histoire : commit `ac7330ea`. Ce commit a pour parents cette réconciliation et `cd3805062b707b1eb352606ce4f172bdb66b30f8` (main historique). Il conserve ainsi les deux lignées sans remplacer les modules modernes par l'ancien main. Les identifiants complets figurent dans `docs/reconciliation/validation-results.json`.
 
 ## Preuve de correspondance
 

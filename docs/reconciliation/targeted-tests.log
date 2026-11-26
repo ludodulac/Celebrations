@@ -1,0 +1,43 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+> test:reference
+> node scripts/build-m019-editor-client.mjs --check && node --test tests/test-editor-trial-site.mjs tests/test-editor-server-drafts.mjs tests/test-production-reference.mjs
+
+✔ anonymous users cannot read or write protected server drafts (5.290774ms)
+✔ owner-approved public staging sync is same-origin write-only and shares revisions (6.72707ms)
+✔ server persistence round-trip, dates, and conflict protection (10.892273ms)
+✔ Programme page can be saved to the server without Pages invalides (1.905866ms)
+✔ rejects oversized, cross-celebration and malformed drafts without writing (27.850366ms)
+✔ Enregistrer republishes only an existing visible page, preserving unrelated drafts and pages (0.7361ms)
+✔ Auto-publication never exposes a hidden, draft or absent page (0.248314ms)
+✔ Staging save never publishes even when a page is requested for publication (1.109628ms)
+✔ generated editor and preview scripts parse with required integration hooks (11.068631ms)
+✔ M04: une seule confirmation visuelle pour une sauvegarde serveur vérifiée (0.360679ms)
+✔ M09: cacher un bloc entier conserve tous ses éléments après sauvegarde serveur (3.799695ms)
+✔ M030 safety: legacy draft API cannot create a new celebration implicitly (1.512349ms)
+✔ An unapproved D1 celebration remains invisible to anonymous visitors (5.84033ms)
+✔ Site trial response contains eight programme pages plus neutral home, a return button, no write queries (11.741288ms)
+✔ Trial site rejects invalid stages and POST, but the live official host is allowed (4.608873ms)
+✔ Site preview sanitises saved rich text while retaining only selected colour and bold (0.199643ms)
+✔ Nouvel aperçu : accueil neutre, menu Célébrations et URL Gabriel planifiée (7.886902ms)
+✔ video thumbnails have small bold captions under them, not titles in boxed buttons (1.453843ms)
+✔ Visitor menu keeps custom pages in author order without a global media library (0.25914ms)
+✔ Production /programme does not alias to Préparation (0.615423ms)
+✔ Reader preview scopes archangel frame to celebration pages only (0.370144ms)
+✔ Server PDF cards expose protected archive or delete controls (1.075248ms)
+✔ Two-column editor applies saved vertical alignment (0.498382ms)
+✔ formatting: selection commands never fall back to whole-block mutations (0.777731ms)
+✔ formatting: sanitizer preserves all toolbar-generated inline properties (1.143944ms)
+✔ formatting: popup menus must be cleaned up with their editor (2.001547ms)
+✔ formatting: editor source parses in its actual async execution context (6.809732ms)
+✔ formatting: saved rich text retains a safe selection-specific alignment (0.773155ms)
+✔ column margins survive anonymous projection with bounds and two columns only (2.723616ms)
+✔ recovered visitor document renderer parses and retains desktop column rules (3.893644ms)
+ℹ tests 30
+ℹ suites 0
+ℹ pass 30
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 264.130826
