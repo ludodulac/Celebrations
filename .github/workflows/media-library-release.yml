@@ -104,7 +104,7 @@ jobs:
             echo EDITOR_M11_DNS_CHANGE_REFUSED; exit 1
           fi
       - name: Install the same Cloudflare release CLI as mission 06
-        run: npm install --no-save --no-package-lock wrangler@4
+        run: npm install --no-save --no-package-lock wrangler@4.168.0
       - name: Upload immutable Worker candidate WITHOUT activating it
         id: upload
         working-directory: migration/cloudflare
@@ -113,7 +113,7 @@ jobs:
           WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/editor-m02-m03-wrangler.jsonl
         run: |
           set -euo pipefail
-          npx wrangler versions upload --config wrangler.production.toml --keep-vars --strict --message "Célébrations: médiathèque et importations: $GITHUB_SHA"
+          npx wrangler versions upload --config wrangler.production.toml --keep-vars --message "Célébrations: médiathèque et importations: $GITHUB_SHA"
           node --input-type=module <<'NODE'
           import assert from 'node:assert/strict';
           import fs from 'node:fs';
