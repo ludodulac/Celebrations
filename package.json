@@ -1,0 +1,12 @@
+{
+  "devDependencies": {
+    "esbuild": "0.25.12"
+  },
+  "name": "celebrations-production-reference",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:reference": "node scripts/build-reference.mjs",
+    "test:reference": "node scripts/build-m019-editor-client.mjs --check && node --test tests/test-editor-trial-site.mjs tests/test-editor-server-drafts.mjs tests/test-production-reference.mjs"
+  }
+}

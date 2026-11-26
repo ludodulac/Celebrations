@@ -1,0 +1,8 @@
+node_modules/
+production-public/
+staging-public/
+.reference-build/
+__pycache__/
+*.pyc
+.wrangler/
+migration/cloudflare/wrangler.production.toml

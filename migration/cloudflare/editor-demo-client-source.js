@@ -1070,13 +1070,27 @@ function editorFormatToolbar(x,z,box){
  const popups=new Set();
  bar.style.cssText='display:none;position:fixed;z-index:99999;max-width:calc(100vw - 20px);overflow-x:auto;white-space:nowrap;padding:8px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 6px 24px #0003';
  let controlActive=false;
- const show=()=>{if(controlActive)return;const range=rangeInEditor(z);if(!range||range.collapsed){bar.style.display='none';return}const rect=range.getBoundingClientRect();bar.style.display='flex';bar.style.gap='5px';bar.style.left=Math.max(8,Math.min(rect.left,window.innerWidth-bar.offsetWidth-8))+'px';bar.style.top=Math.max(8,rect.top-bar.offsetHeight-10)+'px'};
+ // Keep the selection tools at the top of the viewport, away from the selected text.
+ // Positioning is independent of the selection rectangle on mobile and desktop.
+ const show=()=>{if(controlActive||bar.contains(document.activeElement))return;const sel=window.getSelection();const active=sel&&sel.rangeCount&&!sel.isCollapsed&&z.contains(sel.anchorNode)&&z.contains(sel.focusNode);if(!active){bar.style.display='none';return}
+  bar.style.display='flex';bar.style.gap='5px';bar.style.right='auto';
+  bar.style.width='max-content';bar.style.maxWidth='calc(100vw - 16px)';
+  const canvas=document.querySelector('.stage-editor .canvas');
+  const canvasRect=canvas?.getBoundingClientRect();
+  const center=canvasRect?(canvasRect.left+canvasRect.right)/2:window.innerWidth/2;
+  bar.style.left=Math.max(8,Math.min(center-bar.offsetWidth/2,window.innerWidth-bar.offsetWidth-8))+'px';
+  const header=document.querySelector('.stage-editor .topbar');
+  const headerRect=header?.getBoundingClientRect();
+  const top=headerRect&&headerRect.bottom>0&&headerRect.bottom<window.innerHeight*0.4
+   ?Math.max(8,Math.round(headerRect.bottom)+6):8;
+  bar.style.top=Math.min(top,Math.max(8,window.innerHeight-bar.offsetHeight-8))+'px';
+ };
  z.addEventListener('mouseup',()=>setTimeout(show,0));
  z.addEventListener('keyup',()=>setTimeout(show,0));
  z.addEventListener('touchend',()=>setTimeout(show,180));
  // Keep controls outside the editable block's pointer/selection handlers and stacking contexts.
  document.body.append(bar);
- const onSelection=()=>{if(controlActive)return;if(!z.isConnected){bar.remove();for(const popup of popups)popup.remove();popups.clear();document.removeEventListener('selectionchange',onSelection);return}if(document.activeElement===z)setTimeout(show,0)};
+ const onSelection=()=>{if(controlActive)return;if(!z.isConnected){bar.remove();for(const popup of popups)popup.remove();popups.clear();document.removeEventListener('selectionchange',onSelection);return}setTimeout(show,0)};
  document.addEventListener('selectionchange',onSelection);
  bar.addEventListener('pointerdown',e=>{e.stopPropagation();const range=rangeInEditor(z);if(range)rememberedSelection={host:z,range:range.cloneRange()}});
  bar.addEventListener('click',e=>e.stopPropagation());
@@ -2654,6 +2668,15 @@ function sectionSettings(section){
  const shadow=n('input');shadow.type='checkbox';shadow.checked=current.shadow;shadow.setAttribute('aria-label','Ombrage');
  shadow.onchange=()=>{section.style=editorBlockModel.patchSectionStyle(section,{shadow:shadow.checked},validColor);mark();render()};
 line('Ombre',shadow);
+ if(section.layout==='columns'){
+  for(const [index,side] of [[0,'gauche'],[1,'droite']]){
+   const input=n('input');input.type='number';input.min='0';input.max='500';input.step='1';
+   input.value=String(Math.max(0,Math.min(500,Number(section.columnTopMargins?.[index])||0)));
+   input.setAttribute('aria-label','Marge haute colonne '+side+' (px)');
+   input.onchange=()=>{const margins=Array.isArray(section.columnTopMargins)?section.columnTopMargins.slice(0,2):[0,0];margins[index]=Math.max(0,Math.min(500,Math.round(Number(input.value)||0)));section.columnTopMargins=margins;mark();render()};
+   line('Marge haute '+side+' (px, ordinateur)',input);
+  }
+ }
  const hidden=section.hideOnSite===true;
  const visibility=b('',event=>{
   event.stopPropagation();
@@ -2708,6 +2731,7 @@ function sectionColumn(section,p,index,single=false){
  cell.dataset.columnIndex=String(index);cell.dataset.sectionId=String(section.id);
  cell.dataset.verticalAlign=columnVerticalAlign(section,index);
  cell.dataset.buttonLayout=columnButtonLayout(section,index);
+ cell.style.setProperty('--column-desktop-top',Math.max(0,Math.min(500,Number(section.columnTopMargins?.[index])||0))+'px');
  let controls=null;
  if(!preview&&!single){
   controls=n('div','section-column-actions');const menu=n('div','section-element-menu');
@@ -2723,8 +2747,7 @@ function sectionColumn(section,p,index,single=false){
     const x=createContent(kind);items.push(x);selectedBlockId=String(x.id);mark();render();
    },'sm'));
   }
-  controls.append(add,columnPresentationSettings(section,index));
-  if(index===0)controls.append(sectionSettings(section));controls.append(menu);
+  controls.append(add,columnPresentationSettings(section,index));controls.append(menu);
  }
  for(const x of items)cell.append(block(x,p,items,section));
  if(controls)cell.append(controls);
@@ -2747,6 +2770,22 @@ const wrap=n('div','content-section');wrap.dataset.sectionId=section.id;
   },'sm section-layout-toggle');
   layoutButton.title='Passer à '+(section.layout==='columns'?'un bloc seul':'deux colonnes');
   layoutButton.setAttribute('aria-label',layoutButton.title);tools.append(layoutButton);
+  tools.append(sectionSettings(section));
+  if(section.layout==='columns'){
+   for(const [index,side] of [[0,'Gauche'],[1,'Droite']]){
+    const details=n('details','section-settings column-margin-settings');
+    const summary=n('summary','','⚙ '+side);
+    summary.title='Paramètres colonne '+side.toLowerCase();
+    summary.setAttribute('aria-label',summary.title);details.append(summary);
+    const fields=n('div','section-settings-fields');
+    const label=n('label','','Marge haute sur ordinateur (px)');
+    const input=n('input');input.type='number';input.min='0';input.max='500';input.step='1';
+    input.value=String(Math.max(0,Math.min(500,Number(section.columnTopMargins?.[index])||0)));
+    input.setAttribute('aria-label','Marge haute colonne '+side.toLowerCase());
+    input.onchange=()=>{const margins=Array.isArray(section.columnTopMargins)?section.columnTopMargins.slice(0,2):[0,0];margins[index]=Math.max(0,Math.min(500,Math.round(Number(input.value)||0)));section.columnTopMargins=margins;mark();render()};
+    label.append(input);fields.append(label);details.append(fields);tools.append(details);
+   }
+  }
   tools.append(b('✕',async ()=>{if((await siteConfirm('Supprimer cette zone et son contenu ?'))){p.blocks=p.blocks.filter(x=>x!==section);mark();render()}},'sm'));
   wrap.append(tools);
  }

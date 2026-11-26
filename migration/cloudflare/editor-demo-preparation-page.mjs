@@ -55,7 +55,7 @@ function toBlocks(celebration,step,events,eventContents,stepContents,links){
   if(c.has_cover&&asset(c.cover_storage_path))add('image',c.cover_file_name||c.name||'Illustration',{src:asset(c.cover_storage_path)});
   const href=source==='file'?asset(c.storage_path):safeLink(c.external_url);
   if(href&&(kind==='audio'||/\.mp3$/i.test(c.storage_path||''))&&source==='file')add('audio',c.name||c.file_name||'Enregistrement MP3',{src:href});
-  else if(href&&kind!=='image')add('button',kind.includes('vid')?'Voir : '+(c.name||'Vidéo'):kind==='pdf'?'Ouvrir le PDF : '+(c.name||'Document'):'Ouvrir : '+(c.name||'Document'),{href});
+  else if(href&&kind!=='image')add('button',kind.includes('vid')?'Voir : '+(c.name||'Vidéo'):kind==='pdf'?(c.name||'Document'):(c.name||'Document'),{href});
   else if(href&&kind==='image'&&source!=='file')add('button','Voir l’image : '+(c.name||'Image'),{href});
   if(!href&&c.external_url&&safeLink(c.external_url))add('button','Lien : '+(c.name||'Document'),{href:safeLink(c.external_url)});
  }

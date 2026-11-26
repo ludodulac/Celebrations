@@ -1,0 +1,18 @@
+{
+  "worker": "celebrations-exit-production",
+  "version": "b12d2bf3-5201-407f-b7a8-0affdb2e2d08",
+  "deployment": "ba3bbae9-1d6c-492c-be08-37b93302b1f6",
+  "deployed_at": "2026-11-23T06:32:51.924306Z",
+  "source_base": "114358fd5eca5d1af5422efd19e92a754e6032c8",
+  "module": "production-worker.js",
+  "module_sha256": "48dc1fd805b0548a43441b3ecede71ec09f09d43218446d49e559551d80dee90",
+  "normalized_sha256": "2615576f877f7d295a6dd5cb23e06702b0a9b57dd307dfc8830c6b420bac86a4",
+  "normalization": "esbuild 0.25.12 transform: loader js, format esm, charset utf8, minifySyntax true, legalComments none",
+  "compatibility_date": "2026-10-16",
+  "compatibility_flags": [],
+  "assets": {"binding":"ASSETS","run_worker_first":true},
+  "d1": {"DB":"28736d2a-479b-472b-bf82-703ad0affe10","MEDIA_ACL":"28736d2a-479b-472b-bf82-703ad0affe10"},
+  "r2": {"MEDIA_BUCKET":"celebrations-exit-production","EDITOR_BUCKET":"celebrations-exit-production"},
+  "vars": {"EDITOR_D1_SESSION_API_ENABLED":"true","EDITOR_PIN_D1_BRIDGE_ENABLED":"true","MEMBER_DIRECTORY_API_ENABLED":"true","MEMBER_DIRECTORY_API_HOST":"ronde-des-archanges-universelle.eu","MEMBER_DIRECTORY_OFFICIAL_ENABLED":"true","MEMBER_PAGE_READ_API_ENABLED":"true"},
+  "required_secret_names": ["ADMIN_PASSWORD_HASH","ADMIN_PASSWORD_SALT","EDITOR_D1_CHALLENGE_SECRET"]
+}

@@ -78,6 +78,7 @@ function projectBlock(block,blockedIds,depth=0){
   for(const key of ['columnAlignments','columnButtonLayouts'])
    if(Array.isArray(block[key]))result[key]=block[key].slice(0,6)
     .map(v=>typeof v==='string'?v:'');
+  if(Array.isArray(block.columnTopMargins))result.columnTopMargins=block.columnTopMargins.slice(0,2).map(v=>Number.isFinite(Number(v))?Math.max(0,Math.min(500,Math.round(Number(v)))):0);
  }else{
   for(const key of ['href','src','cover']){
    if(typeof block[key]==='string'&&block[key]){
