@@ -1,0 +1,1101 @@
+{
+  "base": "114358fd5eca5d1af5422efd19e92a754e6032c8",
+  "reachable_worker_modules": 93,
+  "branches": [
+    {
+      "branch": "fix/production-documents-compact-20261120",
+      "commit": "114358fd5eca5d1af5422efd19e92a754e6032c8",
+      "module_differences_from_M051": 0
+    },
+    {
+      "branch": "fix/m051-program-media-preview-colors-20261119",
+      "commit": "44030abd22ec5f199cd77466c553f65ad13eb8a9",
+      "module_differences_from_M051": 1
+    },
+    {
+      "branch": "fix/documents-actions-compact-20261120",
+      "commit": "15aee319a54c08e9d6c6e7d447d7858afadd9ce2",
+      "module_differences_from_M051": 6
+    },
+    {
+      "branch": "fix/documents-actions-current-release-20261120",
+      "commit": "23f9087c5c7b3fd111bae299fab7f8e6e15192a9",
+      "module_differences_from_M051": 6
+    },
+    {
+      "branch": "fix/m050-online-shared-drafts-mobile-current-20261117",
+      "commit": "dd5853f2bbcf0e4baf53af923d7dbcbb8313351c",
+      "module_differences_from_M051": 10
+    },
+    {
+      "branch": "feat/m048-responsive-home-art-20261116",
+      "commit": "e2419d87a2a50a9dfb25864c31f1b77896c40bcd",
+      "module_differences_from_M051": 11
+    },
+    {
+      "branch": "fix/m049-video-conferences-exercices-explications-20261116",
+      "commit": "3ecbaaefc51b093bdd0e3aa4c2a3cfa79ed68e42",
+      "module_differences_from_M051": 11
+    },
+    {
+      "branch": "feat/m047-document-download-buttons-20261116",
+      "commit": "7b3b3af1bc0221e2438d302cf725ed2dff7da8c9",
+      "module_differences_from_M051": 14
+    },
+    {
+      "branch": "feat/m046-media-libraries-filter-names-video-20261116",
+      "commit": "11c8eb2e6d2ebf5bfba75829b363028cbf0a2bc5",
+      "module_differences_from_M051": 18
+    },
+    {
+      "branch": "fix/m045-admin-collaboration-no-overwrite-20261116",
+      "commit": "66a849148802cb50ab61e3554c80d16862e49ef7",
+      "module_differences_from_M051": 19
+    },
+    {
+      "branch": "fix/m050-online-shared-drafts-mobile-20261117",
+      "commit": "66a849148802cb50ab61e3554c80d16862e49ef7",
+      "module_differences_from_M051": 19
+    },
+    {
+      "branch": "feat/m042-home-button-editable-20261116",
+      "commit": "419d0cbd979d0b19ebee986158df6f601f654307",
+      "module_differences_from_M051": 20
+    },
+    {
+      "branch": "fix/m038-audio-android-library-20261114",
+      "commit": "2a176797237c6a18c7cbe02650cbf0525971c4d9",
+      "module_differences_from_M051": 20
+    },
+    {
+      "branch": "fix/m043-home-button-position-save-20261116",
+      "commit": "2b6dabb603b56b1a0ccc6efa96e5700c5a1bd884",
+      "module_differences_from_M051": 20
+    },
+    {
+      "branch": "fix/m044-admin-image-size-visitor-parity-20261116",
+      "commit": "23cf16551de78bcbeb56f985bc213fdfd70c92b2",
+      "module_differences_from_M051": 20
+    },
+    {
+      "branch": "feat/m044-home-fade-admin-audio-library-20261116",
+      "commit": "7a0463ed28a443257eaf3d7b677c54ec7e5e2b86",
+      "module_differences_from_M051": 21
+    },
+    {
+      "branch": "feat/m036-unified-pages-menu-polish-20261113",
+      "commit": "33514db0accaf52189c6c56fcf0b77bf887ede08",
+      "module_differences_from_M051": 22
+    },
+    {
+      "branch": "feat/m037-media-library-usage-cleanup-20261113",
+      "commit": "c25eda5cc7768967d76df45776229a6d3ecd04f2",
+      "module_differences_from_M051": 22
+    },
+    {
+      "branch": "feat/m034-home-centered-menu-label-titles-20261113",
+      "commit": "a45767bc498d01f442c26d2f42b7bda20a62cca8",
+      "module_differences_from_M051": 23
+    },
+    {
+      "branch": "feat/m035-welcome-overlay-mobile-home-20261113",
+      "commit": "a657e0d093eb01fd9c90b8205ce8f598aaf7b317",
+      "module_differences_from_M051": 23
+    },
+    {
+      "branch": "feat/m032-media-links-independent-20261113",
+      "commit": "f51cd788506c9cd24a47260d78cdce8e21afef78",
+      "module_differences_from_M051": 25
+    },
+    {
+      "branch": "feat/m033-fullscreen-home-unified-page-menu-20261113",
+      "commit": "3a1a82cfccb0aa8a809334db35ff264a7c1c55e5",
+      "module_differences_from_M051": 25
+    },
+    {
+      "branch": "feat/m031-audit-visibilite-d1-cycles-20261113",
+      "commit": "13d3587cac5f33ed446647fb184c46c52a5a4609",
+      "module_differences_from_M051": 27
+    },
+    {
+      "branch": "feat/m030-canonical-celebration-cycles-20261113",
+      "commit": "ad7bb55df981869868d7b89fdd41ad499d884452",
+      "module_differences_from_M051": 28
+    },
+    {
+      "branch": "feat/m029-navigation-title-only-20261113",
+      "commit": "250d6c9d0adb3a28b496fe64f3c30c3456991eb4",
+      "module_differences_from_M051": 30
+    },
+    {
+      "branch": "feat/m025-mp3-200mb-resumable-r2-20261112",
+      "commit": "f9c8127232aefab260a41e9ac9b9b156b9b866b5",
+      "module_differences_from_M051": 32
+    },
+    {
+      "branch": "feat/m027-pdf-privacy-navigation-title-20261112",
+      "commit": "0e21cea140e8327e62bd9fa8d69a6940ed30b980",
+      "module_differences_from_M051": 32
+    },
+    {
+      "branch": "feat/m028-language-options-in-settings-20261112",
+      "commit": "f4cc58653dd68d8a4c3e0fa614a93969987d47da",
+      "module_differences_from_M051": 32
+    },
+    {
+      "branch": "fix/m026-mp3-detection-90mb-20261112",
+      "commit": "22f7bdf378cf4ae4b5588690d3a320a56491182e",
+      "module_differences_from_M051": 32
+    },
+    {
+      "branch": "feat/m022-clean-editor-commands-20261112",
+      "commit": "6eec57b3227f56d7ce79f9e322e2e15ca7572c2d",
+      "module_differences_from_M051": 33
+    },
+    {
+      "branch": "feat/m024-clean-editor-commands-20261112",
+      "commit": "0f9b3bd38917d62970131307effe1208302c6916",
+      "module_differences_from_M051": 33
+    },
+    {
+      "branch": "feat/m024-rename-audio-media-safety-20261112",
+      "commit": "a683c048853724421bb9b92df19bd01e13fd7f7d",
+      "module_differences_from_M051": 33
+    },
+    {
+      "branch": "feat/m021a-test-members-site-identity-20261111",
+      "commit": "672cae7d0e14ed5a0c26f6aa78cd9265c563caa4",
+      "module_differences_from_M051": 34
+    },
+    {
+      "branch": "feat/m021b-simplified-admin-mode-20261112",
+      "commit": "fdb7c5211346752d82b76272cec1a2e1e3f80d49",
+      "module_differences_from_M051": 34
+    },
+    {
+      "branch": "feat/m021c-official-release-20261112",
+      "commit": "fbeca98de08b2e61d8d65b0d5357ce308f009b5d",
+      "module_differences_from_M051": 34
+    },
+    {
+      "branch": "feat/m020e-consolidation-abcd-20261111",
+      "commit": "d6d34798245e31f38af94b1a546efa72ef785b9a",
+      "module_differences_from_M051": 38
+    },
+    {
+      "branch": "feat/m020a-languages-visitors-20261111",
+      "commit": "68eefd3abb50da7f2c4469236f4b5cf3d28de386",
+      "module_differences_from_M051": 43
+    },
+    {
+      "branch": "feat/m020b-pages-celebrations-20261111",
+      "commit": "4ba8e4b0b454ba8116be52cb0f6c72a08f4aacbe",
+      "module_differences_from_M051": 45
+    },
+    {
+      "branch": "feat/m020d-member-auth-brevo-20261111",
+      "commit": "b1bc9ad5a447f1fdc83f6797cb09501a81818c91",
+      "module_differences_from_M051": 45
+    },
+    {
+      "branch": "feat/m020c-admin-media-20261111",
+      "commit": "1fedcfe1c4443f71ea886de7c9681a47164d8ca7",
+      "module_differences_from_M051": 46
+    },
+    {
+      "branch": "feat/celebrations-m018-official-release-prep-20261111",
+      "commit": "26ca8c66315045b250c4c9d821ff2820fa2ca56a",
+      "module_differences_from_M051": 47
+    },
+    {
+      "branch": "feat/m019-admin-simplification-20261111",
+      "commit": "c7c4057300f71bfe1bde9bb6bfe81947b9e11202",
+      "module_differences_from_M051": 47
+    },
+    {
+      "branch": "feat/m018d-integration-preparation-20261111",
+      "commit": "f69c73623ca7121fc633ab5423d7afb438865837",
+      "module_differences_from_M051": 50
+    },
+    {
+      "branch": "feat/m018a-security-fixes-20261111",
+      "commit": "a3057df61b2ca538117703bc43522bbac49e6ac1",
+      "module_differences_from_M051": 51
+    },
+    {
+      "branch": "feat/m018b-languages-visitors-20261111",
+      "commit": "505fe3d3708760cf713422985799894d2654e8d8",
+      "module_differences_from_M051": 52
+    },
+    {
+      "branch": "feat/m018c-admin-finalization-20261111",
+      "commit": "fbe763c267bd0cbb5d4225c8c25636b19ebeb1a0",
+      "module_differences_from_M051": 52
+    },
+    {
+      "branch": "feat/celebrations-m015-complete-editor-member-navigation-20261111",
+      "commit": "cf8e3b967eb43d886a44a661118584e93828fe5f",
+      "module_differences_from_M051": 57
+    },
+    {
+      "branch": "feat/celebrations-m015-public-preproduction-20261111",
+      "commit": "8cd6b3a9256ede4066684ab7f1ecb8c6153dfca2",
+      "module_differences_from_M051": 57
+    },
+    {
+      "branch": "feat/celebrations-m016-online-service-safe-backup-20261111",
+      "commit": "d1d0b2fc085bad6a7949861e60062a5e4932fc69",
+      "module_differences_from_M051": 57
+    },
+    {
+      "branch": "feat/celebrations-m017-admin-online-20261111",
+      "commit": "f95aeac7621758cbe19350b2b6445dd01cd0554a",
+      "module_differences_from_M051": 57
+    },
+    {
+      "branch": "ops/celebrations-m015-online-audit-20261111",
+      "commit": "b912300f8dbc27c3336a43396d903a80a2dc638f",
+      "module_differences_from_M051": 57
+    },
+    {
+      "branch": "feat/celebrations-m013-functional-finalization-20261111",
+      "commit": "ac4181b86c9ca5e8085c0c494e6809dc97f5bbaa",
+      "module_differences_from_M051": 58
+    },
+    {
+      "branch": "feat/celebrations-m014-final-integration-20261111",
+      "commit": "9280d60396b82a09a11febfde5c99ddb9a29653c",
+      "module_differences_from_M051": 58
+    },
+    {
+      "branch": "feat/celebrations-m012c-private-space-persistence-publication-20261111",
+      "commit": "42b672df0bdf87221dd34d164561ace0732a21c0",
+      "module_differences_from_M051": 59
+    },
+    {
+      "branch": "feat/celebrations-m012d-consolidation-012a-012b-012c-20261111",
+      "commit": "2c0e861327108ad412436280da2ff290e29814f3",
+      "module_differences_from_M051": 59
+    },
+    {
+      "branch": "feat/celebrations-m009c-public-media-api-security-20261110",
+      "commit": "468b0dc4efc82dd8e01938f2185f0fc162b97f2c",
+      "module_differences_from_M051": 60
+    },
+    {
+      "branch": "feat/celebrations-m009d-consolidation-009a-009b-009c-20261111",
+      "commit": "8a9a2940d27c018fd6ea46b2603485e9ab24ce3b",
+      "module_differences_from_M051": 60
+    },
+    {
+      "branch": "feat/celebrations-m010a-explicit-private-identity-20261111",
+      "commit": "da5c7db58c278ff15996a6bc25c4b56734ed502d",
+      "module_differences_from_M051": 60
+    },
+    {
+      "branch": "feat/celebrations-m010b-member-admin-final-integration-20261111",
+      "commit": "9f6cad9fdb1e6c6322c968b1759933c07ed9e722",
+      "module_differences_from_M051": 60
+    },
+    {
+      "branch": "feat/celebrations-m010d-consolidation-010a-010b-20261111",
+      "commit": "b30fb44c0ea3ab15b16c45b93c504edd5e576c40",
+      "module_differences_from_M051": 60
+    },
+    {
+      "branch": "feat/celebrations-m011a-member-admin-worker-routing-20261111",
+      "commit": "bff3ba41339e75f37d2f7775c05ed50e7109d6c0",
+      "module_differences_from_M051": 60
+    },
+    {
+      "branch": "feat/celebrations-m011b-private-content-server-integration-20261111",
+      "commit": "dd22fbace341384a2bd1f9e9176c3640778c77f1",
+      "module_differences_from_M051": 60
+    },
+    {
+      "branch": "feat/celebrations-m011c-existing-editor-member-spaces-integration-20261111",
+      "commit": "6796f683f97121031412e10998999b3ad8cb53d5",
+      "module_differences_from_M051": 60
+    },
+    {
+      "branch": "feat/celebrations-m011d-consolidation-011a-011b-011c-20261111",
+      "commit": "85b551c86b5a4d002099530354e53cbe677629b6",
+      "module_differences_from_M051": 60
+    },
+    {
+      "branch": "feat/celebrations-m012a-d1-admin-session-integration-20261111",
+      "commit": "0e75d3c1dcbd550149b7c21f38f0f3dd018b4147",
+      "module_differences_from_M051": 60
+    },
+    {
+      "branch": "feat/celebrations-m012b-real-visual-editor-member-spaces-20261111",
+      "commit": "7dc0aa767b0171b44d08df9b377402d693f492a1",
+      "module_differences_from_M051": 60
+    },
+    {
+      "branch": "feat/celebrations-m008a-public-multilingual-integration-20261110",
+      "commit": "e182ec8c35b441e73cee72e92974a35e52a81a21",
+      "module_differences_from_M051": 61
+    },
+    {
+      "branch": "feat/celebrations-m008d-consolidation-008a-008b-008c-20261110",
+      "commit": "61e699e5a90350239d2b7df25c147dbfa01e459a",
+      "module_differences_from_M051": 61
+    },
+    {
+      "branch": "feat/celebrations-m009a-public-projection-security-20261110",
+      "commit": "62501ea1e68538010bc3658e825a6a75c92884aa",
+      "module_differences_from_M051": 61
+    },
+    {
+      "branch": "feat/celebrations-m009b-member-admin-identity-integration-20261110",
+      "commit": "679277abb23027ccc551c425b08d1e39ce768437",
+      "module_differences_from_M051": 61
+    },
+    {
+      "branch": "feat/celebrations-m007a-contact-directory-d1-20261110",
+      "commit": "a0f9caba6f78d99accfe47bd131a340a3e50e1a4",
+      "module_differences_from_M051": 62
+    },
+    {
+      "branch": "feat/celebrations-m007c-consolidation-006-007a-007b-20261110",
+      "commit": "c976791835fc5f1d7d2c37123face418d0501ca6",
+      "module_differences_from_M051": 62
+    },
+    {
+      "branch": "feat/celebrations-m008b-directory-d1-integration-20261110",
+      "commit": "360ac7b8f7bef44486afeb5774b58121c6106821",
+      "module_differences_from_M051": 62
+    },
+    {
+      "branch": "feat/celebrations-m008c-private-server-access-20261110",
+      "commit": "5d4789e344e394dfc14cea4c263ff5aff7db1b4a",
+      "module_differences_from_M051": 62
+    },
+    {
+      "branch": "feat/celebrations-m002-member-types-access-20261110",
+      "commit": "fcd7f70d69a5a466eead2cba3fc5d95b24026a32",
+      "module_differences_from_M051": 63
+    },
+    {
+      "branch": "feat/celebrations-m003-i18n-domain-20261110",
+      "commit": "a56d59d6bcf462c23ab0dfb784e82342f296b543",
+      "module_differences_from_M051": 63
+    },
+    {
+      "branch": "feat/celebrations-m003c-foundations-consolidation-20261110",
+      "commit": "8d9fb660cd8f8cf770b5d33619daf7cee82d004f",
+      "module_differences_from_M051": 63
+    },
+    {
+      "branch": "feat/celebrations-m004-page-footer-localization-20261110",
+      "commit": "bc89277710524d86724db11714ab5aa7613b6271",
+      "module_differences_from_M051": 63
+    },
+    {
+      "branch": "feat/celebrations-m005-spaces-duplication-20261110",
+      "commit": "a24daee7cdeb4bb5b7de7fd6298614c0e22c230b",
+      "module_differences_from_M051": 63
+    },
+    {
+      "branch": "feat/celebrations-m005c-consolidation-004-005-20261110",
+      "commit": "f02e520a8ed8e8793ac69bd42f30d836a2438302",
+      "module_differences_from_M051": 63
+    },
+    {
+      "branch": "feat/celebrations-m006-public-language-navigation-20261110",
+      "commit": "5370be262c301eecd367218dd46bcc83112d8f2c",
+      "module_differences_from_M051": 63
+    },
+    {
+      "branch": "feat/celebrations-m007b-member-admin-access-20261110",
+      "commit": "511d68e3c99700f84d134e1266e07ed1a7ccf785",
+      "module_differences_from_M051": 63
+    },
+    {
+      "branch": "feat/editor-footer-audio-help-public-galleries-20261110",
+      "commit": "5c70e610bdad312ba59795d1060c6e9660e5e5be",
+      "module_differences_from_M051": 63
+    },
+    {
+      "branch": "fix/editor-m11-mobile-insert-dialog-footer-delete-20261110",
+      "commit": "955041917597ad4d2a5deb21de8e641253c6621f",
+      "module_differences_from_M051": 63
+    },
+    {
+      "branch": "fix/editor-hover-add-controls-and-hide-sections-20261110",
+      "commit": "f7dbabb134afb431528ee6c0d5dc462475616c2d",
+      "module_differences_from_M051": 64
+    },
+    {
+      "branch": "fix/editor-hover-grip-touch-longpress-20261110",
+      "commit": "c34b761ae8ccdc35a92b33a4b90be01b506b72d9",
+      "module_differences_from_M051": 65
+    },
+    {
+      "branch": "fix/editor-m05-m07-final-controls-20261110",
+      "commit": "2e662a42422f5cf2a44b55b9666ac2f8fbde1729",
+      "module_differences_from_M051": 66
+    },
+    {
+      "branch": "audit/celebrations-mission-18-recette-20261109",
+      "commit": "d2bbbbdd4db9b4db9f9ea36b7c8b0d4c6ea746af",
+      "module_differences_from_M051": 67
+    },
+    {
+      "branch": "audit/celebrations-mission-19-backups-20261109",
+      "commit": "ffd64029ddf4ae8dabbeb350b0e6d3a087fe2e8b",
+      "module_differences_from_M051": 67
+    },
+    {
+      "branch": "audit/celebrations-mission-20-release-blockers-20261109",
+      "commit": "d1547745db9bfda6f0c0d1abec3e1171f297f483",
+      "module_differences_from_M051": 67
+    },
+    {
+      "branch": "audit/celebrations-mission-21-final-preflight-20261109",
+      "commit": "3515fe9c3a21392858bbe30d8df63e1da1b4d808",
+      "module_differences_from_M051": 67
+    },
+    {
+      "branch": "cleanup/celebrations-01-adaptateurs-20261109",
+      "commit": "9f42892e4efc0cf03d3a35589ecd6692bb658425",
+      "module_differences_from_M051": 67
+    },
+    {
+      "branch": "cleanup/celebrations-02-routing-20261110",
+      "commit": "32d1938920faa9165ef282c52643d42b87ed8569",
+      "module_differences_from_M051": 67
+    },
+    {
+      "branch": "cleanup/celebrations-02-simplification-code-20261110",
+      "commit": "a9fc6e3a4ec6ea0824adeb0095a737c4f363b3a2",
+      "module_differences_from_M051": 67
+    },
+    {
+      "branch": "cleanup/celebrations-03-workflows-20261110",
+      "commit": "a17e235f21a99158ed34ef12cbc52ddbc0ef3f5e",
+      "module_differences_from_M051": 67
+    },
+    {
+      "branch": "cleanup/celebrations-04-branches-20261110",
+      "commit": "64eb9b09b8cb8988e892679bd8b11d6dfd23c2e3",
+      "module_differences_from_M051": 67
+    },
+    {
+      "branch": "cleanup/celebrations-05-cloudflare-transfer-20261110",
+      "commit": "0ff82b1162e66f22cfb589e4c0063b1703ab76a8",
+      "module_differences_from_M051": 67
+    },
+    {
+      "branch": "content/celebrations-pdf-external-buttons-20261110",
+      "commit": "693cc77cd21f23d39f344bb34a79638866674084",
+      "module_differences_from_M051": 67
+    },
+    {
+      "branch": "content/michael-hide-duplicate-titles-20261110",
+      "commit": "029be520f79c57c9657a3e047d297cb34b4d0898",
+      "module_differences_from_M051": 67
+    },
+    {
+      "branch": "content/michael-other-days-layout-20261110",
+      "commit": "9c96cb29395b2d64958223ca91b085f1faa78c0a",
+      "module_differences_from_M051": 67
+    },
+    {
+      "branch": "develop/celebrations-maintenance",
+      "commit": "c186dc772493c78d28b2f2a652dccb92ef709e0f",
+      "module_differences_from_M051": 67
+    },
+    {
+      "branch": "development/celebrations-current",
+      "commit": "a17e235f21a99158ed34ef12cbc52ddbc0ef3f5e",
+      "module_differences_from_M051": 67
+    },
+    {
+      "branch": "fix/editor-m01-move-handle-selected-only-20261110",
+      "commit": "1a05c48c169cc266f15e29e0695998215c93befd",
+      "module_differences_from_M051": 67
+    },
+    {
+      "branch": "fix/editor-m02-m03-controls-and-hidden-label-20261110",
+      "commit": "b15274d6bcf373a0e641e1494928a6ec13d6b562",
+      "module_differences_from_M051": 67
+    },
+    {
+      "branch": "fix/editor-m04-single-save-confirmation-20261110",
+      "commit": "5609c296ee0f129e694de059438eedaa94ce6124",
+      "module_differences_from_M051": 67
+    },
+    {
+      "branch": "production/celebrations-live",
+      "commit": "4dda3de63066ea51e4c99f0ef21255dfb4d0fcb9",
+      "module_differences_from_M051": 67
+    },
+    {
+      "branch": "refactor/celebrations-mission-17-docs-performance-20261109",
+      "commit": "0732142dad73c0a1db4b9224dc317f78f43d7cd9",
+      "module_differences_from_M051": 67
+    },
+    {
+      "branch": "release/celebrations-cleanup-06-20261110",
+      "commit": "c186dc772493c78d28b2f2a652dccb92ef709e0f",
+      "module_differences_from_M051": 67
+    },
+    {
+      "branch": "release/celebrations-finalisation-01-integration-20261109",
+      "commit": "6d5ab4a5857617ea4c9567f368ed435e39d8eb74",
+      "module_differences_from_M051": 67
+    },
+    {
+      "branch": "release/celebrations-finalisation-02-security-20261109",
+      "commit": "c701c7f626097f0d9b59398a13c875c315b05cfb",
+      "module_differences_from_M051": 67
+    },
+    {
+      "branch": "release/celebrations-finalisation-03-backups-20261109",
+      "commit": "386fbe483fbbfbf009912a5943c2808a9bb92f2d",
+      "module_differences_from_M051": 67
+    },
+    {
+      "branch": "release/celebrations-finalisation-04-recette-20261109",
+      "commit": "ac57825edae91e595f96f9dcf1ed0045a1ba6ed8",
+      "module_differences_from_M051": 67
+    },
+    {
+      "branch": "release/celebrations-finalisation-05-livraison-20261109",
+      "commit": "65caf8d5d03d29882d0de0c0d00cdcfc622e473e",
+      "module_differences_from_M051": 67
+    },
+    {
+      "branch": "refactor/celebrations-mission-13-css-modules-20261108",
+      "commit": "70240656a880bd5ff7ba7653fb4981741a16a5e4",
+      "module_differences_from_M051": 68
+    },
+    {
+      "branch": "refactor/celebrations-mission-14-security-20261108",
+      "commit": "5e0155b3d816f8ac6f2912a1d202955b315bf005",
+      "module_differences_from_M051": 68
+    },
+    {
+      "branch": "refactor/celebrations-mission-15-dead-code-audit-20261108",
+      "commit": "be4bfd39e8a61bbf1b43fbc26aa4d24447635bc6",
+      "module_differences_from_M051": 68
+    },
+    {
+      "branch": "refactor/celebrations-mission-16-release-rollback-20261108",
+      "commit": "bff3f17f010e8cf217ea76dcc856804bdf8ceab6",
+      "module_differences_from_M051": 68
+    },
+    {
+      "branch": "refactor/celebrations-mission-11-drag-undo-20261108",
+      "commit": "8e6bedaa274791e67bb588480e68e330e736a024",
+      "module_differences_from_M051": 76
+    },
+    {
+      "branch": "refactor/celebrations-mission-12-public-renderer-20261108",
+      "commit": "ba5767aa94a9c8355392153db74966b2cf077c92",
+      "module_differences_from_M051": 76
+    },
+    {
+      "branch": "refactor/celebrations-mission-10-safe-persistence-20261108",
+      "commit": "f94bdaecbf5205fe0e5e63100105d7dfc08fb501",
+      "module_differences_from_M051": 77
+    },
+    {
+      "branch": "refactor/celebrations-mission-07-block-model-20261107",
+      "commit": "fd282b35fc18c7cbed66422d37a1c3eb0b24e08d",
+      "module_differences_from_M051": 79
+    },
+    {
+      "branch": "refactor/celebrations-mission-08-media-catalogue-20261107",
+      "commit": "b848a225a71a60a92c774eec7cf1941eef02a329",
+      "module_differences_from_M051": 79
+    },
+    {
+      "branch": "refactor/celebrations-mission-09-page-lifecycle-20261108",
+      "commit": "db1592dee3b5f8a5ef7232fdcc6be93fceef1d12",
+      "module_differences_from_M051": 79
+    },
+    {
+      "branch": "refactor/celebrations-mission-06-editor-modules-20261107",
+      "commit": "b302adebb3f5d580cdc114a80896aad05f2aea4b",
+      "module_differences_from_M051": 80
+    },
+    {
+      "branch": "audit/celebrations-media-picker-saves-20261106",
+      "commit": "00ba8be7040311df933304e773be66e4a4627718",
+      "module_differences_from_M051": 83
+    },
+    {
+      "branch": "audit/celebrations-mission-01-cartographie-20261107",
+      "commit": "75e4894c60adf65c8044619d5d7104c4dd061028",
+      "module_differences_from_M051": 83
+    },
+    {
+      "branch": "audit/celebrations-mission-02-reference-20261107",
+      "commit": "84755de550e05f717503206db8e38a408518544b",
+      "module_differences_from_M051": 83
+    },
+    {
+      "branch": "audit/celebrations-mission-03-backups-20261107",
+      "commit": "6f37459fe8752c66f1225267a8137362f5b4750b",
+      "module_differences_from_M051": 83
+    },
+    {
+      "branch": "design/celebrations-mission-04-architecture-20261107",
+      "commit": "7898de5716840b5fda17ea7679286ad5e9db6ad7",
+      "module_differences_from_M051": 83
+    },
+    {
+      "branch": "feat/celebrations-buttons-multiple-links-20261106",
+      "commit": "0e93de5ebeffefc17b527f33de2c6726726e9f99",
+      "module_differences_from_M051": 83
+    },
+    {
+      "branch": "feat/celebrations-column-vertical-alignment-mobile-20261106",
+      "commit": "2da1559f2bbed5bca11baae84096ffbc34557556",
+      "module_differences_from_M051": 83
+    },
+    {
+      "branch": "feat/celebrations-section-presentation-step3-20261106",
+      "commit": "be00417b05ebc4e8b1d60e662023f82c33a405ec",
+      "module_differences_from_M051": 83
+    },
+    {
+      "branch": "feat/celebrations-undo-video-library-archangel-grid-20261106",
+      "commit": "b48c7bea1bf506d4d86bcbb9297f17e86ad1a022",
+      "module_differences_from_M051": 83
+    },
+    {
+      "branch": "feat/michael-wednesday-layout-20261106",
+      "commit": "5767adc409928fbdc34ecfde92f3869aa1afeacf",
+      "module_differences_from_M051": 83
+    },
+    {
+      "branch": "fix/celebrations-centered-plus-icons-20261106",
+      "commit": "fb6d00f09b9f31c95b75bed2f74b355a4b623e4c",
+      "module_differences_from_M051": 83
+    },
+    {
+      "branch": "fix/celebrations-inline-file-picker-page-save-video-title-20261106",
+      "commit": "01a65ba21f2694cd95c7a02dc4495ad2d1750a3a",
+      "module_differences_from_M051": 83
+    },
+    {
+      "branch": "fix/celebrations-inline-validation-20261105",
+      "commit": "100050751804d5668a2ac348d084d3409219789e",
+      "module_differences_from_M051": 83
+    },
+    {
+      "branch": "fix/celebrations-media-picker-gallery-dropdown-20261106",
+      "commit": "a725b168efd5a85988e5107d13897a4c55c15635",
+      "module_differences_from_M051": 83
+    },
+    {
+      "branch": "fix/celebrations-visitor-menu-order-20261107",
+      "commit": "a5db4c06d0778cae0dd91e1e2324476558f91949",
+      "module_differences_from_M051": 83
+    },
+    {
+      "branch": "refactor/celebrations-mission-05-remove-string-patches-20261107",
+      "commit": "d59ac94317c0f42d6a01a64a3ad4d258f3197794",
+      "module_differences_from_M051": 83
+    },
+    {
+      "branch": "feat/celebrations-admin-visual-mission-e2a-access",
+      "commit": "566ddd95c50b8c62a9a0fe315f07397924753680",
+      "module_differences_from_M051": 84
+    },
+    {
+      "branch": "feat/celebrations-save-on-server-20261103",
+      "commit": "94affae000554942eb98880d149f758c46908ab7",
+      "module_differences_from_M051": 84
+    },
+    {
+      "branch": "feat/celebrations-admin-visual-mission-b",
+      "commit": "932f01b399d2ce374fa9c5491de9a0863a41b612",
+      "module_differences_from_M051": 85
+    },
+    {
+      "branch": "feat/celebrations-admin-visual-mission-c",
+      "commit": "357187753a3a5e2df623bc4445b90ce3ac5ce125",
+      "module_differences_from_M051": 85
+    },
+    {
+      "branch": "feat/celebrations-admin-visual-mission-d",
+      "commit": "cd5b311e193e29fb894b4c30b840f7db25f047bf",
+      "module_differences_from_M051": 85
+    },
+    {
+      "branch": "feat/celebrations-admin-visual-mission-d2",
+      "commit": "09ed80ca413066b089f4dfaa7969800f08eea6b9",
+      "module_differences_from_M051": 85
+    },
+    {
+      "branch": "feat/celebrations-admin-visual-mission-d3",
+      "commit": "2df629c32be073330d6f6aff31b8104fcf8e4ef7",
+      "module_differences_from_M051": 85
+    },
+    {
+      "branch": "feat/celebrations-admin-visual-mission-d4",
+      "commit": "09b49fcd6bf0ebe35b5f7ead8eba568e54803120",
+      "module_differences_from_M051": 85
+    },
+    {
+      "branch": "feat/celebrations-admin-visual-mission-e1",
+      "commit": "f9dc5f778e1a08712ba6acc26d33aeb2f35eef55",
+      "module_differences_from_M051": 85
+    },
+    {
+      "branch": "feat/celebrations-admin-visual-mission-e2a",
+      "commit": "40d3e38b18233af5026a7e4f350e7600102cd0f2",
+      "module_differences_from_M051": 85
+    },
+    {
+      "branch": "feat/celebrations-supabase-exit-001",
+      "commit": "5c36b3cad1b72a48f0336aa78d500a72b2897425",
+      "module_differences_from_M051": 85
+    },
+    {
+      "branch": "audit/celebrations-media-safety-014",
+      "commit": "d46d33e13c5484486a1a34d2604603f539c0ee93",
+      "module_differences_from_M051": 86
+    },
+    {
+      "branch": "audit/celebrations-participant-parity-015",
+      "commit": "c53ae29fd6bbc41d8e57ae9b7214d3b8a3cd5153",
+      "module_differences_from_M051": 86
+    },
+    {
+      "branch": "audit/celebrations-public-only-media-020",
+      "commit": "069106b684b1c641c8c263d00b98ba2877b3f90e",
+      "module_differences_from_M051": 86
+    },
+    {
+      "branch": "audit/celebrations-restore-check-013",
+      "commit": "fe940576808724671d1c5f75910d9d8bc549ee78",
+      "module_differences_from_M051": 86
+    },
+    {
+      "branch": "audit/celebrations-supabase-exit-007",
+      "commit": "f5ddee84cde354d95cbcf53a84c18f140fa872c8",
+      "module_differences_from_M051": 86
+    },
+    {
+      "branch": "feat/celebrations-789-guarded-precutover-017",
+      "commit": "e2cb652872b48bc56f52cba26451b60d93c662c8",
+      "module_differences_from_M051": 86
+    },
+    {
+      "branch": "feat/celebrations-editable-admin-candidate-033",
+      "commit": "17f09e6cae121253c97c2fcf9d7dec1a32773361",
+      "module_differences_from_M051": 86
+    },
+    {
+      "branch": "feat/celebrations-free-prod-018",
+      "commit": "a77192dfe9f96675b9cd82c98619268b67a0197a",
+      "module_differences_from_M051": 86
+    },
+    {
+      "branch": "feat/celebrations-missions-01-03-admin-qa-034",
+      "commit": "4673add0da3479640ab9402dfb3fbd8b79bc2500",
+      "module_differences_from_M051": 86
+    },
+    {
+      "branch": "feat/celebrations-preserve-email-pdf-links-032",
+      "commit": "c04f0dbf454e5ffad8961d0db8ed1be57ce92ec6",
+      "module_differences_from_M051": 86
+    },
+    {
+      "branch": "feat/celebrations-private-backup-011",
+      "commit": "a33af7f025935a1c61d3fab028d8dbf5b798289e",
+      "module_differences_from_M051": 86
+    },
+    {
+      "branch": "feat/celebrations-prod-admin-stats-027",
+      "commit": "eb6bfe3cba455e3223af452f8522aefaef8b64d0",
+      "module_differences_from_M051": 86
+    },
+    {
+      "branch": "feat/celebrations-prod-media-access-026",
+      "commit": "fdc1f6424dbe09db0d17c708ad661c4497c4a4e1",
+      "module_differences_from_M051": 86
+    },
+    {
+      "branch": "feat/celebrations-prod-programme-d1-025",
+      "commit": "c9946a0f12d2c92c37077558bb44e072e24b0c4a",
+      "module_differences_from_M051": 86
+    },
+    {
+      "branch": "feat/celebrations-prod-schema-019",
+      "commit": "96da3380cb022ab0373fc557992e5e756bb7de87",
+      "module_differences_from_M051": 86
+    },
+    {
+      "branch": "feat/celebrations-prod-scoped-r2-023",
+      "commit": "f0d022a9a785120b0db2ba65f5d8fe8400f733d1",
+      "module_differences_from_M051": 86
+    },
+    {
+      "branch": "feat/celebrations-public-day-cloudflare-030",
+      "commit": "108286f81816241a727d165453041a4c168e5abb",
+      "module_differences_from_M051": 86
+    },
+    {
+      "branch": "feat/celebrations-r2-rest-copy-022",
+      "commit": "28118ac5bf6c32c287a516b4809ee84ceda3fabc",
+      "module_differences_from_M051": 86
+    },
+    {
+      "branch": "feat/celebrations-readiness-016",
+      "commit": "79aad09ad2fb0e7eec0bf7d6fd700dadac3ad55c",
+      "module_differences_from_M051": 86
+    },
+    {
+      "branch": "feat/celebrations-readonly-preview-028",
+      "commit": "148e1ed2dd0a92dc88fd14b57bfe7dc922dfad0f",
+      "module_differences_from_M051": 86
+    },
+    {
+      "branch": "feat/celebrations-recover-one-public-pdf-029",
+      "commit": "d46c301b571346387907be653f8c40478fbab89d",
+      "module_differences_from_M051": 86
+    },
+    {
+      "branch": "feat/celebrations-selective-r2-prod-021",
+      "commit": "e35b31a02cb173d2b9f499e4cde59cbb6be8b348",
+      "module_differences_from_M051": 86
+    },
+    {
+      "branch": "fix/celebrations-preview-home-image-admin-notice-031",
+      "commit": "56bf7c2c4ec08a4860a6158203a4c7f8c3d6c0c3",
+      "module_differences_from_M051": 86
+    },
+    {
+      "branch": "audit/celebrations-r2-list-only-004",
+      "commit": "1df90a31be983044939d3f86b1767b0c67f280ea",
+      "module_differences_from_M051": 92
+    },
+    {
+      "branch": "fix/celebrations-d1-save-002",
+      "commit": "aaeabec8573ce154d08fef21c27b1e2e35e7bb8c",
+      "module_differences_from_M051": 92
+    },
+    {
+      "branch": "fix/celebrations-programme-library-006",
+      "commit": "9a59cce0907c4c32845e4759fcae2ff16f414c55",
+      "module_differences_from_M051": 92
+    },
+    {
+      "branch": "fix/celebrations-staging-public-media-009",
+      "commit": "25b0d94ab8e2f2f69d9084fe5b5dea01337e3080",
+      "module_differences_from_M051": 92
+    },
+    {
+      "branch": "admin-before-radical-simplification",
+      "commit": "491d61e64dc491daefa42ea3d1c031f9adbd6d7e",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "archive/celebrations-old-main-20261110",
+      "commit": "4b5edd9c19ce989af2eae33445017dd30fcbbe92",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "audit/celebrations-public-004",
+      "commit": "5ccd4debd1072b15d255f83c68958c1617e0210f",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "audit/celebrations-public-media-http-005b",
+      "commit": "5053c7cfdecc302041aa9d3bff50edabf56059d5",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "chore/r2-copy-celebrations-20261012",
+      "commit": "34fcc090fa12c9b464c328be15d331307e14fbe8",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "diag/cloudflare-static-assets-20260922",
+      "commit": "6ff0a0cae936e0baeb3b0f713eb088fa729246fc",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "feat/celebrations-staging-copy-launcher-007",
+      "commit": "ca4f04e96fd103adfc283fa48fa926785b7efd82",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "feat/celebrations-welcome-20261011",
+      "commit": "4dc02a3b0473137ddb5bab0832ddc69c113d62a2",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "feat/r2-019-safe-preparation",
+      "commit": "90cdb4b276bc27cf5232d6eb2b0f75743f8f6891",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "feature/audio-loop-checkbox-20260920",
+      "commit": "2de8d1ed716ce4307bfead4973b6e7e6dd367838",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "feature/audio-skip-10s-20260923",
+      "commit": "fbf47884104c847e9f7b0b34013228b4603e3a8a",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "fix/absolute-public-bootstrap-20260922",
+      "commit": "3eb7e3839619abbe2dd863258d497386ac80b3c5",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "fix/audio-kind-architecture-20260918",
+      "commit": "db06fcf05a57938000653d43d34add43c08b696b",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "fix/celebrations-audio-preload-none",
+      "commit": "783c6a616181e41f897ee2e4744595e2de2cb231",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "fix/celebrations-staging-copy-launcher-import-008",
+      "commit": "00a09b643ee8ad20e2993dad9ddc590decc2273e",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "fix/cloudflare-spa-routing-20260922",
+      "commit": "f7bc88b3aae2ccaf98c8f2cc7b1f9758b9529c23",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "fix/compact-home-info-banner-20261011",
+      "commit": "393130a3229d2bf2a8159793c2253244a81d1800",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "fix/deep-link-reload-20260922",
+      "commit": "c75e6533e9711d5a9f8c8a06b7268c8537ee12b4",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "fix/erratum-event-only-20260920",
+      "commit": "019277a0124e262758ff74d6263ee2fa5dbf9bf4",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "fix/fallback-first-state-20260922",
+      "commit": "12cec102232f8a971e0e59af9fbd556fd22e3a6c",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "fix/full-public-fallback-20260922",
+      "commit": "de09157662ea569eb27df0cff0aea1f94c2f1071",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "fix/loop-only-chants-20260920",
+      "commit": "7f5a7b48d35b96c36bb54daa9b7fa6e729cfe412",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "fix/m050-register-release-workflow-20261117",
+      "commit": "fb9a475431ec0d8ef92d3f1ddafbeb330bda3c3b",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "fix/mobile-audio-skip-20260923",
+      "commit": "924adef127922b3b2f804e64109a08dd7ed2941c",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "fix/new-content-notice-visible-20260924",
+      "commit": "a803f9ea2fd61e071053576bacacfd18f10d6ec5",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "fix/public-data-ready-20260922",
+      "commit": "494bfd68b556a96b64100eb889b393e6f42fc70d",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "fix/public-offline-fallback-20260922",
+      "commit": "a8d4e5a3517591c674858d5e7f5a95f6d826e076",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "fix/real-upload-progress-20260919",
+      "commit": "faf98f826be7952ed528987185f647cb83316b2b",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "fix/restore-signed-upload-20260919",
+      "commit": "585d2c5b11522dbbd415bc130883a274bb025f4e",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "fix/resumable-large-uploads-20260923",
+      "commit": "448be82ebac4ca41679ffaf169f6af9a79f5dbc5",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "fix/separate-general-home-20261011",
+      "commit": "131a21a460ef397204161ac9c653a19ba117cbac",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "fix/soundcloud-labels-20260920",
+      "commit": "184aa958f91dd4c73dec9e6c08e04157dd0172bb",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "fix/static-route-fallback-20260922",
+      "commit": "da9b522c628b217f6b20a85a718f99df613b354c",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "main",
+      "commit": "cd3805062b707b1eb352606ce4f172bdb66b30f8",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "origin",
+      "commit": "cd3805062b707b1eb352606ce4f172bdb66b30f8",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "style/clearer-event-borders-20260920",
+      "commit": "13676c33a0cd473f90ec453773935144224a845d",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "ui/construction-banner-20260922",
+      "commit": "a72765f33aaeb34c3859d79cbfeaddf1ff14d1a3",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "ui/new-content-blue-markers-20260923",
+      "commit": "72b61fa3c58160ecefab7616bdc9e193f55147f4",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "ui/remove-construction-banner-20260923",
+      "commit": "cd8c4c31d410a869483349c5534332a9983914d1",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "ui/replace-erratum-construction-20260922",
+      "commit": "8c13eff8724a4077498db8cab2b09be1a24e2cd1",
+      "module_differences_from_M051": 93
+    },
+    {
+      "branch": "ui/sunday-program-update-banner-20260928",
+      "commit": "73f94149b96f5aee0bad6013249df62209ca1eb0",
+      "module_differences_from_M051": 93
+    }
+  ]
+}

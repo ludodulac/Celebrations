@@ -1,0 +1,27 @@
+name: Célébrations — production source reference (offline)
+on:
+  push:
+    branches: [reference/production-reconciled-20261126, main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm ci --ignore-scripts
+      - run: npm run test:reference
+      - run: npm run build:reference
+      - run: python scripts/build_production_assets.py
+      - run: python scripts/audit_production_supabase_paths.py

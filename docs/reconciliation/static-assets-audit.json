@@ -1,0 +1,310 @@
+[
+  {
+    "path": "admin-simple.css",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "cloudflare-client.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-access.css",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-celebrations.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "public-celebration-shell.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "public-admin-preview.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-media-tab-memory.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-content-edit-navigation.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "public-footer-links.css",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "public-profile-gate.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "public-links.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "public-mobile-polish.css",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "public-program-compact.css",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-committee-links.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "public-library-simple.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-v3.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "public-cloudflare-boot.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-participants.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-upload-feedback.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-click-stats.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-event-link-simple.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "public-storage-cleanup.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-visibility.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-content-illustration-picker.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "public-resource-actions.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "footer-pages-data.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-text-files.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-relations-safety.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "public-content-fallbacks.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-content-title-defaults.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "public-display-names.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "public-content-nav.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "footer-pages.css",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-library-view.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "public-home.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "public-connect.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-universal-access.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-compact.css",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-simple.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "public-profile-gate.css",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-links.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "styles.css",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-media-batch.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-footer-pages.css",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-day-content-actions.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-footer-pages.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-audio-batch.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "committee-links-data.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-auth.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-date-rules.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-ux.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "public-event-illustration.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "public-footer-visibility.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "public-click-tracking.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "public-v3.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "public-header-compact.css",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "public-layout-fixes.css",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "cloudflare-data.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "public-universal-mode.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-event-illustration.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-soundcloud.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "public-program-compact.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-cloudflare-core.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "footer-page-public.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-content-click-fix.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "public-date-rules.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-content-reliability.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-content-details.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-event-order.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "public-fallback-state.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "app-data.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-audio-kind.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "public-day-route.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-event-visibility.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "admin-connect.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "migration/cloudflare/preview-client.js",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "path": "migration/cloudflare/editor-trial-audio-encoder-worker.js",
+    "error": "HTTP Error 403: Forbidden"
+  }
+]
