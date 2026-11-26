@@ -14,7 +14,7 @@ const localEditorState=createEditorState({STAGE_SEED,KEY,seed,clone,storage:loca
 let db=localEditorState.db;
 const {stageTab,stageActive}=localEditorState;
 let tab=stageTab,id=stageActive?.id||'home',
- dirty=false,preview=false,target=null,imageCoverTarget=false,selectedBlockId=null,mediaCategory='images';
+ dirty=false,preview=false,target=null,imageCoverTarget=false,selectedBlockId=null,mediaCategory='all';
 
 const LIVE_MEDIA_UPLOAD_HOST=(location.hostname==='ronde-des-archanges-universelle.eu'||location.hostname==='www.ronde-des-archanges-universelle.eu'||location.hostname==='celebrations-m016-admin-preprod.rondes.workers.dev');
 const IS_STAGE=!!STAGE_SEED,SHARED_KEY='celebrations-demo-shared-pages-v1',PLANS_KEY='celebrations-demo-planned-v1';
@@ -237,22 +237,24 @@ async function importFiles(files){
     const name=String(entered||stem).trim().replace(/[<>\\/\u0000-\u001f]/g,'').slice(0,110)||stem;
     actual=new File([file],name+file.name.slice(file.name.lastIndexOf('.')),{type:file.type});
    }
-   if(mp3)mediaUploadFeedback(0,'Envoi du MP3 : '+file.name+' (0 %)');
+   mediaUploadFeedback(0,'Envoi : '+file.name+' (0 %)');
    try{
-    const stored=await uploadToMediaServer(actual,mp3?pct=>
-     mediaUploadFeedback(pct,'Envoi du MP3 : '+file.name+' ('+pct+' %)'):null);
+    const stored=await uploadToMediaServer(actual,pct=>
+     mediaUploadFeedback(pct,'Envoi : '+file.name+' ('+pct+' %)'));
     if(mp3&&stored)await saveAudioTypeForMedia(stored,selectedAudioType,{quiet:true});
     success++;
-    if(mp3)mediaUploadFeedback(100,'✓ MP3 importé : '+file.name);
+    mediaUploadFeedback(100,'✓ Fichier importé : '+file.name);
    }catch(e){
     failures.push(file.name+' : '+e.message);
     status.textContent='❌ '+file.name+' : '+e.message;
-    if(mp3)mediaUploadFeedback(mediaUploadState?.percent||0,
+    mediaUploadFeedback(mediaUploadState?.percent||0,
       '❌ Transfert interrompu : '+e.message);
    }
   }
   status.textContent=(success?'✓ '+success+' fichier(s) conservé(s) sur le serveur. ':'')+
    (failures.length?'❌ '+failures.length+' échec(s) : '+failures.join(' ; '):'');
+  if(success&&tab==='media'){mediaCategory='all';mediaSearch='';mediaCelebrationFilter='all';mediaPageFilter='all';mediaSort='recent';}
+  mediaUploadFeedback(failures.length?0:100,status.textContent);
   render();return;
  }
  if(!storageReady){status.textContent='Stockage indisponible.';return}
@@ -3486,7 +3488,7 @@ function libraryPreview(card,name,src,category){
  const open=n('a','media-open-link','Ouvrir '+(category==='pdf'?'le PDF':'le fichier')+' ↗');
  open.href=src;open.target='_blank';open.rel='noopener noreferrer';box.append(open);card.append(box);
 }
-let mediaSearch='',mediaCelebrationFilter='all',mediaPageFilter='all',mediaVideoTypeFilter='all',mediaSort='name';
+let mediaSearch='',mediaCelebrationFilter='all',mediaPageFilter='all',mediaVideoTypeFilter='all',mediaSort='recent';
 function media(){
  if(IS_STAGE&&!remoteMediaLoading&&!globalMediaLoaded)void refreshGlobalMedia();
  if(!globalFilesLoading)
@@ -3498,18 +3500,18 @@ function media(){
  const {local,remote,usedUrls,countFor}=mediaCatalogue.libraryCollections(
   historical,[...fileRecords.values()],globalMedia);
  const tabs=n('div','file-category-tabs');
- for(const [value,label] of [['images','Images'],['audios','Audios'],['videos','Vidéos'],['autres','Documents']]){
-  const count=countFor(value)+(value==='autres'?countFor('pdf'):0);
+ for(const [value,label] of [['all','Tous'],['images','Images'],['autres','Documents'],['audios','Audios'],['videos','Vidéos']]){
+  const count=value==='all'?['images','audios','videos','autres','pdf'].reduce((sum,key)=>sum+countFor(key),0):countFor(value)+(value==='autres'?countFor('pdf'):0);
   const button=b(label+' ('+count+')',()=>{mediaCategory=value;render()},
    mediaCategory===value?'primary sm':'sm');
   button.dataset.fileCategory=value;button.setAttribute('aria-pressed',String(mediaCategory===value));tabs.append(button);
  }
+ w.append(n('h2','page-title','Médiathèque'));
  w.append(tabs);
- w.append(n('h2','page-title','Médiathèque de l’administration'));
  const external=b('＋ Référencer un média externe',()=>void createExternalMedia(),'sm');
  w.append(external);
- w.append(n('p','hint','Import serveur : JPG, PNG, WebP, PDF, MP3, WAV, TXT et DOCX. Pour les vidéos, référencez un lien externe.'));
- w.append(n('p','hint','Les fichiers importés restent dans la médiathèque même lorsqu’une page est masquée, retirée ou supprimée. Cliquez sur une image pour l’ouvrir ; les pages où elle figure sont indiquées sous elle.'));
+ 
+ 
  if(mediaCategory==='audios'){
   const row=n('div','audio-type-upload-selector'),label=n('label','','Type de MP3 : ');
   const select=n('select','audio-type-select');
@@ -3540,13 +3542,13 @@ function media(){
   picker.click();
  },'sm');
  importButton.disabled=!IS_STAGE&&!storageReady;importButton.dataset.action='upload-file';w.append(importButton);
- if(mediaCategory==='audios'){
-  const label=n('p','media-upload-feedback',mediaUploadState?.message||'Importez des MP3 jusqu’à 200 Mo sans compression. Au-delà de 25 Mo, l’envoi s’effectue en morceaux et peut reprendre après une interruption.');
+ {
+  const label=n('p','media-upload-feedback',mediaUploadState?.message||'');
   label.id='media-upload-feedback';label.setAttribute('role','status');label.setAttribute('aria-live','polite');w.append(label);
   const bar=n('progress','media-upload-progress');
   bar.id='media-upload-progress';bar.max=100;
   bar.value=mediaUploadState?.percent||0;bar.hidden=!mediaUploadState;
-  bar.setAttribute('aria-label','Progression de l’import MP3');w.append(bar);
+  bar.setAttribute('aria-label','Progression de l’import');w.append(bar);
  }
  const search=n('input','media-search');search.type='search';search.placeholder='Rechercher un fichier';
  search.setAttribute('aria-label','Rechercher un fichier');search.value=mediaSearch;w.append(search);
@@ -3581,13 +3583,13 @@ function media(){
   }
   pageSelect.value=mediaPageFilter;
  };
- refreshPages();pageField.append(pageSelect);filterRow.append(celebrationField,pageField);w.append(filterRow);
+ refreshPages();pageField.append(pageSelect);filterRow.append(celebrationField,pageField);const filters=n('details','media-filters');filters.append(n('summary','','Filtres et tri'),filterRow);filters.open=mediaCelebrationFilter!=='all'||mediaPageFilter!=='all';w.append(filters);
  const sorting=n('label','audio-type-upload-selector','Trier : '),sort=n('select');
  sort.setAttribute('aria-label','Trier les fichiers de la médiathèque');
  for(const [key,label] of [['name','Nom A → Z'],['recent','Date : récent d’abord'],['oldest','Date : ancien d’abord']]){
   const o=n('option','',label);o.value=key;sort.append(o);
  }
- sort.value=mediaSort;sort.onchange=()=>{mediaSort=sort.value;render()};sorting.append(sort);w.append(sorting);
+ sort.value=mediaSort;sort.onchange=()=>{mediaSort=sort.value;render()};sorting.append(sort);filters.append(sorting);
  const cards=n('div','cards');
  const filterCards=()=>{
   const query=mediaSearch.trim().toLocaleLowerCase('fr');let visible=0;
@@ -3606,7 +3608,7 @@ function media(){
  celebrationSelect.onchange=()=>{mediaCelebrationFilter=celebrationSelect.value;mediaPageFilter='all';refreshPages();filterCards()};
  pageSelect.onchange=()=>{mediaPageFilter=pageSelect.value;filterCards()};
  search.oninput=()=>{mediaSearch=search.value;filterCards()};
- const matches=category=>category===mediaCategory||mediaCategory==='autres'&&category==='pdf';
+ const matches=category=>mediaCategory==='all'||category===mediaCategory||mediaCategory==='autres'&&category==='pdf';
  for(const record of remote.filter(x=>matches(mediaCategoryOf(x))&&!usedUrls.has(x.src))){
   const refs=mediaLinksFor(record);
   const unused=record.canDelete===true&&refs.length===0;
@@ -3658,7 +3660,7 @@ function media(){
   cards.append(card);
  }
  for(const record of historical.filter(x=>matches(x.category))){
-  const remoteCopy=remote.find(x=>x.src===record.src&&mediaCategoryOf(x)===mediaCategory);
+  const remoteCopy=remote.find(x=>x.src===record.src&&matches(mediaCategoryOf(x)));
   const refs=mediaLinksFor(remoteCopy||record,fileUses(record));
   // The historical collection is not an authoritative inventory of every
   // unpublished, multilingual or private reference. Never mark it unused.
@@ -3700,7 +3702,7 @@ function media(){
  }
  for(const record of local.filter(x=>matches(localCategory(x))&&!hiddenFileIds.has(x.id))){
   const localUrl=assetUrls.get(record.id)||'';
-  const refs=fileUsages(record.id),unused=refs.length===0,hasImage=mediaCategory==='images';
+  const refs=fileUsages(record.id),unused=refs.length===0,hasImage=localCategory(record)==='images';
   const card=n('article','card'+(unused?' unused-file':''));card.dataset.fileId=record.id;
   card.dataset.usage=unused?'unused':'used';
   libraryTitle(card,record.name,localUrl);
