@@ -2640,9 +2640,17 @@ function sectionFrame(box,section){
  }
  if(st.shadow)box.style.boxShadow='0 5px 19px #16243329';
 }
+document.addEventListener('click',event=>{
+ for(const details of document.querySelectorAll('details.section-settings[open]')){
+  if(!details.contains(event.target))details.open=false;
+ }
+});
+document.addEventListener('keydown',event=>{
+ if(event.key==='Escape')for(const details of document.querySelectorAll('details.section-settings[open]'))details.open=false;
+});
 function sectionSettings(section){
  const details=n('details','section-settings'),summary=n('summary','','⚙');
- summary.title='Présentation du bloc';summary.setAttribute('aria-label','Présentation du bloc');details.append(summary);
+ summary.title='Présentation du bloc';summary.setAttribute('aria-label','Présentation du bloc');details.append(summary);summary.addEventListener('click',event=>{event.preventDefault();details.open=!details.open;});
  const fields=n('div','section-settings-fields'),current=sectionStyle(section);
  const line=(label,input)=>{const row=n('label','',label);row.append(input);fields.append(row)};
  const presentation=n('select');presentation.setAttribute('aria-label','Présentation du bloc');
@@ -2689,6 +2697,17 @@ line('Ombre',shadow);
  visibility.append(visibilityEyeIcon(!hidden),
   n('span','',hidden?'Afficher ce bloc entier':'Masquer ce bloc entier'));
  fields.append(visibility);
+ const children=()=>section.columns.flat().filter(Boolean);
+ const hiddenCount=children().filter(x=>x.hideOnSite===true).length;
+ fields.append(n('small','',hiddenCount+' élément(s) masqué(s) dans ce bloc'));
+ const showAll=b('Afficher tout le contenu',event=>{
+  event.stopPropagation();section.hideOnSite=false;
+  for(const child of children())child.hideOnSite=false;
+  mark();render();
+ },'section-visibility-toggle');
+ fields.append(showAll);
+ const close=b('Fermer',event=>{event.stopPropagation();details.open=false;summary.focus()},'section-visibility-toggle');
+ fields.append(close);
  details.append(fields);return details;
 }
 // The default is top for free columns; historical image/resource cards remain
